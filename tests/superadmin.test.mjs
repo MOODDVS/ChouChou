@@ -292,3 +292,18 @@ test("il testo dentro l'HTML si protegge in un posto solo", () => {
     assert.ok(lib.includes(`"${c}":`) || lib.includes(`'${c}':`), `${c} non viene piu' protetto`);
   }
 });
+
+test("una pagina, una sola verita' sul token", () => {
+  // Il blocco del catalogo stampati teneva un token SUO, letto una volta al
+  // caricamento: il salvataggio di un'ora dopo mandava quello. Due verita'
+  // sullo stesso token nella stessa pagina, e una delle due vecchia.
+  assert.doesNotMatch(PAGINA, /let token = /, "un blocco si tiene di nuovo una copia del token");
+  assert.doesNotMatch(PAGINA, /Bearer \$\{token\}/, "c'e' di nuovo un header costruito da una copia");
+  assert.match(PAGINA, /await authFresh\(\)/, "il catalogo non chiede piu' la sessione al momento dell'uso");
+
+  // La funzione comune non puo' tenersi niente: se memorizzasse, avrebbe lo
+  // stesso difetto di quello che sostituisce.
+  const lib = readFileSync("src/lib/admin/auth.ts", "utf8");
+  assert.match(lib, /await supabaseBrowser\.auth\.getSession\(\)/);
+  assert.doesNotMatch(lib, /^let /m, "authFresh si tiene uno stato: e' esattamente cio' che doveva togliere");
+});

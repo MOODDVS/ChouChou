@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { leggi, inserisci, aggiorna, leggiConfig, ambitoDiRiga } from "./admin/sede";
 import {
   CHIAVE_DESTINAZIONI, CHIAVI_STAMPA, daStampare, stampaAttiva,
-  dividiTicket, leggiDestinazioni, ordineDaRiga,
+  dividiTicket, idStampante, leggiDestinazioni, ordineDaRiga,
   type GruppoStampa, type RigaOrdine,
 } from "./stampaRegole";
 import { mandaStampa, stampaConfigurata } from "./bizprint";
@@ -35,7 +35,11 @@ export async function accodaTicket(o: {
 
     const ambito = ambitoDiRiga(o.location_id ?? null);
     const cfg = await leggiConfig(ambito, [...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
-    const principale = String(cfg.valori.get("print_printer_id") ?? "").trim();
+    // ⚠️ Anche in LETTURA la stessa regola: in un database vivo c'e' quello
+    // che ci hanno scritto prima che la regola esistesse. Un valore storto
+    // qui vuol dire un ticket mandato a una stampante che non esiste — e
+    // quello non esce e non lo dice. Vuoto fa fermare `stampaAttiva` sotto.
+    const principale = idStampante(cfg.valori.get("print_printer_id"));
     // ⚠️ Volere non e' potere: l'interruttore dice che il ristoratore la
     // vuole, il numero dice che la stampante esiste.
     if (!stampaAttiva(cfg.valori.get("print_auto"), principale)) return;

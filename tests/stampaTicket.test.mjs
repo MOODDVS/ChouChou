@@ -358,7 +358,7 @@ test("l'indirizzo del ticket ha una risposta sola", () => {
 // ============================================================
 // PIU' STAMPANTI: CHI STAMPA COSA
 // ============================================================
-import { dividiTicket, leggiDestinazioni, categorieDoppie } from "../src/lib/stampaRegole.ts";
+import { dividiTicket, leggiDestinazioni, categorieDoppie, idStampante, MAX_DESTINAZIONI } from "../src/lib/stampaRegole.ts";
 
 const PIATTI = [
   { qty: 2, nome: "Pizza Margherita", categoria: "Pizze" },
@@ -483,4 +483,46 @@ test("una lettura che non riesce lo dice, invece di far sparire le cose", () => 
     /if \(!r\.ok\)/,
     "la configurazione della stampa di Intégrations torna a leggere un errore come «non configurato»",
   );
+});
+
+test("il numero di una stampante e' un numero, ovunque lo si legga", () => {
+  // ⚠️ La regola c'era solo per la stampante PRINCIPALE: quelle dentro le
+  // destinazioni passavano come stringhe qualunque. Lo stesso dato con due
+  // regole diverse a seconda della casella in cui era stato scritto — e un
+  // ticket mandato a una stampante che non esiste non esce e non lo dice.
+  for (const buono of ["1", "95656", "000123"]) assert.equal(idStampante(buono), buono);
+  assert.equal(idStampante("  42  "), "42", "gli spazi di chi incolla non sono un errore");
+  for (const cattivo of ["", "   ", "Ice", "95656a", "12 34", "-1", "1e3", "1234567890123", null, undefined, {}]) {
+    assert.equal(idStampante(cattivo), "", `${JSON.stringify(cattivo)} non e' un numero di stampante`);
+  }
+
+  // E la regola vale anche dentro le destinazioni: una riga con la stampante
+  // scritta male non e' una destinazione, come una senza.
+  assert.deepEqual(
+    leggiDestinazioni('[{"nome":"Bar","cat":["Bibite"],"printer":"Ice"}]'),
+    [],
+    "una stampante scritta a mano passava come buona",
+  );
+
+  // Chi decide dove va il ticket usa la stessa regola, in scrittura e in
+  // lettura: in un database vivo c'e' quello che ci hanno scritto prima.
+  for (const f of ["src/lib/stampaConfig.ts", "src/lib/stampaCoda.ts", "src/pages/api/print/[token].ts"]) {
+    assert.match(readFileSync(f, "utf8"), /idStampante\(/, `${f}: non usa la regola comune`);
+  }
+});
+
+test("una configurazione gonfiata non diventa la configurazione", () => {
+  // Nessun tetto: un corpo malformato poteva riempire la chiave di righe che
+  // nessuno rileggera' mai. Un ristorante ne usa tre o quattro.
+  const tante = JSON.stringify(
+    Array.from({ length: MAX_DESTINAZIONI + 15 }, (_, i) => ({ nome: `D${i}`, cat: [`C${i}`], printer: "9" })),
+  );
+  assert.equal(leggiDestinazioni(tante).length, MAX_DESTINAZIONI);
+
+  // La stessa categoria due volte NELLA STESSA RIGA non vuol dire niente:
+  // faceva scattare «categoria doppia», che parla di due righe, davanti a
+  // chi ne ha una sola.
+  const r = leggiDestinazioni('[{"nome":"Bar","cat":["Bibite","Bibite"],"printer":"9"}]');
+  assert.deepEqual(r[0].cat, ["Bibite"]);
+  assert.deepEqual(categorieDoppie(r), [], "una riga sola non puo' essere in conflitto con se stessa");
 });

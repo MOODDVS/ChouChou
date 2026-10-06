@@ -3150,11 +3150,11 @@ const prI18n = {
     </style>
 
     <script>
-      import { supabaseBrowser } from "../../lib/supabaseBrowser";
       // ⚠️ Dalle REGOLE pure, non da `printRoutes`: quello contiene
       // `import.meta.glob`, e importarlo qui trascinerebbe le pagine del sito
       // dentro il pacchetto del browser.
       import { confrontaCatalogo } from "../../lib/admin/printRegole";
+      import { authFresh } from "../../lib/admin/auth";
       import { conAttesa } from "../../lib/admin/attesa";
       import { esc } from "../../lib/esc";
 
@@ -3168,13 +3168,6 @@ const prI18n = {
 
         let catalogo: any[] = [];
         let defaults: any[] = [];
-        let token = "";
-        // Stesso motivo dell'altro script: il token scade, e qui il salvataggio
-        // riusa quello letto al caricamento del catalogo. Se ne arriva uno
-        // nuovo si prende quello.
-        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
-          if (sessione?.access_token) token = sessione.access_token;
-        });
         // Le pagine `/print/` che il sito di questo cliente ha davvero, lette
         // dal filesystem in build e portate qui dal GET.
         let pagine: { slug: string; route: string }[] = [];
@@ -3343,9 +3336,11 @@ const prI18n = {
 
         async function carica() {
           try {
-            const { data } = await supabaseBrowser.auth.getSession();
-            token = data.session?.access_token ?? "";
-            const res = await fetch("/api/admin/print-catalog", { headers: { Authorization: `Bearer ${token}` } });
+            // ⚠️ Nessun token tenuto da parte: questo blocco ne aveva uno
+            // SUO, letto al caricamento del catalogo, e il salvataggio di
+            // un'ora dopo mandava quello. Due verita' sullo stesso token
+            // nella stessa pagina.
+            const res = await fetch("/api/admin/print-catalog", { headers: await authFresh() });
             if (!res.ok) throw new Error();
             const body = await res.json();
             catalogo = Array.isArray(body.catalog) ? body.catalog : [];
@@ -3366,7 +3361,7 @@ const prI18n = {
           try {
             const res = await fetch("/api/admin/print-catalog", {
               method: "PUT",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              headers: await authFresh(),
               body: JSON.stringify({ catalog: catalogo }),
             });
             const body = await res.json().catch(() => ({}));

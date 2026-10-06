@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { leggi, aggiorna, tutteLeSedi, ambitoDiRiga, leggiConfig } from "../../../lib/admin/sede";
-import { ordineDaRiga, ticketCucina, CHIAVE_DESTINAZIONI, type RigaOrdine } from "../../../lib/stampaRegole";
+import { ordineDaRiga, ticketCucina, idStampante, CHIAVE_DESTINAZIONI, type RigaOrdine } from "../../../lib/stampaRegole";
 import { dividiPerStampante } from "../../../lib/stampaCoda";
 import { componiTesto } from "../../../lib/escpos";
 import { leggiProva, sembraProva } from "../../../lib/printToken";
@@ -115,7 +115,10 @@ export const GET: APIRoute = async ({ params }) => {
     ordine as unknown as RigaOrdine,
     ambito,
     cfg.valori.get(CHIAVE_DESTINAZIONI),
-    String(cfg.valori.get("print_printer_id") ?? "").trim(),
+    // La stessa regola della coda: la divisione dei piatti deve venire
+    // identica da tutte e due le parti, compreso cosa si considera una
+    // stampante valida.
+    idStampante(cfg.valori.get("print_printer_id")),
   );
   const dest = String((riga as { dest?: string }).dest ?? "");
   const i = gruppi.findIndex((g) => g.chiave === dest);

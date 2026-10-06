@@ -90,6 +90,32 @@ export interface Destinazione {
 
 export const CHIAVE_DESTINAZIONI = "print_destinazioni";
 
+/**
+ * IL NUMERO DI UNA STAMPANTE — cifre, niente altro.
+ *
+ * ⚠️ La regola c'era gia', ma solo per la stampante PRINCIPALE: quelle
+ * dentro le destinazioni passavano come stringhe qualunque. Lo stesso dato
+ * con due regole diverse a seconda della casella in cui e' stato scritto.
+ * Il numero arriva da una tendina: qualunque altra cosa vuol dire che
+ * qualcuno ha incollato a mano quello che non doveva, e un ticket mandato a
+ * una stampante che non esiste non esce e non lo dice.
+ *
+ * Torna il numero ripulito, oppure stringa vuota se non e' un numero.
+ */
+export function idStampante(v: unknown): string {
+  const s = String(v ?? "").trim();
+  return /^[0-9]{1,12}$/.test(s) ? s : "";
+}
+
+/** Quante righe di destinazione hanno senso. Un ristorante ne usa tre o
+ *  quattro; il tetto serve solo a impedire che un corpo malformato riempia
+ *  la configurazione di roba che nessuno rileggera' mai. */
+export const MAX_DESTINAZIONI = 20;
+
+/** Un nome di categoria non e' un tema: nel menu e' corto, qui lo si taglia
+ *  alla stessa misura invece di conservare un romanzo. */
+const MAX_CAT = 60;
+
 /** Legge la configurazione senza mai lanciare: una riga storta nel database
  *  non deve impedire a un ordine di stamparsi dalla principale. */
 export function leggiDestinazioni(grezzo: unknown): Destinazione[] {
@@ -99,16 +125,24 @@ export function leggiDestinazioni(grezzo: unknown): Destinazione[] {
   } catch { return []; }
   if (!Array.isArray(righe)) return [];
   return righe
+    .slice(0, MAX_DESTINAZIONI)
     .map((r) => {
       const o = (r ?? {}) as { nome?: unknown; cat?: unknown; printer?: unknown };
       return {
         nome: String(o.nome ?? "").trim().slice(0, 24),
-        cat: Array.isArray(o.cat) ? o.cat.map((c) => String(c ?? "").trim()).filter(Boolean) : [],
-        printer: String(o.printer ?? "").trim(),
+        // ⚠️ Senza il `Set`, la stessa categoria due volte nella stessa riga
+        // faceva scattare «categoria doppia» — un errore che parla di DUE
+        // righe, davanti a chi ne ha una sola. Dentro una riga, ripetere una
+        // categoria non vuol dire niente: si tiene la prima e basta.
+        cat: Array.isArray(o.cat)
+          ? [...new Set(o.cat.map((c) => String(c ?? "").trim().slice(0, MAX_CAT)).filter(Boolean))]
+          : [],
+        printer: idStampante(o.printer),
       };
     })
     // Una riga senza stampante non e' una destinazione: e' una buona
-    // intenzione, e manderebbe i suoi piatti da nessuna parte.
+    // intenzione, e manderebbe i suoi piatti da nessuna parte. Vale anche
+    // per una stampante scritta male: `idStampante` l'ha gia' resa vuota.
     .filter((d) => d.printer !== "" && d.cat.length > 0);
 }
 

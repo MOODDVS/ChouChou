@@ -1,6 +1,6 @@
 import { scriviConfig } from "./admin/sede";
 import type { Ambito } from "./admin/sedeRegole";
-import { CHIAVE_DESTINAZIONI, categorieDoppie, leggiDestinazioni } from "./stampaRegole";
+import { CHIAVE_DESTINAZIONI, categorieDoppie, idStampante, leggiDestinazioni } from "./stampaRegole";
 
 /**
  * SALVARE LA CONFIGURAZIONE DELLA STAMPA — da un posto solo.
@@ -23,10 +23,13 @@ export async function salvaConfigStampa(ambito: Ambito, body: CorpoStampa): Prom
   const campi: Record<string, string> = {};
 
   if (body.printer_id !== undefined) {
-    const n = String(body.printer_id).trim();
-    // Solo cifre: il numero arriva da una tendina, e qualunque altra cosa
-    // vuol dire che qualcuno ha incollato a mano quello che non doveva.
-    if (n && !/^[0-9]{1,12}$/.test(n)) return { errore: "loc.err.printer", doppie: [] };
+    // ⚠️ `idStampante` e non una regex scritta qui: e' lo stesso dato delle
+    // stampanti dentro le destinazioni, e due regole per lo stesso dato
+    // vogliono dire che un giorno una delle due accetta quello che l'altra
+    // rifiuta. Vuoto vuol dire «nessuna stampante», ed e' legittimo.
+    const grezzo = String(body.printer_id).trim();
+    const n = idStampante(grezzo);
+    if (grezzo && !n) return { errore: "loc.err.printer", doppie: [] };
     campi.print_printer_id = n;
   }
   if (body.print_auto !== undefined) campi.print_auto = body.print_auto ? "1" : "0";
