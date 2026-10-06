@@ -6,9 +6,8 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Giornata from "../../components/admin/home/Giornata.astro";
 import TileNotes from "../../components/admin/home/TileNotes.astro";
-import TileCommandes from "../../components/admin/home/TileCommandes.astro";
-import TileReservations from "../../components/admin/home/TileReservations.astro";
 import TileHoraires from "../../components/admin/home/TileHoraires.astro";
 import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
@@ -17,7 +16,6 @@ import TileCuisine from "../../components/admin/home/TileCuisine.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
-import TileGoogle from "../../components/admin/home/TileGoogle.astro";
 import TileSearchConsole from "../../components/admin/home/TileSearchConsole.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
@@ -110,6 +108,310 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         .org-fab:not(.org-fab-tiles), .cards .tile-move, .cards .tile-resize { display: none !important; }
         .org-fab-tiles { left: 1.5rem; bottom: 4.4rem; }
       }
+
+      /* ============================================================
+         LA GIORNATA — la fascia in cima, che NON e' una tile.
+         ------------------------------------------------------------
+         Niente fondo, niente bordo, niente ombra: e' il contenuto
+         della pagina. Dentro, hanno un blocco solo le cose che si
+         prendono una alla volta (una prenotazione, un ordine, un
+         numero); quello che si guarda e basta resta nudo.
+         ============================================================ */
+      /* ⚠️ ALTEZZA FISSA, e le TRE file di numeri sulla stessa linea in fondo.
+         Senza, la fascia respirava: sei ordini la allungavano, due la
+         accorciavano, e il carosello di Google la spostava da solo ogni sette
+         secondi. Una pagina che cambia misura mentre la si guarda sembra
+         rotta, e i numeri — che si confrontano con un colpo d'occhio
+         orizzontale — finivano a tre altezze diverse.
+         Tutte le colonne sono stirate alla stessa altezza e ognuna spinge i
+         suoi numeri in fondo: se sopra avanza spazio, resta vuoto. */
+      .jour {
+        /* ⚠️ Le tre misure della fascia stanno QUI e in nessun altro posto.
+           Chi la vuole diversa non le riscrive: dichiara le variabili (la
+           fascia stretta) o le TOGLIE con `initial` (il tablet), e `var()`
+           torna al valore di questa riga. Cosi' cambiare la proporzione e'
+           una riga sola, e nessuna media query puo' restare indietro con il
+           numero vecchio — che e' il modo in cui due schermi finiscono per
+           mostrare due disegni diversi senza che nessuno lo decida. */
+        display: grid; grid-template-columns: var(--j-cols, 1fr 1.85fr);
+        gap: var(--j-gap, 3.6rem); min-height: var(--j-h, 36.5rem);
+        /* La linea dice dove finisce la giornata e dove cominciano le tile:
+           senza, i blocchi dei numeri e i riquadri delle tile si leggevano
+           come un elenco solo che cambia forma a meta'. */
+        padding-bottom: 2.4rem; border-bottom: 1px solid var(--c-line); margin-bottom: 2.4rem;
+      }
+      .j-dx { min-width: 0; display: flex; flex-direction: column; }
+      .j-col { min-width: 0; display: flex; flex-direction: column; }
+      .j-col .j-nums { margin-top: auto; }
+      /* I titoli delle tre colonne sono TITOLI: in bianco pieno. Grigi,
+         pesavano meno dei numeri che stavano sotto e la colonna partiva da
+         una riga sbiadita. */
+      .j-t { font-family: var(--font-title); font-size: 0.78rem; letter-spacing: .14em; text-transform: uppercase;
+        color: var(--c-text); display: flex; align-items: center; gap: 0.5rem; }
+      .j-hd { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 1.1rem; }
+      /* L'icona ha la misura e il colore del logo Google accanto: le tre
+         colonne cominciano tutte con un segno della stessa taglia. */
+      .j-ico { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--c-accent);
+        stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+      .j-hd .j-cnt { font-size: 0.75rem; color: var(--c-muted); text-decoration: none; }
+      /* Titolo e conteggio in colonna; il link va a fondo riga da solo. */
+      .j-hd-x { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+      .j-hd .j-link { margin-left: auto; align-self: flex-start; }
+      .j-vedi { font-size: 0.75rem; color: var(--c-muted); text-decoration: none; }
+      .j-link { display: inline-flex; align-items: center; gap: 0.5rem; }
+      .j-arr { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--c-line);
+        display: inline-flex; align-items: center; justify-content: center; flex: none;
+        transition: border-color .15s, color .15s, transform .15s; }
+      .j-arr svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2;
+        stroke-linecap: round; stroke-linejoin: round; display: block; }
+      /* Si accende tutto insieme — testo, cerchio e freccia — perche' e' un
+         bersaglio solo: illuminare mezzo link insegna a mirare male. */
+      .j-link:hover { color: #fff; }
+      .j-link:hover .j-arr { border-color: #fff; transform: translateX(2px); }
+      /* ⚠️ Il marchio VERO, da `public/restohub/`: la «G» disegnata a mano in
+         un quadratino bianco era un segnaposto, e un logo ridisegnato non e'
+         quel logo. Niente fondo: il file ha gia' il suo, e i colori reggono
+         sul tema scuro. */
+      .j-glogo { width: 22px; height: 22px; display: block; flex: none; }
+
+      /* --- Google --- */
+      .j-note { display: flex; align-items: baseline; gap: 0.6rem; }
+      .j-note .v { font-family: var(--font-title); font-size: 2.5rem; line-height: 1; }
+      .j-note .st { color: #f5b544; font-size: 1rem; letter-spacing: 2px; }
+      .j-note-sub { font-size: 0.8rem; color: var(--c-muted); margin-top: 0.35rem; }
+      /* La recensione e' una CITAZIONE, non una scatola dentro la pagina. */
+      .j-quote { border-left: 2px solid var(--c-line); padding: 0.1rem 0 0.1rem 1rem; margin-top: 0.9rem; }
+      /* ⚠️ TRE RIGHE, SEMPRE — e non «fino a tre».
+         Il carosello cambia avis da solo ogni sette secondi: con l'altezza
+         libera, una recensione lunga e una corta spostavano in su e in giu'
+         tutto quello che sta sotto, compresi i tre numeri della scheda. Una
+         pagina che si muove da sola mentre la si guarda sembra rotta.
+         Altezza fissa a SEI righe: ci sta per intero quasi ogni recensione,
+         e quelle rare piu' lunghe si tagliano coi puntini (il testo pieno sta
+         sulla scheda Google). Lo spazio vuoto non da' fastidio; il salto si'. */
+      .j-quote .q-x {
+        font-size: 0.9rem; line-height: 1.65;
+        height: calc(0.9rem * 1.65 * 6);
+        display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      /* --- chi ha scritto: sopra la citazione, e fuori dalla sua riga --- */
+      .j-aut { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.6rem; min-width: 0; }
+      .j-aut-x { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+      .j-aut .nm { color: var(--c-text); font-weight: 700; font-size: 0.95rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .j-aut-r { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--c-muted); }
+      .j-aut .sr { color: #f5b544; letter-spacing: 1px; font-size: 0.85rem; white-space: nowrap; flex: none; }
+      .j-aut .dt { white-space: nowrap; flex: none; }
+      /* ⚠️ L'avatar NON e' `sede-avatar`: quello e' il riquadro di un LOCALE,
+         con le sue iniziali su fondo neutro. Qui c'e' una persona, e quando
+         Google non da' la foto il cerchio porta un colore ricavato dal nome —
+         stabile, cosi' la stessa persona ha sempre lo stesso. Un cerchio
+         grigio vuoto non distingue nessuno da nessuno. */
+      .j-av { width: 40px; height: 40px; border-radius: 50%; flex: none; overflow: hidden;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: var(--font-title); font-size: 0.9rem; color: #fff; background: var(--c-input); }
+      .j-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      /* Lo stato della risposta: si vede solo quando lo sappiamo davvero,
+         cioe' quando le recensioni arrivano dal Business Profile. Scriverlo
+         sempre direbbe «senza risposta» anche a chi ha gia' risposto. */
+      .j-rep { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+        padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; flex: none; }
+      .j-rep.si { color: var(--c-ok); border: 1px solid color-mix(in srgb, var(--c-ok) 55%, transparent); }
+      .j-rep.no { color: var(--c-hover); border: 1px solid color-mix(in srgb, var(--c-accent) 55%, transparent); }
+      .j-quote .q-h .sr { color: #f5b544; letter-spacing: 1px; font-size: 0.72rem; }
+      .j-qf { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+      /* «Répondre» a destra della barra: e' un'azione, e le azioni stanno
+         dove finisce la riga, non in mezzo ai comandi del carosello. */
+      .j-rbtn { margin-left: auto; font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--c-hover); background: transparent;
+        border: 1px solid color-mix(in srgb, var(--c-accent) 55%, transparent);
+        padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+      .j-rbtn:hover { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      /* --- il modale della risposta --- */
+      /* Dentro al modale l'intestazione non ha bisogno dello stacco che ha
+         nella colonna: e' la prima cosa della finestra. */
+      #j-rep-overlay .j-aut { margin-top: 0; }
+      .j-rep-quote { margin: 1.1rem 0 1rem; }
+      /* ⚠️ Qui la citazione NON ha altezza fissa: nella colonna serviva perche'
+         il carosello cambiava avis da solo e la pagina ballava; nel modale
+         nessuno la cambia, e tagliare a meta' il commento a cui si sta
+         rispondendo sarebbe il modo di rispondere male. */
+      .j-rep-quote .q-x { height: auto; display: block; overflow: visible; }
+      .j-rep-lab { display: block; margin-bottom: 0.3rem; }
+      .j-rep-txt { width: 100%; min-height: 7rem; resize: vertical; line-height: 1.55; }
+      .j-rep-hint { margin-top: 0.45rem; }
+      .j-reply-msg { margin-right: auto; font-size: 0.78rem; color: var(--c-muted); }
+      .j-arrows { display: flex; gap: 0.35rem; }
+      .j-arrows button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--c-line);
+        background: transparent; color: var(--c-muted); font-size: 0.7rem; cursor: pointer; line-height: 1; }
+      .j-arrows button:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .j-dots { display: flex; gap: 0.35rem; }
+      .j-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-line); display: block; }
+      .j-dots i.on { background: var(--c-accent); }
+      .j-per { font-size: 0.7rem; color: var(--c-muted); margin-top: 0.6rem; }
+
+      /* --- i blocchi dei numeri: tre piani, e MAI un a capo ---
+         Un blocco che si apre in due righe cresce in altezza e i tre accanto
+         restano corti: la fila si sfalsa e i numeri non si leggono piu' in
+         orizzontale. Etichetta e descrizione si tagliano coi puntini; il
+         NUMERO non si taglia mai (un prezzo tagliato e' un prezzo sbagliato)
+         e rimpicciolisce da solo sulla larghezza del suo blocco. */
+      .j-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 1.5rem; }
+      /* ⚠️ I numeri per ULTIMI, anche se nel markup la nota «30 derniers
+         jours» viene dopo: in fondo alla colonna deve arrivarci la FILA DEI
+         NUMERI, se no sarebbe la nota a toccare il fondo e quella fila
+         resterebbe una riga piu' in alto delle altre due.
+         La nota scende insieme a loro (e' lei a portare lo spazio vuoto) e
+         resta attaccata ai numeri che spiega. */
+      .j-google .j-nums { order: 9; margin-top: 0.5rem; }
+      /* ⚠️ `auto` da' lo spazio che AVANZA: quando la colonna e' piena
+         avanza zero, e la nota finiva appiccicata alle frecce del carosello.
+         Il `padding` e' il minimo garantito, qualunque cosa succeda sopra. */
+      .j-google .j-per { margin-top: auto; padding-top: 1.8rem; }
+      .j-nums > div { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
+        padding: 0.7rem 0.85rem 0.8rem; box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+        container-type: inline-size; }
+      .j-nums .k, .j-nums .d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+      .j-nums .k { font-size: 0.66rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); }
+      .j-nums .v { display: block; white-space: nowrap; font-family: var(--font-title); font-size: min(1.45rem, 17cqw); margin-top: 0.3rem; }
+      .j-nums .v.att { color: var(--c-hover); }
+      .j-nums .d { font-size: 0.68rem; color: var(--c-muted); margin-top: 0.2rem; }
+      .j-nums .d.up { color: var(--c-ok); font-weight: 700; }
+      .j-nums .d.giu { color: var(--c-hover); font-weight: 700; }
+
+      /* --- orari + affluenza --- */
+      .j-ore-h { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.9rem; }
+      .j-pil { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+        padding: 0.25rem 0.6rem; border-radius: 999px; background: var(--c-ok); color: #fff; white-space: nowrap; }
+      .j-pil.off { background: var(--c-accent); }
+      .j-orari { margin-left: auto; font-size: 0.85rem; font-weight: 700; }
+      .j-hm-plot { display: flex; align-items: flex-end; gap: 3px; height: 62px; margin-top: 1.4rem; }
+      .j-hb { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
+      .j-hb i { display: block; background: var(--c-barra, #4e8f9c); border-radius: 4px 4px 0 0; }
+      .j-hb.chiuso { background: repeating-linear-gradient(135deg, rgba(134, 160, 164, .12) 0 4px, transparent 4px 8px); border-radius: 4px; }
+      .j-hb.ora i { background: var(--c-accent); }
+      .j-hb .lab { position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+        font-size: 0.62rem; font-weight: 800; color: var(--c-accent); white-space: nowrap; }
+      .j-hm-x { display: flex; gap: 3px; margin-top: 0.85rem; }
+      .j-hm-x span { flex: 1 1 0; text-align: center; font-size: 0.66rem; color: var(--c-muted); }
+      .j-hm-f { display: flex; align-items: center; gap: 1.1rem; margin-top: 0.9rem; font-size: 0.72rem; color: var(--c-muted); flex-wrap: wrap; }
+      .j-key { display: inline-flex; align-items: center; gap: 0.35rem; }
+      .j-key b { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+      .j-key b.now { background: var(--c-accent); }
+      .j-key b.cl { background: repeating-linear-gradient(135deg, rgba(134, 160, 164, .5) 0 3px, transparent 3px 6px); }
+      .j-hm-f .src { margin-left: auto; }
+
+      /* --- le due colonne del giorno --- */
+      /* `flex: 1` : le due colonne prendono tutto lo spazio che resta sotto la
+         fascia degli orari, cosi' il loro fondo e' il fondo della fascia. */
+      .j-due { display: grid; grid-template-columns: 1fr 1fr; gap: 3.2rem; flex: 1; }
+      /* Una sola funzione accesa: la colonna che resta prende tutta la riga. */
+      .j-due.j-sola { grid-template-columns: 1fr; }
+      /* Ne' prenotazioni ne' ordini: Google resta nella SUA colonna e la riga
+         la finiscono due tile, salite dalla griglia di sotto (.j-salite). Se
+         di tile visibili non ce n'e' due, Google si prende la pagina invece di
+         galleggiare in un terzo di schermo.
+         ⚠️ `:not(.j-salite)` e non una seconda regola che rimette le misure:
+         larghezze e altezza della fascia restano dichiarate una volta sola in
+         `.jour`, e tornano da sole appena le tile sono salite. */
+      .jour.j-niente:not(.j-salite) { grid-template-columns: 1fr; min-height: 0; }
+      /* Le due colonne non ci sono piu': senza questo il loro `flex: 1`
+         prendeva l'altezza e le tile salite restavano schiacciate in fondo. */
+      .jour.j-niente .j-due { display: none; }
+      /* Le tile salite: affiancate, alte quanto la fascia. Sono le STESSE
+         tile della griglia di sotto — stesso componente, stesso riquadro —
+         solo collocate altrove. */
+      .j-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; flex: 1; }
+      .j-tiles .tile { margin-bottom: 0; }
+      @media (max-width: 759px) { .j-tiles { grid-template-columns: 1fr; } }
+      /* ⚠️ La riga di separazione sta SOTTO la fascia degli orari, non sopra
+         le colonne: `display:none` nasconde l'elemento ma lo lascia nel DOM,
+         quindi un `.j-ore + .j-due` avrebbe disegnato il filo anche con la
+         fascia spenta — un bordo appeso a niente. */
+      .j-ore { padding-bottom: 1.9rem; margin-bottom: 2.2rem; border-bottom: 1px solid var(--c-line); }
+      /* ⚠️ Le due file di numeri stanno sulla STESSA LINEA: ancorate in fondo
+         alla colonna, non appese all'elenco sopra. Una colonna con una riga in
+         piu' spingeva giu' i suoi numeri, e le due file finivano sfalsate di
+         una ventina di pixel: abbastanza da non poterle piu' confrontare con
+         un colpo d'occhio, troppo poco per sembrare voluto. */
+      .j-due > div { display: flex; flex-direction: column; }
+      .j-nums { padding-top: 1.2rem; border-top: 1px solid rgba(36, 74, 82, .65); }
+      /* ⚠️ Lo stacco dalla linea dei numeri e' un margine della LISTA, non lo
+         spazio che avanza: `margin-top: auto` sui numeri da' zero quando la
+         colonna e' piena, e l'ultima riga finiva appoggiata al filo. */
+      /* `flex: 1` : la lista occupa tutto lo spazio fra l'intestazione e i
+         numeri, anche quando e' vuota — e il messaggio puo' mettercisi in
+         mezzo invece di restare appeso in alto. */
+      .j-lista { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; flex: 1; }
+      .j-li { display: flex; align-items: flex-start; gap: 0.85rem; background: var(--c-card);
+        border: 1px solid var(--c-line); border-radius: 12px; padding: 0.7rem 0.9rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); text-decoration: none; color: var(--c-text); }
+      .j-li .h { font-family: var(--font-title); font-size: 0.95rem; width: 44px; flex: none; color: var(--c-accent); }
+      .j-li .h small { display: block; font-family: var(--font-body); font-size: 0.64rem; color: var(--c-muted); font-weight: 700; margin-top: 2px; }
+      .j-li .tx { flex: 1 1 auto; min-width: 0; font-size: 0.88rem; font-weight: 600; }
+      .j-li .j-nome { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* L'anteprima della nota: UNA riga, tagliata dove finisce lo spazio.
+         In corsivo e rientrata, cosi' si vede che sono parole del cliente e
+         non un altro dato della prenotazione. */
+      .j-nota { display: flex; align-items: center; gap: 0.35rem; margin-top: 5px; font-size: 0.78rem;
+        font-style: italic; color: var(--c-muted); min-width: 0; }
+      .j-nota > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .j-li .tx small { display: flex; align-items: center; gap: 0.35rem; font-weight: 400;
+        color: var(--c-muted); font-size: 0.78rem; margin-top: 3px; min-width: 0; }
+      .j-li .tx small > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* ⚠️ In BIANCO, non nel grigio del testo accanto: a 13px un segno
+         grigio su fondo scuro si perde, e l'icona serve proprio a far trovare
+         la riga con un colpo d'occhio. Il testo resta grigio: il bianco e' del
+         segno, non della frase. */
+      .j-mi { width: 13px; height: 13px; flex: none; fill: none; stroke: var(--c-text);
+        stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      /* Stato sopra, occasioni sotto: la colonna di destra resta stretta e
+         allineata, qualunque cosa porti la riga. */
+      .j-dx-col { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; flex: none; }
+      .j-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem; max-width: 11rem; }
+      .j-tag { font-size: 0.6rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+        padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid var(--c-line); color: var(--c-muted); }
+      .j-li .tx small b { color: var(--c-text); font-weight: 700; }
+      /* Niente da fare: non e' un errore ne' una riga mancante, e' la buona
+         notizia della serata. Sta in mezzo allo spazio che avrebbero occupato
+         le righe, grande abbastanza da leggersi da lontano. */
+      .j-vuoto { margin: auto; padding: 1rem; text-align: center; font-size: 1.05rem;
+        font-family: var(--font-title); color: var(--c-muted); }
+
+      /* ⚠️ Le pastiglie di stato sono QUELLE delle loro pagine (reservations,
+         orders): stessi colori, stesse parole. Due nomi per lo stesso stato
+         sono due stati. Qui cambia solo la misura, perche' la riga e' meta'. */
+      .j-badge { font-size: 0.64rem; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px;
+        font-family: var(--font-body); cursor: default;
+        white-space: nowrap; height: 26px; padding: 0 0.7rem; display: inline-flex; align-items: center;
+        justify-content: center; flex: none; font-weight: 700; }
+      .j-badge.ok { background: rgba(46, 158, 107, .18); border: 1px solid #2e9e6b; color: #6fd0a3; }
+      .j-badge.pd { background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg); }
+      .j-badge.bl { background: rgba(59, 130, 246, .16); border: 1px solid #3b82f6; color: #8ab6ff; }
+      .j-badge.gr { background: rgba(179, 172, 166, .12); border: 1px solid var(--c-muted); color: var(--c-muted); }
+      .j-badge.enc { background: #5d5555; color: #fff; }
+      .j-badge.pay { background: #2e9e6b; color: #fff; }
+      .j-badge.done { border: 1px solid #fff; color: #fff; }
+      /* Quella delle prenotazioni si clicca: lo dice il cursore, e si accende
+         al passaggio come ogni altro comando del pannello. */
+      .j-badge.j-st { cursor: pointer; }
+      .j-badge.j-st:hover { filter: brightness(1.25); }
+
+      /* Stretto: le colonne si impilano e l'altezza fissa non ha piu' senso —
+         terrebbe aperto mezzo schermo vuoto. */
+      @media (max-width: 1100px) { .jour { --j-cols: 1fr; --j-gap: 2.2rem; --j-h: 0; } }
+      /* iPad in orizzontale: 1024-1366 CSS, cioe' largo come un portatile, ma
+         lo si tocca col dito e lo si guarda da piu' lontano — percio'
+         styles/tablet.css abbassa il piede di misura a 13px e tutto rientra.
+         Le tre colonne ci stanno, e sono il motivo per cui si apre la Accueil:
+         qui si tolgono le variabili della fascia stretta e tornano le misure
+         di sopra, con un po' meno aria fra le colonne. `pointer: coarse` non
+         e' un dettaglio: senza, prenderebbe anche i portatili da 1280. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        .jour { --j-cols: initial; --j-gap: 2.4rem; --j-h: initial; }
+        .j-due { gap: 2rem; }
+      }
+      @media (max-width: 759px) { .j-due { grid-template-columns: 1fr; gap: 2rem; } .j-hm-f .src { margin-left: 0; } }
 
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
@@ -477,15 +779,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       <main>
         <div class="home-hello" id="home-hello" aria-live="polite"></div>
         <div class="state" id="state">{t("sup.loading")}</div>
+        <Giornata />
         <div class="cards" id="cards" style="display:none">
           <TileNotes />
-          <TileCommandes />
-          <TileReservations />
           <TileHoraires />
           <TileJoursSpeciaux />
           <TileCuisine />
           <TileMenu />
-          <TileGoogle />
           <TileSearchConsole />
           <TileStats />
           <TilePhotos />
@@ -550,6 +850,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       <div id="notes-list"></div>
     </Modal>
 
+    <!-- Toast: componente condiviso (styles/toast.css, importato da AdminHead).
+         Serve da quando la Accueil SCRIVE: cambiare lo stato di una
+         prenotazione dalla fascia e' una PATCH, e una PATCH rifiutata deve
+         dirlo — altrimenti la riga resta come l'hai lasciata e il database
+         dice un'altra cosa. -->
+    <div class="toast" id="toast"></div>
+
     <AdminNav current="home" />
 
     <!-- Dati SSR (Fase 2): 5 isole pre-caricate dal server, lette dal client. -->
@@ -557,8 +864,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { authFresh } from "../../lib/admin/auth";
       import { collegaLogout } from "../../lib/admin/logout";
-      import { nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { festivita, ricorrenze } from "../../lib/festivitaRegole";
 
@@ -566,9 +873,29 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
+      // ⚠️ Fuori da ogni IIFE, come chi lo chiama: `cambiaStatoResa` sta a
+      // questo livello e leggeva un `headers` e un `toast` che vivevano dentro
+      // la chiusura di sotto. Il controllo dei tipi l'ha detto; a pagina aperta
+      // sarebbe stato un ReferenceError al primo cambio di stato, cioe' uno
+      // stato che non si salva e nessun messaggio che spieghi perche'.
+      const toastEl = document.getElementById("toast") as HTMLDivElement | null;
+      let toastTimer: number | undefined;
+      function toast(msg: string, errore = false) {
+        if (!toastEl) return;
+        toastEl.textContent = msg;
+        toastEl.className = "toast is-on" + (errore ? " is-error" : " is-ok");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2500);
+      }
+
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
-      type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string };
-      type ResaRow = { heure: string; first_name?: string; last_name?: string; people: number; status: string };
+      type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string; payment_method?: string | null };
+      type ResaRow = {
+        id?: string; heure: string; first_name?: string; last_name?: string; people: number; status: string;
+        zone?: string | null; phone?: string | null; email?: string | null; notes?: string | null;
+        high_chair?: boolean; quiet?: boolean; business?: boolean; company?: string | null;
+        birthday?: boolean; special_event?: boolean; tables?: unknown[] | null;
+      };
       type Config = {
         lunch_active: boolean; lunch_open: string | null; lunch_close: string | null;
         dinner_active: boolean; dinner_open: string | null; dinner_close: string | null;
@@ -608,8 +935,234 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       function dayKeyBrussels(iso: string): string {
         return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ_LOCALE });
       }
+      // ⚠️ Le stesse icone della pagina Réservations: le persone e il fumetto
+      // della nota sono gia' i segni che il ristoratore associa a «quanti» e
+      // «c'e' scritto qualcosa». Un disegno nuovo per la stessa cosa e' una
+      // cosa nuova da imparare.
+      const ICO_PERS = '<svg class="j-mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 20.5v-1.4a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1.4"/><circle cx="9" cy="7.5" r="3.2"/><path d="M21.5 20.5v-1.4a4 4 0 0 0-3-3.87"/><path d="M16.2 4.3a4 4 0 0 1 0 7.5"/></svg>';
+      const ICO_NOTA = '<svg class="j-mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>';
+
       function escHtml(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      // ============================================================
+      // LE RIGHE DELLA GIORNATA
+      // ------------------------------------------------------------
+      // ⚠️ Le pastiglie di stato sono quelle delle pagine Réservations e
+      // Commandes, con le LORO parole: due nomi per lo stesso stato sono due
+      // stati. Qui cambia solo la misura, perche' la riga e' meta' larga.
+      // ⚠️ Sola lettura: niente bottoni. Si clicca la riga e si apre la
+      // pagina che sa fare quel mestiere.
+      // ============================================================
+      function piattiDi(items: Item[]): string {
+        const voci = (items ?? []).map((i) => `${i.qty}× ${i.name}`);
+        return voci.length > 3 ? voci.slice(0, 3).join(" · ") + " …" : voci.join(" · ");
+      }
+      function badgeOrdine(o: Order): string {
+        if (o.status === "done") return `<span class="j-badge done">${tr("ord.terminee")}</span>`;
+        if (o.status === "pending") return `<span class="j-badge enc">${tr("ord.toCollect")}</span>`;
+        return `<span class="j-badge pay">${tr("ord.paid")}</span>`;
+      }
+      function rigaOrdine(o: Order): string {
+        return `<a class="j-li" href="/admin/orders">` +
+          `<span class="h">${oraDa(o.pickup_time)}</span>` +
+          `<span class="tx">${escHtml(String(o.customer_name ?? ""))}` +
+          // ⚠️ Dentro uno `span`: la riga sotto il nome e' diventata una riga
+          // flex per far stare l'icona accanto al testo, e un testo nudo
+          // dentro un flex non si taglia coi puntini — si spezza a meta'.
+          `<small><span>${escHtml(piattiDi(o.items))} · <b>${euro(o.total_cents)}</b></span></small></span>` +
+          badgeOrdine(o) + `</a>`;
+      }
+      /** Gli stati, con le loro parole e i loro colori: gli stessi della pagina
+       *  Réservations, perche' sono gli stessi stati. */
+      const STATI_RESA: { st: string; cls: string; label: string; colore: string }[] = [
+        { st: "pending", cls: "pd", label: tr("res.stPending"), colore: "var(--c-accent)" },
+        { st: "confirmed", cls: "ok", label: tr("res.stConfirmed"), colore: "#2e9e6b" },
+        { st: "seated", cls: "bl", label: tr("res.stSeated"), colore: "#3b82f6" },
+        { st: "done", cls: "gr", label: tr("res.stDone"), colore: "var(--c-muted)" },
+        { st: "cancelled", cls: "gr", label: tr("res.stCancelled"), colore: "#ed1c24" },
+      ];
+      /** ⚠️ Un BOTTONE, non un'etichetta: si clicca e si cambia stato senza
+       *  cambiare pagina. `data-st-id` e' la prenotazione a cui appartiene. */
+      function badgeResa(st: string, id?: string): string {
+        const v = STATI_RESA.find((x) => x.st === st);
+        const cls = v?.cls ?? (st === "noshow" ? "gr" : "ok");
+        const label = v?.label ?? (st === "noshow" ? tr("res.stNoshow") : tr("res.stConfirmed"));
+        return `<button type="button" class="j-badge ${cls} j-st" data-st-id="${escHtml(String(id ?? ""))}">${label}</button>`;
+      }
+      /** I tavoli di una prenotazione, COL LORO NOME. `tables` porta gli id, e
+       *  un id non dice niente a chi lavora: in sala il tavolo si chiama «3».
+       *  Senza piano sala (mappa vuota) non si scrive niente — meglio tacere
+       *  che mostrare un numero che non e' quello scritto sul tavolo. */
+      let tavoliNomi: Record<string, string> = {};
+      function tavoliDi(r: ResaRow): string {
+        if (!Array.isArray(r.tables) || !r.tables.length) return "";
+        const nomi = r.tables.map((id) => tavoliNomi[String(id)] ?? "").filter(Boolean);
+        if (!nomi.length) return "";
+        return nomi.length > 3 ? nomi.slice(0, 3).join("+") + " …" : nomi.join("+");
+      }
+      /** Le occasioni che cambiano il modo di accogliere: una parola ciascuna. */
+      function occasioniDi(r: ResaRow): string[] {
+        const o: string[] = [];
+        if (r.birthday) o.push(tr("res.optBirthday"));
+        if (r.special_event) o.push(tr("res.optEventShort"));
+        if (r.business) o.push(tr("res.optBusiness"));
+        if (r.high_chair) o.push(tr("res.optHighchair"));
+        if (r.quiet) o.push(tr("res.optQuiet"));
+        return o;
+      }
+      function rigaResa(r: ResaRow): string {
+        const ora = String(r.heure ?? "").slice(0, 5);
+        const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim();
+        // ⚠️ Coperti, tavoli e zona sulla stessa riga, in quest'ordine: «per
+        // quanti» e «dove» sono la stessa domanda, e separarle costringeva a
+        // guardare in due punti.
+        const dove = [
+          `${r.people} ${tr("home.covers").toLowerCase()}`,
+          tavoliDi(r),
+          String(r.zone ?? "").trim(),
+        ].filter(Boolean).join(" · ");
+        const doveHtml = `${ICO_PERS}<span>${escHtml(dove)}</span>`;
+        const occ = occasioniDi(r)
+          .map((x) => `<span class="j-tag">${escHtml(x)}</span>`)
+          .join("");
+        // ⚠️ La nota si ANNUNCIA, non si apre: una riga sola, tagliata dove
+        // finisce lo spazio. Chi la legge sa che c'e' qualcosa da sapere e
+        // apre la pagina; nasconderla del tutto vuol dire scoprire al tavolo
+        // che c'era scritto «allergia».
+        const nota = String(r.notes ?? "").trim();
+        const notaHtml = nota ? `<span class="j-nota">${ICO_NOTA}<span>${escHtml(nota)}</span></span>` : "";
+        // ⚠️ Il link porta alla SUA prenotazione, non all'elenco: `?resa=<id>`
+        // fa aprire di la' la scheda di questa riga. Chi ha cliccato un nome
+        // non deve ritrovarselo in mezzo a venti.
+        return `<a class="j-li" href="/admin/reservations?resa=${encodeURIComponent(String(r.id ?? ""))}">` +
+          `<span class="h">${ora}</span>` +
+          `<span class="tx"><span class="j-nome">${escHtml(nome)}</span>` +
+          `<small>${doveHtml}</small>${notaHtml}</span>` +
+          `<span class="j-dx-col">${badgeResa(String(r.status ?? ""), String(r.id ?? ""))}${occ ? `<span class="j-tags">${occ}</span>` : ""}</span>` +
+          `</a>`;
+      }
+      // ============================================================
+      // LA COLONNA DELLE PRENOTAZIONI
+      // ------------------------------------------------------------
+      // Le righe del giorno vivono qui, non dentro chi le ha caricate: la
+      // pastiglia cambia stato e la colonna si ridisegna da sola, numeri
+      // compresi, senza chiedere di nuovo la giornata al server.
+      // ============================================================
+      let reseOggi: ResaRow[] = [];
+      let resaCouv = 0;
+      let resaCapienza = 0;
+
+      // ⚠️ L'ascolto sta sulla LISTA e non sulle pastiglie: le righe si
+      // ridisegnano a ogni cambio di stato, e un ascoltatore attaccato a un
+      // bottone muore col bottone. Agganciarlo dopo ogni disegno, invece, ne
+      // lascerebbe uno in piu' ogni volta.
+      document.getElementById("j-resa-lista")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest(".j-st") as HTMLElement | null;
+        if (!b) return;
+        // La riga e' un link: senza questo, cambiare stato aprirebbe anche la
+        // pagina Réservations.
+        ev.preventDefault();
+        ev.stopPropagation();
+        apriStMenu(b, b.dataset.stId ?? "");
+      });
+
+      function disegnaResa(): void {
+        // Un tavolo finito, o che non si e' presentato, non e' piu' lavoro:
+        // esce dalla lista e resta nei numeri.
+        const attese = reseOggi.filter((r) => r.status !== "done" && r.status !== "noshow" && r.status !== "cancelled");
+        const lista = document.getElementById("j-resa-lista") as HTMLElement | null;
+        if (lista) {
+          lista.innerHTML = attese.length
+            ? attese.slice(0, 6).map((r) => rigaResa(r)).join("")
+            : `<p class="j-vuoto">${tr("home.nothingLeft")}</p>`;
+        }
+        const daConf = reseOggi.filter((r) => r.status === "pending").length;
+        // ⚠️ Senza capienza niente percentuale: una percentuale calcolata su
+        // zero posti e' un numero inventato, e sembra vero.
+        numero("j-resa-couv", String(resaCouv),
+          resaCapienza ? tr("home.onPlaces").replace("{n}", String(resaCapienza)) : "");
+        numero("j-resa-rempl", resaCapienza ? Math.round((resaCouv / resaCapienza) * 100) + " %" : "—", "");
+        numero("j-resa-conf", String(daConf), "");
+      }
+
+      /**
+       * CAMBIARE LO STATO DALLA ACCUEIL.
+       *
+       * ⚠️ La stessa chiamata della pagina Réservations (`PATCH`), perche' e'
+       * la stessa azione: una seconda strada per scrivere la stessa colonna
+       * e' una strada che un giorno dimentica una regola.
+       *
+       * ⚠️ Si scrive PRIMA sul server e solo dopo sullo schermo. Al contrario,
+       * una riga rifiutata resterebbe verde sul pannello e rossa nel database,
+       * e nessuno saprebbe quale delle due e' vera.
+       */
+      async function cambiaStatoResa(id: string, st: string): Promise<void> {
+        try {
+          const res = await fetch("/api/admin/reservations", {
+            method: "PATCH",
+            headers: await authFresh(),
+            body: JSON.stringify({ id, status: st }),
+          });
+          if (!res.ok) throw new Error();
+          const r = reseOggi.find((x) => String(x.id ?? "") === id);
+          if (r) r.status = st;
+          disegnaResa();
+        } catch {
+          toast(tr("us.editErr"), true);
+        }
+      }
+
+      // ---- il menu degli stati: uno solo, appeso al body ----
+      // ⚠️ Appeso al `body` e non alla riga: dentro l'elenco lo taglierebbe il
+      // primo contenitore che nasconde cio' che esce, e in un elenco ce n'e'
+      // sempre uno.
+      const stMenu = document.createElement("div");
+      stMenu.className = "st-menu";
+      document.body.appendChild(stMenu);
+      let stMenuId = "";
+      function chiudiStMenu(): void {
+        stMenu.style.display = "none";
+        stMenuId = "";
+      }
+      function apriStMenu(anchor: HTMLElement, id: string): void {
+        const r = reseOggi.find((x) => String(x.id ?? "") === id);
+        stMenuId = id;
+        stMenu.innerHTML = STATI_RESA.map(
+          (v) =>
+            `<button type="button" data-st="${v.st}" class="${r && r.status === v.st ? "is-cur" : ""}">` +
+            `<span class="st-dot" style="background:${v.colore}"></span>${v.label}</button>`
+        ).join("");
+        stMenu.style.display = "block";
+        // Posizionato sulle coordinate della pastiglia, e tenuto dentro lo
+        // schermo: sull'ultima riga in basso si aprirebbe fuori dalla finestra.
+        const rect = anchor.getBoundingClientRect();
+        const mw = stMenu.offsetWidth || 150;
+        const mh = stMenu.offsetHeight || 160;
+        stMenu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - mw - 8))}px`;
+        stMenu.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - mh - 8)}px`;
+      }
+      stMenu.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const b = (e.target as HTMLElement).closest("[data-st]") as HTMLElement | null;
+        if (!b || !stMenuId) return;
+        const id = stMenuId;
+        const st = b.dataset.st ?? "";
+        chiudiStMenu();
+        void cambiaStatoResa(id, st);
+      });
+      document.addEventListener("click", (e) => {
+        if (stMenu.style.display === "block" && !stMenu.contains(e.target as Node)) chiudiStMenu();
+      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudiStMenu(); });
+
+      /** Un blocco a tre piani: etichetta (gia' nel markup), numero, descrizione. */
+      function numero(id: string, valore: string, sotto: string): void {
+        const v = document.getElementById(id);
+        if (v) v.textContent = valore;
+        const d = document.getElementById(id + "-d");
+        if (d) d.textContent = sotto;
       }
       function noteDate(iso: string): string {
         return new Date(iso).toLocaleString(LOC, {
@@ -896,6 +1449,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         // Cards visibili subito; Notes e tile si popolano in parallelo.
         stateEl.style.display = "none";
         cardsEl.style.display = "grid";
+        // La fascia della giornata compare col resto: le sue tre colonne si
+        // accendono una per una, quando i loro dati arrivano.
+        const jourEl = document.getElementById("jour");
+        if (jourEl) jourEl.style.display = "";
+
         // Organiser: solo su schermi larghi (su mobile le tuiles sono impilate)
         const fabOrg = document.getElementById("organiser-btn");
         const petit = stretto();
@@ -1353,87 +1911,97 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             ]);
           }
 
-          // ---------- Commandes ----------
+          // ---------- Commandes : la colonna di destra della giornata ----------
+          // ⚠️ SOLO OGGI, e tutte: anche quelle gia' ritirate. Una riga che
+          // sparisce appena e' fatta lascia una colonna che sembra l'inizio
+          // del servizio anche a mezzanotte; spenta, dice quanta serata e'
+          // passata senza farla contare.
           if (resOrd.ok) {
             const orders = ((await resOrd.json()).orders as Order[]) ?? [];
             const ordOggi = orders
               .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey && o.status !== "cancelled")
               .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
-            const ordTot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
-            (document.getElementById("ord-count") as HTMLElement).textContent = String(ordOggi.length);
-            (document.getElementById("ord-tot") as HTMLElement).textContent = euro(ordTot);
 
-            const oraOra = new Date();
-            const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            const prossimi = ordOggi.filter((o) => o.status === "paid" && new Date(o.pickup_time) >= oraOra).slice(0, 3);
-            const ordNextList = document.getElementById("ord-next-list") as HTMLElement;
-            ordNextList.innerHTML = prossimi.length
-              ? prossimi.map((o) => `<div class="ord-nx"><span class="nx-h">${oraDa(o.pickup_time)}</span><span class="nx-n">${esc(String(o.customer_name ?? ""))}</span></div>`).join("")
-              : `<span class="val none">${tr("home.noneUpcomingM")}</span>`;
+            const box = document.getElementById("j-ord");
+            if (box) box.style.display = "";
+            const cnt = document.getElementById("j-ord-cnt");
+            if (cnt) cnt.textContent = tr("home.nToday").replace("{n}", String(ordOggi.length));
+
+            // ⚠️ La lista e' quello che RESTA DA FARE: un ordine ritirato esce.
+            // Il conteggio in alto invece li conta tutti, perche' e' il numero
+            // della giornata — ed e' lo stesso da cui vengono i soldi qui sotto.
+            const daFare = ordOggi.filter((o) => o.status !== "done");
+            const lista = document.getElementById("j-ord-lista") as HTMLElement | null;
+            if (lista) {
+              lista.innerHTML = daFare.length
+                ? daFare.slice(0, 6).map((o) => rigaOrdine(o)).join("")
+                : `<p class="j-vuoto">${tr("home.nothingLeft")}</p>`;
+            }
+
+            // ⚠️ «Incassato» sono i soldi ENTRATI: i `pending` al banco non ci
+            // sono dentro, e dire il contrario sarebbe scrivere un incasso che
+            // non e' entrato. Stanno nel terzo numero, che e' un promemoria.
+            const pagati = ordOggi.filter((o) => o.status === "paid" || o.status === "done");
+            const daIncassare = ordOggi.filter((o) => o.status === "pending");
+            const tot = pagati.reduce((acc, o) => acc + o.total_cents, 0);
+            const totDa = daIncassare.reduce((acc, o) => acc + o.total_cents, 0);
+            numero("j-ord-enc", euro(tot), tr("home.nOrders").replace("{n}", String(pagati.length)));
+            numero("j-ord-pan", pagati.length ? euro(Math.round(tot / pagati.length)) : "—", "");
+            numero("j-ord-aenc", totDa ? euro(totDa) : "—",
+              totDa ? tr("home.atCounter").replace("{n}", String(daIncassare.length)) : "");
           }
 
-          // ---------- Réservations (aujourd'hui) ----------
+          // ---------- Réservations : la colonna di mezzo ----------
           if (resResa.ok) {
             const jr = await resResa.json();
-            const tutte = (jr.reservations as ResaRow[]) ?? [];
-            const rese = tutte.filter((r) => r.status === "confirmed");
+            const tutte = ((jr.reservations ?? []) as ResaRow[])
+              .filter((r) => r.status !== "cancelled")
+              .sort((a, b) => (String(a.heure) < String(b.heure) ? -1 : 1));
             const couv = Number(jr.couverts ?? 0);
-            (document.getElementById("resa-count") as HTMLElement).textContent = String(rese.length);
-            (document.getElementById("resa-sub") as HTMLElement).textContent =
-              rese.length > 0 ? `${tr("home.today")} · ${couv} ${tr("home.covers")}` : tr("home.today");
+            const capienza = Number(jr.config?.capacity ?? 0);
+            tavoliNomi = (jr.tables_map ?? {}) as Record<string, string>;
 
-            // Mini-grafica: conteggio per stato (stessi colori della pagina Résa)
-            const STATI: [string, string, string][] = [
-              ["confirmed", tr("home.stConf"), "#2e9e6b"],
-              ["seated", tr("home.stSeated"), "#3b82f6"],
-              ["done", tr("home.stDone"), "var(--c-muted)"],
-              ["noshow", tr("home.stNoshow"), "var(--c-accent)"],
-              ["cancelled", tr("home.stCancelled"), "#ed1c24"],
-            ];
-            const miniEl = document.getElementById("resa-mini") as HTMLElement | null;
-            if (miniEl) {
-              const contaSt = (st: string) => tutte.filter((r) => r.status === st).length;
-              const max = Math.max(1, ...STATI.map(([st]) => contaSt(st)));
-              miniEl.innerHTML = STATI.map(([st, lab, col]) => {
-                const n = contaSt(st);
-                const h = Math.max(2, Math.round((n / max) * 34));
-                return `<span class="rmc" title="${lab}"><b>${n}</b><i style="height:${h}px;background:${col}"></i></span>`;
-              }).join("");
-            }
+            const box = document.getElementById("j-resa");
+            if (box) box.style.display = "";
+            const cnt = document.getElementById("j-resa-cnt");
+            if (cnt) cnt.textContent = tr("home.nToday").replace("{n}", String(tutte.length));
 
-            // Chiusure «jusqu'à réouverture» (reason: permanent, da caricaResaGiorno)
-            const escP = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            const permEl = document.getElementById("resa-perm") as HTMLElement | null;
-            if (permEl) {
-              const svPerm = ((jr.closures ?? []) as { service_key: string; reason: string }[])
-                .filter((c) => c.reason === "permanent")
-                .map((c) => nomeServizio(c.service_key, LANG));
-              const znPerm = ((jr.zone_closures ?? []) as { zone: string; reason: string }[])
-                .filter((c) => c.reason === "permanent")
-                .map((c) => c.zone);
-              const nomi = [...svPerm, ...znPerm];
-              permEl.innerHTML = nomi
-                .map((n) => `<span class="rp-pill">${escP(n)} — ${tr("home.closedUntilReopen")}</span>`)
-                .join("");
-              permEl.style.display = nomi.length ? "" : "none";
-            }
+            // ⚠️ Le righe restano in memoria: cambiando uno stato dalla
+            // pastiglia si ridisegna la colonna senza richiedere di nuovo la
+            // giornata — e i numeri sotto si rifanno con lei.
+            reseOggi = tutte;
+            resaCouv = couv;
+            resaCapienza = capienza;
+            disegnaResa();
+          }
 
-            const nowHM = new Intl.DateTimeFormat("en-GB", {
-              timeZone: TZ_LOCALE, hour: "2-digit", minute: "2-digit", hour12: false,
-            }).format(new Date());
-            const escR = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            const prossime = rese
-              .slice()
-              .sort((a, b) => (a.heure < b.heure ? -1 : 1))
-              .filter((r) => String(r.heure).slice(0, 5) >= nowHM)
-              .slice(0, 3);
-            const resaNextList = document.getElementById("resa-next-list") as HTMLElement;
-            resaNextList.innerHTML = prossime.length
-              ? prossime.map((r) => {
-                  const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim();
-                  return `<div class="ord-nx"><span class="nx-h">${String(r.heure).slice(0, 5)}</span><span class="nx-n">${escR(nome)} (${r.people})</span></div>`;
-                }).join("")
-              : `<span class="val none">${tr("home.noneUpcomingF")}</span>`;
+          // ---- Quante colonne restano accese ----
+          // ⚠️ Un locale puo' avere le prenotazioni e non gli ordini (o il
+          // contrario): la colonna spenta non esiste proprio, e senza questo
+          // la griglia le teneva comunque il posto — meta' fascia vuota,
+          // come una stanza con un mobile portato via. Chi resta si prende
+          // la riga; se non resta nessuno, se la prende Google.
+          // ⚠️ `getComputedStyle` e non `style.display`: una colonna puo' essere
+          // spenta in TRE modi diversi e la griglia deve rispondere a tutti e
+          // tre uguale — i dati non sono arrivati (resta l'inline `none`), chi
+          // guarda non ha quella pagina (l'isola non viene mandata, quindi lo
+          // stesso), o il super ha spento la funzione in Pages visibles (regola
+          // CSS di AdminHead, che vince sull'inline). Lo stile inline conosce
+          // solo il primo, e una sola di quelle tre strade bastava a lasciare
+          // la fascia con mezzo schermo vuoto.
+          {
+            const due = document.getElementById("j-due");
+            const vive = ["j-resa", "j-ord"].filter((id) => {
+              const el = document.getElementById(id);
+              return !!el && getComputedStyle(el).display !== "none";
+            }).length;
+            if (due) due.classList.toggle("j-sola", vive === 1);
+            const jour = document.getElementById("jour");
+            if (jour) jour.classList.toggle("j-niente", vive === 0);
+            // Chi gestisce le tile sta in un altro blocco, con il suo scope e
+            // i suoi tempi: qui si dice soltanto com'e' andata. Se ha gia'
+            // finito, raccoglie l'avviso; se finisce dopo, guarda la classe.
+            document.dispatchEvent(new Event("mdd:giornata"));
           }
 
           // ---------- Horaires (aujourd'hui) ----------
@@ -1676,9 +2244,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
         type Item = { key: string; w?: number; minH?: number; hidden?: boolean };
         const KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "google", "visibilite", "stats", "assets"];
+        // ⚠️ `orders`, `reservations` e `google` non sono piu' qui: il loro
+        // contenuto e' salito nella fascia della giornata, che e' FISSA. Una
+        // gerarchia che si puo' trascinare torna a essere una griglia di
+        // riquadri uguali, cioe' il difetto da cui siamo partiti.
         const DEFAULT_LAYOUT: Item[] = [
-          { key: "notes", w: 1 }, { key: "orders", w: 1 }, { key: "reservations", w: 1 }, { key: "settings", w: 1 },
-          { key: "special", w: 1 }, { key: "cuisine", w: 1 }, { key: "menu", w: 1 }, { key: "google", w: 1 },
+          { key: "notes", w: 1 }, { key: "settings", w: 1 },
+          { key: "special", w: 1 }, { key: "cuisine", w: 1 }, { key: "menu", w: 1 },
           { key: "visibilite", w: 1 },
           { key: "stats", w: 2 }, { key: "assets", w: 2 },
         ];
@@ -1747,6 +2319,51 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         });
         cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => roTile.observe(t));
 
+        // ---- Ne' prenotazioni ne' ordini: due tile salgono accanto a Google ----
+        // Senza le due colonne la fascia resterebbe un terzo di schermo con
+        // due terzi di niente. Invece di stirare Google su tutta la riga —
+        // una colonna disegnata per stare stretta, larga come la pagina — la
+        // riga la finiscono le prime due tile.
+        //
+        // ⚠️ Si decide DOPO il layout salvato: quali tile sono visibili e in
+        // che ordine lo dice `applicaLayout`, non il sorgente. Fatto prima,
+        // sarebbe salita la prima tile del markup, magari una che chi guarda
+        // aveva spento nel modale «Tuiles».
+        //
+        // ⚠️ Le due che salgono ESCONO dalla griglia: niente maniglie, niente
+        // ridimensionamento, e non sono piu' nel modale «Tuiles». E' voluto —
+        // riempiono una fascia fissa, e la fascia non si trascina.
+        let salite = false;
+        function promuovi() {
+          const jour = document.getElementById("jour");
+          const dx = document.getElementById("j-dx");
+          if (salite || !jour || !dx) return;
+          // Su mobile tutto e' impilato: non c'e' nessun fianco da riempire.
+          if (isMobile() || !jour.classList.contains("j-niente")) return;
+          // `getComputedStyle` e non la sola classe `is-off`: una tile puo'
+          // essere spenta dal modale, non ancora arrivata (Visibilite' senza
+          // Search Console) o spenta dal super in Pages visibles. Una riga
+          // finita con una tile vuota e' peggio di una riga non finita.
+          const vive = Array.from(cards.querySelectorAll<HTMLElement>(".tile[data-tile]"))
+            .filter((t) => getComputedStyle(t).display !== "none");
+          if (vive.length < 2) return;
+          const box = document.createElement("div");
+          box.className = "j-tiles";
+          for (const t of vive.slice(0, 2)) {
+            roTile.unobserve(t);
+            t.style.gridColumn = "";
+            t.style.gridRowEnd = "";
+            t.style.minHeight = "";
+            box.appendChild(t);
+          }
+          dx.appendChild(box);
+          jour.classList.add("j-salite");
+          salite = true;
+          applicaSpans();
+        }
+        document.addEventListener("mdd:giornata", promuovi);
+        window.addEventListener("resize", promuovi);
+
         function applicaLayout(layout: Item[]) {
           const m = mappa();
           const usati = new Set<string>();
@@ -1792,121 +2409,252 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }, 400);
         }
 
-        // --- Tile Google : note, nombre d'avis, dernier avis ---
+        // --- Google: la nota, il carosello degli avis, i numeri della scheda ---
+        // ⚠️ SOLA LETTURA. Rispondere a una recensione si fa dalla pagina
+        // Google, che sa anche mostrare quelle vecchie e correggere una
+        // risposta gia' pubblicata. Una scorciatoia che fa meta' del mestiere
+        // si usa una volta e poi non ci si fida piu'.
         (async () => {
-          const tile = document.getElementById("tile-google") as HTMLElement | null;
-          if (!tile) return;
+          const box = document.getElementById("j-google") as HTMLElement | null;
+          if (!box) return;
           try {
             const res = await fetch("/api/admin/google-info", { headers });
             if (!res.ok) return;
             const g = (await res.json()) as {
-              configured: boolean; name?: string; rating?: number | null; reviews?: number;
-              maps_url?: string; avis?: { auteur: string; note: number; texte: string; quand: string; id?: string; reply?: boolean; quand_iso?: string }[];
+              configured: boolean; rating?: number | null; reviews?: number; maps_url?: string;
+              // `id` = review_id: arriva solo con il Business Profile collegato,
+              // ed e' quello che permette di rispondere. Senza, il bottone non esce.
+              avis?: { auteur: string; note: number; texte: string; quand: string; quand_iso?: string; foto?: string; reply?: boolean; id?: string }[];
             };
-            if (!g.configured || g.rating == null) return; // niente Place ID → tile nascosta
-            tile.style.display = "";
-            const maps = document.getElementById("g-maps") as HTMLAnchorElement | null;
-            if (maps) maps.href = g.maps_url || "#";
+            // Senza Place ID non c'e' niente da dire, e la colonna non esiste.
+            if (!g.configured || g.rating == null) return;
+            box.style.display = "";
+
             const stelle = (n: number) => "★".repeat(Math.round(n)) + "☆".repeat(Math.max(0, 5 - Math.round(n)));
             const nota = Number(g.rating);
-            const rEl = document.getElementById("g-rating");
+            const rEl = document.getElementById("j-g-rating");
             if (rEl) rEl.textContent = nota.toFixed(1).replace(".", ",");
-            const sEl = document.getElementById("g-stars");
+            const sEl = document.getElementById("j-g-stars");
             if (sEl) sEl.textContent = stelle(nota);
-            const cEl = document.getElementById("g-count");
+            const cEl = document.getElementById("j-g-count");
             if (cEl) cEl.textContent = `${g.reviews ?? 0} ${tr("home.avisGoogle")}`;
+            const maps = document.getElementById("j-g-maps") as HTMLAnchorElement | null;
+            if (maps) maps.href = g.maps_url || "#";
 
-            // --- Carrousel des avis ---
+            // ---- carosello ----
             const avis = (g.avis ?? []).filter((a) => a.texte);
-            if (!avis.length) return;
-            const car = document.getElementById("g-carousel");
-            const qEl = document.getElementById("g-quote");
-            const wEl = document.getElementById("g-who");
-            const asEl = document.getElementById("g-a-stars");
-            const dots = document.getElementById("g-dots");
-            if (car) car.style.display = "";
-            let idx = 0;
-            let auto: number | undefined;
-            let editing = false; // risposta in corso: sospende l'auto-rotazione
-            const rWrap = document.getElementById("g-reply");
-            const rOpen = document.getElementById("g-reply-open");
-            const rBox = document.getElementById("g-reply-box");
-            const rTxt = document.getElementById("g-reply-txt") as HTMLTextAreaElement | null;
-            const rPub = document.getElementById("g-reply-pub") as HTMLButtonElement | null;
-            const rCancel = document.getElementById("g-reply-cancel");
-            const rMsg = document.getElementById("g-reply-msg");
-            const chiudiBox = () => {
-              editing = false;
-              if (rBox) rBox.style.display = "none";
-              if (rOpen) rOpen.style.display = "";
-              if (rTxt) rTxt.value = "";
-              if (rMsg) rMsg.textContent = "";
-            };
-
-            const quandLabel = (a: (typeof avis)[number]) =>
-              a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString() : "");
-            const mostra = (i: number) => {
-              idx = (i + avis.length) % avis.length;
-              const a = avis[idx];
-              if (asEl) asEl.textContent = stelle(a.note || 0);
-              if (qEl) qEl.textContent = "« " + a.texte + " »";
-              if (wEl) wEl.textContent = [a.auteur, quandLabel(a)].filter(Boolean).join(" · ");
-              if (dots) {
-                dots.querySelectorAll("i").forEach((d, n) => d.classList.toggle("on", n === idx));
-              }
-              // Bottone «Rispondi»: solo se via Business Profile (ha id) e senza risposta
-              chiudiBox();
-              if (rWrap) rWrap.style.display = a.id && !a.reply ? "" : "none";
-            };
-            if (dots) {
-              dots.innerHTML = avis.map(() => "<i></i>").join("");
-              dots.querySelectorAll("i").forEach((d, n) =>
-                d.addEventListener("click", () => { mostra(n); riparti(); })
-              );
-            }
-            const riparti = () => {
-              window.clearInterval(auto);
-              if (avis.length > 1 && !editing) auto = window.setInterval(() => mostra(idx + 1), 12000);
-            };
-            document.getElementById("g-prev")?.addEventListener("click", () => { mostra(idx - 1); riparti(); });
-            document.getElementById("g-next")?.addEventListener("click", () => { mostra(idx + 1); riparti(); });
-            // Apri l'editor di risposta (sospende auto-rotazione)
-            rOpen?.addEventListener("click", () => {
-              editing = true;
-              window.clearInterval(auto);
-              if (rOpen) rOpen.style.display = "none";
-              if (rBox) rBox.style.display = "";
-              rTxt?.focus();
-            });
-            rCancel?.addEventListener("click", () => { chiudiBox(); riparti(); });
-            rPub?.addEventListener("click", async () => {
-              const a = avis[idx];
-              const testo = (rTxt?.value ?? "").trim();
-              if (!a.id || !testo || !rPub) return;
-              rPub.disabled = true;
-              const originale = rPub.textContent;
-              rPub.textContent = tr("gg.replySaving");
-              try {
-                const res = await fetch("/api/admin/google/reply", {
-                  method: "POST",
-                  headers: { ...headers, "Content-Type": "application/json" },
-                  body: JSON.stringify({ reviewId: a.id, comment: testo }),
+            if (avis.length) {
+              const car = document.getElementById("j-g-car");
+              const nav = document.getElementById("j-g-nav");
+              const qEl = document.getElementById("j-g-quote");
+              const wEl = document.getElementById("j-g-who");
+              const asEl = document.getElementById("j-g-astars");
+              const dtEl = document.getElementById("j-g-when");
+              const dots = document.getElementById("j-g-dots");
+              const avEl = document.getElementById("j-g-av");
+              const autEl = document.getElementById("j-g-aut");
+              const repEl = document.getElementById("j-g-rep");
+              const iniziali = (n2: string) =>
+                n2.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase() || "?";
+              // Colore STABILE ricavato dal nome: la stessa persona ha sempre
+              // lo stesso cerchio, e due persone diverse quasi mai lo stesso.
+              const coloreDi = (n2: string) => {
+                let h = 0;
+                for (let i = 0; i < n2.length; i++) h = (h * 31 + n2.charCodeAt(i)) % 360;
+                return `hsl(${h}, 42%, 38%)`;
+              };
+              /** ⚠️ La foto si prova, non si da' per buona: gli URL dei
+               *  profili Google scadono e a volte rispondono 403, e al loro
+               *  posto resterebbe un cerchio vuoto — che non dice niente e
+               *  sembra un guasto. Se non carica, iniziali e colore. */
+              const disegnaAvatar = (nome: string, foto?: string, dove?: HTMLElement | null) => {
+                const el = dove ?? avEl;
+                if (!el) return;
+                el.textContent = iniziali(nome);
+                el.style.background = coloreDi(nome || "?");
+                if (!foto) return;
+                const img = new Image();
+                img.referrerPolicy = "no-referrer";
+                img.alt = "";
+                img.addEventListener("load", () => {
+                  el.textContent = "";
+                  el.style.background = "transparent";
+                  el.appendChild(img);
                 });
-                if (!res.ok) throw new Error();
-                a.reply = true;
-                if (rMsg) rMsg.textContent = tr("gg.replySaved");
-                if (rBox) rBox.style.display = "none";
-                if (rOpen) rOpen.style.display = "none";
-                if (rWrap) window.setTimeout(() => { if (rWrap) rWrap.style.display = "none"; editing = false; riparti(); }, 1500);
-              } catch {
-                if (rMsg) rMsg.textContent = tr("gg.replyError");
-                rPub.disabled = false;
-                rPub.textContent = originale;
+                img.src = foto;
+              };
+              const arrows = nav?.querySelector(".j-arrows") as HTMLElement | null;
+              const repOpen = document.getElementById("j-g-rep-open") as HTMLButtonElement | null;
+              // Il modale della risposta: guscio condiviso, fuori dalla fascia.
+              const mOv = document.getElementById("j-rep-overlay") as HTMLElement | null;
+              const mAv = document.getElementById("j-rep-av");
+              const mWho = document.getElementById("j-rep-who");
+              const mStars = document.getElementById("j-rep-stars");
+              const mWhen = document.getElementById("j-rep-when");
+              const mQuote = document.getElementById("j-rep-quote");
+              const rTxt = document.getElementById("j-rep-txt") as HTMLTextAreaElement | null;
+              const rMsg = document.getElementById("j-rep-msg");
+              const rPub = document.getElementById("j-rep-pub") as HTMLButtonElement | null;
+              if (car) car.style.display = "";
+              if (autEl) autEl.style.display = "";
+              // La barra resta: porta anche il bottone «Répondre». Spariscono
+              // le frecce, che con una recensione sola non vanno da nessuna parte.
+              if (nav) nav.style.display = "";
+              if (arrows) arrows.style.display = avis.length > 1 ? "" : "none";
+              let editing = false; // risposta in corso: il giro si ferma
+              let idx = 0;
+              let auto: number | undefined;
+              const mostra = (i: number) => {
+                idx = (i + avis.length) % avis.length;
+                const a = avis[idx];
+                if (qEl) qEl.textContent = `« ${a.texte} »`;
+                if (wEl) wEl.textContent = a.auteur || "";
+                if (asEl) asEl.textContent = stelle(Number(a.note) || 0);
+                if (dtEl) dtEl.textContent = a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString(LOC) : "");
+                if (dots) dots.innerHTML = avis.map((_, k) => `<i class="${k === idx ? "on" : ""}"></i>`).join("");
+                // ⚠️ `referrerpolicy`: le foto dei profili Google rispondono
+                // 403 se arriva il referrer del nostro dominio, e al posto del
+                // volto resta un rettangolo rotto.
+                disegnaAvatar(a.auteur || "", a.foto);
+                if (repEl) {
+                  // `undefined` = non lo sappiamo (recensioni Places): meglio
+                  // tacere che dire «senza risposta» a chi ha gia' risposto.
+                  if (a.reply === undefined) { repEl.textContent = ""; repEl.className = "j-rep"; }
+                  else {
+                    repEl.textContent = a.reply ? tr("home.replied") : tr("home.noReply");
+                    repEl.className = "j-rep " + (a.reply ? "si" : "no");
+                  }
+                }
+                // Si puo' rispondere solo a cio' che ha un id (Business
+                // Profile collegato) e a cui nessuno ha gia' risposto.
+                if (repOpen) repOpen.style.display = a.id && !a.reply ? "" : "none";
+              };
+              // ⚠️ Il giro riparte DOPO ogni tocco: se continuasse col suo
+              // tempo, la recensione che si sta leggendo scapperebbe via. E si
+              // ferma del tutto mentre si scrive una risposta: cambiare avis
+              // sotto le dita vorrebbe dire pubblicare la risposta sbagliata.
+              const riparti = () => {
+                window.clearInterval(auto);
+                if (avis.length > 1 && !editing) auto = window.setInterval(() => mostra(idx + 1), 7000);
+              };
+              function chiudiRisposta() {
+                editing = false;
+                if (mOv) mOv.hidden = true;
+                if (rTxt) rTxt.value = "";
+                if (rMsg) rMsg.textContent = "";
+                if (rPub) { rPub.disabled = false; rPub.textContent = tr("gg.replyPublish"); }
               }
-            });
-            mostra(0);
-            riparti();
-          } catch { /* rete assente : tile reste cachée */ }
+              document.getElementById("j-g-prev")?.addEventListener("click", () => { mostra(idx - 1); riparti(); });
+              document.getElementById("j-g-next")?.addEventListener("click", () => { mostra(idx + 1); riparti(); });
+              repOpen?.addEventListener("click", () => {
+                const a = avis[idx];
+                // ⚠️ Il giro si ferma PRIMA di aprire: se il carosello girasse
+                // dietro al modale, si pubblicherebbe la risposta scritta per
+                // una recensione sotto il nome di un'altra.
+                editing = true;
+                window.clearInterval(auto);
+                // Chi ha scritto e cosa, dentro al modale: andarlo a rileggere
+                // dietro la finestra e' il modo di rispondere a quella sbagliata.
+                if (mWho) mWho.textContent = a.auteur || "";
+                if (mStars) mStars.textContent = stelle(Number(a.note) || 0);
+                if (mWhen) mWhen.textContent = a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString(LOC) : "");
+                if (mQuote) mQuote.textContent = `« ${a.texte} »`;
+                if (mAv) disegnaAvatar(a.auteur || "", a.foto, mAv);
+                if (mOv) mOv.hidden = false;
+                rTxt?.focus();
+              });
+              // Sfondo, × e «Annuler»: la stessa chiusura, come in ogni modale.
+              mOv?.querySelectorAll("[data-md-close]").forEach((el) =>
+                el.addEventListener("click", () => { chiudiRisposta(); riparti(); })
+              );
+              document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && mOv && !mOv.hidden) { chiudiRisposta(); riparti(); }
+              });
+              rPub?.addEventListener("click", async () => {
+                const a = avis[idx];
+                const testo = (rTxt?.value ?? "").trim();
+                if (!a.id || !testo || !rPub) return;
+                rPub.disabled = true;
+                rPub.textContent = tr("gg.replySaving");
+                try {
+                  const res = await fetch("/api/admin/google/reply", {
+                    method: "POST",
+                    headers: { ...headers, "Content-Type": "application/json" },
+                    body: JSON.stringify({ reviewId: a.id, comment: testo }),
+                  });
+                  if (!res.ok) throw new Error();
+                  // ⚠️ Si segna qui, in memoria: senza, tornando sulla stessa
+                  // recensione il bottone ricomparirebbe e si risponderebbe due
+                  // volte alla stessa persona.
+                  a.reply = true;
+                  if (rMsg) rMsg.textContent = tr("gg.replySaved");
+                  // Si resta un momento sul messaggio, poi si chiude e la riga
+                  // si ridisegna: la pastiglia passa a «Risposto» e il bottone
+                  // sparisce da sola.
+                  window.setTimeout(() => { chiudiRisposta(); mostra(idx); riparti(); }, 1400);
+                } catch {
+                  if (rMsg) rMsg.textContent = tr("gg.replyError");
+                  rPub.disabled = false;
+                  rPub.textContent = tr("gg.replyPublish");
+                }
+              });
+              mostra(0);
+              riparti();
+            }
+
+          } catch { /* rete assente: la colonna resta nascosta */ }
+        })();
+
+        // --- I tre numeri della scheda Google (Business Profile Performance) ---
+        // ⚠️ Una lettura A SE', non in coda a quella delle recensioni: erano
+        // nello stesso `try`, e un inciampo qualunque nel carosello si portava
+        // via anche i numeri — senza che niente lo dicesse. Due informazioni
+        // diverse, due destini diversi.
+        (async () => {
+          const perf = document.getElementById("j-g-perf");
+          if (!perf) return;
+          try {
+            // 90 giorni per poterne confrontare 30 con i 30 precedenti: un
+            // numero senza il suo «rispetto a quando» non dice se le cose
+            // vanno meglio o peggio, ed e' l'unica domanda che si fa a questi
+            // tre numeri.
+            const rp = await fetch("/api/admin/google/data?giorni=90", { headers });
+            if (!rp.ok) return;
+            const jp = (await rp.json()) as { serie?: { metric: string; punti: { date: string; value: number }[] }[] };
+            const serie = jp.serie ?? [];
+            if (!serie.length) return;
+            const somma = (punti: { date: string; value: number }[], da: number, a: number) =>
+              punti.slice(da, a).reduce((acc, x) => acc + (Number(x.value) || 0), 0);
+            const mostraPerf = (metric: string, idValore: string) => {
+              const p = (serie.find((x) => x.metric === metric)?.punti ?? [])
+                .slice()
+                .sort((a, b) => (a.date < b.date ? -1 : 1));
+              if (!p.length) return false;
+              const ultimi = somma(p, Math.max(0, p.length - 30), p.length);
+              const prima = somma(p, Math.max(0, p.length - 60), Math.max(0, p.length - 30));
+              const el = document.getElementById(idValore);
+              if (el) el.textContent = String(ultimi);
+              const d = document.getElementById(idValore + "-d");
+              if (d) {
+                // Senza un periodo precedente da confrontare non si inventa
+                // una variazione: si lascia vuoto.
+                if (prima > 0) {
+                  const diff = Math.round(((ultimi - prima) / prima) * 100);
+                  d.textContent = (diff > 0 ? "+" : "") + diff + " %";
+                  d.className = "d" + (diff >= 0 ? " up" : " giu");
+                } else d.textContent = "";
+              }
+              return true;
+            };
+            const ok1 = mostraPerf("WEBSITE_CLICKS", "j-g-site");
+            const ok2 = mostraPerf("CALL_CLICKS", "j-g-calls");
+            const ok3 = mostraPerf("BUSINESS_DIRECTION_REQUESTS", "j-g-route");
+            if (ok1 || ok2 || ok3) {
+              perf.style.display = "";
+              const per = document.getElementById("j-g-per");
+              if (per) per.style.display = "";
+            }
+          } catch { /* i numeri non sono arrivati: la nota e gli avis restano */ }
         })();
 
         // --- Tile Visibilité (Search Console) ---
@@ -1963,6 +2711,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         } catch {
           applicaLayout(DEFAULT_LAYOUT);
         }
+        promuovi();
 
         // Maniglie iniettate in ogni isola
         const GRIP =
@@ -2189,8 +2938,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const t = m.get(key);
             if (!t) continue;
             const spenta = t.classList.contains("is-off");
-            // Isola non disponibile (es. Google senza Place ID) : non la proponiamo
-            if (!spenta && t.style.display === "none") continue;
+            // Isola non disponibile — Google senza Place ID, o funzione spenta
+            // dal super in Pages visibles — : non la proponiamo. `getComputedStyle`
+            // perche' la seconda e' una regola CSS, non uno stile inline: una
+            // tile «Commandes» da riaccendere in un locale che non prende
+            // ordini e' un interruttore che non accende niente.
+            if (!spenta && getComputedStyle(t).display === "none") continue;
 
             const riga = document.createElement("div");
             riga.className = "tm-row";

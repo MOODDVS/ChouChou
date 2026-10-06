@@ -23,6 +23,7 @@ import "../../styles/field.css";   // campi condivisi (.md-box input, .fld)
 import "../../styles/button.css";  // bottoni d'azione condivisi (.btn)
 import "../../styles/fab.css";     // pulsante fisso in basso a destra (.fab-add .fab-pill)
 import "../../styles/sede.css";    // multi-sede: pastiglia e selettore (.sede-avatar)
+import "../../styles/stati.css";   // menu degli stati di una prenotazione (.st-menu)
 import "../../styles/tablet.css";  // iPad orizzontale: scala ridotta (vedi il file)
 
 const boot = await caricaBootAdmin();
@@ -39,6 +40,13 @@ const PLACEHOLDER_CSS =
 // pagine admin (AdminHead è nel <head> di ognuna). Prima era ripetuta in ogni
 // pagina. Mobile: meno padding laterale (più spazio alle card); il padding in
 // basso resta per la bottom-nav.
+// ⚠️ I colori di STATO stanno qui, una volta per tutto il pannello. Il verde
+// «va bene» era dichiarato dentro `super.astro` (su `.pane`) e serviva anche
+// alla Accueil: due dichiarazioni dello stesso colore sono due colori, e un
+// giorno divergono senza che nessuno se ne accorga. `--c-barra` e' il tono
+// delle barrette dei grafici: una serie sola, un colore solo, e non il
+// corallo — quello e' il colore dell'ATTENZIONE in tutto il pannello.
+const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-barra:#4e8f9c}";
 const LAYOUT_CSS =
   ":root{--h-header:81px}" +
   "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) 8rem}" +
@@ -46,7 +54,22 @@ const LAYOUT_CSS =
   // iPad orizzontale al dito: stessa fascia di styles/tablet.css. Il fondo
   // scende da 8rem a 6rem perche' anche la barra in basso e' piu' bassa.
   "@media(min-width:1024px) and (max-width:1366px) and (pointer:coarse){:root{--h-header:51px}main{--pad-y:1rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 6rem}}";
-const css = cssTema(boot.theme) + PLACEHOLDER_CSS + LAYOUT_CSS;
+// ⚠️ LE FUNZIONI SPENTE, una volta per tutto il pannello e per TUTTI.
+// `data-admin-page="orders"` marca cio' che PARLA di ordini: la colonna della
+// giornata, le tile, i numeri. Se il super ha spento Commandes in Pages
+// visibles, quel ristorante non prende ordini e nulla di tutto questo deve
+// comparire — nemmeno al super, che pure la pagina deve poterla riaprire
+// (il link in nav resta: lo tocca solo AdminNav, con `a[data-page]`).
+//
+// Qui e non lato client: `boot` e' la stessa lettura in cache che la pagina
+// fa comunque, non serve ne' cookie ne' token, e stando nel <head> arriva
+// prima del primo paint. Una rimozione dal DOM dopo un fetch, invece, era un
+// lampo di tile e una griglia che teneva il posto a una colonna che spariva.
+const SPENTE_CSS = boot.hiddenPages
+  .filter((k) => /^[a-z]+$/.test(k))
+  .map((k) => `[data-admin-page="${k}"]{display:none!important}`)
+  .join("");
+const css = cssTema(boot.theme) + PLACEHOLDER_CSS + STATO_CSS + LAYOUT_CSS + SPENTE_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";

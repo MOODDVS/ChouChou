@@ -25,6 +25,7 @@ import {
   PAGINA_APERTA,
   chiaveApi,
   puoChiamareApi,
+  funzioneAccesa,
 } from "../src/lib/admin/permessiRegole.ts";
 
 const TUTTE = ["orders", "reservations", "clients", "menu", "stats", "marketing", "assets", "print", "agenda", "settings"];
@@ -249,19 +250,35 @@ test("un'isola vietata non si legge NEMMENO dal database", () => {
   // lascerebbe il server a interrogare il database per righe che butta via —
   // e chi tocca il file dopo non avrebbe modo di accorgersi che quel `.data`
   // non doveva uscire di li'.
-  for (const [chi, query] of [
-    ["vedeOrdini", /vedeOrdini\s*\n?\s*\?\s*leggi\("orders"/],
-    ["vedeResa", /vedeResa \? caricaResaGiorno\(/],
-    ["vedeMenu", /vedeMenu \? caricaMenuHome\(/],
-    ["vedeMenu", /vedeMenu\s*\n?\s*\?\s*leggi\("menu_categories"/],
-    ["vedeMenu", /vedeMenu \? leggi\("menu_items"/],
-  ]) {
-    assert.match(HOME_DATA, query, `la lettura non e' piu' condizionata a ${chi}`);
+  // ⚠️ Il nome della guardia si LEGGE dal file, non si scrive qui: questa
+  // prova e' nata controllando `vedeOrdini ? ...` e si e' rotta il giorno in
+  // cui quella variabile si e' chiamata `mostraOrdini` — mentre la falla che
+  // doveva sorvegliare non era tornata. Cio' che conta e' che esista una
+  // guardia costruita con `mostra(ctx, pagina)` e che TUTTO quello che
+  // riguarda quell'isola — le letture e la risposta — passi da lei.
+  const guardiaDi = (pagina) => {
+    const m = HOME_DATA.match(new RegExp(`const (\\w+) = mostra\\(ctx, "${pagina}"\\)`));
+    assert.ok(m, `l'isola «${pagina}» non ha piu' una guardia costruita con mostra(ctx, ...)`);
+    return m[1];
+  };
+  const letture = [
+    ["orders", 'caricaOrdiniHome('],
+    ["reservations", 'caricaResaGiorno('],
+    ["menu", 'caricaMenuHome('],
+    ["menu", 'leggi("menu_categories"'],
+    ["menu", 'leggi("menu_items"'],
+  ];
+  const lett = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const [pagina, query] of letture) {
+    const g = guardiaDi(pagina);
+    assert.match(HOME_DATA, new RegExp(`${g}\\s*\\n?\\s*\\?\\s*${lett(query)}`),
+      `la lettura ${query} non e' piu' condizionata alla guardia dell'isola «${pagina}»`);
   }
   // E non finisce nemmeno nella risposta.
-  assert.match(HOME_DATA, /\.\.\.\(vedeOrdini \? \{ orders:/);
-  assert.match(HOME_DATA, /\.\.\.\(vedeResa \? \{ resa \}/);
-  assert.match(HOME_DATA, /\.\.\.\(vedeMenu \? \{ menu:/);
+  for (const [pagina, campo] of [["orders", "{ orders:"], ["reservations", "{ resa }"], ["menu", "{ menu:"]]) {
+    assert.match(HOME_DATA, new RegExp(`\\.\\.\\.\\(${guardiaDi(pagina)} \\? ${lett(campo)}`),
+      `l'isola «${pagina}» finisce nella risposta senza guardia`);
+  }
 });
 
 test("le isole della home e le API rispondono alla STESSA pagina", () => {
@@ -276,7 +293,7 @@ test("le isole della home e le API rispondono alla STESSA pagina", () => {
   ];
   for (const [api, pagina] of ISOLE) {
     assert.equal(API_PAGINA[api], pagina, `l'API ${api} non e' piu' sotto la pagina «${pagina}»`);
-    assert.match(HOME_DATA, new RegExp(`puo\\(ctx, "${pagina}"\\)`),
+    assert.match(HOME_DATA, new RegExp(`mostra\\(ctx, "${pagina}"\\)`),
       `l'SSR della home non guarda piu' la pagina «${pagina}»`);
   }
   // `today` resta aperta: e' lo stato della cucina, la home ne ha sempre bisogno.
@@ -374,4 +391,51 @@ test("un pannello aperto da un'ora salva ancora: il token si rinnova", () => {
     });
   }
   assert.deepEqual(sordi, [], `header dell'autorizzazione costruito e mai piu' aggiornato:\n  ${sordi.join("\n  ")}`);
+});
+
+test("spegnere una funzione non e' negare un permesso", () => {
+  // Due domande diverse, e per il super hanno risposte diverse: puo' APRIRE
+  // Commandes (deve: e' da li' che la riaccende) ma il locale NON prende
+  // ordini, quindi la Accueil non deve mostrarne niente. Finche' era una sola
+  // domanda, il super spegneva Commandes in Pages visibles e si ritrovava la
+  // colonna degli ordini a dire «0 aujourd'hui» — un numero vero su una cosa
+  // che non esiste.
+  const ctx = { ruolo: "super", nascoste: ["orders"], tutte: TUTTE };
+  assert.equal(puoVederePagina("orders", ctx), true);
+  assert.equal(funzioneAccesa("orders", ctx), false);
+  assert.equal(funzioneAccesa("reservations", ctx), true);
+  // Una chiave sconosciuta resta accesa: cio' che si spegne si dichiara.
+  assert.equal(funzioneAccesa("notes", ctx), true);
+  assert.equal(funzioneAccesa("orders", { ruolo: "admin", tutte: TUTTE }), true);
+});
+
+test("la Accueil chiede «lo mostriamo?», non «puo' aprirlo?»", () => {
+  // ⚠️ Prova sulla SOSTANZA: il pre-caricamento della home non deve decidere
+  // con `puo`, che al super dice sempre si'. Se qualcuno lo rimette, la falla
+  // non da' nessun errore — da' una colonna in piu' a chi l'aveva spenta.
+  const home = readFileSync("src/lib/admin/caricaHomeData.ts", "utf8");
+  for (const k of ["orders", "reservations", "menu"]) {
+    assert.ok(home.includes(`mostra(ctx, "${k}")`), `l'isola ${k} non passa da mostra()`);
+  }
+  assert.ok(!/\bpuo\(ctx/.test(home), "caricaHomeData decide ancora con puo(ctx, ...)");
+  assert.ok(/funzioneAccesa\(k, ctx\)/.test(home), "le pagine mandate al client non sono filtrate");
+});
+
+test("cio' che e' spento sparisce prima del primo paint", () => {
+  // La regola sta nel <head> stampato dal server: nessun cookie, nessun
+  // token, nessun fetch. Toglierla di qui per rimetterla dopo un fetch
+  // significa un lampo di tile e una griglia che tiene il posto a una
+  // colonna che spariva un istante dopo.
+  const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
+  assert.ok(/boot\.hiddenPages/.test(head), "AdminHead non legge le funzioni spente");
+  assert.ok(/\[data-admin-page="\$\{k\}"\]\{display:none!important\}/.test(head),
+    "AdminHead non nasconde cio' che e' marcato data-admin-page");
+  assert.ok(/SPENTE_CSS/.test(head) && /\+ SPENTE_CSS/.test(head), "la regola non finisce nel CSS stampato");
+
+  // E la fascia della giornata deve CONTARE le colonne vive guardando lo
+  // stile calcolato: una colonna spenta da quella regola ha lo stile inline
+  // vuoto, e la griglia le terrebbe il posto.
+  const home = readFileSync("src/pages/admin/index.astro", "utf8");
+  const blocco = home.slice(home.indexOf('["j-resa", "j-ord"]'));
+  assert.ok(/getComputedStyle/.test(blocco.slice(0, 400)), "le colonne vive si contano dallo stile inline");
 });

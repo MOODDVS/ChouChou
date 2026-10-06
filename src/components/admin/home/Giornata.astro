@@ -1,0 +1,221 @@
+---
+/**
+ * LA GIORNATA — la fascia in cima alla Accueil.
+ *
+ * ⚠️ NON E' UNA TILE, ed e' il punto di tutto il disegno. Le tile sono
+ * riquadri che pesano uguale: una griglia di riquadri uguali dice che il
+ * fatturato, le foto mancanti e il prossimo ritiro sono la stessa cosa, e chi
+ * apre la pagina deve cercare. Questa fascia sta direttamente sul fondo della
+ * pagina — niente bordo, niente ombra — perche' e' il CONTENUTO della Accueil.
+ * Le tile cominciano sotto, ed e' il loro riquadro a dire «qui c'e' un'altra
+ * cosa».
+ *
+ * Dentro, hanno un blocco solo le cose che si prendono una alla volta: una
+ * prenotazione, un ordine, un numero. Quello che si guarda e basta — la nota
+ * di Google, la recensione, gli orari, l'affluenza — resta nudo.
+ *
+ * TUTTO QUELLO CHE SI VEDE E' DI OGGI. Una riga di domani in mezzo a quelle di
+ * stasera si legge come se fosse adesso.
+ *
+ * Il markup e' vuoto: lo riempie lo script di `index.astro`, che ha gia' i
+ * dati (pre-caricati dal server o chiesti alle API). Le colonne si nascondono
+ * da sole quando la loro funzione e' spenta — una colonna vuota che dice
+ * «nessuna prenotazione» occuperebbe un terzo di schermo per non dire niente.
+ */
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+import Modal from "../Modal.astro";
+const lang = await adminLang();
+const t = adminT(lang);
+
+// ⚠️ Le stesse icone delle pagine Réservations e Commandes: chi guarda
+// la Accueil deve ritrovare nella barra in basso il segno che ha appena
+// visto qui. Un'icona nuova per la stessa cosa e' una cosa nuova.
+const ICO_RESA = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>`;
+const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
+---
+
+<section class="jour" id="jour" style="display:none">
+
+  {/* ---------- GOOGLE: la nota, l'ultimo avis, i numeri di 28 giorni ---------- */}
+  <div class="j-col j-google" id="j-google" style="display:none">
+    <div class="j-hd">
+      <img class="j-glogo" src="/restohub/Google_Favicon.webp" alt="" width="22" height="22" loading="lazy" />
+      <span class="j-t">Google</span>
+      {/* ⚠️ La freccia e' un ELEMENTO, non un carattere dentro la frase:
+          dentro il testo non si puo' far reagire al passaggio del dito, e in
+          una lingua che scrive al contrario finirebbe dalla parte sbagliata. */}
+      <a class="j-cnt j-link" id="j-g-maps" href="#" target="_blank" rel="noopener">
+        <span>{t("home.listing")}</span>
+        <span class="j-arr" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg>
+        </span>
+      </a>
+    </div>
+
+    <div class="j-note">
+      <span class="v" id="j-g-rating">—</span>
+      <span class="st" id="j-g-stars" aria-hidden="true"></span>
+    </div>
+    <div class="j-note-sub" id="j-g-count">—</div>
+
+    {/* La recensione: una citazione, non una scatola.
+        ⚠️ Chi ha scritto viene PRIMA di cosa ha scritto: si decide se
+        rispondere guardando la faccia, il voto e se qualcuno ha gia'
+        risposto — e solo dopo si legge. In fondo, il nome era l'ultima cosa
+        che l'occhio trovava, quando aveva gia' letto tutto. */}
+    {/* ⚠️ Chi ha scritto sta FUORI dalla citazione: la riga verticale segna
+        le parole del cliente, e il suo nome non e' una cosa che ha detto lui.
+        Dentro, l'intestazione sembrava la prima frase della recensione. */}
+    <div class="j-aut" id="j-g-aut" style="display:none">
+      <span class="j-av" id="j-g-av"></span>
+      <span class="j-aut-x">
+        <span class="nm" id="j-g-who"></span>
+        <span class="j-aut-r">
+          <span class="sr" id="j-g-astars" aria-hidden="true"></span>
+          <span class="dt" id="j-g-when"></span>
+          <span class="j-rep" id="j-g-rep"></span>
+        </span>
+      </span>
+    </div>
+
+    <div class="j-quote" id="j-g-car" style="display:none">
+      <p class="q-x" id="j-g-quote"></p>
+    </div>
+
+    <div class="j-qf" id="j-g-nav" style="display:none">
+      <span class="j-arrows">
+        <button type="button" id="j-g-prev" aria-label={t("home.prevReview")}>‹</button>
+        <button type="button" id="j-g-next" aria-label={t("home.nextReview")}>›</button>
+      </span>
+      <span class="j-dots" id="j-g-dots"></span>
+      {/* Compare solo sulle recensioni a cui si PUO' rispondere: serve l'id,
+          che arriva col Business Profile collegato, e serve che nessuno abbia
+          gia' risposto. Un bottone che a volte non fa niente e' peggio di un
+          bottone che non c'e'. */}
+      <button type="button" class="j-rbtn" id="j-g-rep-open" style="display:none">{t("gg.reply")}</button>
+    </div>
+
+    {/* I tre numeri della scheda: stessi blocchi dei numeri in fondo alle
+        colonne, perche' sono la stessa cosa — un numero che si va a guardare. */}
+    <div class="j-nums" id="j-g-perf" style="display:none">
+      <div><span class="k">{t("home.gSite")}</span><span class="v" id="j-g-site">—</span><span class="d" id="j-g-site-d"></span></div>
+      <div><span class="k">{t("home.gCalls")}</span><span class="v" id="j-g-calls">—</span><span class="d" id="j-g-calls-d"></span></div>
+      <div><span class="k">{t("home.gRoute")}</span><span class="v" id="j-g-route">—</span><span class="d" id="j-g-route-d"></span></div>
+    </div>
+    <div class="j-per" id="j-g-per" style="display:none">{t("home.last30")}</div>
+  </div>
+
+  {/* ---------- LA GIORNATA: orari, affluenza, e le due colonne ---------- */}
+  <div class="j-dx" id="j-dx">
+
+    {/* Ancora spento: gli orari e l'affluenza arrivano col passo successivo.
+        Una fascia che dice «AUJOURD'HUI —» con una pastiglia vuota sembra un
+        guasto, non un lavoro in corso. */}
+    <div class="j-ore" id="j-ore" style="display:none">
+      <div class="j-ore-h">
+        <span class="j-t">{t("home.todayTitle")}</span>
+        <span class="j-pil" id="j-stato">—</span>
+        <span class="j-orari" id="j-orari"></span>
+      </div>
+
+      {/* L'affluenza, ora per ora. Una serie sola: nessuna legenda da leggere,
+          l'altezza porta tutto. Le ore di chiusura sono tratteggiate e non
+          barre a zero — «chiuso» e «non e' venuto nessuno» non sono la stessa
+          cosa, e si riparano in due posti diversi. */}
+      <div class="j-hm" id="j-hm" style="display:none">
+        <div class="j-hm-plot" id="j-hm-plot"></div>
+        <div class="j-hm-x" id="j-hm-x"></div>
+        <div class="j-hm-f">
+          <span class="j-key"><b class="now"></b> {t("home.hourNow")}</span>
+          <span class="j-key"><b class="cl"></b> {t("home.hourClosed")}</span>
+          <span id="j-hm-pic"></span>
+          <span class="src" id="j-hm-src"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="j-due" id="j-due">
+
+      {/* ---- Prenotazioni di oggi ---- */}
+      <div class="j-col j-resa" id="j-resa" data-admin-page="reservations" style="display:none">
+        <div class="j-hd">
+          {/* ⚠️ L'icona sta DENTRO la riga del titolo, non accanto al blocco:
+              fuori si centrava sull'altezza di due righe — titolo e conteggio —
+              e finiva a mezz'aria fra l'uno e l'altro. */}
+          <span class="j-hd-x">
+            <span class="j-t"><Fragment set:html={ICO_RESA} />{t("nav.reservations")}</span>
+            <span class="j-cnt" id="j-resa-cnt"></span>
+          </span>
+          <a class="j-link j-vedi" href="/admin/reservations">
+            <span>{t("home.seeAll")}</span>
+            <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+          </a>
+        </div>
+        <div class="j-lista" id="j-resa-lista"></div>
+        <div class="j-nums">
+          <div><span class="k">{t("home.covers")}</span><span class="v" id="j-resa-couv">—</span><span class="d" id="j-resa-couv-d"></span></div>
+          <div><span class="k">{t("home.filling")}</span><span class="v" id="j-resa-rempl">—</span><span class="d" id="j-resa-rempl-d"></span></div>
+          <div><span class="k">{t("home.toConfirm")}</span><span class="v att" id="j-resa-conf">—</span><span class="d" id="j-resa-conf-d"></span></div>
+        </div>
+      </div>
+
+      {/* ---- Ordini di oggi ---- */}
+      <div class="j-col j-ord" id="j-ord" data-admin-page="orders" style="display:none">
+        <div class="j-hd">
+          {/* ⚠️ L'icona sta DENTRO la riga del titolo, non accanto al blocco:
+              fuori si centrava sull'altezza di due righe — titolo e conteggio —
+              e finiva a mezz'aria fra l'uno e l'altro. */}
+          <span class="j-hd-x">
+            <span class="j-t"><Fragment set:html={ICO_ORD} />{t("nav.orders")}</span>
+            <span class="j-cnt" id="j-ord-cnt"></span>
+          </span>
+          <a class="j-link j-vedi" href="/admin/orders">
+            <span>{t("home.seeAll")}</span>
+            <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+          </a>
+        </div>
+        <div class="j-lista" id="j-ord-lista"></div>
+        <div class="j-nums">
+          <div><span class="k">{t("home.cashed")}</span><span class="v" id="j-ord-enc">—</span><span class="d" id="j-ord-enc-d"></span></div>
+          <div><span class="k">{t("home.basket")}</span><span class="v" id="j-ord-pan">—</span><span class="d" id="j-ord-pan-d"></span></div>
+          <div><span class="k">{t("ord.toCollect")}</span><span class="v att" id="j-ord-aenc">—</span><span class="d" id="j-ord-aenc-d"></span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+{/* ⚠️ Il modale sta FUORI da `.jour`: la fascia parte nascosta e resta
+    nascosta finche' i dati non arrivano, e un modale dentro un elemento
+    spento non si aprirebbe mai. Guscio condiviso (`Modal`), come ovunque. */}
+<Modal id="j-rep-overlay" title={t("gg.reply")} width="560px">
+  {/* Chi ha scritto e cosa ha scritto, perche' si risponde a una persona:
+      doverla andare a rileggere dietro al modale e' il modo di rispondere
+      alla recensione sbagliata. */}
+  <div class="j-aut">
+    <span class="j-av" id="j-rep-av"></span>
+    <span class="j-aut-x">
+      <span class="nm" id="j-rep-who"></span>
+      <span class="j-aut-r">
+        <span class="sr" id="j-rep-stars" aria-hidden="true"></span>
+        <span class="dt" id="j-rep-when"></span>
+      </span>
+    </span>
+  </div>
+  <div class="j-quote j-rep-quote"><p class="q-x" id="j-rep-quote"></p></div>
+
+  <label class="f-label j-rep-lab" for="j-rep-txt">{t("gg.reply")}</label>
+  <textarea id="j-rep-txt" class="fld j-rep-txt" maxlength="4000" placeholder={t("gg.replyPh")}></textarea>
+  {/* ⚠️ `.hint` e non `.f-note`: quest'ultima ha un margine NEGATIVO, fatto
+      apposta per incollarsi al campo di sopra. Qui la frase spiega una cosa
+      che si fa dopo aver scritto, e le serve aria. */}
+  <p class="hint j-rep-hint">{t("gg.replyHint")}</p>
+
+  <Fragment slot="foot">
+    <span class="j-reply-msg" id="j-rep-msg"></span>
+    <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+    <button type="button" class="md-btn md-btn-primary" id="j-rep-pub">{t("gg.replyPublish")}</button>
+  </Fragment>
+</Modal>

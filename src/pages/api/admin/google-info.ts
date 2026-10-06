@@ -30,6 +30,11 @@ function json(body: unknown, status = 200): Response {
 
 interface Avis {
   auteur: string;
+  /** Foto del profilo di chi ha scritto. ⚠️ La colonna `photo` esisteva gia'
+   *  nella tabella sincronizzata e nessuno la leggeva: un volto accanto a una
+   *  recensione dice in mezzo secondo se e' un cliente abituale o un passante,
+   *  e una riga di sole lettere non lo dira' mai. */
+  foto?: string;
   note: number;
   texte: string;
   quand: string;
@@ -61,6 +66,7 @@ async function avisPlusRecents(placeId: string): Promise<Avis[] | null> {
           text?: string;
           relative_time_description?: string;
           time?: number;
+          profile_photo_url?: string;
         }[];
       };
     };
@@ -72,6 +78,7 @@ async function avisPlusRecents(placeId: string): Promise<Avis[] | null> {
       .slice(0, 5)
       .map((r) => ({
         auteur: r.author_name ?? "",
+        foto: r.profile_photo_url ?? "",
         note: Number(r.rating ?? 0),
         texte: (r.text ?? "").slice(0, 1500),
         quand: r.relative_time_description ?? "",
@@ -113,7 +120,7 @@ export const GET: APIRoute = async ({ request }) => {
             rating?: number;
             text?: { text?: string };
             originalText?: { text?: string };
-            authorAttribution?: { displayName?: string };
+            authorAttribution?: { displayName?: string; photoUri?: string };
             relativePublishTimeDescription?: string;
             publishTime?: string;
           }[];
@@ -127,6 +134,7 @@ export const GET: APIRoute = async ({ request }) => {
           .slice(0, 5)
           .map((r) => ({
             auteur: r.authorAttribution?.displayName ?? "",
+            foto: r.authorAttribution?.photoUri ?? "",
             note: Number(r.rating ?? 0),
             texte: (r.text?.text ?? r.originalText?.text ?? "").slice(0, 1500),
             quand: r.relativePublishTimeDescription ?? "",
@@ -150,7 +158,7 @@ export const GET: APIRoute = async ({ request }) => {
     try {
       // Le recensioni della tile sono quelle del PUNTO che si sta guardando.
       const { data: gr } = await leggi("google_reviews", await ambitoDiRichiesta(request, staff),
-        "review_id, author, rating, comment, reply_comment, create_time")
+        "review_id, author, photo, rating, comment, reply_comment, create_time")
         .order("create_time", { ascending: false })
         .limit(8);
       if (gr && gr.length) {
@@ -158,6 +166,7 @@ export const GET: APIRoute = async ({ request }) => {
         if (conTesto.length) {
           avisOut = conTesto.map((r) => ({
             auteur: String(r.author ?? ""),
+            foto: String(r.photo ?? ""),
             note: Number(r.rating ?? 0),
             texte: String(r.comment ?? "").slice(0, 1500),
             quand: "",

@@ -358,19 +358,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .r-badge:hover { filter: brightness(1.25); }
       /* Menu degli stati (dal badge) */
-      .st-menu {
-        position: fixed; z-index: 460; min-width: 150px; display: none;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.35rem;
-      }
-      .st-menu button {
-        display: flex; align-items: center; gap: 0.5rem; width: 100%;
-        background: none; border: none; color: var(--c-text); cursor: pointer;
-        font-family: var(--font-body); font-size: 0.85rem; padding: 0.5rem 0.6rem; text-align: left;
-      }
-      .st-menu button:hover { background: var(--c-line); }
-      .st-menu button.is-cur { color: var(--c-accent); }
-      .st-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+      /* `.st-menu` e `.st-dot` stanno in styles/stati.css: li usa anche la Accueil. */
       .r-badge.ok { background: rgba(46, 158, 107, 0.18); border: 1px solid #2e9e6b; color: #6fd0a3; }
       .r-badge.ko { background: rgba(237, 28, 36, 0.15); border: 1px solid #ed1c24; color: #ff8a8f; }
       .r-badge.ns { background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid var(--c-accent); color: var(--c-accent); }
@@ -4621,6 +4609,29 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             mSave.disabled = false;
           }
         });
+        // ---- Arrivo da un'altra pagina su UNA prenotazione ----
+        // La Accueil manda qui con `?resa=<id>`: si apre la sua scheda, cosi'
+        // chi ha cliccato quel nome non deve ritrovarlo in un elenco di venti.
+        //
+        // ⚠️ STA IN FONDO, e non accanto al primo `carica()`. `apriDettagli`
+        // legge `dtOverlay` e compagnia, che sono `const` dichiarate piu'
+        // sotto: chiamata prima, non da' un errore di compilazione ma un
+        // ReferenceError a pagina aperta — e con un `try` intorno non lo dice
+        // nemmeno. Qui tutto esiste gia'.
+        //
+        // L'indirizzo si ripulisce subito: ricaricare la pagina, o tornarci col
+        // tasto indietro, non deve riaprire un modale appena chiuso.
+        {
+          let chiesta = "";
+          try { chiesta = new URLSearchParams(window.location.search).get("resa") ?? ""; } catch { chiesta = ""; }
+          if (chiesta && trovaResa(chiesta)) {
+            apriDettagli(chiesta);
+            const u = new URL(window.location.href);
+            u.searchParams.delete("resa");
+            window.history.replaceState({}, "", u.toString());
+          }
+        }
+
       })();
     </script>
   </body>

@@ -90,6 +90,28 @@ export function puoVederePagina(
   return pagineConsentite(ctx).includes(chiave);
 }
 
+/**
+ * LA FUNZIONE E' ACCESA PER QUESTO LOCALE?
+ *
+ * ⚠️ Non e' un permesso, e' un'ESISTENZA — e sono due domande diverse.
+ * `puoVederePagina` risponde «questa persona puo' aprire la pagina», e per il
+ * super e' sempre si': deve poter entrare in Commandes anche per riaccenderla.
+ * Qui si chiede un'altra cosa: questo ristorante prende ordini? Se il super ha
+ * spento «Commandes» in Pages visibles, in questa installazione gli ordini NON
+ * ESISTONO, e la Accueil non deve mostrarne la colonna NEMMENO AL SUPER: una
+ * colonna «0 commandes aujourd'hui» per un locale che non prende ordini non e'
+ * un dato, e' un errore che si legge come un dato.
+ *
+ * Una chiave sconosciuta e' accesa, per la stessa ragione di `puoVederePagina`:
+ * cio' che si spegne si dichiara in PAGINE_ADMIN.
+ */
+export function funzioneAccesa(
+  chiave: string,
+  ctx: { nascoste?: string[] | null },
+): boolean {
+  return !(ctx.nascoste ?? []).includes(String(chiave || ""));
+}
+
 /** Le caselle da spuntare per difetto quando si crea un «utente». */
 export function pagineDiDefault(tutte: string[]): string[] {
   return (tutte ?? []).filter((k) => !PAGINE_SOLO_ADMIN.includes(k));

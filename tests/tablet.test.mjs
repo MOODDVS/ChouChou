@@ -35,6 +35,28 @@ test("header e nav usano LA STESSA fascia del piede di misura", () => {
   }
 });
 
+test("sull'iPad orizzontale la fascia della giornata tiene le tre colonne", () => {
+  // 1024 CSS px: per il motore e' un desktop, ma la fascia si impilava lo
+  // stesso (la soglia stretta e' 1100) e dell'Accueil restava Google a tutta
+  // larghezza — cioe' la cosa che si guarda meno, grande come lo schermo.
+  // Col piede a 13px le tre colonne ci stanno, e sono il motivo per cui si
+  // apre questa pagina.
+  const home = nudo("src/pages/admin/index.astro");
+  assert.ok(home.includes(QUERY), "la Accueil non e' piu' nella fascia iPad: a 1024px la giornata torna impilata");
+  const blocco = home.split(QUERY)[1]?.split("@media")[0] ?? "";
+  assert.match(blocco, /\.jour\s*\{[^}]*--j-cols:\s*initial/,
+    "la fascia iPad non rimette le colonne della giornata");
+
+  // ⚠️ `initial` e non il valore riscritto: le misure della fascia stanno in
+  // un posto solo, e una media query che se le ricopia resta indietro al
+  // primo cambio di proporzione — due schermi, due disegni, e nessuno
+  // l'ha deciso.
+  assert.equal((home.match(/1fr 1\.85fr/g) ?? []).length, 1,
+    "le colonne della giornata sono scritte in piu' di un posto");
+  assert.equal((home.match(/36\.5rem/g) ?? []).length, 1,
+    "l'altezza della giornata e' scritta in piu' di un posto");
+});
+
 test("le etichette della barra non scendono sotto il leggibile", () => {
   // 0.56rem col piede a 13px fa 7px. In quella fascia il valore deve essere
   // in px, cioe' non seguire la scala: e' l'icona a stringersi, non la parola.

@@ -26,12 +26,17 @@ export interface ResaGiorno {
   special_open?: boolean; // jour spécial "ouvert": scavalca i giorni dei services
   special_services?: string[] | null; // lista servizi attivi del giorno speciale (null = tutti)
   hold_minutes?: number;
+  /** Nome dei tavoli per id — `reservations.tables` porta gli id, e un id non
+   *  dice niente a chi legge: in sala il tavolo si chiama «3» o «Terrasse 2».
+   *  Vuoto se il piano sala non c'e' (migrazione non lanciata, o cliente senza
+   *  tavoli disegnati): chi lo usa mostra quello che puo'. */
+  tables_map?: Record<string, string>;
   config?: ResaGiornoConfig;
   missing?: boolean;
 }
 
 export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<ResaGiorno> {
-  const [reseQ, cfgQ, chQ, zchQ, spQ] = await Promise.all([
+  const [reseQ, cfgQ, tavQ, chQ, zchQ, spQ] = await Promise.all([
     leggi("reservations", ambito, "*")
       .eq("date", date)
       .order("heure", { ascending: true })
@@ -46,6 +51,9 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
         "service_closures_permanent",
         "zone_closures_permanent",
       ], ambito),
+    // ⚠️ Una lettura a se', col suo ripiego: su un cliente senza piano sala la
+    // tabella non c'e', e un errore qui non deve portarsi via le prenotazioni.
+    leggi("restaurant_tables", ambito, "id, name").then((r) => r, () => ({ data: null, error: true })),
     leggi("service_closures", ambito, "service_key, reason").eq("date", date),
     leggi("zone_closures", ambito, "zone, reason").eq("date", date),
     leggi("special_days", ambito, "type, services")
@@ -206,9 +214,17 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
   const specialServices =
     rigaOpen && Array.isArray(rigaOpen.services) ? (rigaOpen.services as unknown[]).map((t) => String(t)) : null;
 
+  const tablesMap: Record<string, string> = {};
+  for (const t of ((tavQ as { data?: unknown[] | null })?.data ?? []) as { id?: unknown; name?: unknown }[]) {
+    const id = String(t.id ?? "");
+    const nome = String(t.name ?? "").trim();
+    if (id && nome) tablesMap[id] = nome;
+  }
+
   return {
     reservations: data ?? [],
     couverts,
+    tables_map: tablesMap,
     closures,
     zone_closures: zoneClosures,
     special_open: specialOpen,

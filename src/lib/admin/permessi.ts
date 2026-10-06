@@ -14,7 +14,7 @@
 import { claimsDaToken, type StaffUser } from "./adminAuth";
 import { caricaBootAdmin } from "./adminBoot";
 import { ruoloDi, PAGINE_ADMIN } from "./superAdmin";
-import { puoVederePagina } from "./permessiRegole";
+import { puoVederePagina, funzioneAccesa } from "./permessiRegole";
 
 export interface ContestoPermessi {
   ruolo: ReturnType<typeof ruoloDi>;
@@ -52,4 +52,17 @@ export async function contestoDaToken(token: string): Promise<ContestoPermessi |
 /** Scorciatoia leggibile sul posto: `puo(ctx, "orders")`. */
 export function puo(ctx: ContestoPermessi, pagina: string): boolean {
   return puoVederePagina(pagina, ctx);
+}
+
+/**
+ * Lo mettiamo nella Accueil? — il permesso di chi guarda E la funzione accesa.
+ *
+ * ⚠️ E' la domanda che deve fare la HOME, non `puo`. `puo` e' la serratura:
+ * dice se una richiesta passa, e al super passa sempre. Questa dice se la cosa
+ * ha senso in questo locale. L'interruttore «Pages visibles» del super e' il
+ * comando: spento Commandes, tutto cio' che riguarda gli ordini sparisce dalla
+ * Accueil — colonna, tile e numeri — per tutti, lui compreso.
+ */
+export function mostra(ctx: ContestoPermessi, pagina: string): boolean {
+  return puo(ctx, pagina) && funzioneAccesa(pagina, ctx);
 }

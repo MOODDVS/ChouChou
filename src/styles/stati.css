@@ -1,0 +1,49 @@
+/* ============================================================
+   MENU DEGLI STATI — uno solo per tutta l'applicazione.
+
+   La pastiglia di una prenotazione si clicca e apre questo menu:
+   nella pagina Réservations e, dal 06/10/2026, anche nella fascia
+   della Accueil. Era scritto dentro `reservations.astro`; due
+   copie dello stesso menu vogliono dire che un giorno una delle
+   due ha uno stato in meno, e nessuno se ne accorge finche' non
+   serve proprio quello.
+
+   ⚠️ `position: fixed`: il menu si appende al `body` e si
+   posiziona sulle coordinate della pastiglia. Dentro la riga
+   verrebbe tagliato dal primo contenitore che nasconde cio' che
+   esce — e in un elenco ce n'e' sempre uno.
+   ============================================================ */
+
+.st-menu {
+  position: fixed;
+  z-index: 460;
+  min-width: 150px;
+  display: none;
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15)));
+  padding: 0.35rem;
+}
+
+.st-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--c-text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+}
+
+.st-menu button:hover { background: var(--c-line); }
+
+/* Lo stato in cui la prenotazione si trova ADESSO: si vede quale
+   si sta per cambiare, e si evita di riscegliere lo stesso. */
+.st-menu button.is-cur { color: var(--c-accent); }
+
+.st-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
