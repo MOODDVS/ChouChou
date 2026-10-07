@@ -29,7 +29,7 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 | **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
 | **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
 | **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
-| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `e3e863a` — 05/10/2026** (stampa ticket; 0 conflitti) | pagina di annullo anche in italiano |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `07a89cf` — 07/10/2026** (la giornata; 0 conflitti, 688 prove verdi) | pagina di annullo anche in italiano. **Ticket di cucina suo** (`config/ticket.ts`, commit `e32521e`): «Forza Napoli!» sotto l'insegna, nota dell'ordine sopra i piatti, conto dei pezzi sulla riga di servizio. Stampante collegata e prova uscita il 07/10 |
 | **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
 
 ✅ **Tutti e sei allineati e deployati** (04/10/2026). **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
@@ -38,6 +38,8 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 1. **`TUTTO.sql`** nel suo Supabase — porta la coda (#76) e il ticket per stampante (#77). Da oggi si puo' rilanciare su un database vivo senza riscrivere niente.
 2. **`PUBLIC_SITE_URL`** fra le variabili su Hostinger (`https://www.450gradi.be`, `https://educazionenapoletana.be`…): e' l'indirizzo che il tablet va ad aprire. Senza, la coda non accoda e lo scrive solo nei log.
 3. La stampante si sceglie nel **super**: **Sedi → matita → Impression** se il cliente ha piu' punti, **Intégrations → Impression** se ne ha uno solo.
+4. **L'interruttore della stampa automatica ACCESO.** ⚠️ La «prova di stampa» del pannello chiama `mandaStampa` diretto (`api/admin/printers.ts`): salta la coda **e** salta l'interruttore. Un ordine vero passa da `accodaTicket`, che si ferma secco se `print_auto` non e' `1` con la stampante scelta. Prova uscita + switch spento = la stampa «funziona» e in cucina non arriva mai niente, senza un errore da nessuna parte. **Dopo la prova, un ordine vero da un pezzo.**
+5. **Le chiavi senza virgolette.** Incollando `BIZPRINT_SECRET_KEY="abc"` nel pannello dell'hosting le virgolette restano dentro il valore: il servizio risponde `401`, che si legge come «stampante assente». Dal commit `5b912d6` il motore le spoglia da solo e il 401 dice le lunghezze delle due chiavi (assente = 0, virgolette = due caratteri di troppo, invertite = lunghezze scambiate).
 
 ## ⚠️ Il giro del 04/10: 4 clienti su 6 rotti dall'AUTO-MERGE
 
