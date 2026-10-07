@@ -381,7 +381,7 @@ export const POST: APIRoute = async ({ request }) => {
       .select("id, code, pay_token")
       .single();
     // COLONNE GIOVANI non ancora migrate su questo cliente (#70 le lingue,
-    // sezione 12 di locations.sql il punto di vendita): si riprova senza.
+    // sezione 12 di 073_locations.sql il punto di vendita): si riprova senza.
     // Meglio un buono senza la sua etichetta che nessun buono.
     //
     // ⚠️ Si toglie SOLO la colonna che l'errore nomina, una per giro.

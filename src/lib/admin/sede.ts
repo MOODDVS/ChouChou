@@ -295,10 +295,21 @@ type QCancellazione = ReturnType<typeof _qCancellazione>;
 type QSalvataggio = ReturnType<typeof _qSalvataggio>;
 
 /** SELECT con il filtro di sede gia' applicato. Si continua a concatenare
- *  `.eq()`, `.order()`, `.range()` come sempre. */
-export function leggi(tabella: string, ambito: Ambito, campi = "*"): QLettura {
+ *  `.eq()`, `.order()`, `.range()` come sempre.
+ *
+ *  `opzioni` e' quello di `.select()`: serve per CONTARE senza portarsi via
+ *  le righe (`{ count: "exact", head: true }`). ⚠️ Passa da qui e non da un
+ *  `supabaseAdmin.from(...)` scritto a mano: li' il filtro di sede non ci
+ *  sarebbe, e un conteggio senza filtro e' il numero di TUTTE le sedi dato
+ *  per quello di una — plausibile, e sbagliato. */
+export function leggi(
+  tabella: string,
+  ambito: Ambito,
+  campi = "*",
+  opzioni?: { count?: "exact" | "planned" | "estimated"; head?: boolean },
+): QLettura {
   return applicaFiltro(
-    supabaseAdmin.from(tabella).select(campi) as never,
+    supabaseAdmin.from(tabella).select(campi, opzioni) as never,
     tabella,
     ambito,
   ) as unknown as QLettura;

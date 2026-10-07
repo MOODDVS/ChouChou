@@ -427,9 +427,9 @@ test("lo stato del punto comanda sulla carta del gruppo, anche per rimettere in 
      non lo segnala niente.
    ============================================================ */
 test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
-  const sql = readFileSync("supabase/locations.sql", "utf8");
+  const sql = readFileSync("supabase/073_locations.sql", "utf8");
   const m = /create or replace function public\.tabelle_di_sede\(\)[\s\S]*?select array\[([\s\S]*?)\]::text\[\]/.exec(sql);
-  assert.ok(m, "funzione `tabelle_di_sede()` non trovata in locations.sql");
+  assert.ok(m, "funzione `tabelle_di_sede()` non trovata in 073_locations.sql");
   // ⚠️ Via i commenti `--` PRIMA di cercare i nomi. Un commento in italiano
   // dentro l'elenco («non c'e' piu'») ha degli apostrofi, e questo lettore
   // ingenuo ci vedeva una stringa SQL: si ritrovava una tabella di nome «e».

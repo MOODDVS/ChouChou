@@ -6,6 +6,7 @@ import { pulisciPagine } from "../../../lib/admin/permessiRegole";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { nomeDiStaff } from "../../../lib/admin/adminAuth";
 export const prerender = false;
 
 
@@ -66,7 +67,11 @@ export const GET: APIRoute = async ({ request }) => {
 
   const users = (data?.users ?? []).map((u) => {
     const m = (u.user_metadata ?? {}) as { first_name?: string; last_name?: string; full_name?: string };
-    const nome = String(m.full_name ?? `${m.first_name ?? ""} ${m.last_name ?? ""}`).trim();
+    // ⚠️ La stessa funzione che firma le note. Qui la formula era scritta a
+    // mano, e con un `??` invece di un `||`: `full_name` vuoto — che e' una
+    // stringa, non `undefined` — vinceva su nome e cognome, e l'utente
+    // compariva senza nome pur avendolo.
+    const nome = nomeDiStaff(u.user_metadata);
     return {
     id: u.id,
     nome,

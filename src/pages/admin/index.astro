@@ -7,7 +7,6 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Giornata from "../../components/admin/home/Giornata.astro";
-import TileNotes from "../../components/admin/home/TileNotes.astro";
 import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 import Modal from "../../components/admin/Modal.astro";
@@ -130,15 +129,64 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            una riga sola, e nessuna media query puo' restare indietro con il
            numero vecchio — che e' il modo in cui due schermi finiscono per
            mostrare due disegni diversi senza che nessuno lo decida. */
-        display: grid; grid-template-columns: var(--j-cols, 1fr 1.85fr);
-        gap: var(--j-gap, 3.6rem); min-height: var(--j-h, 36.5rem);
+        display: grid; grid-template-columns: var(--j-cols, repeat(3, minmax(0, 1fr)));
+        gap: var(--j-gap, 3.6rem);
+        /* ⚠️ L'ALTEZZA DELLE COLONNE E' LO SCHERMO, non il loro contenuto.
+           Una colonna che cresce con le righe spinge giu' tutto e, soprattutto,
+           porta fuori schermo le colonne accanto: la fascia serve a guardare
+           la giornata TUTTA INSIEME, e appena una colonna si allunga non lo
+           fa piu'. Fissata l'altezza, dentro ogni colonna scorre il suo corpo.
+           La formula sta qui e in nessun altro posto: l'intestazione e
+           l'imbottitura del `main` sono gia' due variabili loro, e riscriverle
+           a mano in una media query vorrebbe dire che il giorno in cui
+           l'intestazione cambia altezza una fascia su due resta indietro.
+           `dvh` e non `vh`: su un telefono la barra del browser entra e esce,
+           e `vh` e' l'altezza con la barra NASCOSTA — cioe' sempre un po'
+           troppa. */
+        --j-col-h: calc(100dvh - var(--h-header, 81px) - var(--pad-y, 2rem) - 3rem);
+        /* ⚠️ `start`, e non il comportamento normale della griglia. Da quando
+           le righe sono piu' d'una, la griglia si spartirebbe fra loro lo
+           spazio che avanza fino al `min-height`: le sezioni della prima riga
+           si allungherebbero di quel tanto per far posto a una riga che sta
+           sotto e non le riguarda. Le righe restano alte quanto cio' che
+           hanno dentro, e lo spazio che avanza resta in fondo. */
+        align-content: start;
         /* La linea dice dove finisce la giornata e dove cominciano le tile:
            senza, i blocchi dei numeri e i riquadri delle tile si leggevano
            come un elenco solo che cambia forma a meta'. */
         padding-bottom: 2.4rem; border-bottom: 1px solid var(--c-line); margin-bottom: 2.4rem;
       }
-      .j-dx { min-width: 0; display: flex; flex-direction: column; }
-      .j-col { min-width: 0; display: flex; flex-direction: column; }
+      /* ⚠️ UNA GRIGLIA SOLA, e le sezioni sono i suoi figli diretti. Prima
+         c'erano due involucri — `.j-dx` e `.j-due` — che tenevano insieme
+         prenotazioni e ordini dentro mezza fascia: una griglia dentro una
+         griglia, con le sue proporzioni, le sue media query e il suo caso
+         «una colonna sola» da gestire a mano in JavaScript. Da fuori sembrava
+         una fila di tre colonne e non lo era, e ogni sezione nuova andava
+         infilata nell'involucro giusto.
+         Adesso le sezioni si dispongono da sole: tre per riga, e la prima
+         casella libera se la prende la prossima. Spenti gli ordini, la
+         lavagnetta sale al loro posto senza che nessuno glielo dica. */
+      .j-col { min-width: 0; display: flex; flex-direction: column; height: var(--j-col-h); }
+      /* TESTATA, CORPO, PIEDE: la stessa ossatura in tutte le colonne. Il
+         corpo e' l'unico pezzo che scorre; testata e numeri restano dove
+         sono, perche' sono le due cose che si guardano senza cercarle.
+         ⚠️ `min-height: 0` non e' un ritocco: in una colonna flex un figlio
+         non scende sotto la propria altezza naturale, quindi senza quella riga
+         il corpo si allarga fino a contenere tutto, `overflow` non ha niente
+         da nascondere e la barra di scorrimento non compare mai — la colonna
+         si allunga e basta, come se la regola non ci fosse. */
+      .j-lista { flex: 1; min-height: 0; overflow-y: var(--j-scroll, auto); scrollbar-width: thin; }
+      /* ⚠️ IL CORPO DELLA COLONNA DI OGGI NON SCORRE. Scorreva, e voleva dire
+         che per leggere il voto di Google si faceva scendere via il grafico:
+         due blocchi che si guardano insieme — quanta gente oggi, come ci
+         giudicano — e uno spariva per far posto all'altro. Qui dentro c'e'
+         una cosa sola che puo' essere lunga a piacere, la recensione, ed e'
+         LEI che scorre nel suo blocco (.j-quote). Tutto il resto ha
+         un'altezza che si conosce.
+         `display: flex` serve a questo: l'altezza che avanza nella colonna
+         arriva fino alla citazione invece di fermarsi al primo blocco. */
+      .j-corpo { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .j-hd, .j-nums, .j-per, .j-serv, .j-cmd { flex: none; }
       .j-col .j-nums { margin-top: auto; }
       /* I titoli delle tre colonne sono TITOLI: in bianco pieno. Grigi,
          pesavano meno dei numeri che stavano sotto e la colonna partiva da
@@ -151,7 +199,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          fra i tre segni bastano a far sembrare storti tre titoli allineati. */
       .j-ico { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--c-accent);
         stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
-      .j-hd .j-cnt { font-size: 0.75rem; color: var(--c-muted); text-decoration: none; }
       /* Titolo e conteggio in colonna; il link va a fondo riga da solo. */
       .j-hd-x { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
       .j-hd .j-link { margin-left: auto; align-self: flex-start; }
@@ -173,27 +220,64 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-glogo { width: 18px; height: 18px; display: block; flex: none; }
 
       /* --- Google --- */
-      .j-note { display: flex; align-items: baseline; gap: 0.6rem; }
-      .j-note .v { font-family: var(--font-title); font-size: 2.5rem; line-height: 1; }
+      /* ⚠️ `baseline` incolonna il numero con le stelle, ma un'immagine non ha
+         una base su cui appoggiarsi: il logo scivolava sul fondo della riga.
+         Si centra da solo, e la riga resta allineata sul testo. */
+      /* La taglia del voto, scritta UNA volta: il logo ci si misura sopra.
+         ⚠️ Logo e numero sono una cosa sola — «su Google, 4,4» — e due misure
+         scritte a mano vorrebbe dire che il giorno in cui il numero cresce il
+         logo resta indietro, senza che nessuno se ne accorga. */
+      /* `wrap`: nella colonna stretta del telefono la riga porta logo, voto,
+         stelle e il link alla scheda. Senza, l'ultimo usciva dal blocco
+         invece di andare a capo. */
+      .j-note { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; --j-voto: 2.5rem; }
+      /* 0.72 e non 1: il numero e' alto 2.5rem di CORPO, ma le cifre ne
+         occupano meno, e il logo sta un filo SOTTO la loro altezza. Il voto
+         e' il dato, il logo dice solo da dove viene: alla pari si guardavano
+         in cagnesco, e l'occhio non sapeva piu' quale dei due leggere. */
+      .j-note .j-glogo { align-self: center;
+        width: calc(var(--j-voto) * 0.72); height: calc(var(--j-voto) * 0.72); }
+      .j-note .v { font-family: var(--font-title); font-size: var(--j-voto); line-height: 1; }
       .j-note .st { color: #f5b544; font-size: 1rem; letter-spacing: 2px; }
+      /* Il link va a fondo riga, come nella testata. ⚠️ `align-self` perche'
+         la riga e' allineata sulle BASI del testo, e un bottone con la sua
+         freccia non ha una base su cui appoggiarsi: scivolerebbe in fondo
+         come faceva il logo. */
+      .j-note .j-link { margin-left: auto; align-self: center; }
       .j-note-sub { font-size: 0.8rem; color: var(--c-muted); margin-top: 0.35rem; }
+      /* Il mese in BIANCO dentro la riga grigia: non e' un giudizio — non c'e'
+         un «meglio» o un «peggio» in due recensioni in piu' — e' solo la parte
+         della riga che si va a leggere. Il verde diceva «cresce», e «+0» in
+         verde diceva che crescere di zero e' una buona notizia. */
+      .j-note-sub .m { color: var(--c-text); font-weight: 700; }
+
+      /* ---- PROVA (07/10/2026): il voto dentro un blocco bianco ----
+         ⚠️ Va contro la regola della fascia — qui niente ha un riquadro,
+         perche' un riquadro dice «questa e' un'altra cosa» e la giornata e'
+         una cosa sola. Il voto pero' NON e' nostro: e' il giudizio che sta
+         su Google, e un fondo bianco lo stacca da tutto il resto come una
+         citazione. Si prova, e si tiene solo se da lontano aiuta.
+         Per tornare indietro: si cancella questo blocco, nient'altro. */
       /* La recensione e' una CITAZIONE, non una scatola dentro la pagina. */
       .j-quote { border-left: 2px solid var(--c-line); padding: 0.1rem 0 0.1rem 1rem; margin-top: 0.9rem; }
-      /* ⚠️ TRE RIGHE, SEMPRE — e non «fino a tre».
+      /* ⚠️ LA CITAZIONE PRENDE LO SPAZIO CHE AVANZA, E SCORRE DENTRO.
          Il carosello cambia avis da solo ogni sette secondi: con l'altezza
          libera, una recensione lunga e una corta spostavano in su e in giu'
          tutto quello che sta sotto, compresi i tre numeri della scheda. Una
          pagina che si muove da sola mentre la si guarda sembra rotta.
-         Altezza fissa a SEI righe: ci sta per intero quasi ogni recensione,
-         e quelle rare piu' lunghe si tagliano coi puntini (il testo pieno sta
-         sulla scheda Google). Lo spazio vuoto non da' fastidio; il salto si'. */
+         Qui c'erano sei righe fisse, che risolvevano il salto tagliando coi
+         puntini quelle piu' lunghe: il testo pieno restava solo sulla scheda
+         Google. Adesso l'altezza e' quella che la colonna le lascia — sempre
+         la stessa, quindi niente salto — e la recensione lunga si legge fino
+         in fondo scorrendo DENTRO il suo blocco. Nessuno deve piu' uscire dal
+         pannello per leggere cosa gli hanno scritto. */
+      .j-quote { flex: 1; min-height: 0; display: flex; }
       .j-quote .q-x {
         font-size: 0.9rem; line-height: 1.65;
-        height: calc(0.9rem * 1.65 * 6);
-        display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
+        flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin;
       }
       /* --- chi ha scritto: sopra la citazione, e fuori dalla sua riga --- */
-      .j-aut { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.6rem; min-width: 0; }
+      .j-aut { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.3rem; min-width: 0; }
       .j-aut-x { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
       .j-aut .nm { color: var(--c-text); font-weight: 700; font-size: 0.95rem;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -217,35 +301,57 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-rep.si { color: var(--c-ok); border: 1px solid color-mix(in srgb, var(--c-ok) 55%, transparent); }
       .j-rep.no { color: var(--c-hover); border: 1px solid color-mix(in srgb, var(--c-accent) 55%, transparent); }
       .j-qf { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
-      /* «Répondre» a destra della barra: e' un'azione, e le azioni stanno
-         dove finisce la riga, non in mezzo ai comandi del carosello. */
-      .j-rbtn { margin-left: auto; font-size: 0.7rem; font-weight: 800; text-transform: uppercase;
-        letter-spacing: .06em; color: var(--c-hover); background: transparent;
-        border: 1px solid color-mix(in srgb, var(--c-accent) 55%, transparent);
-        padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer; white-space: nowrap; }
-      .j-rbtn:hover { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      /* «Répondre» in fondo alla riga di chi ha scritto.
+         ⚠️ PIENO, e non un contorno: il contorno e' il vestito delle
+         pastiglie di STATO qui accanto («sans réponse», «répondu»), che si
+         leggono e basta. Un'azione vestita da stato invita a leggerla, non a
+         premerla. Il pieno e' lo stesso di `.md-btn-primary` — fondo
+         `--c-accent`, testo `--c-bg` — l'unico modo che il pannello ha di
+         dire «questo e' IL bottone».
+         `flex: none`: e' l'ultimo di una riga che contiene un nome lungo
+         quanto vuole, e senza si lascerebbe schiacciare. */
+      .j-rbtn { margin-left: auto; flex: none; font-size: 0.7rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: .06em;
+        color: var(--c-bg); background: var(--c-accent); border: 1px solid var(--c-accent);
+        padding: 0.4rem 0.9rem; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+      .j-rbtn:hover { filter: brightness(1.08); }
       /* --- il modale della risposta --- */
       /* Dentro al modale l'intestazione non ha bisogno dello stacco che ha
          nella colonna: e' la prima cosa della finestra. */
       #j-rep-overlay .j-aut { margin-top: 0; }
       .j-rep-quote { margin: 1.1rem 0 1rem; }
-      /* ⚠️ Qui la citazione NON ha altezza fissa: nella colonna serviva perche'
-         il carosello cambiava avis da solo e la pagina ballava; nel modale
-         nessuno la cambia, e tagliare a meta' il commento a cui si sta
-         rispondendo sarebbe il modo di rispondere male. */
-      .j-rep-quote .q-x { height: auto; display: block; overflow: visible; }
+      /* ⚠️ Nel modale la citazione non scorre: cresce. Nella colonna scorre
+         perche' l'altezza e' quella della colonna; qui la finestra si allunga
+         con cio' che contiene, e far scorrere il commento a cui si sta
+         rispondendo — dentro una finestra che avrebbe posto — sarebbe il modo
+         di rispondere a meta' di quello che hanno scritto. */
+      .j-rep-quote { display: block; }
+      .j-rep-quote .q-x { height: auto; display: block; overflow: visible; flex: none; }
       .j-rep-lab { display: block; margin-bottom: 0.3rem; }
       .j-rep-txt { width: 100%; min-height: 7rem; resize: vertical; line-height: 1.55; }
       .j-rep-hint { margin-top: 0.45rem; }
       .j-reply-msg { margin-right: auto; font-size: 0.78rem; color: var(--c-muted); }
       .j-arrows { display: flex; gap: 0.35rem; }
+      /* ⚠️ Fondo SCURO, non trasparente. Trasparente voleva dire «il colore di
+         sotto», e sotto c'e' la card: un cerchio del colore della card su una
+         card e' un filo sottile e basta. Il fondo della pagina e' piu' scuro
+         della card — gli stessi due colori che il pannello usa gia' — e il
+         bottone si stacca senza inventare una tinta nuova. */
       .j-arrows button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--c-line);
-        background: transparent; color: var(--c-muted); font-size: 0.7rem; cursor: pointer; line-height: 1; }
+        background: var(--c-bg); color: var(--c-text); font-size: 0.7rem; cursor: pointer; line-height: 1; }
       .j-arrows button:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .j-dots { display: flex; gap: 0.35rem; }
-      .j-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-line); display: block; }
+      /* Stessa ragione delle frecce: il pallino spento e' un buco scuro nella
+         card, non un pallino del colore del filo che ci si confondeva. */
+      .j-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-bg); display: block; }
       .j-dots i.on { background: var(--c-accent); }
       .j-per { font-size: 0.7rem; color: var(--c-muted); margin-top: 0.6rem; }
+      /* ⚠️ Vuota non esiste. Nella lavagnetta questa riga dice «la piu' vecchia
+         da N giorni» e TACE quando non c'e' niente in ritardo — ma taceva
+         occupando il suo posto: una riga di niente piu' il suo margine, cioe'
+         un buco fra l'ultima nota e la linea dei numeri che compariva proprio
+         nei giorni in cui va tutto bene. */
+      .j-per:empty { display: none; }
 
       /* --- i blocchi dei numeri: tre piani, e MAI un a capo ---
          Un blocco che si apre in due righe cresce in altezza e i tre accanto
@@ -260,11 +366,34 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          resterebbe una riga piu' in alto delle altre due.
          La nota scende insieme a loro (e' lei a portare lo spazio vuoto) e
          resta attaccata ai numeri che spiega. */
-      .j-google .j-nums { order: 9; margin-top: 0.5rem; }
-      /* ⚠️ `auto` da' lo spazio che AVANZA: quando la colonna e' piena
-         avanza zero, e la nota finiva appiccicata alle frecce del carosello.
-         Il `padding` e' il minimo garantito, qualunque cosa succeda sopra. */
-      .j-google .j-per { margin-top: auto; padding-top: 1.8rem; }
+      .j-google .j-nums { order: 9; }
+      /* LA NOTA STA SULLA LINEA, non sopra: «30 derniers jours» e il filo
+         dicono la stessa cosa — da qui in giu' si cambia argomento, e si
+         guardano trenta giorni invece di oggi. Due righe sovrapposte per un
+         confine solo erano un confine disegnato due volte.
+         ⚠️ Il filo e' un `::after` che prende lo spazio che resta, non una
+         larghezza scritta a mano: la nota e' lunga diversa in cinque lingue,
+         e «Laatste 30 dagen» avrebbe scavalcato un filo tagliato su misura
+         per il francese. */
+      .j-google .j-per { display: flex; align-items: center; gap: 0.75rem;
+        margin-top: 0; padding-top: 0; }
+      /* ⚠️ Il vuoto che restava NON era della nota: era il margine sotto la
+         scatola, lo stesso che stacca la giornata da Google. Sotto Google pero'
+         non c'e' un'altra scatola, c'e' la sua didascalia — e una didascalia
+         sta attaccata a cio' che spiega. Limarlo dalla nota non bastava:
+         la nota partiva gia' da zero. */
+      .j-g-blocco { margin-bottom: 0.55rem; }
+      .j-google .j-per::after { content: ""; flex: 1; height: 1px; background: rgba(36, 74, 82, .65); }
+      /* ⚠️ E la linea sparisce da SOTTO: era il `border-top` dei numeri, ed e'
+         salita nella nota. Lasciandola, sarebbero stati due fili a un
+         centimetro l'uno dall'altro.
+         ⚠️ `margin-top: auto` tolto: spingeva i numeri in fondo alla colonna
+         per incolonnarli con le altre due file, e cosi' facendo apriva un
+         vuoto di mezzo schermo fra il blocco Google e la sua nota. Qui sotto
+         i numeri sono di GOOGLE, non il conteggio di una colonna: stanno
+         attaccati al blocco che li spiega. Le due file a destra restano
+         incolonnate fra loro — e' quella la coppia che si confronta. */
+      .j-google .j-nums { border-top: none; padding-top: 0; margin-top: 0.55rem; }
       .j-nums > div { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
         padding: 0.7rem 0.85rem 0.8rem; box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
         container-type: inline-size; }
@@ -275,34 +404,97 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-nums .d { font-size: 0.68rem; color: var(--c-muted); margin-top: 0.2rem; }
       .j-nums .d.up { color: var(--c-ok); font-weight: 700; }
       .j-nums .d.giu { color: var(--c-hover); font-weight: 700; }
+      /* ⚠️ Il riquadro «chi le fa» occupa DUE caselle: dentro non c'e' una
+         cifra ma tre nomi, e un nome e cognome in un terzo di colonna va a
+         capo o si taglia coi puntini — cioe' una classifica in cui non si
+         legge chi e'. */
+      .j-note-top { grid-column: span 2; }
+      .j-top3 { list-style: none; margin: 0.45rem 0 0; padding: 0;
+        display: flex; flex-direction: column; gap: 0.25rem; }
+      .j-top3 li { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.78rem; }
+      .j-top3 .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .j-top3 .q { font-family: var(--font-title); font-size: 0.95rem; flex: none; }
+      .j-top3 .vuoto { color: var(--c-muted); font-size: 0.72rem; display: block; }
 
       /* --- orari + affluenza --- */
-      /* Il voto a sinistra, gli orari a destra: la stessa riga, due estremi.
-         `align-items: flex-start` e non `center` — il voto e' alto tre volte
-         gli orari, e centrarli manderebbe «AUJOURD'HUI» a mezz'aria. */
-      .j-top { display: flex; align-items: flex-start; justify-content: space-between;
-        gap: 1.2rem; flex-wrap: wrap; }
-      .j-locale { padding-bottom: 1.3rem; margin-bottom: 1.3rem; border-bottom: 1px solid var(--c-line); }
-      /* `margin-left: auto` oltre allo `space-between`: senza scheda Google il
-         voto non c'e', e gli orari rimasti soli tornerebbero a sinistra con
-         il testo allineato a destra — una riga storta per un caso raro. */
-      .j-ore { text-align: right; margin-left: auto; }
-      .j-ore-h { display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem; }
-      .j-pil { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
-        padding: 0.25rem 0.6rem; border-radius: 999px; background: var(--c-ok); color: #fff; white-space: nowrap; }
+      .j-pil { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
+        padding: 0.28rem 0.68rem; border-radius: 999px; background: var(--c-ok); color: #fff; white-space: nowrap; }
       .j-pil.off { background: var(--c-accent); }
-      /* Riga sua, sotto il titolo: in una colonna non c'e' spazio accanto. */
-      .j-orari { margin-top: 0.5rem; font-size: 0.82rem; font-weight: 700;
-        display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex-wrap: wrap; }
+      /* La pastiglia NEUTRA: dice un numero, non uno stato. Il fondo e' la
+         stessa formula dei piani rialzati del pannello (`color-mix` sul testo
+         contro il fondo), non un grigio scritto a mano che su un tema chiaro
+         sparirebbe. */
+      .j-pil.n { background: color-mix(in srgb, var(--c-text) 14%, var(--c-bg)); color: var(--c-text); }
+      /* ⚠️ Vuota non esiste. I conteggi arrivano con la giornata, e fino ad
+         allora la pastiglia sarebbe stata una pillola grigia senza niente
+         dentro accanto al titolo — una cosa rotta, non una cosa che aspetta.
+         In CSS e non in JS: cosi' vale anche il giorno in cui qualcuno
+         aggiunge la quarta colonna e si dimentica di nasconderla. */
+      .j-pil:empty { display: none; }
+      /* LE SCATOLE DELLA FASCIA: la giornata (orari + affluenza), Google
+         (voto + recensione) e i servizi di oggi nella colonna Réservations.
+         ⚠️ UNA regola per tutte, e lo STESSO vestito dei riquadri dei
+         numeri (`.j-nums > div`): stesso fondo, stesso filo, stesso raggio,
+         stessa ombra. Scritte in due regole, un giorno una delle due prende
+         un raggio diverso e la fascia ha due scatole che non si somigliano.
+         L'unica differenza dai riquadri dei numeri e' l'imbottitura, un filo
+         piu' larga: qui dentro c'e' un grafico o una recensione, non una
+         cifra. */
+      /* ⚠️ Il blocco Google prende l'altezza che avanza e la passa dentro,
+         fino alla citazione: e' l'unico pezzo elastico della colonna. Senza
+         `min-height: 0` non si lascerebbe stringere sotto il suo contenuto e
+         la citazione non avrebbe mai un limite da cui scorrere. */
+      .j-g-blocco { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .j-oggi-blocco, .j-g-blocco, .j-serv {
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+        padding: 0.95rem 1.15rem 0.9rem;
+        margin-bottom: 1.15rem;
+      }
+      /* L'orario in testa al blocco.
+         ⚠️ Piu' grande del titolo che lo apre: «AUJOURD'HUI» e' un'etichetta,
+         «OPEN» un colore, e l'orario e' l'unica cosa che si va a leggere. */
+      .j-orari { font-size: 1.2rem; font-weight: 700;
+        display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
       .j-orari .f { white-space: nowrap; }
       /* Un orologio solo per tutti i servizi: due disegni uguali in fila su
          una riga di sette parole sono un disegno di troppo. */
-      .j-orari .clock { width: 14px; height: 14px; stroke: var(--c-accent); fill: none; stroke-width: 1.8;
+      /* ⚠️ Cresce con l'orario che accompagna: un orologio di 16 px accanto a
+         un numero di 1.2rem diventa una briciola davanti alla riga, e la riga
+         sembra cominciare storta. */
+      .j-orari .clock { width: 20px; height: 20px; stroke: var(--c-accent); fill: none; stroke-width: 1.8;
         flex: none; }
       /* ⚠️ Lo stesso `gap` del grafico e dell'asse delle ore: sono due righe
          separate che devono restare incolonnate, e due numeri diversi si
          notano solo all'ultima ora della giornata. */
-      .j-hm-plot { display: flex; align-items: flex-end; gap: 4px; height: 74px; margin-top: 0.9rem; }
+      /* ⚠️ Lo stacco dagli orari sta SUL GRAFICO, non sotto gli orari: spenti
+         ordini e prenotazioni il grafico e' `display:none`, non occupa niente
+         e si porta via il suo margine. Messo sugli orari avrebbe lasciato un
+         vuoto in fondo al blocco proprio nei giorni senza grafico. */
+      .j-hm { margin-top: 1rem; }
+      .j-hm-plot { display: flex; align-items: flex-end; gap: 4px; height: 74px; position: relative; }
+      /* LE LINEE DEL GRAFICO: pavimento, meta', soffitto.
+         ⚠️ Stanno SOPRA le barre, non dietro: una linea dietro si interrompe
+         dove passa una barra, e proprio sulla barra alta — quella che si vuole
+         misurare — sparisce. Sopra, attraversa, e l'occhio legge dove la barra
+         taglia la linea. Sono abbastanza sbiadite da non diventare un
+         disegno loro.
+         `inset: 0` e non una terza misura: le linee occupano esattamente il
+         riquadro delle barre, qualunque altezza abbia. */
+      .j-grid { position: absolute; inset: 0; pointer-events: none; }
+      .j-grid i { position: absolute; left: 0; right: 0; bottom: 0;
+        border-top: 1px solid color-mix(in srgb, var(--c-text) 13%, transparent); }
+      /* Il pavimento e' piu' marcato: e' lo zero, e lo zero non e' una
+         tacca fra le altre. */
+      .j-grid i.base { border-top-color: color-mix(in srgb, var(--c-text) 28%, transparent); }
+      /* Il numero sta SOTTO la sua linea, a destra, dove le ore di chiusura
+         lasciano il grafico vuoto. ⚠️ Sotto e non sopra: sopra, il numero
+         della linea piu' alta uscirebbe dal grafico e andrebbe a finire
+         sull'orario. Il fondo della card dietro: senza, finirebbe sopra una
+         barra e si leggerebbe come parte di essa. */
+      .j-grid i b { position: absolute; right: 0; top: 2px; font-weight: 400;
+        font-size: 0.6rem; line-height: 1; color: var(--c-muted);
+        background: var(--c-card); padding: 0 0.1rem 0 0.35rem; }
       /* QUATTRO BARRE PER ORA: coperti e ordini, ognuno col suo «di solito».
          Il COLORE dice che cosa si conta (coperti o ordini), la TINTA dice
          quando (piena = oggi, chiara = di solito). Due variabili, due segni:
@@ -315,15 +507,21 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-hb span { min-width: 3px; border-radius: 2px 2px 0 0; }
       /* ⚠️ Un colore PIENO, non lo stesso reso trasparente: `color-mix` col
          FONDO e non con `transparent`, cosi' resta opaco e segue comunque il
-         tema del cliente invece di essere un esadecimale scritto a mano. */
-      .j-hb .cov { background: color-mix(in srgb, var(--c-barra, #4e8f9c) 40%, var(--c-bg)); }
+         tema del cliente invece di essere un esadecimale scritto a mano.
+         ⚠️ Il fondo e' `--c-card`, la scatola su cui le barre stanno davvero,
+         e NON `--c-bg`: qui c'era una ridefinizione di `--c-bg` dentro il
+         blocco, cioe' un token del tema che cambiava significato in un punto
+         della pagina. Chiunque avesse scritto `var(--c-bg)` li' dentro — un
+         bottone, un bordo — avrebbe preso il colore della card credendo di
+         prendere quello della pagina. */
+      .j-hb .cov { background: color-mix(in srgb, var(--c-barra, #4e8f9c) 40%, var(--c-card)); }
       .j-hb .cov.oggi { background: var(--c-barra, #4e8f9c); }
       /* Gli ordini nel CORALLO del cliente (`--c-accent`): una tinta sola per
          tutte e due le serie non si distingue, e il corallo e' l'unico altro
          colore che il pannello ha gia' — un terzo colore inventato qui
          sarebbe un colore in piu' da spiegare, e cambierebbe da cliente a
          cliente senza che nessuno l'abbia scelto. */
-      .j-hb .ord { background: color-mix(in srgb, var(--c-accent) 40%, var(--c-bg)); }
+      .j-hb .ord { background: color-mix(in srgb, var(--c-accent) 40%, var(--c-card)); }
       .j-hb .ord.oggi { background: var(--c-accent); }
       /* La larghezza dipende da quante serie sono accese: con i soli coperti
          restano due barre, e devono riempire la colonna come le quattro. */
@@ -352,50 +550,49 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          sotto il titolo della loro colonna, prima dell'elenco. ⚠️ Lo stesso
          spazio sotto tutte e due, altrimenti i due elenchi partono a due
          altezze diverse e le colonne sembrano disallineate. */
-      .j-serv, .j-cmd { margin-bottom: 1.05rem; }
-      .j-serv { display: flex; flex-direction: column; gap: 0.3rem; }
-      .j-serv:empty, .j-cmd:empty { display: none; margin: 0; }
-      .j-sv { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
-      .j-sv .n { font-weight: 700; }
-      .j-sv .h { color: var(--c-muted); }
-      .j-sv .switch { margin-left: auto; }
+      .j-cmd { margin-bottom: 1.05rem; }
+      /* I SERVIZI DI OGGI: una scatola come quelle della colonna Google —
+         stessa regola, qui sopra. L'imbottitura verticale e' piu' bassa
+         perche' le righe dentro hanno gia' la loro: sommate, la prima riga
+         sarebbe partita un dito sotto il bordo. */
+      /* DUE SERVIZI AFFIANCATI quando c'e' posto. ⚠️ `auto-fit` + `minmax` e
+         non due colonne fisse: i servizi possono essere cinque, e la colonna
+         e' larga la meta' dello schermo su un portatile e tutta su un
+         telefono. Cosi' il blocco conta da solo quante ce ne stanno —
+         due, tre o una — invece di avere una misura per ogni apparecchio.
+         190px e' il minimo in cui ci stanno nome, orario e l'interruttore
+         grande: sotto, il nome andrebbe a capo. */
+      .j-serv { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        column-gap: 1.6rem; row-gap: 0.1rem; padding: 0.45rem 1.15rem 0.55rem; }
+      .j-serv:empty, .j-cmd:empty { display: none; margin: 0; padding: 0; border: none; box-shadow: none; }
+      /* Nome sopra, orario sotto: il nome e' quello che si cerca («sto
+         chiudendo il pranzo o la cena?»), l'orario e' la conferma. In fila
+         sulla stessa riga erano due testi della stessa taglia, e l'occhio
+         doveva leggerli tutti e due per sapere quale riga stava toccando.
+         ⚠️ Fra un servizio e l'altro c'e' lo SPAZIO e non un filo: affiancati,
+         un filo orizzontale avrebbe tagliato una colonna sola, e uno
+         verticale si sarebbe dovuto accendere e spegnere a seconda di quante
+         colonne la griglia ha deciso di fare — cosa che il CSS non sa dire. */
+      .j-sv { display: flex; align-items: center; gap: 0.75rem; padding: 0.55rem 0; }
+      .j-sv-x { display: flex; flex-direction: column; min-width: 0; }
+      .j-sv .n { font-weight: 700; font-size: 0.95rem; }
+      .j-sv .h { color: var(--c-muted); font-size: 0.78rem; margin-top: 0.1rem; }
+      .j-sv .switch { margin-left: auto; flex: none; }
       /* Chiuso fino a riapertura: l'interruttore del giorno non lo riaprirebbe,
          quindi e' spento e disattivato — e la riga lo dice sbiadendo. */
       .j-sv.is-perm { opacity: 0.6; }
 
-      /* --- le due colonne del giorno --- */
-      /* `flex: 1` : le due colonne prendono tutto lo spazio che resta sotto la
-         fascia degli orari, cosi' il loro fondo e' il fondo della fascia. */
-      .j-due { display: grid; grid-template-columns: 1fr 1fr; gap: 3.2rem; flex: 1; }
-      /* Una sola funzione accesa: la colonna che resta prende tutta la riga. */
-      .j-due.j-sola { grid-template-columns: 1fr; }
-      /* Ne' prenotazioni ne' ordini: Google resta nella SUA colonna e la riga
-         la finiscono due tile, salite dalla griglia di sotto (.j-salite). Se
-         di tile visibili non ce n'e' due, Google si prende la pagina invece di
-         galleggiare in un terzo di schermo.
-         ⚠️ `:not(.j-salite)` e non una seconda regola che rimette le misure:
-         larghezze e altezza della fascia restano dichiarate una volta sola in
-         `.jour`, e tornano da sole appena le tile sono salite. */
-      .jour.j-niente:not(.j-salite) { grid-template-columns: 1fr; min-height: 0; }
-      /* Le due colonne non ci sono piu': senza questo il loro `flex: 1`
-         prendeva l'altezza e le tile salite restavano schiacciate in fondo. */
-      .jour.j-niente .j-due { display: none; }
-      /* Le tile salite: affiancate, alte quanto la fascia. Sono le STESSE
-         tile della griglia di sotto — stesso componente, stesso riquadro —
-         solo collocate altrove. */
-      .j-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; flex: 1; }
-      .j-tiles .tile { margin-bottom: 0; }
-      @media (max-width: 759px) { .j-tiles { grid-template-columns: 1fr; } }
-      /* ⚠️ La riga di separazione sta sotto il BLOCCO (voto, orari, grafico),
-         non sopra la recensione: `display:none` nasconde l'elemento ma lo
-         lascia nel DOM, quindi un `.j-hm + .j-aut` avrebbe disegnato il filo
-         anche a grafico spento — un bordo appeso a niente. */
-      /* ⚠️ Le due file di numeri stanno sulla STESSA LINEA: ancorate in fondo
-         alla colonna, non appese all'elenco sopra. Una colonna con una riga in
-         piu' spingeva giu' i suoi numeri, e le due file finivano sfalsate di
-         una ventina di pixel: abbastanza da non poterle piu' confrontare con
-         un colpo d'occhio, troppo poco per sembrare voluto. */
-      .j-due > div { display: flex; flex-direction: column; }
+      /* ⚠️ Qui c'era tutta la macchina del «mezzo schermo vuoto»: la
+         sotto-griglia `.j-due`, il caso «una sola funzione accesa»
+         (`.j-sola`), il caso «nessuna delle due» (`.j-niente`) e due tile
+         fatte salire dal basso in JavaScript per finire la riga
+         (`.j-salite`, `.j-tiles`). Serviva perche' la fascia era fatta di due
+         caselle di misura fissa: se una si spegneva, restava un buco che
+         qualcuno doveva riempire a mano.
+         Con una griglia di sezioni il buco non esiste — la sezione successiva
+         scorre nella casella libera da sola. Quattro stati, un evento e
+         centocinquanta righe di CSS e JavaScript sono spariti perche' il
+         problema non c'e' piu', non perche' qualcuno li ha sistemati. */
       .j-nums { padding-top: 1.2rem; border-top: 1px solid rgba(36, 74, 82, .65); }
       /* ⚠️ Lo stacco dalla linea dei numeri e' un margine della LISTA, non lo
          spazio che avanza: `margin-top: auto` sui numeri da' zero quando la
@@ -403,8 +600,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* `flex: 1` : la lista occupa tutto lo spazio fra l'intestazione e i
          numeri, anche quando e' vuota — e il messaggio puo' mettercisi in
          mezzo invece di restare appeso in alto. */
-      .j-lista { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; flex: 1; }
-      .j-li { display: flex; align-items: flex-start; gap: 0.85rem; background: var(--c-card);
+      /* ⚠️ Niente altezza sua: la lista prende quello che avanza nella colonna
+         fra la testata e i numeri. Qui c'erano 330px scritti a mano — una
+         misura in piu' da tenere d'accordo con l'altezza della colonna, e due
+         numeri che si somigliano finiscono per divergere. */
+      .j-lista { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;
+        padding-right: 0.3rem; }
+      /* ⚠️ `flex: none` sulla RIGA, non solo `overflow` sul riquadro. In una
+         colonna flex le righe si lasciano SCHIACCIARE per starci dentro: con
+         dieci prenotazioni in un riquadro da 330px non sarebbe comparsa
+         nessuna barra, sarebbero diventate dieci righe alte la meta' con il
+         testo tagliato — un elenco che si rimpicciolisce invece di scorrere,
+         e nessun errore da nessuna parte. */
+      .j-li { flex: none; display: flex; align-items: flex-start; gap: 0.85rem; background: var(--c-card);
         border: 1px solid var(--c-line); border-radius: 12px; padding: 0.7rem 0.9rem;
         box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); text-decoration: none; color: var(--c-text); }
       .j-li .h { font-family: var(--font-title); font-size: 0.95rem; width: 44px; flex: none; color: var(--c-accent); }
@@ -433,10 +641,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-tag { font-size: 0.6rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
         padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid var(--c-line); color: var(--c-muted); }
       .j-li .tx small b { color: var(--c-text); font-weight: 700; }
-      /* Niente da fare: non e' un errore ne' una riga mancante, e' la buona
-         notizia della serata. Sta in mezzo allo spazio che avrebbero occupato
-         le righe, grande abbastanza da leggersi da lontano. */
-      .j-vuoto { margin: auto; padding: 1rem; text-align: center; font-size: 1.05rem;
+      /* Niente da mostrare: non e' un errore ne' una riga mancante, e' la
+         buona notizia della serata.
+         ⚠️ PRENDE TUTTO IL POSTO delle righe che non ci sono, con un filo
+         TRATTEGGIATO. Prima era una scritta sospesa in mezzo al vuoto, e il
+         vuoto sembrava un pezzo di pagina che non aveva finito di caricare:
+         il tratteggio dice «qui ci vanno gli ordini, e oggi non ce ne sono» —
+         un posto apparecchiato, non un buco. E tratteggiato e non pieno,
+         perche' le scatole piene di questa fascia contengono qualcosa.
+         `flex: 1` dentro `.j-lista`, che e' gia' una colonna alta quanto
+         serve: il riquadro arriva fin dove sarebbe arrivato l'elenco. */
+      .j-vuoto { flex: 1; display: flex; align-items: center; justify-content: center;
+        padding: 1.5rem 1rem; text-align: center; font-size: 1.05rem;
+        border: 1px dashed var(--c-line); border-radius: 12px;
         font-family: var(--font-title); color: var(--c-muted); }
 
       /* ⚠️ Le pastiglie di stato sono QUELLE delle loro pagine (reservations,
@@ -460,7 +677,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       /* Stretto: le colonne si impilano e l'altezza fissa non ha piu' senso —
          terrebbe aperto mezzo schermo vuoto. */
-      @media (max-width: 1100px) { .jour { --j-cols: 1fr; --j-gap: 2.2rem; --j-h: 0; } }
+      /* ⚠️ Schermo stretto: una sezione sotto l'altra, altezza naturale e
+         NESSUNO scorrimento dentro. Qui le colonne non sono affiancate — non
+         c'e' niente da tenere in vista — e un riquadro che scorre dentro una
+         pagina che scorre e' il dito che non sa piu' quale dei due sta
+         muovendo. */
+      @media (max-width: 1100px) {
+        .jour { --j-cols: 1fr; --j-gap: 2.2rem; --j-col-h: auto; --j-scroll: visible; }
+      }
       /* iPad in orizzontale: 1024-1366 CSS, cioe' largo come un portatile, ma
          lo si tocca col dito e lo si guarda da piu' lontano — percio'
          styles/tablet.css abbassa il piede di misura a 13px e tutto rientra.
@@ -469,10 +693,35 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          di sopra, con un po' meno aria fra le colonne. `pointer: coarse` non
          e' un dettaglio: senza, prenderebbe anche i portatili da 1280. */
       @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
-        .jour { --j-cols: initial; --j-gap: 2.4rem; --j-h: initial; }
-        .j-due { gap: 2rem; }
+        /* ⚠️ SUL TABLET LE SEZIONI STANNO TUTTE SU UNA RIGA, e la riga si
+           scorre col dito. Non e' un ripiego della griglia stretta: su un
+           iPad in mano, mandare la quarta sezione a capo vuol dire che per
+           vederla si scorre la pagina in verticale e si perde di vista la
+           prima. Una fila sola si tira di lato, e le sezioni restano
+           confrontabili fra loro come su un bancone.
+           `grid-auto-flow: column` + `grid-auto-columns`: nessuna riga da
+           contare, nessun numero di sezioni scritto da qualche parte — se ne
+           aggiunge una, la fila si allunga.
+           ⚠️ `minmax(380px, 1fr)` e non una larghezza secca: quando le
+           sezioni accese sono due e ci stanno, si prendono lo schermo invece
+           di lasciare mezzo bancone vuoto. */
+        .jour { --j-cols: none; --j-gap: 2rem; --j-scroll: auto;
+          /* ⚠️ LARGHEZZA FISSA, e non `1fr`: e' un bancone, e le colonne di un
+             bancone sono tutte larghe uguali. Con `1fr` le colonne si
+             allargherebbero per riempire lo schermo quando sono poche e si
+             stringerebbero quando sono tante — cioe' la stessa colonna
+             cambierebbe faccia da un locale all'altro. */
+          --j-col-w: 400px;
+          grid-auto-flow: column; grid-auto-columns: var(--j-col-w);
+          overflow-x: auto; overscroll-behavior-x: contain;
+          scroll-snap-type: x proximity;
+          /* Lo spazio sotto e' per il dito e per la barra: senza, il filo di
+             scorrimento passa sopra l'ultima riga dei numeri. */
+          padding-bottom: 3rem;
+        }
+        .jour > * { scroll-snap-align: start; }
       }
-      @media (max-width: 759px) { .j-due { grid-template-columns: 1fr; gap: 2rem; } .j-hm-f .src { margin-left: 0; } }
+      @media (max-width: 759px) { .j-hm-f .src { margin-left: 0; } }
 
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
@@ -623,79 +872,265 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .mc-num { font-family: var(--font-title); font-size: 2.8rem; line-height: 1; color: var(--c-accent); display: block; }
       .mc-lab { color: var(--c-muted); font-size: 0.85rem; }
 
-      /* --- Tile Notes (colori invertiti: fondo oro, testo marrone) --- */
-      .tile-notes { background: var(--c-accent); color: var(--c-brown); border-color: var(--c-accent); min-height: 180px; }
-      .tile-notes .tile-title { color: var(--c-brown); }
-      .tile-notes .tile-title .tt-ico { stroke: var(--c-brown); }
-      .ntile-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-      .ntile-head .tile-title { margin-bottom: 0; }
-      .ntile-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--c-brown); background: transparent; color: var(--c-brown); padding: 0; transition: background 0.15s, color 0.15s; }
-      .ntile-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .ntile-btn:hover { background: var(--c-brown); color: var(--c-accent); }
-      .ntile-expand { margin-left: auto; }
-      .ntile-add { font-size: 1.5rem; line-height: 1; background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
-      .ntile-add:hover { background: transparent; color: var(--c-brown); }
-      .notes-preview { cursor: pointer; }
+      /* --- La lavagnetta nella colonna (il modale resta su fondo oro) ---
+         ⚠️ Qui c'era il vestito della tile: fondo oro, testo marrone, due
+         bottoni tondi suoi (`.ntile-btn`). Se n'e' andato con la tile. Il
+         marrone su oro, dentro una colonna scura, sarebbe stato un cerchio
+         nero su fondo nero — e nessuno se ne sarebbe accorto finche' non
+         avesse provato a spuntare una nota. */
+      /* Il dito cambia sulle RIGHE, non su tutto il riquadro: nella colonna
+         il riquadro e' alto come gli altri, e sotto l'ultima nota c'e' spazio
+         vuoto che non porta da nessuna parte. */
+      .notes-preview .np-item, .notes-preview .np-empty { cursor: pointer; }
+      .j-nbtns { display: flex; gap: 0.4rem; margin-left: auto; flex: none; }
+      /* La riga dei filtri sta FUORI dal corpo che scorre: si filtra per
+         scendere meno, e un filtro che scorre via con cio' che filtra fa
+         risalire ogni volta. */
+      .j-nfiltri { flex: none; margin-bottom: 0.75rem; }
+      /* ⚠️ Il disegno sta sotto `.j-nfiltri`, non su `.rh-filter`: quella
+         pastiglia e' il componente condiviso di Menu, Google e Statistiche, e
+         una regola sua qui dentro arriverebbe anche la', dove nessuno ha
+         chiesto un'icona. */
+      .j-nfiltri .rh-filter.tutte { display: inline-flex; align-items: center; gap: 0.4rem; }
+      .j-nfiltri .rh-filter svg { width: 14px; height: 14px; flex: none;
+        fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+      /* ⚠️ Su tablet e telefono resta la SOLA icona. La riga delle etichette
+         e' l'unica cosa che scorre di lato in una colonna larga quanto il
+         dito, e «Toutes» e' la parola di cui si puo' fare a meno: il disegno
+         dice la stessa cosa e lascia il posto alle etichette vere, che sono
+         quelle che non si possono indovinare.
+         Due fasce e non una: sono le STESSE due in cui la fascia cambia forma
+         piu' in su in questo file — telefono (colonne impilate) e iPad
+         orizzontale (il bancone che si tira di lato). */
+      @media (max-width: 1100px) {
+        .j-nfiltri .rh-filter.tutte .et { display: none; }
+        .j-nfiltri .rh-filter.tutte { padding-left: 0.8rem; padding-right: 0.8rem; }
+      }
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        .j-nfiltri .rh-filter.tutte .et { display: none; }
+        .j-nfiltri .rh-filter.tutte { padding-left: 0.8rem; padding-right: 0.8rem; }
+      }
+      /* L'elenco arriva piu' vicino alla linea dei numeri: sotto non c'e' una
+         seconda lista da staccare, c'e' il piede della colonna. */
+      .j-notes .j-lista { margin-bottom: 0.9rem; }
+      /* Il «+» PIENO di corallo: e' l'unica azione della colonna, e il
+         contorno e' il vestito dei bottoni che aspettano di essere scoperti.
+         ⚠️ Lo stesso accostamento del «Répondre» e dei bottoni di conferma —
+         fondo `--c-accent`, segno `--c-bg` — e non un corallo scelto qui. */
+      .j-notes .ibtn { background: var(--c-accent); border-color: var(--c-accent);
+        color: var(--c-bg); font-size: 1.4rem; line-height: 1; }
+      .j-notes .ibtn:hover { filter: brightness(1.08); color: var(--c-bg); border-color: var(--c-accent); }
+      /* OGNI NOTA E' UN BLOCCO SUO, in corallo. Una lavagnetta non e' un
+         elenco: sono bigliettini, e due bigliettini separati da un filo sono
+         due righe di una lista. Il blocco dice che si possono prendere,
+         spuntare e buttare uno per uno.
+         ⚠️ Il corallo torna qui dentro ed e' una scelta, non un residuo della
+         tile: nella fascia tutte le scatole sono scure, e la lavagnetta e'
+         l'unica cosa che qualcuno ha scritto a mano — non un dato che
+         arriva. Il colore e' quello che il pannello usa gia' per dire
+         «attenzione a questo».
+         ⚠️ `flex: none`: le note stanno in una colonna che scorre, e senza si
+         lascerebbero schiacciare invece di far comparire la barra — la stessa
+         trappola delle righe di prenotazione. */
+      .j-notes .np-item { flex: none; background: var(--c-accent); color: var(--c-bg);
+        border-radius: 12px; border-top: none; padding: 0.7rem 0.9rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      /* ⚠️ Il cerchio della spunta e le pastiglie dei tag NON hanno bisogno di
+         niente: erano gia' disegnati per una nota su fondo corallo (e' da li'
+         che vengono). Scrivere qui una seconda versione «per la colonna»
+         vorrebbe dire due spunte da tenere d'accordo per sempre. */
+      .j-notes .np-empty { color: var(--c-muted); }
       /* Stessa misura del testo del modale (0.98rem) e STESSO cerchio
          (.note-check): spuntare una nota si fa anche da qui, senza aprire. */
-      .np-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-top: 1px solid color-mix(in srgb, var(--c-bg) 18%, transparent); font-size: 0.98rem; }
-      .np-item:first-child { border-top: none; }
-      .np-item .note-check { margin-top: 0; }
-      .np-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .np-item.done .np-text { text-decoration: line-through; opacity: 0.55; }
-      .np-more { font-size: 0.8rem; opacity: 0.75; margin-top: 0.45rem; font-weight: 700; }
+      /* ⚠️ `flex-start`: il bigliettino ha tre piani — testo, etichette, chi e
+         quando — e il cerchio della spunta va in cima accanto alla prima
+         riga. Centrato, su una nota di due righe finiva a mezz'aria. */
+      .np-item { display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.98rem; }
+      .np-body { flex: 1; min-width: 0; }
+      /* ⚠️ IL TESTO VA A CAPO, e non si taglia coi puntini. I puntini vanno
+         bene quando il testo intero si puo' leggere da un'altra parte: qui
+         l'elenco completo nel modale non c'e' piu', e una nota tagliata
+         sarebbe una nota PERSA — scritta, salvata, e illeggibile per sempre. */
+      .np-text { display: block; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
+      /* ⚠️ FATTA = TUTTO IL BIGLIETTINO SBIADISCE, non il solo testo. Una nota
+         spuntata resta li' per essere ritrovata, ma non deve piu' chiedere
+         attenzione: col solo testo sbiadito, l'etichetta e il corallo pieno
+         continuavano a gridare quanto quelli da fare, e la colonna non si
+         leggeva piu' a colpo d'occhio.
+         ⚠️ L'opacita' sta sul BLOCCO, e il testo non ne ha piu' una sua: due
+         trasparenze sovrapposte fanno 0,30 — il testo di una nota fatta
+         sarebbe sparito, e «fatta» non vuol dire «cancellata». */
+      .j-notes .np-item.done { opacity: 0.55; }
+      .np-item.done .np-text { text-decoration: line-through; }
+      /* Chi l'ha scritta e quando, in piccolo sotto: non si cerca quasi mai,
+         ma quando si cerca e' l'unica cosa che serve — «questa chi l'ha
+         messa?». Lo stesso inchiostro scolorito delle altre righe di servizio
+         su fondo chiaro. */
+      .note-meta { color: color-mix(in srgb, var(--c-bg) 60%, transparent);
+        font-size: 0.72rem; margin-top: 0.35rem; }
+      /* Il nome in grassetto, l'ora no: fra i due, quello che si cerca e'
+         «chi». L'ora e' il contorno. */
+      .note-meta b { font-weight: 700; color: color-mix(in srgb, var(--c-bg) 80%, transparent); }
       .np-empty { opacity: 0.8; font-size: 0.92rem; }
 
-      /* --- Modale Notes (centrato, fondo oro coerente col tile) --- */
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-
-      /* Compose */
-      .notes-compose { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.25rem; }
-      .notes-compose textarea { background: #fffaf0; border: 1px solid color-mix(in srgb, var(--c-bg) 30%, transparent); color: var(--c-brown); font-family: var(--font-body); font-size: 0.95rem; padding: 0.7rem 0.8rem; width: 100%; min-height: 120px; resize: vertical; color-scheme: light; }
-      .notes-compose textarea::placeholder { color: color-mix(in srgb, var(--c-bg) 50%, transparent); }
-      .notes-compose textarea:focus { outline: none; border-color: var(--c-brown); }
-      .notes-compose-actions { display: flex; justify-content: flex-end; }
-      .notes-compose-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+      /* --- Modale «Nouvelle note»: i colori di tutti i modali --- */
+      /* ⚠️ Qui c'era il vestito di una finestra color post-it — carta crema
+         per il testo, pastiglie marroni, un bottone «Ajouter» tutto suo — e
+         sotto il disegno dell'elenco delle note, che nel modale non c'e'
+         piu'. Campo e bottoni adesso sono quelli condivisi (`.fld`, `.btn`,
+         `.md-btn`): la finestra non ha piu' colori propri da tenere
+         d'accordo con nessuno. */
+      .nc-txt { width: 100%; min-height: 110px; resize: vertical; line-height: 1.5; }
+      .nc-lab { display: block; margin: 1rem 0 0.4rem; }
+      /* Nessuno nel team: invece di una casella vuota, la frase che spiega e
+         la porta per rimediare. ⚠️ Un menu' con dentro il solo «Personne» non
+         e' un comando, e' un vicolo cieco con l'aria di un comando. */
+      .nc-vuoto { font-size: 0.8rem; color: var(--c-muted); margin-bottom: 0.5rem; }
+      /* ⚠️ QUATTRO COLONNE FISSE, e le righe che servono. Non `auto-fit`: qui
+         le caselle sono volti, e una fila di volti che cambia numero a ogni
+         larghezza si ri-impara ogni volta. La finestra e' larga 560px: quattro
+         ci stanno comode. Sotto i 520px si scende a tre, perche' a quattro il
+         nome andrebbe a capo in mezzo. */
+      .nc-ask { display: flex; align-items: center; gap: 0.7rem; margin: 1.1rem 0 0; }
+      .nc-ask-t { font-size: 0.9rem; }
+      #nc-chi { margin-top: 0.9rem; }
+      .nc-chi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.9rem 0.4rem; }
+      @media (max-width: 520px) { .nc-chi-grid { grid-template-columns: repeat(3, 1fr); } }
+      /* ⚠️ Il cerchio e' piu' grande qui che altrove (56 contro 40): nella
+         colonna e' il contorno di chi ha scritto una recensione, qui e' il
+         BERSAGLIO da toccare col dito, e una faccia da riconoscere prima di
+         toccarla. Stesso componente, taglia dichiarata nel posto che la usa. */
+      .nc-p .j-av { width: 56px; height: 56px; font-size: 1.05rem; position: relative; }
+      /* ⚠️ La foto COPRE le iniziali, non ci sta accanto. Dentro un cerchio
+         `inline-flex`, l'immagine era un fratello del testo: si stringevano
+         per stare in due, e usciva mezza faccia con una lettera a fianco. Qui
+         sta sopra, e se non carica (`onerror` la toglie) sotto ci sono gia' le
+         iniziali. */
+      .nc-p .j-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      .nc-p { display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+        background: transparent; border: none; padding: 0.2rem 0; cursor: pointer;
+        color: var(--c-muted); font-family: var(--font-body); min-width: 0; }
+      .nc-p .n { font-size: 0.72rem; max-width: 100%; overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; }
+      /* ⚠️ L'anello sta FUORI dal cerchio (`box-shadow`), non e' un bordo: un
+         bordo mangia due pixel di foto e la faccia scelta si rimpicciolisce
+         nel momento in cui la si sceglie. */
+      .nc-p .j-av { transition: box-shadow 0.15s; }
+      .nc-p.is-on { color: var(--c-text); font-weight: 700; }
+      .nc-p.is-on .j-av { box-shadow: 0 0 0 2px var(--c-accent); }
+      .nc-p:hover .j-av { box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 45%, transparent); }
+      .nc-p .n { font-size: 0.74rem; }
       .nc-tags { display: flex; gap: 0.45rem; flex-wrap: wrap; }
-      .nc-tag { border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c-bg) 45%, transparent); background: transparent; color: #2c2013; font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; padding: 0.28rem 0.75rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
-      .nc-tag.is-on { background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
-      /* MOBILE: modale note un po' più alto, tag in riga, "Aggiungi" sotto i tag. */
-      @media (max-width: 640px) {
-        #notes-overlay .md-box { min-height: 62vh; }
-        #notes-overlay .notes-compose-actions { flex-direction: column; align-items: stretch; gap: 0.85rem; }
-        #notes-overlay .nc-tags { justify-content: flex-start; }
-        #notes-overlay .nc-save { width: 100%; text-align: center; }
+      /* La pastiglia da PREMERE: contorno da spenta, piena da accesa. E' la
+         stessa coppia dei bottoni «15/30/45» della préparation — sceglie, non
+         informa. */
+      .nc-tag { border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c-text) 28%, var(--c-bg));
+        background: var(--c-card); color: var(--c-text); font-family: var(--font-body);
+        font-size: 0.78rem; font-weight: 700; padding: 0.28rem 0.75rem; cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      .nc-tag:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .nc-tag.is-on { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
+      /* ⚠️ La pastiglia «+ etichetta» NON si accende come le altre: quelle
+         dicono una scelta fatta, questa apre una cosa. Il tratteggio lo dice
+         prima di premerla — e' un posto vuoto da riempire, non un'etichetta. */
+      .nc-tag.nc-piu { border-style: dashed; color: var(--c-muted); }
+      .nc-tag.nc-piu:hover { color: var(--c-accent); }
+      .nc-new { position: relative; margin-top: 0.6rem; }
+      /* Spazio a destra per il cerchio: senza, il testo ci scorre sotto. */
+      .nc-new .fld { width: 100%; padding-right: 3.1rem; }
+      /* ⚠️ UN CERCHIO VERO: larghezza e altezza UGUALI e scritte, `padding: 0`
+         e nessun testo che lo gonfi. Qui c'era un `.btn btn-sm`, cioe' una
+         pastiglia: raggio 999px su una scatola piu' larga che alta non fa un
+         cerchio, fa un ovale — e un ovale accanto ai tondi del pannello si
+         vede che e' un'altra cosa.
+         `aspect-ratio` oltre alle due misure: se un giorno qualcuno cambia il
+         corpo del «+», il quadrato resta quadrato. */
+      .nc-ok {
+        position: absolute; right: 0.45rem; top: 50%; transform: translateY(-50%);
+        width: 32px; height: 32px; aspect-ratio: 1; padding: 0; border: none;
+        border-radius: 50%; background: var(--c-accent); color: var(--c-bg);
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: var(--font-body); font-size: 1.25rem; line-height: 1;
+        cursor: pointer; transition: filter 0.15s;
       }
-      .note-tags { display: flex; gap: 0.35rem; margin-top: 0.3rem; flex-wrap: wrap; }
+      .nc-ok:hover { filter: brightness(1.08); }
+      /* I due pannelli che si aprono con l'etichetta. `[hidden]` lo spegne il
+         browser da solo: nessuna classe nostra per dire «nascosto». */
+      .nc-extra { margin-top: 1rem; }
+      .nc-extra .f-label { display: block; margin-bottom: 0.4rem; }
+      .nc-rip { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .nc-rip .fld { flex: 1 1 7rem; min-width: 0; }
+      /* Il messaggio d'errore sta nel piede, a sinistra dei bottoni: e' li'
+         che si guarda dopo aver premuto «Ajouter». */
+      .notes-msg { margin-right: auto; color: var(--c-hover); font-size: 0.82rem; font-weight: 700; }
+
+      /* --- I bigliettini: il cerchio della spunta, i tag, il cestino --- */
+      .note-tags { display: flex; gap: 0.3rem 0.8rem; margin-top: 0.3rem; flex-wrap: wrap; align-items: center; }
       .note-tag { border-radius: 999px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.12rem 0.5rem; }
       .note-tag.t-important { background: #8f2e15; color: #fff; }
-      .note-tag.t-recurrent { background: var(--c-brown); color: var(--c-accent); }
+      /* ⚠️ Un BLU VERO, scritto qui come i suoi due fratelli.
+         Era marrone, e su un bigliettino corallo si confondeva col rosso di
+         «important». L'ho poi ricavato da `--c-barra` per non inventare un
+         colore — ma `--c-barra` e' il turchese delle barre del grafico, cioe'
+         un parente del verde di «fournisseur»: derivandolo dal tema si
+         otteneva un colore giusto in teoria e indistinguibile in pratica.
+         Le tre etichette sono tre segni che devono separarsi con la coda
+         dell'occhio: rosso, verde, blu. Sono tre esadecimali perche' devono
+         restare DIVERSI FRA LORO, e tre tinte ricavate dallo stesso tema
+         sarebbero finite vicine prima o poi. */
+      .note-tag.t-recurrent { background: #1f6fb5; color: #fff; }
       .note-tag.t-fournisseur { background: #007153; color: #fff; }
+      /* ⚠️ I tag scritti a mano non hanno un colore loro, e non devono
+         averlo: un colore per tag vorrebbe dire sceglierne uno nuovo a ogni
+         parola nuova, e dopo dieci note la colonna e' un arcobaleno che non
+         dice niente. Quelli liberi portano tutti la stessa pastiglia scura. */
+      .note-tag.t-libero { background: var(--c-brown); color: var(--c-accent); }
       .np-item .note-tag { transform: translateY(-1px); }
-      .nc-save { background: var(--c-brown); border: 1px solid var(--c-brown); color: var(--c-accent); font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.04em; padding: 0.5rem 1.6rem; cursor: pointer; border-radius: 999px; transition: background 0.15s, color 0.15s; }
-      .nc-save:hover:not(:disabled) { background: transparent; color: var(--c-brown); }
-      .nc-save:disabled { opacity: 0.5; cursor: not-allowed; }
-      .notes-msg { color: #7a1f12; font-size: 0.85rem; font-weight: 700; min-height: 1.1rem; margin-bottom: 0.4rem; }
-
-      /* Lista completa (nel modale, su fondo oro) */
-      .note { display: flex; align-items: flex-start; gap: 0.8rem; padding: 0.85rem 0; border-top: 1px solid color-mix(in srgb, var(--c-bg) 20%, transparent); }
-      .note:first-child { border-top: none; }
+      /* ETICHETTA → INFORMAZIONE, sulla stessa riga. L'etichetta resta una
+         pastiglia piena («di che si tratta»), il dettaglio e' testo in
+         grassetto («entro quando», «ogni quanto»): due pastiglie di seguito
+         con due significati diversi sarebbero due cose da imparare. */
+      .note-tagx { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; }
+      .note-fr { font-weight: 700; opacity: 0.5; flex: none; }
+      .note-info { font-size: 0.74rem; font-weight: 700;
+        color: color-mix(in srgb, var(--c-bg) 78%, transparent); }
+      /* ⚠️ A CHI TOCCA si legge piu' in grande del resto della riga. Scadenza
+         ed etichette sono dettagli della nota; il nome di chi deve farla e' la
+         prima cosa che si cerca in una lavagnetta di squadra — «questa e'
+         mia?» — e alla taglia delle note di servizio bisognava andarlo a
+         cercare. Resta piu' piccolo del testo della nota: dice di chi e', non
+         che cosa c'e' da fare. */
+      /* ⚠️ L'anello e' un'OMBRA, non un bordo: un bordo si disegna dentro il
+         cerchio e mangia due pixel di faccia. E' lo stesso accorgimento della
+         griglia nel modale — stesso componente, stesso modo di cerchiarlo.
+         Scuro e trasparente perche' il fondo qui e' corallo: un anello bianco
+         avrebbe aggiunto un terzo colore a un bigliettino che ne ha due. */
+      .np-av { width: 28px; height: 28px; font-size: 0.68rem; position: relative;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-bg) 32%, transparent); }
+      .note-tagx.chi { gap: 0.45rem; }
+      .note-tagx.chi .note-info { font-size: 0.88rem; }
+      .np-av img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      .note-tagx svg { width: 13px; height: 13px; fill: none; stroke: currentColor;
+        stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none;
+        color: color-mix(in srgb, var(--c-bg) 72%, transparent); }
+      /* ⚠️ Il ritardo e' l'unica cosa ROSSA su un bigliettino gia' corallo: un
+         corallo piu' acceso non si sarebbe distinto dal fondo, e il rosso
+         scuro dell'etichetta «important» e' lo stesso rosso che il pannello
+         usa gia' per dire «questo e' andato storto». */
+      .note-info.late { color: #7a1f12; }
+      /* Il cestino a fondo bigliettino: e' l'azione, e le azioni stanno dove
+         finisce la riga. ⚠️ Piu' piccolo del cerchio della spunta: spuntare e'
+         il gesto di ogni giorno, buttare via e' quello che si fa una volta. */
+      .np-item .note-del { margin-left: auto; align-self: flex-start; height: 26px; min-width: 26px; }
+      .np-item .note-del svg { width: 13px; height: 13px; }
       .note-check { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--c-brown); background: transparent; cursor: pointer; margin-top: 0.1rem; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
       .note-check:hover { background: color-mix(in srgb, var(--c-bg) 12%, transparent); }
-      .note.done .note-check, .np-item.done .note-check { background: var(--c-brown); border-color: var(--c-brown); }
+      .np-item.done .note-check { background: var(--c-brown); border-color: var(--c-brown); }
       .note-check svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-      .note-body { flex: 1; min-width: 0; }
-      /* +1px sul testo, -2px sotto: il testo scende di un capello e la riga
-         dell'autore si avvicina. Il -2 e' 1 per annullare la discesa e 1 per
-         chiudere lo spazio. */
-      .note-text { font-size: 0.98rem; white-space: pre-wrap; word-break: break-word; line-height: 1.35; margin-top: 1px; }
-      .note.done .note-text { text-decoration: line-through; color: color-mix(in srgb, var(--c-bg) 55%, transparent); }
-      .note-meta { color: color-mix(in srgb, var(--c-bg) 60%, transparent); font-size: 0.72rem; margin-top: calc(0.3rem - 2px); }
       .note-del { flex-shrink: 0; height: 30px; min-width: 30px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c-bg) 30%, transparent); background: transparent; color: color-mix(in srgb, var(--c-bg) 70%, transparent); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
       .note-del:hover { border-color: #9a1b12; color: #9a1b12; background: rgba(154, 27, 18, 0.08); }
       .note-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .note-del.confirm { padding: 0 0.7rem; font-size: 0.72rem; color: #fff; background: #a3320f; border-color: #a3320f; }
-      .notes-empty { color: color-mix(in srgb, var(--c-bg) 65%, transparent); font-size: 0.9rem; padding: 0.4rem 0; }
 
       /* ---- Organiser : FAB flottante in basso a sinistra (come les chiusure Réservations) ---- */
       /* Saluto sopra le tile (SOLO mobile): la parola ruota ogni 5s. */
@@ -771,7 +1206,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         <div class="state" id="state">{t("sup.loading")}</div>
         <Giornata />
         <div class="cards" id="cards" style="display:none">
-          <TileNotes />
           <TileJoursSpeciaux />
           <TileMenu />
           <TileSearchConsole />
@@ -821,20 +1255,103 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       </div>
     </Modal>
 
-    <Modal id="notes-overlay" title={t("home.notes")} width="620px" boxClass="md-nota">
-      <div class="notes-compose">
-        <textarea id="notes-input" maxlength="1000" placeholder={t("home.notesPlaceholder")}></textarea>
-        <div class="notes-compose-actions">
-          <div class="nc-tags" id="nc-tags">
-            <button type="button" class="nc-tag" data-tag="important">{t("tag.important")}</button>
-            <button type="button" class="nc-tag" data-tag="recurrent">{t("tag.recurrent")}</button>
-            <button type="button" class="nc-tag" data-tag="fournisseur">{t("tag.fournisseur")}</button>
-          </div>
-          <button class="nc-save" id="nc-save" type="button">{t("common.add")}</button>
+    {/* ⚠️ UN MODALE PER SCRIVERE UNA NOTA, e basta.
+        Qui sotto c'era anche l'elenco completo delle note: le stesse note che
+        si leggono nella colonna, ridisegnate una seconda volta con un secondo
+        markup e un secondo `render`. Due disegni della stessa cosa sono due
+        posti dove un giorno la pastiglia di un tag esce diversa, e la finestra
+        copriva la colonna per mostrarle di nuovo.
+        ⚠️ E i colori sono quelli di TUTTI i modali. Il fondo corallo
+        (`md-nota`) era il vestito della vecchia tile oro: adesso il corallo e'
+        il bigliettino nella colonna, e una finestra grande dello stesso colore
+        del bigliettino fa sembrare la finestra una nota gigante. */}
+    <Modal id="notes-overlay" title={t("home.newNote")} titleId="notes-title" width="560px">
+      <textarea id="notes-input" class="fld nc-txt" maxlength="1000" placeholder={t("home.notesPlaceholder")}></textarea>
+
+      <span class="f-label nc-lab">{t("home.noteTags")}</span>
+      {/* I tre di sempre, piu' quelli gia' usati nelle altre note (li aggiunge
+          lo script) e il campo per scriverne uno nuovo. */}
+      <div class="nc-tags" id="nc-tags">
+        <button type="button" class="nc-tag" data-tag="important">{t("tag.important")}</button>
+        <button type="button" class="nc-tag" data-tag="recurrent">{t("tag.recurrent")}</button>
+        <button type="button" class="nc-tag" data-tag="fournisseur">{t("tag.fournisseur")}</button>
+        {/* ⚠️ «+ etichetta» e' l'ULTIMA pastiglia della riga, e il campo per
+            scriverla si apre solo premendola. Prima il campo stava sempre li'
+            sotto, grande come la riga delle pastiglie: chiedeva di scrivere a
+            tutti, anche a chi le tre etichette gia' pronte bastano — che e'
+            quasi sempre. Il bottone resta in coda anche quando lo script
+            aggiunge quelle gia' usate: e' il «e altro», e l'altro viene dopo. */}
+        <button type="button" class="nc-tag nc-piu" id="nc-tag-piu">{t("home.noteTagAdd")}</button>
+      </div>
+      <div class="nc-new" id="nc-new" hidden>
+        <input id="nc-tag-new" class="fld" type="text" maxlength="120" placeholder={t("home.noteTagNew")} />
+        {/* ⚠️ Il bottone sta DENTRO il campo, non accanto: e' la chiusura di
+            quello che si sta scrivendo li', non un comando a parte. Fuori,
+            una riga di due cose chiedeva di scegliere fra due; dentro, e'
+            evidente che finisce la frase cominciata nel campo. */}
+        <button type="button" class="nc-ok" id="nc-tag-add" aria-label={t("common.add")}>+</button>
+      </div>
+
+      {/* ⚠️ Una DOMANDA con un interruttore, e i volti solo se la risposta e'
+          si'. Qui c'era una casella «Personne» in testa alla griglia: faceva
+          il suo lavoro, ma metteva «nessuno» in mezzo alle persone — una
+          scelta che non e' una persona, disegnata come se lo fosse. E
+          costringeva a guardare tutta la squadra anche quando la nota non e'
+          di nessuno, che e' il caso piu' comune: una lavagnetta serve prima
+          di tutto a dire una cosa a tutti.
+          ⚠️ Spegnere l'interruttore TOGLIE l'assegnazione: e' cosi' che si
+          disfa, e senza bisogno di una casella apposta. */}
+      <div class="nc-ask">
+        <label class="switch"><input type="checkbox" id="nc-chi-on" /><span class="track"></span></label>
+        <span class="nc-ask-t">{t("home.noteAssignQ")}</span>
+      </div>
+      <div id="nc-chi" hidden></div>
+
+      {/* ⚠️ I due pannelli compaiono con la LORO etichetta e non sono sempre
+          li'. «Importante» e «Ricorrente» non sono due caselle in piu' da
+          riempire: sono due scelte che, fatte, portano una domanda ciascuna —
+          per quando, e ogni quanto. Mostrarle sempre vorrebbe dire chiedere a
+          tutti due cose che riguardano una nota su dieci. */}
+      <div class="nc-extra" id="nc-quando" hidden>
+        <span class="f-label">{t("home.noteWhen")}</span>
+        {/* ⚠️ Il CALENDARIO DEL MARCHIO, non il `datetime-local` del browser:
+            quello cambia faccia su ogni sistema, non sa niente dei giorni di
+            chiusura e scrive la data nel formato del computer. Il valore vero
+            sta in `data-iso`, il testo e' solo per l'occhio (vedi
+            lib/admin/datepicker.ts). La data e l'ora sono due campi perche'
+            sono due scelte: il giorno si sceglie da un calendario, l'ora si
+            scrive. */}
+        <div class="nc-rip">
+          <input id="nc-due" class="fld" type="text" readonly placeholder="--/--/----" />
+          <input id="nc-due-ora" class="fld" type="time" value="12:00" />
         </div>
       </div>
-      <div class="notes-msg" id="notes-msg"></div>
-      <div id="notes-list"></div>
+
+      <div class="nc-extra" id="nc-ripeti" hidden>
+        <span class="f-label">{t("home.noteEvery")}</span>
+        <div class="nc-rip">
+          <select id="nc-ogni" class="fld">
+            <option value="giorno">{t("home.everyDay")}</option>
+            <option value="settimana">{t("home.everyWeek")}</option>
+            <option value="mese">{t("home.everyMonth")}</option>
+            <option value="anno">{t("home.everyYear")}</option>
+          </select>
+          {/* ⚠️ I nomi dei giorni e dei mesi NON sono stringhe da tradurre: li
+              riempie lo script con `Intl`, nella lingua dell'admin. Scritti a
+              mano sarebbero diciannove chiavi per cinque lingue, cioe'
+              novantacinque parole che il browser conosce gia'. */}
+          <select id="nc-dow" class="fld" hidden></select>
+          <select id="nc-dom" class="fld" hidden></select>
+          <select id="nc-mese" class="fld" hidden></select>
+          <input id="nc-ora" class="fld" type="time" value="09:00" />
+        </div>
+      </div>
+
+      <Fragment slot="foot">
+        <span class="notes-msg" id="notes-msg"></span>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="nc-save">{t("common.add")}</button>
+      </Fragment>
     </Modal>
 
     <!-- Toast: componente condiviso (styles/toast.css, importato da AdminHead).
@@ -854,6 +1371,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { authFresh } from "../../lib/admin/auth";
       import { collegaLogout } from "../../lib/admin/logout";
       import { nomeServizio } from "../../lib/reservationI18n";
+      import { creaDatepicker } from "../../lib/admin/datepicker";
+      import { descrivi } from "../../lib/admin/ricorrenzaRegole";
+      import { assegnabili } from "../../lib/admin/teamRegole";
+      import { iniziali, coloreDi } from "../../lib/admin/avatarRegole";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { festivita, ricorrenze } from "../../lib/festivitaRegole";
 
@@ -891,14 +1412,75 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       } | null;
       type MenuRow = { category: string; available: boolean; name: string; sold_out?: boolean | null };
       type Cat = { name: string; kind: "food" | "drink" };
-      type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string; tags?: string[] | null };
+      type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string; tags?: string[] | null;
+        /** Quando e' stata spuntata (#78). Oggi non si legge ancora: la riga
+         *  in fondo dice «3 fatte su 11», che si puo' dire anche sulle note
+         *  di prima. Da quando ce ne saranno abbastanza con questa data,
+         *  diventa «3 fatte questa settimana» — e cambia solo quella riga. */
+        done_at?: string | null;
+        /** Chi l'ha spuntata (#79). ⚠️ Non e' `author`: quello e' chi l'ha
+         *  scritta, ed e' quasi sempre un'altra persona. */
+        done_by?: string | null;
+        /** A chi tocca (#81): l'id in `team` e il nome al momento. */
+        assigned_to?: string | null;
+        assigned_name?: string | null;
+        /** Quando va fatta, e ogni quanto torna (#80). */
+        due_at?: string | null;
+        repeat?: { ogni?: string; ora?: string; dow?: number; dom?: number; mese?: number } | null };
 
       const CLOCK =
         '<svg class="clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>';
       const TRASH_ICON =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+      /**
+       * I GIORNI IN CUI IL LOCALE E' CHIUSO — per segnarli sul calendario.
+       *
+       * Due sorgenti, e vanno tenute distinte:
+       *   `chiusiSettimana`  i giorni della settimana senza nessun servizio
+       *                      (dalla configurazione: 1 = lunedi', 7 = domenica)
+       *   `chiusiSpeciali`   le date chiuse una volta sola (giorni speciali)
+       *
+       * ⚠️ Si riempiono quando i dati arrivano, e il calendario le CHIEDE a
+       * ogni disegno. Passate per valore alla creazione sarebbero sempre
+       * vuote: il calendario nasce col pannello, le chiusure arrivano da due
+       * chiamate che finiscono dopo.
+       */
+      const chiusiSettimana = new Set<number>();
+      const chiusiSpeciali = new Set<string>();
+      /** Il calendario del marchio, uno per questa pagina. */
+      const dp = creaDatepicker({
+        loc: LOC,
+        dow: tr("res.dowInitials").split(","),
+        chiuso: (iso) => giornoChiuso(iso),
+      });
+      function giornoChiuso(iso: string): boolean {
+        if (chiusiSpeciali.has(iso)) return true;
+        // ⚠️ `T12:00` e non la data nuda: `new Date("2026-03-10")` e' mezzanotte
+        // UTC, che in mezzo mondo e' ancora il giorno prima — e il calendario
+        // segnerebbe chiuso il giorno sbagliato.
+        const d = new Date(iso + "T12:00:00");
+        return chiusiSettimana.has(((d.getDay() + 6) % 7) + 1);
+      }
+
       const CHECK_ICON =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+      // La sveglia e il giro: due segni per due cose diverse — «entro quando»
+      // e «ogni quanto». Lo stesso orologio per tutte e due avrebbe messo chi
+      // guarda a leggere la frase per capire quale delle due e'.
+      const ICO_SVEGLIA =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 15 15"/><line x1="5" y1="3" x2="7.5" y2="5"/><line x1="19" y1="3" x2="16.5" y2="5"/></svg>';
+      // «Tutte»: quattro caselle, cioe' l'insieme. ⚠️ Non una lente ne' un
+      // imbuto: quelli dicono «cerca» e «filtra», e questo bottone fa
+      // l'opposto — toglie il filtro.
+      const ICO_TUTTE =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
+      const ICO_RIPETI =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="17 2 21 6 17 10"/><path d="M3 12V10a4 4 0 0 1 4-4h14"/><polyline points="7 22 3 18 7 14"/><path d="M21 12v2a4 4 0 0 1-4 4H3"/></svg>';
+      /** I nomi corti di giorni e mesi, dal browser: vedi `nomeGiorno`. */
+      const nomeGiornoBreve = (dow: number) =>
+        new Intl.DateTimeFormat(LOC, { weekday: "long" }).format(new Date(Date.UTC(2024, 0, 1 + ((dow - 1) % 7))));
+      const nomeMeseBreve = (m: number) =>
+        new Intl.DateTimeFormat(LOC, { month: "long" }).format(new Date(Date.UTC(2024, m - 1, 15)));
 
       function dayKey(d: Date): string {
         const y = d.getFullYear();
@@ -1061,8 +1643,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const lista = document.getElementById("j-resa-lista") as HTMLElement | null;
         if (lista) {
           lista.innerHTML = attese.length
-            ? attese.slice(0, 6).map((r) => rigaResa(r)).join("")
-            : `<p class="j-vuoto">${tr("home.nothingLeft")}</p>`;
+            // ⚠️ Niente piu' tetto a sei: le sei righe erano il modo di non far
+            // crescere la colonna, e adesso a non farla crescere ci pensa
+            // l'altezza fissa. Tagliate, la settima prenotazione della serata
+            // non esisteva — e non c'era niente che lo dicesse.
+            ? attese.map((r) => rigaResa(r)).join("")
+            : `<p class="j-vuoto">${tr("home.nothingToShow")}</p>`;
         }
         const daConf = reseOggi.filter((r) => r.status === "pending").length;
         // ⚠️ Senza capienza niente percentuale: una percentuale calcolata su
@@ -1088,6 +1674,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       // veloce per chiudere un servizio credendo di aprirlo.
       // ============================================================
       type SvOggi = { key: string; label: string; da: string; a: string };
+      /** «HH:MM» → minuti dalla mezzanotte. `-1` se non si legge: una fascia
+       *  senza orario finisce in testa, dove si vede che manca qualcosa,
+       *  invece di sparire in fondo. */
+      function minutiDi(h: string): number {
+        const m = String(h ?? "").match(/^(\d{1,2}):(\d{2})/);
+        return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+      }
       let servOggi: SvOggi[] = [];
       let servData = "";
       const servChiusi = new Map<string, string>();
@@ -1101,9 +1694,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const perm = motivo === "permanent";
             return (
               `<div class="j-sv${perm ? " is-perm" : ""}">` +
-                `<span class="n">${escHtml(sv.label)}</span>` +
-                `<span class="h">${escHtml(sv.da)} – ${escHtml(sv.a)}</span>` +
-                `<label class="switch sw-sm"${perm ? ` title="${escHtml(tr("res.closedUntilReopenM"))}"` : ""}>` +
+                `<span class="j-sv-x">` +
+                  `<span class="n">${escHtml(sv.label)}</span>` +
+                  `<span class="h">${escHtml(sv.da)} – ${escHtml(sv.a)}</span>` +
+                `</span>` +
+                // ⚠️ Taglia PIENA, senza `sw-sm`: questo interruttore chiude un
+                // servizio, e lo si tocca col dito su un tablet appeso in sala.
+                // `sw-sm` e' la taglia delle righe fitte di un elenco lungo —
+                // qui ci sono due righe, e il bersaglio deve essere quello che
+                // il dispositivo da' a tutti gli altri interruttori.
+                `<label class="switch"${perm ? ` title="${escHtml(tr("res.closedUntilReopenM"))}"` : ""}>` +
                   `<input type="checkbox" data-sv="${escHtml(sv.key)}"${motivo ? "" : " checked"}${perm ? " disabled" : ""} />` +
                   `<span class="track"></span>` +
                 `</label>` +
@@ -1223,6 +1823,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const d = document.getElementById(id + "-d");
         if (d) d.textContent = sotto;
       }
+      /** «6 oct, 12:20» nella lingua dell'admin e nel fuso del LOCALE.
+       *  ⚠️ Non quello del browser: una nota scritta alle 23:40 a Bruxelles,
+       *  letta da un telefono rimasto su un altro fuso, direbbe un'altra ora —
+       *  e su una lavagnetta l'ora e' meta' dell'informazione. */
       function noteDate(iso: string): string {
         return new Date(iso).toLocaleString(LOC, {
           timeZone: TZ_LOCALE, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
@@ -1237,70 +1841,310 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         return b;
       }
 
-      // ---------- Notes: anteprima nel tile + board nel modale ----------
+      // ---------- Notes: i bigliettini nella colonna + il modale «nuova nota» ----------
       async function avviaNote(headers: Record<string, string>) {
         const preview = document.getElementById("notes-preview") as HTMLElement;
-        const expandBtn = document.getElementById("notes-expand") as HTMLButtonElement;
         const addBtn = document.getElementById("notes-add") as HTMLButtonElement;
         const overlay = document.getElementById("notes-overlay") as HTMLElement;
         const input = document.getElementById("notes-input") as HTMLTextAreaElement;
         const saveBtn = document.getElementById("nc-save") as HTMLButtonElement;
-        const listEl = document.getElementById("notes-list") as HTMLElement;
         const msgEl = document.getElementById("notes-msg") as HTMLElement;
+        const tagNew = document.getElementById("nc-tag-new") as HTMLInputElement;
+        const tagAdd = document.getElementById("nc-tag-add") as HTMLButtonElement;
+        const tagPiu = document.getElementById("nc-tag-piu") as HTMLButtonElement;
+        const rigaNew = document.getElementById("nc-new") as HTMLElement;
+        const boxChi = document.getElementById("nc-chi") as HTMLElement;
+        const panQuando = document.getElementById("nc-quando") as HTMLElement;
+        const panRipeti = document.getElementById("nc-ripeti") as HTMLElement;
+        const campoDue = document.getElementById("nc-due") as HTMLInputElement;
+        const campoDueOra = document.getElementById("nc-due-ora") as HTMLInputElement;
+        // Il calendario del marchio sul campo della scadenza. Niente passato:
+        // una scadenza di ieri non e' una scadenza, e il calendario lo dice
+        // spegnendo i giorni invece di accettarli e poi colorare di rosso.
+        dp.collega(campoDue);
+        const selOgni = document.getElementById("nc-ogni") as HTMLSelectElement;
+        const selDow = document.getElementById("nc-dow") as HTMLSelectElement;
+        const selDom = document.getElementById("nc-dom") as HTMLSelectElement;
+        const selMese = document.getElementById("nc-mese") as HTMLSelectElement;
+        const campoOra = document.getElementById("nc-ora") as HTMLInputElement;
         let notes: Note[] = [];
+        // ⚠️ Lo dice l'API, non il browser: e' la stessa risposta che decide
+        // se la cancellazione passera'. Finche' non si sa, il cestino non
+        // c'e' — meglio un bottone che compare un attimo dopo di un bottone
+        // che risponde «non autorizzato».
+        let puoCancellare = false;
+        /** L'etichetta per cui si sta filtrando. Vuota = tutte. */
+        let filtro = "";
+        /** La nota che si sta MODIFICANDO, o `null` se se ne sta scrivendo una
+         *  nuova. ⚠️ E' l'unica cosa che distingue i due usi della stessa
+         *  finestra: tutto il resto — campo, etichette, scadenza — e' lo
+         *  stesso, ed era gia' tutto li'. Una seconda finestra «modifica»
+         *  sarebbe stata la stessa finestra scritta due volte. */
+        let modificaId: string | null = null;
 
         async function erroreDa(res: Response, fallback: string): Promise<string> {
           try { return ((await res.json()) as { error?: string }).error || fallback; } catch { return `${fallback} (HTTP ${res.status})`; }
         }
 
         const TAG_LABEL: Record<string, string> = { important: tr("tag.important"), recurrent: tr("tag.recurrent"), fournisseur: tr("tag.fournisseur") };
+        /**
+         * ⚠️ I tag che NON sono fra i tre noti si scrivono come sono stati
+         * scritti, invece di sparire. Prima la riga era
+         * `.filter((x) => TAG_LABEL[x])`: un tag scritto a mano si salvava e
+         * poi non si vedeva piu' da nessuna parte — il modo peggiore di
+         * perdere una cosa, perche' sembra che abbia funzionato.
+         * ⚠️ `t-${x}` solo per i tre noti: la classe finisce nell'HTML, e una
+         * parola scritta da una persona non va messa dentro un nome di
+         * classe.
+         */
         const tagPills = (n: Note): string => {
-          const t = Array.isArray(n.tags) ? n.tags.filter((x) => TAG_LABEL[x]) : [];
-          return t.length ? `<div class="note-tags">${t.map((x) => `<span class="note-tag t-${x}">${TAG_LABEL[x]}</span>`).join("")}</div>` : "";
+          const t = Array.isArray(n.tags) ? n.tags.map((x) => String(x)).filter(Boolean) : [];
+          const quando = testoScadenza(n);
+          const ripete = testoRicorrenza(n);
+          const tardi = inRitardo(n);
+
+          /** Una pastiglia, con il suo dettaglio attaccato se ce l'ha.
+           *  ⚠️ Il dettaglio sta accanto alla SUA etichetta, non su una riga
+           *  a parte: «Important» e «entro l'11 ottobre» sono una frase sola,
+           *  e separate chiedevano di rimetterle insieme da soli. La freccia
+           *  dice che la seconda spiega la prima.
+           *  ⚠️ La freccia e' un carattere e non un elemento: qui non reagisce
+           *  a niente e non e' un comando — e fra le cinque lingue
+           *  dell'admin non ce n'e' una che scrive da destra. */
+          const uno = (x: string) => {
+            const info = x === "important" ? quando : x === "recurrent" ? ripete : "";
+            const rosso = x === "important" && tardi ? " late" : "";
+            return `<span class="note-tagx"><span class="note-tag ${TAG_LABEL[x] ? "t-" + x : "t-libero"}">${escHtml(TAG_LABEL[x] ?? x)}</span>` +
+              (info ? `<span class="note-fr">→</span><b class="note-info${rosso}">${escHtml(info)}</b>` : "") +
+              `</span>`;
+          };
+
+          const pezzi = t.map(uno);
+          // ⚠️ A CHI TOCCA viene PRIMA delle etichette, perche' e' la cosa per
+          // cui si guarda una lavagnetta di squadra: «questa e' mia?». Si
+          // legge `assigned_name`, il nome salvato con la nota, e non la
+          // rubrica di oggi: se quella persona se n'e' andata la nota deve
+          // continuare a dire di chi era.
+          if (n.assigned_name) {
+            // ⚠️ IL NOME dalla NOTA, la FOTO dalla rubrica di oggi. Il nome e'
+            // quello salvato quando la si e' assegnata — se quella persona se
+            // n'e' andata, la nota deve continuare a dire di chi era. La foto
+            // invece cambia: fotografarla nella nota avrebbe lasciato in giro
+            // ritratti vecchi di un anno, e un indirizzo che un giorno non
+            // risponde piu'. Se la persona non e' piu' in rubrica restano le
+            // iniziali, che dal nome si ricavano sempre.
+            const p = squadra.find((x) => x.id === n.assigned_to);
+            const dentro = escHtml(iniziali(n.assigned_name)) +
+              (p?.foto ? `<img src="${escHtml(p.foto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />` : "");
+            pezzi.unshift(
+              `<span class="note-tagx chi"><span class="j-av np-av" style="background:${coloreDi(n.assigned_name)}">${dentro}</span>` +
+              `<b class="note-info">${escHtml(n.assigned_name)}</b></span>`);
+          }
+          // ⚠️ Scadenza o ricorrenza SENZA la loro etichetta esistono: il
+          // campo si apre con «Important», ma niente vieta di togliere
+          // l'etichetta e lasciare la data. Orfane si mostrano lo stesso, con
+          // il loro segno davanti — altrimenti una scadenza ci sarebbe e non
+          // si vedrebbe.
+          if (quando && !t.includes("important")) {
+            pezzi.push(`<span class="note-tagx">${ICO_SVEGLIA}<b class="note-info${tardi ? " late" : ""}">${escHtml(quando)}</b></span>`);
+          }
+          if (ripete && !t.includes("recurrent")) {
+            pezzi.push(`<span class="note-tagx">${ICO_RIPETI}<b class="note-info">${escHtml(ripete)}</b></span>`);
+          }
+          return pezzi.length ? `<div class="note-tags">${pezzi.join("")}</div>` : "";
+          // (l'ordine della riga: a chi tocca, le etichette col loro
+          //  dettaglio, e in coda scadenza o ricorrenza rimaste orfane)
         };
 
-        function renderPreview() {
-          if (notes.length === 0) {
-            preview.innerHTML = `<p class="np-empty">${tr("home.noNotesShort")}</p>`;
-            return;
+        /** Le etichette presenti nelle note, nell'ordine in cui compaiono. */
+        function etichette(): string[] {
+          const visti = new Map<string, string>();
+          for (const n of notes) {
+            for (const t of Array.isArray(n.tags) ? n.tags : []) {
+              const x = String(t).trim();
+              if (x && !visti.has(x.toLowerCase())) visti.set(x.toLowerCase(), x);
+            }
           }
-          const primi = notes.slice(0, 3);
-          const resto = notes.length - primi.length;
-          preview.innerHTML =
-            primi
-              .map(
-                (n) => `
-              <div class="np-item${n.done ? " done" : ""}" data-id="${n.id}">
-                <button class="note-check" type="button" title="${n.done ? tr("home.reopenNote") : tr("home.markDone")}">${n.done ? CHECK_ICON : ""}</button>
-                <span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
-              </div>`
-              )
-              .join("") +
-            (resto > 0 ? `<div class="np-more">+${resto} ${tr("home.more")}…</div>` : "");
+          return [...visti.values()];
         }
-        function renderList() {
-          if (notes.length === 0) {
-            listEl.innerHTML = `<p class="notes-empty">${tr("home.noNotesLong")}</p>`;
+
+        /** La riga dei filtri. ⚠️ Non c'e' se non c'e' niente da filtrare: una
+         *  riga con la sola pastiglia «Toutes» e' un comando che non comanda,
+         *  e ruba due centimetri alla colonna in cima. */
+        function disegnaFiltri(): void {
+          const box = document.getElementById("j-note-filtri");
+          if (!box) return;
+          const tag = etichette();
+          box.style.display = tag.length ? "" : "none";
+          if (!tag.length) { filtro = ""; return; }
+          // ⚠️ Se l'ultima nota con l'etichetta filtrata se ne va — spuntata,
+          // cancellata — il filtro resterebbe acceso su una parola che non
+          // esiste piu', e la colonna direbbe «niente da mostrare» senza che
+          // si capisca perche'.
+          if (filtro && !tag.some((x) => x.toLowerCase() === filtro.toLowerCase())) filtro = "";
+          // ⚠️ `aria-label` e `title` sulla pastiglia con l'icona: su tablet e
+          // telefono la parola e' nascosta, e un bottone fatto di un disegno
+          // solo non ha piu' un nome — per chi legge con la voce diventa
+          // «pulsante», e per chi guarda un rettangolo da provare.
+          const chip = (val: string, testo: string, ico = "") =>
+            `<button type="button" class="rh-filter${ico ? " tutte" : ""}${val.toLowerCase() === filtro.toLowerCase() ? " is-on" : ""}"` +
+            ` data-f="${escHtml(val)}"${ico ? ` aria-label="${escHtml(testo)}" title="${escHtml(testo)}"` : ""}>` +
+            `${ico}<span class="et">${escHtml(testo)}</span></button>`;
+          // ⚠️ L'icona sta SOLO su «Toutes», ed e' il punto: le altre pastiglie
+          // sono etichette — parole scritte da chi usa la lavagnetta — questa
+          // e' il comando che le spegne tutte. Un segno la separa da loro
+          // senza doverla leggere, in una riga che scorre di lato.
+          box.innerHTML = chip("", tr("home.notesAll"), ICO_TUTTE) + tag.map((x) => chip(x, TAG_LABEL[x] ?? x)).join("");
+        }
+
+        /**
+         * Le note da mostrare: tutte, o quelle che portano l'etichetta.
+         *
+         * ⚠️ L'ORDINE NON SI TOCCA QUI. Arriva dal server — dalla piu' vecchia
+         * alla piu' nuova, le fatte in fondo — ed e' un ordine solo, in un
+         * posto solo. Qui c'era un riordino per scadenza: due regole d'ordine
+         * sulla stessa lista vogliono dire che aggiungendo una nota la si
+         * vede comparire in un punto che non e' quello in cui il database
+         * crede che sia, e nessuna delle due e' sbagliata abbastanza da
+         * accorgersene.
+         * La scadenza si vede: lo dice «en retard» in rosso, non la posizione.
+         */
+        const visibili = (): Note[] =>
+          filtro
+            ? notes.filter((n) => (Array.isArray(n.tags) ? n.tags : []).some((t) => String(t).toLowerCase() === filtro.toLowerCase()))
+            : notes;
+
+        /**
+         * IL PIEDE DELLA COLONNA: quante ne sono state chiuse, e da quanto
+         * aspetta la piu' vecchia.
+         *
+         * ⚠️ Conta SEMPRE tutte le note, anche col filtro acceso. E' la riga
+         * di fondo della colonna, non il riassunto di cio' che si sta
+         * guardando: un numero che cambia perche' si e' premuta una pastiglia
+         * la' in cima e' un numero di cui non ci si fida piu'.
+         *
+         * ⚠️ L'eta' si dice solo da UN GIORNO IN SU. «La piu' vecchia da 0
+         * giorni» non e' un'informazione, e' una riga che occupa posto per
+         * dire che e' tutto normale; la frase serve quando c'e' qualcosa che
+         * aspetta da troppo.
+         */
+        function renderStat(): void {
+          const box = document.getElementById("j-note-stat");
+          if (box) {
+            if (!notes.length) box.textContent = "";
+            else {
+              const aperte = notes.filter((n) => !n.done);
+              let riga = "";
+              if (aperte.length) {
+                const piuVecchia = aperte.reduce((a, b) => (a.created_at < b.created_at ? a : b));
+                const giorni = Math.floor((Date.now() - new Date(piuVecchia.created_at).getTime()) / 86400000);
+                if (giorni >= 1) riga = tr("home.notesOldest").replace("{n}", String(giorni));
+              }
+              box.textContent = riga;
+            }
+          }
+
+          const nums = document.getElementById("j-note-nums");
+          if (!nums) return;
+          nums.style.display = notes.length ? "" : "none";
+          if (!notes.length) return;
+
+          // ⚠️ IL MESE COMINCIA NEL FUSO DEL LOCALE. `new Date(y, m, 1)` lo
+          // fa nascere nel fuso del BROWSER: una nota del primo del mese
+          // scritta a Bruxelles, guardata da un telefono rimasto indietro di
+          // un fuso, cadrebbe nel mese prima — e il conto del mese sarebbe
+          // diverso a seconda di chi guarda la stessa pagina.
+          const inizioMese = (() => {
+            const f = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE, year: "numeric", month: "2-digit" });
+            return `${f.format(new Date())}-01`;
+          })();
+          const delMese = notes.filter((n) => String(n.created_at) >= inizioMese);
+          const fatte = delMese.filter((n) => n.done).length;
+          // `numero()`: lo stesso aiutante dei riquadri delle altre colonne —
+          // scrive la cifra e la riga sotto in un colpo, e sa gia' che la
+          // seconda si chiama come la prima con «-d».
+          numero("j-note-mese", `${fatte}/${delMese.length}`, tr("home.notesDoneShort"));
+
+          // CHI LE FA: si conta `done_by`, non `author`.
+          // ⚠️ `done_by` esiste dalla #79 e si riempie da quando qualcuno
+          // spunta: finche' non c'e' niente la casella lo DICE invece di
+          // mostrare una classifica vuota, che si leggerebbe come «nessuno
+          // fa niente».
+          const conta = new Map<string, number>();
+          for (const n of delMese) {
+            const chi = String(n.done_by ?? "").trim();
+            if (n.done && chi) conta.set(chi, (conta.get(chi) ?? 0) + 1);
+          }
+          const top = [...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+          const ol = document.getElementById("j-note-top");
+          if (ol) {
+            ol.innerHTML = top.length
+              ? top.map(([chi, q]) => `<li><span class="n">${escHtml(chi)}</span><span class="q">${q}</span></li>`).join("")
+              : `<li class="vuoto">${escHtml(tr("home.notesTopNone"))}</li>`;
+          }
+        }
+
+        /** ⚠️ «In ritardo» si dice solo per le note DA FARE: su una gia'
+         *  spuntata sarebbe un rimprovero per un lavoro finito. */
+        const inRitardo = (n: Note): boolean =>
+          !!n.due_at && !n.done && new Date(n.due_at).getTime() < Date.now();
+
+        /** «11 Oct, 12:00» — e «· en retard» quando e' passata. */
+        function testoScadenza(n: Note): string {
+          if (!n.due_at) return "";
+          return noteDate(n.due_at) + (inRitardo(n) ? ` · ${tr("home.noteLate")}` : "");
+        }
+
+        /** «ogni lunedi' alle 09:00» — la frase la compone `descrivi()`, la
+         *  stessa che usa l'email alla persona assegnata. Qui si passano solo
+         *  i nomi dei giorni e dei mesi, che il browser sa gia' fare. */
+        const testoRicorrenza = (n: Note): string =>
+          descrivi(n.repeat as never, { t: tr, giorno: nomeGiornoBreve, mese: nomeMeseBreve });
+
+        function renderPreview() {
+          disegnaFiltri();
+          renderStat();
+          const mostrate = visibili();
+          // La pastiglia conta le note DA FARE, non tutte: una lavagnetta con
+          // trenta note spuntate direbbe «30» a chi ne ha zero da leggere.
+          // ⚠️ E conta quelle MOSTRATE: con un filtro acceso, un numero nel
+          // titolo piu' grande delle note qui sotto e' un numero che chi
+          // guarda deve spiegarsi da solo.
+          const pil = document.getElementById("j-note-cnt");
+          if (pil) pil.textContent = mostrate.length ? String(mostrate.filter((n) => !n.done).length) : "";
+          if (mostrate.length === 0) {
+            // Due vuoti diversi: «non ce ne sono» e «nessuna ha questa
+            // etichetta». Il primo dice di premere +, il secondo sarebbe un
+            // consiglio sbagliato — la nota c'e', e' il filtro che la nasconde.
+            const testo = notes.length ? tr("home.nothingToShow") : tr("home.noNotesShort");
+            preview.innerHTML = `<p class="np-empty j-vuoto">${escHtml(testo)}</p>`;
             return;
           }
-          listEl.innerHTML = notes
+          // ⚠️ TUTTE, e non le prime tre con un «+7 altre». Le tre erano il
+          // modo di far stare la lavagnetta in una tile; adesso e' una colonna
+          // alta quanto le altre e scorre dentro. La riga «+7» mandava ad
+          // aprire il modale per leggere note che ci stavano benissimo qui.
+          preview.innerHTML = mostrate
             .map(
               (n) => `
-            <div class="note${n.done ? " done" : ""}" data-id="${n.id}">
-              <button class="note-check" type="button" title="${n.done ? tr("home.reopenNote") : tr("home.markDone")}">${n.done ? CHECK_ICON : ""}</button>
-              <div class="note-body">
-                <div class="note-text">${escHtml(n.content)}</div>${tagPills(n)}
-                <div class="note-meta">${n.author ? escHtml(n.author) + " · " : ""}${noteDate(n.created_at)}</div>
-              </div>
-              <button class="note-del" type="button" title="${tr("common.delete")}">${TRASH_ICON}</button>
-            </div>`
+              <div class="np-item${n.done ? " done" : ""}" data-id="${n.id}">
+                <button class="note-check" type="button" title="${n.done ? tr("home.reopenNote") : tr("home.markDone")}">${n.done ? CHECK_ICON : ""}</button>
+                <div class="np-body">
+                  <span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
+                  <div class="note-meta">${n.author ? `<b>${escHtml(n.author)}</b> · ` : ""}${noteDate(n.created_at)}</div>
+                </div>
+                ${puoCancellare ? `<button class="note-del" type="button" title="${tr("common.delete")}">${TRASH_ICON}</button>` : ""}
+              </div>`
             )
             .join("");
         }
-        function render() { renderPreview(); renderList(); }
+        /** ⚠️ Un disegno solo. Le note si disegnavano due volte — qui e
+            nell'elenco del modale — con due markup e due funzioni: e' il modo
+            in cui una pastiglia finisce diversa nei due posti e nessuno sa
+            quale sia quella giusta. */
+        const render = renderPreview;
 
-        /** Segna fatta / da fare. Chiamata sia dal modale sia dall'anteprima
-            nella tile: il cerchio e' lo stesso, quindi lo e' anche il codice. */
+        /** Segna fatta / da fare. */
         async function spunta(id: string): Promise<void> {
           const n = notes.find((x) => x.id === id);
           if (!n) return;
@@ -1317,26 +2161,172 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           } catch { msgEl.textContent = tr("common.netErr"); }
         }
 
-        function openModal(focus: boolean) {
+        const titolo = document.getElementById("notes-title") as HTMLElement | null;
+
+        /** Accende le pastiglie che stanno in `tagSel`, spegne le altre.
+         *  ⚠️ Da fare DOPO `disegnaTagUsati()`: le pastiglie delle etichette
+         *  scritte a mano non esistono finche' non le disegna, e accese prima
+         *  sarebbero rimaste spente. */
+        function mostraTagSel(): void {
+          tagsBox?.querySelectorAll<HTMLButtonElement>(".nc-tag[data-tag]").forEach((b) => {
+            b.classList.toggle("is-on", tagSel.has(b.dataset.tag ?? ""));
+          });
+        }
+
+        /**
+         * Apre la finestra: vuota per una nota nuova, piena per modificarne una.
+         *
+         * ⚠️ Riempirla NON basta: va anche SVUOTATA quando si passa da una
+         * nota all'altra, o da una nota a una nuova. Senza, la nota nuova
+         * nascerebbe con la scadenza e le etichette dell'ultima aperta —
+         * campi che nessuno ha toccato e che si salvano lo stesso.
+         */
+        /** La rubrica, letta una volta sola e tenuta.
+         *  ⚠️ Non al caricamento della pagina: chi non apre mai il modale non
+         *  deve pagare una chiamata in piu' a ogni visita della Accueil. */
+        let squadraLetta = false;
+        async function leggiSquadra(): Promise<void> {
+          if (squadraLetta) return;
+          squadraLetta = true;
+          try {
+            const res = await fetch("/api/admin/team", { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { team?: unknown[]; rows?: unknown[]; people?: unknown[] };
+            const righe = (j.team ?? j.rows ?? j.people ?? []) as { id: string; name: string; photo_url?: string }[];
+            squadra = assegnabili(righe as { id: string; name: string; photo_url?: string }[])
+              .map((p) => ({ id: String(p.id), name: String(p.name), foto: String(p.photo_url ?? "") }));
+          } catch { /* niente rubrica: la finestra mostra la via d'uscita */ }
+        }
+
+        function openModal(focus: boolean, n?: Note) {
           msgEl.textContent = "";
+          modificaId = n?.id ?? null;
+
+          input.value = n?.content ?? "";
+          tagSel.clear();
+          for (const t of Array.isArray(n?.tags) ? n!.tags! : []) tagSel.add(String(t));
+
+          // La scadenza torna nei due campi da cui era uscita: il giorno nel
+          // calendario (in `data-iso`), l'ora nel suo.
+          if (n?.due_at) {
+            const d = new Date(n.due_at);
+            dp.metti(campoDue, dayKey(d));
+            campoDueOra.value = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+          } else {
+            dp.metti(campoDue, "");
+            campoDueOra.value = "12:00";
+          }
+
+          const r = n?.repeat;
+          selOgni.value = String(r?.ogni ?? "giorno");
+          campoOra.value = String(r?.ora ?? "09:00");
+
+          disegnaTagUsati();
+          mostraTagSel();
+          // ⚠️ Anche i pannelli, non solo le pastiglie: chi chiude la finestra
+          // con la × invece di salvare lascia le etichette accese, e
+          // riaprendola avrebbe trovato «Importante» premuto e il campo della
+          // scadenza sparito — due cose che si contraddicono.
+          aggiornaPannelli();
+          // ⚠️ Le scelte della ricorrenza si rimettono DOPO `aggiornaPannelli`:
+          // e' li' che le caselle vengono riempite la prima volta, e scrivere
+          // in una `<select>` ancora vuota non lascia niente.
+          if (r) {
+            if (r.dow) selDow.value = String(r.dow);
+            if (r.dom) selDom.value = String(r.dom);
+            if (r.mese) selMese.value = String(r.mese);
+          }
+
+          rigaNew.hidden = true;
+          tagNew.value = "";
+          // ⚠️ Prima col poco che si ha, poi di nuovo quando la rubrica
+          // arriva: aspettando la risposta, la finestra si aprirebbe dopo il
+          // click invece che con il click.
+          chiSel = String(n?.assigned_to ?? "");
+          // Aprendo una nota gia' assegnata l'interruttore e' acceso e la sua
+          // faccia e' quella scelta: la finestra mostra com'e' la nota, non
+          // come si comincia.
+          swChi.checked = !!chiSel;
+          boxChi.hidden = !chiSel;
+          disegnaChi();
+          void leggiSquadra().then(() => { if (!boxChi.hidden) disegnaChi(); });
+          if (titolo) titolo.textContent = tr(modificaId ? "home.editNote" : "home.newNote");
+          saveBtn.textContent = tr(modificaId ? "common.save" : "common.add");
           overlay.hidden = false;
           if (focus) input.focus();
         }
         function closeModal() { overlay.hidden = true; }
 
-        expandBtn.addEventListener("click", () => openModal(false));
+        // ⚠️ Il bottone «Agrandir» non c'e' piu', e questa riga se n'e' andata
+        // con lui. Lasciata, `getElementById` avrebbe reso `null` e
+        // `addEventListener` sarebbe morto subito: dentro `avviaNote`, cioe'
+        // prima che si agganciassero il «+», la spunta e il caricamento —
+        // tutta la lavagnetta spenta per un bottone tolto dal markup.
+        // Il «+» apre sempre una finestra vuota, anche se l'ultima volta si
+        // stava correggendo una nota.
         addBtn.addEventListener("click", () => openModal(true));
+        document.getElementById("j-note-filtri")?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rh-filter") as HTMLButtonElement | null;
+          if (!b) return;
+          const val = b.dataset.f ?? "";
+          // Ripremere il filtro acceso lo spegne: e' la via d'uscita piu'
+          // corta, e non costringe a cercare «Toutes» in fondo a una riga che
+          // scorre di lato.
+          filtro = val.toLowerCase() === filtro.toLowerCase() ? "" : val;
+          render();
+        });
         preview.addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          const riga = t.closest(".np-item") as HTMLElement | null;
           // Il cerchio spunta la nota SENZA aprire il modale: e' l'unico punto
-          // dell'anteprima che non porta dentro.
-          const chk = (e.target as HTMLElement).closest(".note-check");
-          if (chk) {
-            const riga = chk.closest(".np-item") as HTMLElement | null;
+          // del bigliettino che non porta dentro.
+          if (t.closest(".note-check")) {
             if (riga?.dataset.id) void spunta(riga.dataset.id);
             return;
           }
-          openModal(false);
+          const del = t.closest(".note-del") as HTMLButtonElement | null;
+          if (del && riga?.dataset.id) { void cancella(del, riga.dataset.id); return; }
+          // ⚠️ Solo da un BIGLIETTINO (o dal messaggio «nessuna nota»). Qui
+          // dentro si apriva da qualunque punto: andava bene in una tile alta
+          // quattro righe, dove tutto era una nota. Nella colonna, sotto
+          // l'ultima nota ci sono duecento pixel di niente, e cliccarli faceva
+          // comparire un modale che nessuno aveva chiesto.
+          if (!t.closest(".np-item, .np-empty")) return;
+          // ⚠️ Toccando un bigliettino si apre QUELLA nota, non una finestra
+          // vuota: si tocca per cambiare cio' che c'e' scritto, non per
+          // scriverne un'altra — e trovarsi davanti un foglio bianco al posto
+          // della propria nota fa credere di averla persa.
+          const sua = riga?.dataset.id ? notes.find((x) => x.id === riga.dataset.id) : undefined;
+          openModal(false, sua);
         });
+
+        /** Cancella, in due tempi: il primo tocco CHIEDE, il secondo fa.
+         *  ⚠️ Niente `confirm()` del browser e niente finestra: si cancella un
+         *  bigliettino di una riga, e una domanda che ferma tutta la pagina
+         *  per quello e' sproporzionata. La domanda sta sul bottone stesso, e
+         *  dopo quattro secondi si ritira da sola — chi ha toccato per sbaglio
+         *  non deve nemmeno annullare. */
+        async function cancella(btn: HTMLButtonElement, id: string): Promise<void> {
+          if (!btn.classList.contains("confirm")) {
+            btn.classList.add("confirm");
+            btn.textContent = tr("home.deleteQ");
+            setTimeout(() => { btn.classList.remove("confirm"); btn.innerHTML = TRASH_ICON; }, 4000);
+            return;
+          }
+          try {
+            const res = await fetch("/api/admin/notes", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ delete_id: id }),
+            });
+            // ⚠️ L'esito si legge. Qui il messaggio d'errore vive nel modale,
+            // che in questo momento e' chiuso: senza il toast, una
+            // cancellazione rifiutata sarebbe un bottone premuto due volte e
+            // una nota che resta dov'e', senza una parola.
+            if (res.ok) { notes = notes.filter((x) => x.id !== id); render(); }
+            else toast(await erroreDa(res, tr("home.deleteFailed")), true);
+          } catch { toast(tr("common.netErr"), true); }
+        }
         // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
         overlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", closeModal));
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
@@ -1349,11 +2339,242 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const t = b.dataset.tag;
           if (tagSel.has(t)) tagSel.delete(t); else tagSel.add(t);
           b.classList.toggle("is-on", tagSel.has(t));
+          aggiornaPannelli();
         });
+        /** Svuota la finestra dopo un salvataggio riuscito.
+         *  ⚠️ `dp.metti(el, "")` e non `el.value = ""`: il valore vero sta in
+         *  `data-iso`, e svuotando solo il testo la nota dopo si sarebbe
+         *  portata dietro la scadenza di quella prima, con il campo in
+         *  apparenza vuoto. */
         const azzeraTag = () => {
           tagSel.clear();
           tagsBox?.querySelectorAll(".nc-tag").forEach((b) => b.classList.remove("is-on"));
+          dp.metti(campoDue, "");
+          tagNew.value = "";
+          rigaNew.hidden = true;
+          chiSel = "";
+          swChi.checked = false;
+          boxChi.hidden = true;
+          modificaId = null;
+          aggiornaPannelli();
         };
+
+        // ---------- Assegna a ----------
+        /** Le persone a cui si puo' assegnare. Vuoto finche' la rubrica non
+         *  arriva — e se non arriva, resta vuoto e la finestra lo dice. */
+        let squadra: { id: string; name: string; foto: string }[] = [];
+        /** Chi e' scelto nella griglia. ⚠️ Una variabile e non il DOM: la
+         *  griglia si ridisegna quando la rubrica arriva, e leggere la scelta
+         *  da un elemento che nel frattempo e' stato buttato via vorrebbe dire
+         *  perderla proprio nel momento in cui l'elenco si riempie. */
+        let chiSel = "";
+
+        /**
+         * Il menu' «Assegna a», o la via d'uscita quando non c'e' nessuno.
+         *
+         * ⚠️ `team` e' una RUBRICA: dentro ci sono anche fornitori, tecnici e
+         * consulenti. Il filtro e' `assegnabili()`, la stessa regola che
+         * applica il server quando salva e quando manda l'email — se qui ne
+         * mostrassi uno in piu', il salvataggio lo rifiuterebbe in silenzio.
+         */
+        /**
+         * LE FACCE, non un menu' a tendina.
+         *
+         * ⚠️ In cucina le persone si riconoscono in faccia, non leggendo un
+         * elenco: una griglia di volti si scorre con l'occhio, una `<select>`
+         * va aperta, letta e chiusa. E il cerchio col colore ricavato dal nome
+         * e' lo STESSO che il pannello usa per chi scrive una recensione —
+         * stesso componente (`.j-av`), stesse iniziali, stesso colore.
+         *
+         * ⚠️ «Personne» e' la PRIMA casella e non l'assenza di una scelta: e'
+         * cosi' che si toglie un'assegnazione fatta per sbaglio. Senza, per
+         * disfare bisognerebbe cancellare la nota.
+         */
+        function disegnaChi(): void {
+          if (!squadra.length) {
+            boxChi.innerHTML =
+              `<p class="nc-vuoto">${escHtml(tr("home.noteTeamNone"))}</p>` +
+              `<a class="btn btn-sm" href="/admin/settings?tab=team">${escHtml(tr("home.noteTeamAdd"))}</a>`;
+            return;
+          }
+          const cella = (id: string, nome: string, foto: string) => {
+            // ⚠️ `referrerpolicy` e un `onerror` che torna alle iniziali: una
+            // foto che non carica lascerebbe un cerchio vuoto, che non dice
+            // niente e sembra un guasto.
+            // ⚠️ Le iniziali ci sono SEMPRE, e la foto ci sta sopra: cosi'
+            // `onerror` deve solo togliere l'immagine, e sotto c'e' gia' da
+            // vedere. Un cerchio vuoto non dice niente e sembra un guasto.
+            const dentro = escHtml(iniziali(nome)) +
+              (foto ? `<img src="${escHtml(foto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />` : "");
+            return `<button type="button" class="nc-p${id === chiSel ? " is-on" : ""}" data-chi="${escHtml(id)}">` +
+              `<span class="j-av" style="background:${id ? coloreDi(nome) : "transparent"}">${dentro}</span>` +
+              `<span class="n">${escHtml(nome)}</span></button>`;
+          };
+          boxChi.innerHTML =
+            `<div class="nc-chi-grid">` +
+            squadra.map((p) => cella(p.id, p.name, p.foto)).join("") +
+            `</div>`;
+        }
+
+        const swChi = document.getElementById("nc-chi-on") as HTMLInputElement;
+        swChi.addEventListener("change", () => {
+          boxChi.hidden = !swChi.checked;
+          // ⚠️ Spegnendo si DIMENTICA la scelta, non la si nasconde: una
+          // faccia ancora selezionata sotto un interruttore spento verrebbe
+          // salvata lo stesso, e la nota partirebbe assegnata a chi si era
+          // deciso di non assegnare.
+          if (!swChi.checked) chiSel = "";
+          else { disegnaChi(); void leggiSquadra().then(() => { if (!boxChi.hidden) disegnaChi(); }); }
+        });
+
+        boxChi.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-p") as HTMLButtonElement | null;
+          if (!b) return;
+          chiSel = b.dataset.chi ?? "";
+          disegnaChi();
+        });
+
+        const chiScelto = (): string => chiSel;
+
+        // ---------- Scadenza e ricorrenza ----------
+        /** I nomi dei giorni e dei mesi nella lingua dell'admin, dal browser.
+         *  ⚠️ `Intl` e non diciannove chiavi tradotte cinque volte: sono parole
+         *  che ogni browser conosce gia', e una traduzione nostra sarebbe
+         *  novantacinque occasioni di scriverne una storta.
+         *  2024 e' bisestile: serve per avere un 29 febbraio da nominare. */
+        const nomeGiorno = (dow: number) =>
+          new Intl.DateTimeFormat(LOC, { weekday: "long" }).format(new Date(Date.UTC(2024, 0, 1 + ((dow - 1) % 7))));
+        const nomeMese = (m: number) =>
+          new Intl.DateTimeFormat(LOC, { month: "long" }).format(new Date(Date.UTC(2024, m - 1, 15)));
+
+        function riempiScelte(): void {
+          if (selDow.options.length) return;
+          for (let g = 1; g <= 7; g++) selDow.add(new Option(nomeGiorno(g), String(g)));
+          for (let d = 1; d <= 31; d++) selDom.add(new Option(String(d), String(d)));
+          for (let m = 1; m <= 12; m++) selMese.add(new Option(nomeMese(m), String(m)));
+        }
+
+        /** Quali caselle servono alla regola scelta: il giorno della settimana
+         *  per «ogni settimana», il numero per «ogni mese», mese e numero per
+         *  «ogni anno». Le altre non si svuotano — si nascondono: chi cambia
+         *  idea e torna indietro ritrova quello che aveva scelto. */
+        function aggiornaRipeti(): void {
+          const o = selOgni.value;
+          selDow.hidden = o !== "settimana";
+          selDom.hidden = o !== "mese" && o !== "anno";
+          selMese.hidden = o !== "anno";
+        }
+        selOgni.addEventListener("change", aggiornaRipeti);
+
+        /** I pannelli seguono le due etichette. */
+        function aggiornaPannelli(): void {
+          panQuando.hidden = !tagSel.has("important");
+          panRipeti.hidden = !tagSel.has("recurrent");
+          if (!panRipeti.hidden) { riempiScelte(); aggiornaRipeti(); }
+        }
+
+        /** La regola da mandare al server, o `null` se «Ricorrente» e' spenta. */
+        function regolaScelta(): Record<string, unknown> | null {
+          if (panRipeti.hidden) return null;
+          const ora = campoOra.value || "09:00";
+          const o = selOgni.value;
+          if (o === "settimana") return { ogni: o, ora, dow: Number(selDow.value) };
+          if (o === "mese") return { ogni: o, ora, dom: Number(selDom.value) };
+          if (o === "anno") return { ogni: o, ora, dom: Number(selDom.value), mese: Number(selMese.value) };
+          return { ogni: "giorno", ora };
+        }
+
+        /** I tag gia' usati nelle altre note, come pastiglie da premere.
+         *  ⚠️ Si leggono dalle NOTE, senza una tabella dei tag da tenere
+         *  pulita: il giorno in cui l'ultima nota con «metro» viene
+         *  cancellata, «metro» smette di proporsi da solo. Un elenco a parte
+         *  avrebbe continuato a offrirlo per sempre.
+         *  I tre noti sono gia' nel markup e non si ripetono. */
+        function disegnaTagUsati(): void {
+          if (!tagsBox) return;
+          const noti = new Set(Object.keys(TAG_LABEL));
+          const visti = new Map<string, string>();
+          for (const n of notes) {
+            for (const t of Array.isArray(n.tags) ? n.tags : []) {
+              const x = String(t).trim();
+              if (!x || noti.has(x)) continue;
+              if (!visti.has(x.toLowerCase())) visti.set(x.toLowerCase(), x);
+            }
+          }
+          tagsBox.querySelectorAll(".nc-tag[data-usato]").forEach((b) => b.remove());
+          // ⚠️ PRIMA del «+ etichetta», non in coda alla riga: quello e' il
+          // bottone che apre il campo, e messo in mezzo alle etichette
+          // diventa una quarta etichetta che non si accende.
+          for (const x of visti.values()) tagsBox.insertBefore(bottoneTag(x), tagPiu);
+        }
+
+        /** Una pastiglia da premere. Lo stesso elemento dei tre del markup —
+         *  stessa classe, stesso `data-tag` — cosi' il gestore del click non
+         *  sa nemmeno che ne esistono di due provenienze. */
+        function bottoneTag(x: string): HTMLButtonElement {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "nc-tag";
+          b.dataset.tag = x;
+          b.dataset.usato = "1";
+          b.textContent = x;
+          if (tagSel.has(x)) b.classList.add("is-on");
+          return b;
+        }
+
+        /** Le etichette scritte a mano, UNA O PIU' separate da virgola.
+         *  ⚠️ Scriverle non basta: senza questa funzione, chi scrive «metro» e
+         *  preme «Ajouter» salva una nota senza quel tag — ha fatto tutto
+         *  giusto e la parola sparisce.
+         *  ⚠️ Il campo si svuota SOLO dopo aver letto tutto: svuotandolo in
+         *  cima al giro, una virgola di troppo o un nome tutto spazi
+         *  porterebbero via anche quelli buoni scritti accanto. */
+        function aggiungiTagScritto(): void {
+          const scritti = tagNew.value.split(",");
+          let qualcosa = false;
+          for (const grezzo of scritti) {
+            const x = grezzo.replace(/\s+/g, " ").trim().slice(0, 24);
+            if (x) { metteTag(x); qualcosa = true; }
+          }
+          if (qualcosa) tagNew.value = "";
+        }
+
+        /** Quante etichette stanno su una nota.
+         *  ⚠️ Lo stesso numero di `MAX_TAG` in `api/admin/notes.ts`, che e'
+         *  quello che DECIDE: il server taglia le eccedenti. Qui si ferma
+         *  prima e lo si dice, perche' scriverne otto, vederne otto accese e
+         *  poi ritrovarne cinque e' la stessa parola persa in silenzio che
+         *  abbiamo appena tolto dall'API. */
+        const MAX_TAG = 5;
+
+        /** Una sola etichetta: la pastiglia che c'e' gia', o una nuova. */
+        function metteTag(x: string): void {
+          if (!x || !tagsBox) return;
+          const nota = x.toLowerCase();
+          const gia2 = [...tagSel].some((t) => t.toLowerCase() === nota);
+          if (!gia2 && tagSel.size >= MAX_TAG) {
+            msgEl.textContent = tr("home.noteTagMax").replace("{n}", String(MAX_TAG));
+            return;
+          }
+          const gia = [...tagsBox.querySelectorAll<HTMLButtonElement>(".nc-tag")]
+            .find((b) => (b.dataset.tag ?? "").toLowerCase() === x.toLowerCase());
+          const b = gia ?? tagsBox.insertBefore(bottoneTag(x), tagPiu);
+          const chiave = b.dataset.tag ?? x;
+          tagSel.add(chiave);
+          b.classList.add("is-on");
+        }
+        tagAdd.addEventListener("click", aggiungiTagScritto);
+        tagPiu.addEventListener("click", () => {
+          rigaNew.hidden = false;
+          tagNew.focus();
+        });
+        // Invio: si sta scrivendo in un campo di una riga, e l'invio li' vuol
+        // dire «questo e' finito» — non «salva la nota».
+        tagNew.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          aggiungiTagScritto();
+        });
 
         saveBtn.addEventListener("click", async () => {
           const content = input.value.trim();
@@ -1361,16 +2582,54 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           msgEl.textContent = "";
           saveBtn.disabled = true;
           try {
+            // La stessa finestra scrive e corregge: cambia il verbo e un id.
             const res = await fetch("/api/admin/notes", {
-              method: "POST",
+              method: modificaId ? "PUT" : "POST",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ content, tags: [...tagSel] }),
+              body: JSON.stringify({
+                ...(modificaId ? { id: modificaId } : {}),
+                content, tags: [...tagSel],
+                // ⚠️ L'orologio del campo viaggia COM'E' SCRITTO, senza fuso:
+                // «10/03 alle 9» e' il server a metterlo nel fuso del locale.
+                // Convertito qui, due telefoni su due fusi fisserebbero due
+                // ore diverse per la stessa frase.
+                // ⚠️ `dataset.iso` (2026-03-10), non `.value` (10/03/2026):
+                // il testo e' per l'occhio, e mandato al server diventa una
+                // data che nessuno rilegge — o, peggio, marzo letto come
+                // ottobre.
+                assigned_to: (swChi.checked && chiScelto()) || null,
+                due_at: panQuando.hidden || !campoDue.dataset.iso
+                  ? null
+                  : `${campoDue.dataset.iso}T${campoDueOra.value || "12:00"}`,
+                repeat: regolaScelta(),
+              }),
             });
             if (res.ok) {
-              notes.unshift((await res.json()).note as Note);
+              const salvata = (await res.json()).note as Note;
+              if (modificaId) {
+                // ⚠️ Si SOSTITUISCE al suo posto, non si sposta: l'elenco e'
+                // in ordine di scrittura, e togliere e rimettere in fondo
+                // avrebbe fatto saltare in coda una nota di tre settimane fa
+                // solo perche' le si e' corretta una parola.
+                const i = notes.findIndex((x) => x.id === modificaId);
+                if (i >= 0) notes[i] = salvata;
+              } else {
+                // ⚠️ In FONDO, non in cima: l'elenco va dalla piu' vecchia alla
+                // piu' nuova, e `unshift` la metteva in testa — al ricaricamento
+                // della pagina sarebbe saltata in fondo, cioe' la nota appena
+                // scritta cambiava posto da sola.
+                notes.push(salvata);
+              }
               input.value = "";
+              tagNew.value = "";
               azzeraTag();
               render();
+              // ⚠️ Si chiude. Prima restava aperta perche' sotto c'era
+              // l'elenco e si vedeva la nota comparire; adesso sotto non c'e'
+              // niente, e una finestra vuota che resta aperta dopo aver fatto
+              // il suo lavoro fa dubitare che l'abbia fatto. La nota si vede
+              // comparire nella colonna dietro.
+              closeModal();
             } else {
               msgEl.textContent = await erroreDa(res, tr("home.addFailed"));
             }
@@ -1381,42 +2640,22 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }
         });
 
-        listEl.addEventListener("click", async (e) => {
-          const t = e.target as HTMLElement;
-          const row = t.closest(".note") as HTMLElement | null;
-          if (!row) return;
-          const id = row.dataset.id!;
-          const n = notes.find((x) => x.id === id);
-          if (!n) return;
-
-          if (t.closest(".note-check")) { await spunta(id); return; }
-
-          const del = t.closest(".note-del") as HTMLButtonElement | null;
-          if (del) {
-            if (!del.classList.contains("confirm")) {
-              del.classList.add("confirm");
-              del.textContent = tr("home.deleteQ");
-              setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = TRASH_ICON; }, 4000);
-              return;
-            }
-            msgEl.textContent = "";
-            try {
-              const res = await fetch("/api/admin/notes", {
-                method: "POST",
-                headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ delete_id: id }),
-              });
-              if (res.ok) { notes = notes.filter((x) => x.id !== id); render(); }
-              else { msgEl.textContent = await erroreDa(res, tr("home.deleteFailed")); }
-            } catch { msgEl.textContent = tr("common.netErr"); }
-          }
-        });
 
         try {
           const res = await fetch("/api/admin/notes", { headers });
           if (!res.ok) { preview.innerHTML = `<p class="np-empty">${tr("home.notesUnavailable")}</p>`; return; }
-          notes = ((await res.json()).notes as Note[]) ?? [];
+          const j = (await res.json()) as { notes?: Note[]; canDelete?: boolean };
+          notes = j.notes ?? [];
+          puoCancellare = j.canDelete === true;
           render();
+          // ⚠️ La rubrica si legge SOLO se c'e' almeno una nota assegnata, e
+          // il disegno si rifa' quando arriva. Leggerla sempre vorrebbe dire
+          // una chiamata in piu' a ogni apertura della Accueil per una
+          // lavagnetta in cui nessuno ha assegnato niente; aspettarla prima di
+          // disegnare vorrebbe dire una colonna vuota finche' non risponde.
+          if (notes.some((n) => n.assigned_to)) {
+            void leggiSquadra().then(() => render());
+          }
         } catch {
           preview.innerHTML = `<p class="np-empty">${tr("common.netErr")}</p>`;
         }
@@ -1871,7 +3110,31 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const escSpx = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
           const MAX = 4;
 
+          /** Le date chiuse, giorno per giorno: il calendario le segna.
+           *  ⚠️ Una chiusura e' un INTERVALLO (`date_from` → `date_to`): due
+           *  settimane di ferie sono una riga sola, e segnando solo il primo
+           *  giorno il calendario direbbe aperto per tredici giorni di
+           *  chiusura. Si aprono tutti, con un tetto perche' una data scritta
+           *  storta non mandi il browser a contare fino al 3000. */
+          function segnaChiusure(days: SpxDay[]): void {
+            chiusiSpeciali.clear();
+            for (const sp of days) {
+              if (sp.type !== "closed") continue;
+              const d = new Date(String(sp.date_from) + "T12:00:00");
+              const fine = new Date(String(sp.date_to || sp.date_from) + "T12:00:00");
+              if (Number.isNaN(d.getTime()) || Number.isNaN(fine.getTime())) continue;
+              for (let i = 0; d <= fine && i < 400; i++, d.setDate(d.getDate() + 1)) {
+                chiusiSpeciali.add(dayKey(d));
+              }
+            }
+          }
+
           function renderSpx(days: SpxDay[]): void {
+            // ⚠️ PRIMA del disegno: qui sotto si esce presto quando la lista e'
+            // vuota o il contenitore non c'e', e le chiusure non verrebbero
+            // mai segnate — un calendario senza puntini su un locale che
+            // chiude il lunedi'.
+            segnaChiusure(days);
             if (!wrap) return;
             if (!days.length) {
               wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
@@ -1976,8 +3239,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const lista = document.getElementById("j-ord-lista") as HTMLElement | null;
             if (lista) {
               lista.innerHTML = daFare.length
-                ? daFare.slice(0, 6).map((o) => rigaOrdine(o)).join("")
-                : `<p class="j-vuoto">${tr("home.nothingLeft")}</p>`;
+                // Come per le prenotazioni: l'elenco e' intero, e scorre dentro
+                // il suo riquadro.
+                ? daFare.map((o) => rigaOrdine(o)).join("")
+                : `<p class="j-vuoto">${tr("home.nothingToShow")}</p>`;
             }
 
             // ⚠️ «Incassato» sono i soldi ENTRATI: i `pending` al banco non ci
@@ -2030,7 +3295,31 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 label: nomeServizio(String(sv.key), LANG),
                 da: String(sv.from).slice(0, 5),
                 a: String(sv.to).slice(0, 5),
-              }));
+              }))
+              // ⚠️ IN ORDINE DI OREARIO, e non nell'ordine in cui stanno nella
+              // configurazione. Li' l'ordine e' quello in cui il ristoratore
+              // ha creato le fasce — «Dinner» prima di «Lunch» se ha
+              // cominciato dalla sera — e la giornata non si legge cosi'. Chi
+              // guarda da sinistra a destra legge una giornata che va
+              // all'indietro, e per sapere quale interruttore e' il pranzo
+              // deve leggere l'orario invece del nome.
+              // In MINUTI e non per lettere: «9:00» e «12:00» ordinati come
+              // testo mettono le nove dopo mezzogiorno, e una fascia scritta
+              // senza lo zero davanti basta a mandare tutto a rovescio.
+              .sort((x, y) => minutiDi(x.da) - minutiDi(y.da));
+            // I giorni della settimana in cui non apre nessun servizio: il
+            // calendario li segna. ⚠️ `days` vuoto vuol dire «tutti i giorni»,
+            // come nella riga qui sopra: letto come «nessuno», un locale con
+            // un servizio solo e senza giorni scelti risulterebbe chiuso
+            // sempre, e il calendario sarebbe tutto puntini.
+            chiusiSettimana.clear();
+            {
+              const sv = (jr.config?.services ?? []) as { days?: number[] }[];
+              for (let d = 0; d <= 6; d++) {
+                const apre = sv.some((x) => !Array.isArray(x.days) || x.days.length === 0 || x.days.includes(d));
+                if (!apre) chiusiSettimana.add(((d + 6) % 7) + 1);
+              }
+            }
             servChiusi.clear();
             for (const c of (jr.closures ?? []) as { service_key: string; reason: string }[]) {
               servChiusi.set(String(c.service_key), String(c.reason || "full"));
@@ -2038,34 +3327,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             disegnaServizi();
           }
 
-          // ---- Quante colonne restano accese ----
-          // ⚠️ Un locale puo' avere le prenotazioni e non gli ordini (o il
-          // contrario): la colonna spenta non esiste proprio, e senza questo
-          // la griglia le teneva comunque il posto — meta' fascia vuota,
-          // come una stanza con un mobile portato via. Chi resta si prende
-          // la riga; se non resta nessuno, se la prende Google.
-          // ⚠️ `getComputedStyle` e non `style.display`: una colonna puo' essere
-          // spenta in TRE modi diversi e la griglia deve rispondere a tutti e
-          // tre uguale — i dati non sono arrivati (resta l'inline `none`), chi
-          // guarda non ha quella pagina (l'isola non viene mandata, quindi lo
-          // stesso), o il super ha spento la funzione in Pages visibles (regola
-          // CSS di AdminHead, che vince sull'inline). Lo stile inline conosce
-          // solo il primo, e una sola di quelle tre strade bastava a lasciare
-          // la fascia con mezzo schermo vuoto.
-          {
-            const due = document.getElementById("j-due");
-            const vive = ["j-resa", "j-ord"].filter((id) => {
-              const el = document.getElementById(id);
-              return !!el && getComputedStyle(el).display !== "none";
-            }).length;
-            if (due) due.classList.toggle("j-sola", vive === 1);
-            const jour = document.getElementById("jour");
-            if (jour) jour.classList.toggle("j-niente", vive === 0);
-            // Chi gestisce le tile sta in un altro blocco, con il suo scope e
-            // i suoi tempi: qui si dice soltanto com'e' andata. Se ha gia'
-            // finito, raccoglie l'avviso; se finisce dopo, guarda la classe.
-            document.dispatchEvent(new Event("mdd:giornata"));
-          }
+          // ⚠️ Qui si contavano le colonne accese per decidere la forma della
+          // fascia: una sola funzione, tutte e due, nessuna. Serviva perche'
+          // le caselle erano fisse e una colonna spenta lasciava mezzo
+          // schermo vuoto. Adesso la fascia e' una griglia di sezioni: una
+          // sezione spenta esce dal flusso e le altre scorrono al suo posto,
+          // senza che nessuno le conti. Il conto non e' stato spostato: non
+          // serve piu'.
 
           // ---------- La giornata: orari, riapertura, affluenza ----------
           // ⚠️ Gli orari stavano in una tile, che adesso non c'e' piu'. Non e'
@@ -2102,8 +3370,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 : escHtml(tr("home.closedToday"))
               );
             }
-            const fascia = document.getElementById("j-ore");
-            if (fascia) fascia.style.display = "";
+            // ⚠️ Si accende la PASTIGLIA, non un blocco: adesso stato e orari
+            // vivono dentro la testa della colonna. Finche' la configurazione
+            // non arriva resta spenta — «AUJOURD'HUI —» sembra un guasto.
+            if (pil) pil.style.display = "";
             // ⚠️ Gli orari ABITANO la colonna di Google, non sono di Google:
             // un locale senza Place ID lascerebbe quella colonna spenta e
             // perderebbe gli orari, che non c'entrano niente con la scheda.
@@ -2191,9 +3461,31 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               if (hm && plot && assi && serie.length && tutte.length && max > 0) {
                 const da = Math.min(...tutte);
                 const a = Math.max(...tutte);
+                // ⚠️ Il soffitto e' il massimo ARROTONDATO IN SU all'intero:
+                // le barre si misurano su un numero tondo, e il numero tondo
+                // si puo' scrivere accanto alla linea. Misurate sul massimo
+                // esatto, la riga in cima direbbe «7,3» — un'etichetta che
+                // nessuno legge e che cambia ogni giorno.
+                const cima = Math.max(1, Math.ceil(max));
                 // 96 e non 100: la barra piu' alta non deve toccare il
                 // soffitto del grafico.
-                const alt = (v: number) => Math.round((v / max) * 96);
+                const alt = (v: number) => Math.round((v / cima) * 96);
+                // LE LINEE: il pavimento, la meta' e il soffitto. Senza, una
+                // barra e' alta rispetto a niente — si vede che una sera e'
+                // piu' piena di un'altra, non QUANTO.
+                // ⚠️ Le altezze vengono dalla STESSA `alt()` delle barre: una
+                // linea disegnata al 50% e una barra calcolata su `cima`
+                // sarebbero due righelli diversi sullo stesso grafico, e il
+                // secondo direbbe una cosa falsa.
+                // Il mezzo si scrive solo se e' un numero intero: «3,5
+                // coperti» non e' una quantita' che qualcuno conta.
+                const meta = cima / 2;
+                const griglia =
+                  `<div class="j-grid" aria-hidden="true">` +
+                  `<i class="base"></i>` +
+                  `<i style="bottom:${alt(meta)}%">` + (Number.isInteger(meta) ? `<b>${meta}</b>` : "") + `</i>` +
+                  `<i style="bottom:${alt(cima)}%"><b>${cima}</b></i>` +
+                  `</div>`;
                 const barre: string[] = [];
                 const etichette: string[] = [];
                 for (let h = da; h <= a; h++) {
@@ -2207,7 +3499,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                   // non come un asse.
                   etichette.push(`<span>${(h - da) % 2 === 0 ? h + "h" : ""}</span>`);
                 }
-                plot.innerHTML = barre.join("");
+                plot.innerHTML = barre.join("") + griglia;
                 assi.innerHTML = etichette.join("");
                 // Due serie o quattro: la larghezza delle barre sta nel CSS,
                 // qui si dice solo quante ce ne sono.
@@ -2384,6 +3676,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <!-- Organiser : ordine + dimensione delle isole (per utente, salvato in DB) -->
     <script>
+      import { iniziali, coloreDi } from "../../lib/admin/avatarRegole";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
@@ -2399,14 +3692,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnTuiles = document.getElementById("organiser-tuiles") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number; hidden?: boolean };
-        const KEYS = ["notes", "special", "menu", "visibilite", "assets"];
-        // ⚠️ `orders`, `reservations`, `google`, `settings` (gli orari) e
-        // `cuisine` (préparation e chiusura online) non sono piu' qui: il
+        const KEYS = ["special", "menu", "visibilite", "assets"];
+        // ⚠️ `orders`, `reservations`, `google`, `settings` (gli orari),
+        // `cuisine` (préparation e chiusura online) e `notes` non sono piu' qui: il
         // loro contenuto e' salito nella fascia della giornata, che e' FISSA. Una gerarchia che si puo' trascinare torna
         // a essere una griglia di riquadri uguali, cioe' il difetto da cui
         // siamo partiti.
         const DEFAULT_LAYOUT: Item[] = [
-          { key: "notes", w: 1 },
           { key: "special", w: 1 }, { key: "menu", w: 1 },
           { key: "visibilite", w: 1 },
           { key: "assets", w: 2 },
@@ -2476,50 +3768,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         });
         cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => roTile.observe(t));
 
-        // ---- Ne' prenotazioni ne' ordini: due tile salgono accanto a Google ----
-        // Senza le due colonne la fascia resterebbe un terzo di schermo con
-        // due terzi di niente. Invece di stirare Google su tutta la riga —
-        // una colonna disegnata per stare stretta, larga come la pagina — la
-        // riga la finiscono le prime due tile.
-        //
-        // ⚠️ Si decide DOPO il layout salvato: quali tile sono visibili e in
-        // che ordine lo dice `applicaLayout`, non il sorgente. Fatto prima,
-        // sarebbe salita la prima tile del markup, magari una che chi guarda
-        // aveva spento nel modale «Tuiles».
-        //
-        // ⚠️ Le due che salgono ESCONO dalla griglia: niente maniglie, niente
-        // ridimensionamento, e non sono piu' nel modale «Tuiles». E' voluto —
-        // riempiono una fascia fissa, e la fascia non si trascina.
-        let salite = false;
-        function promuovi() {
-          const jour = document.getElementById("jour");
-          const dx = document.getElementById("j-dx");
-          if (salite || !jour || !dx) return;
-          // Su mobile tutto e' impilato: non c'e' nessun fianco da riempire.
-          if (isMobile() || !jour.classList.contains("j-niente")) return;
-          // `getComputedStyle` e non la sola classe `is-off`: una tile puo'
-          // essere spenta dal modale, non ancora arrivata (Visibilite' senza
-          // Search Console) o spenta dal super in Pages visibles. Una riga
-          // finita con una tile vuota e' peggio di una riga non finita.
-          const vive = Array.from(cards.querySelectorAll<HTMLElement>(".tile[data-tile]"))
-            .filter((t) => getComputedStyle(t).display !== "none");
-          if (vive.length < 2) return;
-          const box = document.createElement("div");
-          box.className = "j-tiles";
-          for (const t of vive.slice(0, 2)) {
-            roTile.unobserve(t);
-            t.style.gridColumn = "";
-            t.style.gridRowEnd = "";
-            t.style.minHeight = "";
-            box.appendChild(t);
-          }
-          dx.appendChild(box);
-          jour.classList.add("j-salite");
-          salite = true;
-          applicaSpans();
-        }
-        document.addEventListener("mdd:giornata", promuovi);
-        window.addEventListener("resize", promuovi);
+        // ⚠️ Qui due tile salivano dalla griglia nella fascia, quando il
+        // locale non aveva ne' prenotazioni ne' ordini: senza quelle due
+        // colonne restava un terzo di schermo con due terzi di niente, e
+        // qualcuno doveva riempirlo. Era una tile spostata a mano fuori dal
+        // suo posto — niente maniglie, fuori dal modale «Tuiles», e un
+        // `resize` che riprovava a ogni trascinamento della finestra.
+        // La fascia adesso e' una griglia di sezioni e il buco non si forma:
+        // le sezioni che restano scorrono nelle caselle libere da sole.
 
         function applicaLayout(layout: Item[]) {
           const m = mappa();
@@ -2575,8 +3831,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const box = document.getElementById("j-google") as HTMLElement | null;
           if (!box) return;
           // Tutto cio' che parla di Google, e che se ne va insieme alla scheda.
+          // ⚠️ La TESTATA non si tocca. Da quando porta «AUJOURD'HUI», la
+          // pastiglia aperto/chiuso e il link agli orari, non ha piu' niente
+          // di Google: nasconderla toglieva il titolo e lo stato del locale a
+          // ogni cliente senza scheda, e la colonna partiva da un riquadro di
+          // orari senza nome. Tutto cio' che e' di Google sta nel suo blocco,
+          // e se ne va con lui.
           const soloOrari = () => {
-            for (const id of ["j-g-hd", "j-g-nb", "j-g-per"]) {
+            for (const id of ["j-g-nb", "j-g-per"]) {
               const el = document.getElementById(id);
               if (el) el.style.display = "none";
             }
@@ -2586,6 +3848,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!res.ok) { soloOrari(); return; }
             const g = (await res.json()) as {
               configured: boolean; rating?: number | null; reviews?: number; maps_url?: string;
+              /** L'elenco delle recensioni su Google (costruito dall'API). */
+              reviews_url?: string;
+              // Recensioni arrivate questo mese. Assente quando non si puo'
+              // contare (Business Profile non collegato).
+              mois?: number;
               // `id` = review_id: arriva solo con il Business Profile collegato,
               // ed e' quello che permette di rispondere. Senza, il bottone non esce.
               avis?: { auteur: string; note: number; texte: string; quand: string; quand_iso?: string; foto?: string; reply?: boolean; id?: string }[];
@@ -2604,9 +3871,32 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const sEl = document.getElementById("j-g-stars");
             if (sEl) sEl.textContent = stelle(nota);
             const cEl = document.getElementById("j-g-count");
-            if (cEl) cEl.textContent = `${g.reviews ?? 0} ${tr("home.avisGoogle")}`;
+            if (cEl) {
+              // ⚠️ Nodi, non `innerHTML`: qui dentro passano un nome di
+              // lingua e due numeri, ma `escHtml` vive nell'ALTRO script di
+              // questa pagina e qui non esiste. Scritto con `innerHTML`
+              // sarebbe stato un ReferenceError dentro un `try` — e il
+              // `catch` l'avrebbe inghiottito facendo sparire tutto il
+              // blocco Google senza un errore in console.
+              cEl.textContent = `${g.reviews ?? 0} ${tr("home.avisGoogle")}`;
+              // ⚠️ `typeof` e non `if (g.mois)`: zero recensioni questo mese
+              // e' un'informazione — il mese e' andato cosi' — e con un test
+              // di verita' sparirebbe insieme al caso «non lo sappiamo».
+              if (typeof g.mois === "number") {
+                // ⚠️ La parentesi sta DENTRO il pezzo bianco, aperta e chiusa
+                // nella stessa stringa. Scritta fuori, un giorno resterebbe
+                // una parentesi aperta attaccata al testo grigio e l'altra da
+                // qualche altra parte.
+                const b = document.createElement("b");
+                b.className = "m";
+                b.textContent = `(+${g.mois} ${tr("home.avisMois")})`;
+                cEl.append(" ", b);
+              }
+            }
             const maps = document.getElementById("j-g-maps") as HTMLAnchorElement | null;
-            if (maps) maps.href = g.maps_url || "#";
+            // La scheda come ripiego: se un giorno l'elenco non arriva, meglio
+            // la scheda di un link che non porta da nessuna parte.
+            if (maps) maps.href = g.reviews_url || g.maps_url || "#";
 
             // ---- carosello ----
             const avis = (g.avis ?? []).filter((a) => a.texte);
@@ -2621,15 +3911,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               const avEl = document.getElementById("j-g-av");
               const autEl = document.getElementById("j-g-aut");
               const repEl = document.getElementById("j-g-rep");
-              const iniziali = (n2: string) =>
-                n2.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase() || "?";
-              // Colore STABILE ricavato dal nome: la stessa persona ha sempre
-              // lo stesso cerchio, e due persone diverse quasi mai lo stesso.
-              const coloreDi = (n2: string) => {
-                let h = 0;
-                for (let i = 0; i < n2.length; i++) h = (h * 31 + n2.charCodeAt(i)) % 360;
-                return `hsl(${h}, 42%, 38%)`;
-              };
               /** ⚠️ La foto si prova, non si da' per buona: gli URL dei
                *  profili Google scadono e a volte rispondono 403, e al loro
                *  posto resterebbe un cerchio vuoto — che non dice niente e
@@ -2686,7 +3967,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 if (repEl) {
                   // `undefined` = non lo sappiamo (recensioni Places): meglio
                   // tacere che dire «senza risposta» a chi ha gia' risposto.
-                  if (a.reply === undefined) { repEl.textContent = ""; repEl.className = "j-rep"; }
+                  // ⚠️ E «sans réponse» si scrive solo quando NON si puo'
+                  // rispondere da qui. Dove c'e' il bottone, la pastiglia
+                  // diceva la stessa cosa due volte, in due pastiglie coralle
+                  // una accanto all'altra: il bottone dice gia' che manca la
+                  // risposta — e dice anche come darla.
+                  const puoRispondere = !!a.id && !a.reply;
+                  if (a.reply === undefined || puoRispondere) { repEl.textContent = ""; repEl.className = "j-rep"; }
                   else {
                     repEl.textContent = a.reply ? tr("home.replied") : tr("home.noReply");
                     repEl.className = "j-rep " + (a.reply ? "si" : "no");
@@ -2882,8 +4169,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         } catch {
           applicaLayout(DEFAULT_LAYOUT);
         }
-        promuovi();
-
         // Maniglie iniettate in ogni isola
         const GRIP =
           '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';
@@ -3093,12 +4378,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         btnReset?.addEventListener("click", () => { applicaLayout(DEFAULT_LAYOUT); salva(); });
 
         // ---- Modale « Tuiles » : ogni isola ha un interruttore ----
-        // ⚠️ Solo le tile che ESISTONO. Commandes, Réservations, Google e
-        // Horaires sono salite nella fascia della giornata, che e' fissa:
+        // ⚠️ Solo le tile che ESISTONO. Commandes, Réservations, Google,
+        // Horaires e Notes sono salite nella fascia della giornata, che e' fissa:
         // lasciarle in elenco voleva dire proporre nel modale «Tuiles»
         // interruttori che non accendono niente.
         const NOMI: Record<string, string> = {
-          notes: tr("home.notes"), special: tr("home.specialDays"), menu: tr("nav.menu"),
+          special: tr("home.specialDays"), menu: tr("nav.menu"),
           visibilite: tr("home.visibility"), assets: tr("home.photos"),
         };
         const ovTuiles = document.getElementById("tuiles-overlay") as HTMLElement | null;

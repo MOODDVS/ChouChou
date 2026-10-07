@@ -3197,3 +3197,95 @@ export async function inviaConfermaResa(r: ResaEmail): Promise<void> {
 export async function inviaNotificheDemandeResa(r: ResaEmail): Promise<void> {
   await Promise.allSettled([emailDemandeResa(r), emailNotificaResa(r)]);
 }
+
+
+// ============================================================
+// NOTA ASSEGNATA — l'email a chi deve farla.
+// ============================================================
+
+/** Le quattro righe, nelle cinque lingue dell'admin. ⚠️ La lingua e' quella
+ *  del PANNELLO, non del locale pubblico: questa email va a chi ci lavora,
+ *  non a un cliente. */
+const TXT_NOTA: Record<string, {
+  title: string; lead: (chi: string, da: string) => string;
+  lab: string; quando: string; ripete: string; chiusa: string;
+  subject: (n: string) => string;
+}> = {
+  fr: { title: "Une tâche pour toi", lead: (chi, da) => `${chi}, <b>${da}</b> t'a assigné une tâche.`,
+        lab: "La tâche", quando: "Pour quand", ripete: "Revient", chiusa: "Cette note vient du tableau de l'équipe.",
+        subject: (n) => `Une tâche pour toi — ${n}` },
+  en: { title: "A task for you", lead: (chi, da) => `${chi}, <b>${da}</b> assigned you a task.`,
+        lab: "Task", quando: "Due by", ripete: "Repeats", chiusa: "This note comes from the team board.",
+        subject: (n) => `A task for you — ${n}` },
+  it: { title: "Un compito per te", lead: (chi, da) => `${chi}, <b>${da}</b> ti ha assegnato un compito.`,
+        lab: "Il compito", quando: "Per quando", ripete: "Torna", chiusa: "Questa nota viene dalla lavagnetta del team.",
+        subject: (n) => `Un compito per te — ${n}` },
+  nl: { title: "Een taak voor jou", lead: (chi, da) => `${chi}, <b>${da}</b> heeft je een taak toegewezen.`,
+        lab: "De taak", quando: "Wanneer", ripete: "Herhaalt", chiusa: "Deze notitie komt van het teambord.",
+        subject: (n) => `Een taak voor jou — ${n}` },
+  es: { title: "Una tarea para ti", lead: (chi, da) => `${chi}, <b>${da}</b> te ha asignado una tarea.`,
+        lab: "La tarea", quando: "Para cuándo", ripete: "Se repite", chiusa: "Esta nota viene del tablero del equipo.",
+        subject: (n) => `Una tarea para ti — ${n}` },
+};
+
+/**
+ * Avvisa la persona a cui e' stata assegnata una nota.
+ *
+ * ⚠️ NESSUN BOTTONE «apri la nota». Chi sta in `team` non ha un accesso al
+ * pannello (`can_access` esiste e non lo usa nessuno): un link lo porterebbe
+ * a una pagina di login che non puo' passare. Un'email che promette una cosa
+ * che non succede e' peggio di un'email senza link.
+ *
+ * ⚠️ Non lancia mai. Un'email che non parte non deve far fallire il
+ * salvataggio della nota: il compito assegnato resta scritto sulla
+ * lavagnetta, che e' la cosa che conta.
+ */
+export async function emailNotaAssegnata(n: {
+  /** La sede della nota: l'email parte dal punto a cui appartiene. */
+  location_id: string | null;
+  a: string;
+  nomeDestinatario: string;
+  testo: string;
+  daParteDi: string;
+  quando?: string | null;
+  ripete?: string | null;
+}): Promise<boolean> {
+  const ambito = ambitoDiRiga(n.location_id);
+  const from = await resaFromEmail(ambito);
+  if (!resend || !from) {
+    console.warn("Resend non configurato: salto l'avviso di nota assegnata");
+    return false;
+  }
+  try {
+    const lang = await adminLang();
+    const t = TXT_NOTA[lang] ?? TXT_NOTA.fr;
+    const dati = await datiRistorante(ambito);
+    const tema = await temaEmail();
+    const html = guscioResa({
+      tema,
+      nome: dati.nome,
+      logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
+      dir: "ltr",
+      title: t.title,
+      lead: t.lead(esc(n.nomeDestinatario), esc(n.daParteDi)),
+      recapRows:
+        rigaRecap(tema, t.lab, n.testo) +
+        rigaRecap(tema, t.quando, n.quando ?? "") +
+        rigaRecap(tema, t.ripete, n.ripete ?? ""),
+      ctaHtml: "",
+      footerHtml: `<p style="margin:0;color:${tema.muted};font-size:12px;">${esc(t.chiusa)}</p>`,
+      indirizzo: dati.indirizzo,
+      contatti: `${dati.tel} · ${dati.email}`,
+    });
+    await resend.emails.send({
+      from,
+      to: n.a,
+      subject: t.subject(dati.nome),
+      html: avvolgiTema(html, tema, "ltr"),
+    });
+    return true;
+  } catch (e) {
+    console.error("Errore email nota assegnata:", e);
+    return false;
+  }
+}

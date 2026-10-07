@@ -33,64 +33,89 @@ const t = adminT(lang);
 // visto qui. Un'icona nuova per la stessa cosa e' una cosa nuova.
 const ICO_RESA = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>`;
 const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
+
+// Il calendario della colonna: lo STESSO telaio di Reservations — stessa
+// cornice, stessi due anelli, stessa riga sotto la testata — col giorno
+// segnato dentro invece della spunta. La colonna dice «aujourd'hui», cioe'
+// un GIORNO, e il giorno si disegna su un calendario.
+//
+// ⚠️ Qui c'era un orologio, identico a quello che sta davanti agli orari due
+// righe sotto: lo stesso segno due volte nella stessa colonna, una volta per
+// dire il giorno e una per dire l'ora. L'orologio resta dove serve, accanto
+// alle ore.
+// La matita della lavagnetta: la stessa che aveva la tile Notes. La tile
+// sparisce, il segno no — chi la cercava fra i riquadri la ritrova qui.
+const ICO_NOTE = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+
+const ICO_OGGI = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="7" y="13" width="4.5" height="4.5" rx="1"/></svg>`;
 ---
 
 <section class="jour" id="jour" style="display:none">
 
-  {/* ---------- GOOGLE: la nota, l'ultimo avis, i numeri di 28 giorni ---------- */}
+  {/* ---------- OGGI: com'e' il locale adesso ----------
+      ⚠️ Questa colonna si chiamava «Google», e non lo e' piu'. Da quando ci
+      sono entrati gli orari e l'affluenza, Google e' UNA delle cose che ci
+      stanno dentro — il voto — non il titolo di tutte. Il nome vecchio
+      prometteva una pagina della scheda e consegnava la giornata del locale.
+      Il marchio resta dov'e' il suo dato: accanto al voto. */}
   <div class="j-col j-google" id="j-google" style="display:none">
     {/* ⚠️ Stessa ossatura delle altre due colonne — `.j-hd-x`, il segno DENTRO
-        `.j-t`, il link in fondo riga — e non una variante che le somiglia. Il
-        logo era fratello del titolo e piu' grande dell'icona accanto: la riga
-        di Google partiva quattro pixel piu' in alto delle altre due, e nessuno
-        avrebbe mai saputo dire perche'. */}
+        `.j-t`, il link in fondo riga — e non una variante che le somiglia. */}
     <div class="j-hd" id="j-g-hd">
+      {/* ⚠️ La pastiglia sta DENTRO il titolo e gli orari sotto, dove le
+          altre due colonne mettono «7 aujourd'hui»: stessa ossatura, stessa
+          lettura. Aperto/chiuso e' una qualita' del titolo — non un'altra
+          cosa da cercare da un'altra parte.
+          La pastiglia resta spenta finche' la configurazione non e' arrivata:
+          «AUJOURD'HUI —» con una pastiglia vuota sembra un guasto. */}
       <span class="j-hd-x">
-        <span class="j-t">
-          <img class="j-glogo" src="/restohub/Google_Favicon.webp" alt="" width="18" height="18" loading="lazy" />Google
-        </span>
+        <span class="j-t"><Fragment set:html={ICO_OGGI} />{t("home.todayTitle")}<span class="j-pil" id="j-stato" style="display:none">—</span></span>
       </span>
       {/* ⚠️ La freccia e' un ELEMENTO, non un carattere dentro la frase:
           dentro il testo non si puo' far reagire al passaggio del dito, e in
           una lingua che scrive al contrario finirebbe dalla parte sbagliata. */}
-      <a class="j-link j-vedi" id="j-g-maps" href="#" target="_blank" rel="noopener">
-        <span>{t("home.listing")}</span>
+      {/* Il link della testata porta dove si CAMBIANO gli orari, perche' la
+          testata adesso dice gli orari: si legge «ouvert 17:00 – 22:30», e la
+          cosa che si vuole fare da li' e' correggerli. La scheda Google e' una
+          fonte diversa — il suo link e' sceso nel suo blocco.
+          `data-admin-page="settings"`: se il super spegne Reglages, il link
+          sparisce come la tile Jours speciaux che porta allo stesso posto. */}
+      <a class="j-link j-vedi" href="/admin/settings?tab=horaire" data-admin-page="settings">
+        <span>{t("home.editHours")}</span>
         <span class="j-arr" aria-hidden="true">
           <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg>
         </span>
       </a>
     </div>
 
-    {/* ---------- IL LOCALE: come va, e quando e' aperto ----------
-        Il voto e gli orari sono due risposte alla stessa domanda — «com'e'
-        questo posto, adesso» — e stanno sulla STESSA riga, agli estremi: a
-        sinistra il giudizio di chi c'e' stato, a destra quando si entra.
-        Incolonnati, gli orari spingevano il grafico in fondo alla colonna e
-        sembravano un capitolo a parte. */}
-    <div class="j-locale">
-      <div class="j-top">
-        <div class="j-nota-blocco" id="j-g-nb">
-          <div class="j-note" id="j-g-note">
-            <span class="v" id="j-g-rating">—</span>
-            <span class="st" id="j-g-stars" aria-hidden="true"></span>
-          </div>
-          <div class="j-note-sub" id="j-g-count">—</div>
-        </div>
+    {/* ⚠️ Due scatole, in quest'ordine: prima la GIORNATA (quando si apre,
+        quanta gente), poi GOOGLE (il giudizio di chi c'e' stato). La prima
+        riguarda le prossime sei ore, la seconda i mesi passati — e chi apre
+        la Accueil la mattina guarda la prima. */}
 
-        {/* Resta spento finche' la configurazione non e' arrivata:
-            «AUJOURD'HUI —» con una pastiglia vuota sembra un guasto, non
-            un'attesa. */}
-        <div class="j-ore" id="j-ore" style="display:none">
-          <div class="j-ore-h">
-            <span class="j-t">{t("home.todayTitle")}</span>
-            <span class="j-pil" id="j-stato">—</span>
-          </div>
-          {/* ⚠️ Gli orari su una riga LORO: «17:00 – 22:30 · Réouverture
-              aujourd'hui a 17:00» accanto al titolo andava a capo in mezzo a
-              una parola. */}
-          <div class="j-orari" id="j-orari"></div>
-        </div>
-      </div>
+    {/* ⚠️ IL CORPO CHE SCORRE. La colonna e' alta quanto lo schermo e non
+        quanto il suo contenuto: testata in cima, numeri in fondo, e in mezzo
+        la parte che scorre per conto suo. Senza questo involucro la colonna
+        si allungherebbe sotto la piega e per vedere i numeri si scorrerebbe
+        tutta la pagina — cioe' si perderebbero di vista le altre colonne. */}
+    <div class="j-corpo">
+
+    {/* ---------- IL BLOCCO DELLA GIORNATA ----------
+        Quando si apre e quanta gente viene: una domanda sola, un blocco
+        solo. E' un riquadro come quelli dei numeri qui accanto — stesso
+        fondo, stesso filo, stesso raggio — perche' e' la stessa cosa: un
+        dato della giornata chiuso in una scatola.
+
+        ⚠️ Il blocco NON e' il grafico. Il grafico sparisce quando ordini e
+        prenotazioni sono chiusi, gli orari no: dentro il grafico, un locale
+        senza prenotazioni ne' ordini avrebbe perso anche l'ora di apertura.
+        Il blocco e' il contenitore, il grafico una cosa che ci sta dentro.
+
+        ⚠️ `--c-bg` e' ridefinito QUI: le barre del «di solito» sono il loro
+        colore mescolato al FONDO, e qui dentro il fondo e' quello della
+        card, non quello della pagina. */}
+    <div class="j-oggi-blocco">
+      <span class="j-orari" id="j-orari"></span>
 
       {/* L'affluenza, ora per ora. QUATTRO barre per ora: i coperti e gli
           ordini, ognuno col suo «di solito» (lo stesso giorno della settimana,
@@ -120,42 +145,85 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
       </div>
     </div>
 
+    {/* ---------- IL BLOCCO GOOGLE ----------
+        Il voto, l'ultima recensione e i comandi per rispondere: UNA scatola.
+        Sono tutte cose che vengono dalla stessa scheda e che spariscono
+        insieme a lei, e quello che si fa guardandole e' una cosa sola —
+        leggere cosa dicono di noi, e rispondere.
+        ⚠️ Prima il voto stava in un riquadro bianco e la recensione fuori,
+        sul fondo della pagina, separata da un filo: due oggetti per una cosa
+        sola, e il filo in mezzo diceva che non si parlavano. Il bianco era una
+        prova del 07/10 — si e' provato, e il blocco unico fa il suo mestiere
+        meglio.
+        ⚠️ Il vestito e' quello dei riquadri dei numeri, lo stesso del blocco
+        della giornata qui sopra. La colonna ha due scatole: devono essere la
+        stessa scatola. */}
+    <div class="j-g-blocco" id="j-g-nb">
+      <div class="j-note" id="j-g-note">
+        {/* Il marchio sta col SUO dato: questo voto e' di Google, e senza
+            il logo accanto sarebbe un numero senza provenienza. */}
+        <img class="j-glogo" src="/restohub/Google_Favicon.webp" alt="Google" width="29" height="29" loading="lazy" />
+        <span class="v" id="j-g-rating">—</span>
+        <span class="st" id="j-g-stars" aria-hidden="true"></span>
+        {/* Porta all'ELENCO DELLE RECENSIONI di Google, non alla scheda: da
+            qui si arriva avendo letto un commento, e quello che si vuole e'
+            leggere gli altri. La scheda avrebbe rimesso in mezzo foto, orari
+            e indirizzo, con le recensioni da cercare piu' in giu'.
+            ⚠️ Stesso componente del link della testata (`.j-link .j-vedi` e la
+            stessa freccia): due modi di dire «vai a vedere» nella stessa
+            colonna sarebbero due cose da imparare per farne una. */}
+        <a class="j-link j-vedi" id="j-g-maps" href="#" target="_blank" rel="noopener">
+          <span>{t("home.allReviews")}</span>
+          <span class="j-arr" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg>
+          </span>
+        </a>
+      </div>
+      <div class="j-note-sub" id="j-g-count">—</div>
 
-    {/* La recensione: una citazione, non una scatola.
-        ⚠️ Chi ha scritto viene PRIMA di cosa ha scritto: si decide se
-        rispondere guardando la faccia, il voto e se qualcuno ha gia'
-        risposto — e solo dopo si legge. In fondo, il nome era l'ultima cosa
-        che l'occhio trovava, quando aveva gia' letto tutto. */}
-    {/* ⚠️ Chi ha scritto sta FUORI dalla citazione: la riga verticale segna
-        le parole del cliente, e il suo nome non e' una cosa che ha detto lui.
-        Dentro, l'intestazione sembrava la prima frase della recensione. */}
-    <div class="j-aut" id="j-g-aut" style="display:none">
-      <span class="j-av" id="j-g-av"></span>
-      <span class="j-aut-x">
-        <span class="nm" id="j-g-who"></span>
-        <span class="j-aut-r">
-          <span class="sr" id="j-g-astars" aria-hidden="true"></span>
-          <span class="dt" id="j-g-when"></span>
-          <span class="j-rep" id="j-g-rep"></span>
+      {/* La recensione: una citazione, non una scatola.
+          ⚠️ Chi ha scritto viene PRIMA di cosa ha scritto: si decide se
+          rispondere guardando la faccia, il voto e se qualcuno ha gia'
+          risposto — e solo dopo si legge. In fondo, il nome era l'ultima cosa
+          che l'occhio trovava, quando aveva gia' letto tutto. */}
+      {/* ⚠️ Chi ha scritto sta FUORI dalla citazione: la riga verticale segna
+          le parole del cliente, e il suo nome non e' una cosa che ha detto lui.
+          Dentro, l'intestazione sembrava la prima frase della recensione. */}
+      <div class="j-aut" id="j-g-aut" style="display:none">
+        <span class="j-av" id="j-g-av"></span>
+        <span class="j-aut-x">
+          <span class="nm" id="j-g-who"></span>
+          <span class="j-aut-r">
+            <span class="sr" id="j-g-astars" aria-hidden="true"></span>
+            <span class="dt" id="j-g-when"></span>
+            <span class="j-rep" id="j-g-rep"></span>
+          </span>
         </span>
-      </span>
+        {/* ⚠️ Il bottone sta nella riga di CHI HA SCRITTO, non in fondo al
+            blocco insieme alle frecce. Li' stava dopo un vuoto di sei righe,
+            in mezzo ai comandi del carosello: sembrava un'azione del blocco —
+            «rispondi a Google» — e non la risposta a questa persona. Qui e'
+            attaccato al suo nome, e si vede a chi si risponde.
+            Compare solo sulle recensioni a cui si PUO' rispondere: serve
+            l'id, che arriva col Business Profile collegato, e serve che
+            nessuno abbia gia' risposto. Un bottone che a volte non fa niente
+            e' peggio di un bottone che non c'e'. */}
+        <button type="button" class="j-rbtn" id="j-g-rep-open" style="display:none">{t("gg.reply")}</button>
+      </div>
+
+      <div class="j-quote" id="j-g-car" style="display:none">
+        <p class="q-x" id="j-g-quote"></p>
+      </div>
+
+      <div class="j-qf" id="j-g-nav" style="display:none">
+        <span class="j-arrows">
+          <button type="button" id="j-g-prev" aria-label={t("home.prevReview")}>‹</button>
+          <button type="button" id="j-g-next" aria-label={t("home.nextReview")}>›</button>
+        </span>
+        <span class="j-dots" id="j-g-dots"></span>
+      </div>
     </div>
 
-    <div class="j-quote" id="j-g-car" style="display:none">
-      <p class="q-x" id="j-g-quote"></p>
-    </div>
-
-    <div class="j-qf" id="j-g-nav" style="display:none">
-      <span class="j-arrows">
-        <button type="button" id="j-g-prev" aria-label={t("home.prevReview")}>‹</button>
-        <button type="button" id="j-g-next" aria-label={t("home.nextReview")}>›</button>
-      </span>
-      <span class="j-dots" id="j-g-dots"></span>
-      {/* Compare solo sulle recensioni a cui si PUO' rispondere: serve l'id,
-          che arriva col Business Profile collegato, e serve che nessuno abbia
-          gia' risposto. Un bottone che a volte non fa niente e' peggio di un
-          bottone che non c'e'. */}
-      <button type="button" class="j-rbtn" id="j-g-rep-open" style="display:none">{t("gg.reply")}</button>
     </div>
 
     {/* I tre numeri della scheda: stessi blocchi dei numeri in fondo alle
@@ -168,78 +236,138 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
     <div class="j-per" id="j-g-per" style="display:none">{t("home.last30")}</div>
   </div>
 
-  {/* ---------- LA GIORNATA: le due colonne ---------- */}
-  <div class="j-dx" id="j-dx">
+  {/* ---- Prenotazioni di oggi ---- */}
+  <div class="j-col j-resa" id="j-resa" data-admin-page="reservations" style="display:none">
+    <div class="j-hd">
+      {/* ⚠️ L'icona E il conteggio stanno DENTRO la riga del titolo: la
+          colonna si legge in una riga sola — che cosa, e quante. Il
+          conteggio era la riga sotto, e l'icona, accanto a un blocco alto
+          due righe, finiva a mezz'aria fra l'una e l'altra.
+          ⚠️ Stessa pastiglia di «OPEN» sotto AUJOURD'HUI (`.j-pil`), e non
+          una somigliante: le tre colonne dicono la stessa cosa nello
+          stesso posto — una pastiglia attaccata al titolo. Il COLORE
+          cambia perche' cambia cio' che dice: verde o corallo e' uno
+          STATO, neutra e' un NUMERO. Un conteggio in verde avrebbe detto
+          «aperto» a chi ha imparato la pastiglia due colonne piu' in la'. */}
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_RESA} />{t("nav.reservations")}<span class="j-pil n" id="j-resa-cnt"></span></span>
+      </span>
+      <a class="j-link j-vedi" href="/admin/reservations">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* I SERVIZI DI OGGI, con l'interruttore per chiuderli. ⚠️ E' il
+        comando, non un riassunto: chiude la stessa riga che chiude la
+        pagina Réservations, con la stessa chiamata e lo stesso
+        interruttore condiviso. Un secondo modo di chiudere un servizio e'
+        un modo che un giorno dimentica una regola.
+        Qui solo i servizi: le sezioni di sala si chiudono dalla loro
+        pagina, dove si vede il piano e quali tavoli restano. */}
+    <div class="j-serv" id="j-serv"></div>
 
-    <div class="j-due" id="j-due">
+    <div class="j-lista" id="j-resa-lista"></div>
+    <div class="j-nums">
+      <div><span class="k">{t("home.covers")}</span><span class="v" id="j-resa-couv">—</span><span class="d" id="j-resa-couv-d"></span></div>
+      <div><span class="k">{t("home.filling")}</span><span class="v" id="j-resa-rempl">—</span><span class="d" id="j-resa-rempl-d"></span></div>
+      <div><span class="k">{t("home.toConfirm")}</span><span class="v att" id="j-resa-conf">—</span><span class="d" id="j-resa-conf-d"></span></div>
+    </div>
+  </div>
 
-      {/* ---- Prenotazioni di oggi ---- */}
-      <div class="j-col j-resa" id="j-resa" data-admin-page="reservations" style="display:none">
-        <div class="j-hd">
-          {/* ⚠️ L'icona sta DENTRO la riga del titolo, non accanto al blocco:
-              fuori si centrava sull'altezza di due righe — titolo e conteggio —
-              e finiva a mezz'aria fra l'uno e l'altro. */}
-          <span class="j-hd-x">
-            <span class="j-t"><Fragment set:html={ICO_RESA} />{t("nav.reservations")}</span>
-            <span class="j-cnt" id="j-resa-cnt"></span>
-          </span>
-          <a class="j-link j-vedi" href="/admin/reservations">
-            <span>{t("home.seeAll")}</span>
-            <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
-          </a>
-        </div>
-        {/* I SERVIZI DI OGGI, con l'interruttore per chiuderli. ⚠️ E' il
-            comando, non un riassunto: chiude la stessa riga che chiude la
-            pagina Réservations, con la stessa chiamata e lo stesso
-            interruttore condiviso. Un secondo modo di chiudere un servizio e'
-            un modo che un giorno dimentica una regola.
-            Qui solo i servizi: le sezioni di sala si chiudono dalla loro
-            pagina, dove si vede il piano e quali tavoli restano. */}
-        <div class="j-serv" id="j-serv"></div>
-
-        <div class="j-lista" id="j-resa-lista"></div>
-        <div class="j-nums">
-          <div><span class="k">{t("home.covers")}</span><span class="v" id="j-resa-couv">—</span><span class="d" id="j-resa-couv-d"></span></div>
-          <div><span class="k">{t("home.filling")}</span><span class="v" id="j-resa-rempl">—</span><span class="d" id="j-resa-rempl-d"></span></div>
-          <div><span class="k">{t("home.toConfirm")}</span><span class="v att" id="j-resa-conf">—</span><span class="d" id="j-resa-conf-d"></span></div>
-        </div>
+  {/* ---- Ordini di oggi ---- */}
+  <div class="j-col j-ord" id="j-ord" data-admin-page="orders" style="display:none">
+    <div class="j-hd">
+      {/* ⚠️ L'icona E il conteggio stanno DENTRO la riga del titolo: la
+          colonna si legge in una riga sola — che cosa, e quante. Il
+          conteggio era la riga sotto, e l'icona, accanto a un blocco alto
+          due righe, finiva a mezz'aria fra l'una e l'altra.
+          ⚠️ Stessa pastiglia di «OPEN» sotto AUJOURD'HUI (`.j-pil`), e non
+          una somigliante: le tre colonne dicono la stessa cosa nello
+          stesso posto — una pastiglia attaccata al titolo. Il COLORE
+          cambia perche' cambia cio' che dice: verde o corallo e' uno
+          STATO, neutra e' un NUMERO. Un conteggio in verde avrebbe detto
+          «aperto» a chi ha imparato la pastiglia due colonne piu' in la'. */}
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_ORD} />{t("nav.orders")}<span class="j-pil n" id="j-ord-cnt"></span></span>
+      </span>
+      <a class="j-link j-vedi" href="/admin/orders">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* Il tempo di preparazione e la chiusura degli ordini online: gli
+        STESSI bottoni di /admin/orders (styles/prep.css), nella stessa
+        taglia. Stavano anche nella tile Cuisine, sulla stessa pagina. */}
+    <div class="j-cmd" id="j-ord-cmd">
+      <div class="prep-btns" role="group" aria-label={t("ord.prepTime")}>
+        <button class="prep-btn" type="button" data-min="15" title={t("ord.prepFast")}><span class="m">15 min</span></button>
+        <button class="prep-btn" type="button" data-min="30" title={t("ord.prepNormal")}><span class="m">30 min</span></button>
+        <button class="prep-btn" type="button" data-min="45" title={t("ord.prepBusy")}><span class="m">45 min</span></button>
+        <button class="prep-btn prep-close" type="button" id="j-ord-close" title={t("ord.closeOnline")}><span class="m">{t("common.close")}</span></button>
       </div>
+    </div>
 
-      {/* ---- Ordini di oggi ---- */}
-      <div class="j-col j-ord" id="j-ord" data-admin-page="orders" style="display:none">
-        <div class="j-hd">
-          {/* ⚠️ L'icona sta DENTRO la riga del titolo, non accanto al blocco:
-              fuori si centrava sull'altezza di due righe — titolo e conteggio —
-              e finiva a mezz'aria fra l'uno e l'altro. */}
-          <span class="j-hd-x">
-            <span class="j-t"><Fragment set:html={ICO_ORD} />{t("nav.orders")}</span>
-            <span class="j-cnt" id="j-ord-cnt"></span>
-          </span>
-          <a class="j-link j-vedi" href="/admin/orders">
-            <span>{t("home.seeAll")}</span>
-            <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
-          </a>
-        </div>
-        {/* Il tempo di preparazione e la chiusura degli ordini online: gli
-            STESSI bottoni di /admin/orders (styles/prep.css), nella taglia
-            piccola. Stavano anche nella tile Cuisine, sulla stessa pagina. */}
-        <div class="j-cmd" id="j-ord-cmd">
-          <div class="prep-btns sm" role="group" aria-label={t("ord.prepTime")}>
-            <button class="prep-btn" type="button" data-min="15" title={t("ord.prepFast")}><span class="m">15 min</span></button>
-            <button class="prep-btn" type="button" data-min="30" title={t("ord.prepNormal")}><span class="m">30 min</span></button>
-            <button class="prep-btn" type="button" data-min="45" title={t("ord.prepBusy")}><span class="m">45 min</span></button>
-            <button class="prep-btn prep-close" type="button" id="j-ord-close" title={t("ord.closeOnline")}><span class="m">{t("common.close")}</span></button>
-          </div>
-        </div>
+    <div class="j-lista" id="j-ord-lista"></div>
+    <div class="j-nums">
+      <div><span class="k">{t("home.cashed")}</span><span class="v" id="j-ord-enc">—</span><span class="d" id="j-ord-enc-d"></span></div>
+      <div><span class="k">{t("home.basket")}</span><span class="v" id="j-ord-pan">—</span><span class="d" id="j-ord-pan-d"></span></div>
+      <div><span class="k">{t("ord.toCollect")}</span><span class="v att" id="j-ord-aenc">—</span><span class="d" id="j-ord-aenc-d"></span></div>
+    </div>
+  </div>
 
-        <div class="j-lista" id="j-ord-lista"></div>
-        <div class="j-nums">
-          <div><span class="k">{t("home.cashed")}</span><span class="v" id="j-ord-enc">—</span><span class="d" id="j-ord-enc-d"></span></div>
-          <div><span class="k">{t("home.basket")}</span><span class="v" id="j-ord-pan">—</span><span class="d" id="j-ord-pan-d"></span></div>
-          <div><span class="k">{t("ord.toCollect")}</span><span class="v att" id="j-ord-aenc">—</span><span class="d" id="j-ord-aenc-d"></span></div>
-        </div>
-      </div>
-
+  {/* ---------- LA LAVAGNETTA ----------
+      Era una tile fra le tile, col fondo oro. Qui e' una colonna come le
+      altre: stessa testata, stessa pastiglia col conteggio, stesso riquadro
+      che scorre dentro invece di allungare la pagina.
+      ⚠️ E' una SEZIONE come le altre, non una cosa dentro un'altra. La fascia
+      e' una griglia di tre colonne e le sezioni si dispongono da sole: oggi,
+      prenotazioni e ordini riempiono la prima riga, la lavagnetta apre la
+      seconda. Nessuna riga che la incolli sotto una colonna precisa — se un
+      giorno un locale non prende ordini, quella casella non resta vuota: la
+      lavagnetta sale a riempirla.
+      ⚠️ Gli id sono QUELLI di prima (`notes-preview`, `notes-add`): lo
+      script delle note non e' stato riscritto, e' il
+      posto in cui disegna che e' cambiato. Rinominarli avrebbe voluto dire
+      rifare — e ricollaudare — l'aggiunta, la spunta e il modale, per un
+      lavoro che e' di disposizione. */}
+  <div class="j-col j-notes" id="j-notes">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_NOTE} />{t("home.notesTasks")}<span class="j-pil n" id="j-note-cnt"></span></span>
+      </span>
+      {/* ⚠️ `.ibtn`, il bottone tondo del pannello, e non i `.ntile-btn` che
+          la tile si era fatti: quelli erano marrone su oro e qui dentro non
+          si vedrebbero. Un bottone tondo da 34px esiste gia' — e' questo.
+          ⚠️ Qui accanto c'era «Agrandir», che apriva la lavagnetta intera.
+          Serviva quando le note erano una tile alta quattro righe e dentro ce
+          ne stavano tre: era l'unico modo di vedere le altre. La colonna le
+          mostra tutte e si apre toccando una nota — un bottone che fa quello
+          che fa gia' il contenuto accanto e' un bottone che chiede di
+          scegliere fra due strade uguali. */}
+      <span class="j-nbtns">
+        <button class="ibtn" id="notes-add" type="button" title={t("home.addNote")} aria-label={t("home.addNote")}>+</button>
+      </span>
+    </div>
+    {/* I filtri per etichetta: le pastiglie condivise del pannello
+        (`styles/filters.css`), le stesse di Menu, Google e Statistiche.
+        ⚠️ Le riempie lo script con le etichette che ci sono DAVVERO nelle
+        note: un filtro per un'etichetta che nessuno ha usato e' un bottone
+        che da' sempre una colonna vuota. Senza etichette la riga non c'e'. */}
+    <div class="rh-filters j-nfiltri" id="j-note-filtri"></div>
+    <div class="j-lista notes-preview" id="notes-preview"></div>
+    {/* Il piede della colonna: la STESSA riga in fondo alla colonna di oggi
+        («30 derniers jours»), stessa classe e stesso carattere. Qui non ci
+        sono tre riquadri come nelle altre due: li' sotto ci sono coperti e
+        incassi, numeri che si confrontano fra loro; qui c'e' una frase, e una
+        frase in un riquadro da numero sembra un numero che non si legge. */}
+    <div class="j-per" id="j-note-stat"></div>
+    {/* I due riquadri in fondo, come le altre colonne. ⚠️ Il secondo ne occupa
+        DUE: dentro non c'e' una cifra ma tre nomi, e tre nomi in un terzo di
+        colonna vanno a capo o si tagliano coi puntini — cioe' una classifica
+        in cui non si legge chi e'. */}
+    <div class="j-nums j-note-nums" id="j-note-nums" style="display:none">
+      <div><span class="k">{t("home.notesMonth")}</span><span class="v" id="j-note-mese">—</span><span class="d" id="j-note-mese-d"></span></div>
+      <div class="j-note-top"><span class="k">{t("home.notesTop")}</span><ol class="j-top3" id="j-note-top"></ol></div>
     </div>
   </div>
 </section>

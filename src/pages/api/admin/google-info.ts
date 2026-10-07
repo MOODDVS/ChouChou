@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { cacheOr } from "../../../lib/cache";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
+import { fusoDi } from "../../../lib/fuso";
+import { DateTime } from "luxon";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -145,6 +147,13 @@ export const GET: APIRoute = async ({ request }) => {
           rating: j.rating ?? null,
           reviews: j.userRatingCount ?? 0,
           maps_url: j.googleMapsUri ?? "",
+          // L'elenco delle recensioni, non la scheda. ⚠️ L'indirizzo si
+          // costruisce QUI: il Place ID e' una cosa del server (sta in
+          // `app_config`, puo' cambiare per sede) e mandarlo al browser perche'
+          // si cucini l'URL da solo vorrebbe dire che il giorno in cui Google
+          // cambia questa pagina bisogna ricordarsi di guardare anche dentro
+          // uno script dell'Accueil.
+          reviews_url: `https://search.google.com/local/reviews?placeid=${encodeURIComponent(placeId)}`,
           avis,
         };
       },
@@ -155,13 +164,29 @@ export const GET: APIRoute = async ({ request }) => {
     // così da poter mostrare il bottone «Rispondi». Lettura fresca (no cache):
     // dopo una risposta il bottone deve sparire subito. Fallback = avis Places.
     let avisOut = info.avis;
+    // ⚠️ `undefined` e NON `0`: «nessuna recensione questo mese» e «non lo
+    // sappiamo» sono due cose diverse. Senza il Business Profile collegato
+    // Google da' cinque recensioni in tutto, e contarle direbbe «+2» a una
+    // scheda che ne ha prese venti. Il numero esce solo se si puo' contare.
+    let mois: number | undefined;
     try {
       // Le recensioni della tile sono quelle del PUNTO che si sta guardando.
-      const { data: gr } = await leggi("google_reviews", await ambitoDiRichiesta(request, staff),
+      const ambitoG = await ambitoDiRichiesta(request, staff);
+      const { data: gr } = await leggi("google_reviews", ambitoG,
         "review_id, author, photo, rating, comment, reply_comment, create_time")
         .order("create_time", { ascending: false })
         .limit(8);
       if (gr && gr.length) {
+        // ⚠️ Il mese comincia nel fuso del LOCALE, non in quello del server:
+        // una recensione lasciata alle 00:30 del primo a Bruxelles e' di
+        // questo mese, e in UTC sarebbe ancora del precedente.
+        const inizio = DateTime.now().setZone(await fusoDi(ambitoG)).startOf("month").toISO();
+        // `head` + `count`: si chiede QUANTE, non quali. Portarsi in memoria
+        // mille recensioni per contarle sarebbe la stessa risposta pagata a
+        // peso.
+        const { count } = await leggi("google_reviews", ambitoG, "review_id", { count: "exact", head: true })
+          .gte("create_time", inizio ?? "");
+        mois = Number(count ?? 0);
         const conTesto = gr.filter((r) => String(r.comment ?? "").trim());
         if (conTesto.length) {
           avisOut = conTesto.map((r) => ({
@@ -177,7 +202,7 @@ export const GET: APIRoute = async ({ request }) => {
         }
       }
     } catch { /* tabella assente/non collegato: restano le recensioni Places */ }
-    return json({ configured: true, ...info, avis: avisOut });
+    return json({ configured: true, ...info, avis: avisOut, mois });
   } catch {
     return json({ configured: true, error: await msg("err.googleDown") }, 200);
   }

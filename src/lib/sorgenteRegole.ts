@@ -10,7 +10,7 @@
  * grezzo. E' una DICHIARAZIONE utile alle statistiche, non una prova: va
  * bene per sapere se la scheda Google porta gente, non per fatturarci sopra.
  *
- * ⚠️ L'ELENCO DEVE COMBACIARE CON IL `check` DI `reservations_source.sql`.
+ * ⚠️ L'ELENCO DEVE COMBACIARE CON IL `check` DI `021_reservations_source.sql`.
  * La colonna ha un vincolo in SQL: un valore fuori elenco non fa una riga
  * sbagliata, fa fallire l'inserimento — cioe' una prenotazione persa, con il
  * cliente che vede un errore e il tavolo che resta libero. C'e' una prova che

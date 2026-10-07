@@ -25,6 +25,12 @@ import "../../styles/fab.css";     // pulsante fisso in basso a destra (.fab-add
 import "../../styles/sede.css";    // multi-sede: pastiglia e selettore (.sede-avatar)
 import "../../styles/stati.css";   // menu degli stati di una prenotazione (.st-menu)
 import "../../styles/prep.css";    // bottoni 15/30/45 e «Fermer» (.prep-btn)
+// ⚠️ I filtri a pastiglia erano l'unico componente condiviso che OGNI PAGINA
+// doveva ricordarsi di importare da sola. Ed e' andata come doveva: la
+// colonna Notes della Accueil ha avuto i suoi filtri e ha mostrato quattro
+// bottoni grigi di sistema — il CSS non c'era, e non c'era nessun errore,
+// solo un disegno che non somigliava a niente. Ora sta qui con gli altri.
+import "../../styles/filters.css"; // filtri a pastiglia condivisi (.rh-filter)
 import "../../styles/tablet.css";  // iPad orizzontale: scala ridotta (vedi il file)
 
 const boot = await caricaBootAdmin();
@@ -48,6 +54,16 @@ const PLACEHOLDER_CSS =
 // delle barrette dei grafici: una serie sola, un colore solo, e non il
 // corallo — quello e' il colore dell'ATTENZIONE in tutto il pannello.
 const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-barra:#4e8f9c}";
+// ⚠️ `hidden` DEVE nascondere, sempre. L'attributo si appoggia alla regola
+// del browser `[hidden]{display:none}`, che e' debolissima: QUALUNQUE regola
+// nostra che dia un `display` a quell'elemento la batte, e l'elemento resta
+// in pagina con l'attributo addosso. Non da' nessun errore — si vede, e solo
+// se qualcuno guarda. E' successo tre volte: il modale (`.md-overlay`), il
+// menu delle sedi (`.ah-sede-menu`) e il campo «+ etichetta» delle note, ogni
+// volta rattoppato sul posto con una regola in piu'. Qui si chiude per tutti.
+// `!important` e' voluto: `hidden` dice che la cosa NON C'E', e non e' una
+// preferenza di stile che un'altra regola possa discutere.
+const HIDDEN_CSS = "[hidden]{display:none!important}";
 const LAYOUT_CSS =
   ":root{--h-header:81px}" +
   "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) 8rem}" +
@@ -70,7 +86,7 @@ const SPENTE_CSS = boot.hiddenPages
   .filter((k) => /^[a-z]+$/.test(k))
   .map((k) => `[data-admin-page="${k}"]{display:none!important}`)
   .join("");
-const css = cssTema(boot.theme) + PLACEHOLDER_CSS + STATO_CSS + LAYOUT_CSS + SPENTE_CSS;
+const css = cssTema(boot.theme) + PLACEHOLDER_CSS + STATO_CSS + HIDDEN_CSS + LAYOUT_CSS + SPENTE_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";

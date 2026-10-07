@@ -240,7 +240,7 @@ const DIZIONARIO: Dizionario = {
   "loc.err.name":     { fr: "Nom de l'établissement requis", en: "Location name required", it: "Il nome della sede è obbligatorio", nl: "Naam van de vestiging verplicht", es: "El nombre del establecimiento es obligatorio" },
   "loc.err.slug":     { fr: "Slug invalide : minuscules, chiffres et tirets", en: "Invalid slug: lowercase, digits and hyphens", it: "Slug non valido: minuscole, cifre e trattini", nl: "Ongeldige slug: kleine letters, cijfers en streepjes", es: "Slug no válido: minúsculas, cifras y guiones" },
   "loc.err.slugDup":  { fr: "Ce slug est déjà utilisé", en: "This slug is already in use", it: "Questo slug è già usato", nl: "Deze slug is al in gebruik", es: "Este slug ya está en uso" },
-  "loc.err.migrazione": { fr: "La base de ce client n'est pas à jour : lance la migration locations.sql dans Supabase.", en: "This client's database is out of date: run the locations.sql migration in Supabase.", it: "Il database di questo cliente non è aggiornato: lancia la migrazione locations.sql in Supabase.", nl: "De database van deze klant is niet bijgewerkt: voer de migratie locations.sql uit in Supabase.", es: "La base de datos de este cliente no está actualizada: ejecuta la migración locations.sql en Supabase." },
+  "loc.err.migrazione": { fr: "La base de ce client n'est pas à jour : lance la migration 073_locations.sql dans Supabase.", en: "This client's database is out of date: run the 073_locations.sql migration in Supabase.", it: "Il database di questo cliente non è aggiornato: lancia la migrazione 073_locations.sql in Supabase.", nl: "De database van deze klant is niet bijgewerkt: voer de migratie 073_locations.sql uit in Supabase.", es: "La base de datos de este cliente no está actualizada: ejecuta la migración 073_locations.sql en Supabase." },
   "loc.err.read":     { fr: "Lecture impossible", en: "Could not read", it: "Lettura impossibile", nl: "Lezen mislukt", es: "No se pudo leer" },
   "loc.err.notFound": { fr: "Établissement introuvable", en: "Location not found", it: "Sede non trovata", nl: "Vestiging niet gevonden", es: "Establecimiento no encontrado" },
   "loc.err.needOne":  { fr: "Ajoute d'abord au moins un établissement", en: "Add at least one location first", it: "Aggiungi prima almeno una sede", nl: "Voeg eerst minstens één vestiging toe", es: "Añade primero al menos un establecimiento" },
@@ -677,9 +677,9 @@ const DIZIONARIO: Dizionario = {
   "home.nOrders":     { fr: "{n} commandes", en: "{n} orders", it: "{n} ordini", nl: "{n} bestellingen", es: "{n} pedidos" },
   "home.atCounter":   { fr: "{n} au comptoir", en: "{n} at the counter", it: "{n} al banco", nl: "{n} aan de toonbank", es: "{n} en el mostrador" },
   "home.nToday":      { fr: "{n} aujourd’hui", en: "{n} today", it: "{n} oggi", nl: "{n} vandaag", es: "{n} hoy" },
-  "home.nothingLeft": { fr: "Rien à préparer", en: "Nothing left", it: "Niente da fare", nl: "Niets meer", es: "Nada pendiente" },
+  "home.nothingToShow": { fr: "Rien à afficher", en: "Nothing to show", it: "Niente da mostrare", nl: "Niets te tonen", es: "Nada que mostrar" },
   "home.seeAll":      { fr: "Voir tout", en: "View all", it: "Vedi tutto", nl: "Alles bekijken", es: "Ver todo" },
-  "home.listing":     { fr: "Voir la fiche", en: "View listing", it: "Vedi scheda", nl: "Vermelding bekijken", es: "Ver ficha" },
+  "home.allReviews":  { fr: "Tous les avis", en: "All reviews", it: "Tutte le recensioni", nl: "Alle recensies", es: "Todas las reseñas" },
   "home.prevReview":  { fr: "Avis précédent", en: "Previous review", it: "Recensione precedente", nl: "Vorige recensie", es: "Reseña anterior" },
   "home.nextReview":  { fr: "Avis suivant", en: "Next review", it: "Recensione successiva", nl: "Volgende recensie", es: "Reseña siguiente" },
   "home.horaires":    { fr: "Horaires", en: "Hours", it: "Orari", nl: "Openingsuren", es: "Horarios" },
@@ -691,7 +691,6 @@ const DIZIONARIO: Dizionario = {
   "home.drinks":      { fr: "boissons", en: "drinks", it: "bevande", nl: "dranken", es: "bebidas" },
   "home.unavailable": { fr: "Indisponibles", en: "Unavailable", it: "Non disponibili", nl: "Niet beschikbaar", es: "No disponibles" },
   "home.notes":       { fr: "Notes", en: "Notes", it: "Note", nl: "Notities", es: "Notas" },
-  "home.enlarge":     { fr: "Agrandir", en: "Enlarge", it: "Ingrandisci", nl: "Vergroten", es: "Ampliar" },
   "home.addNote":     { fr: "Ajouter une note", en: "Add a note", it: "Aggiungi una nota", nl: "Notitie toevoegen", es: "Añadir una nota" },
   "home.recentPhotos":{ fr: "Photos récentes", en: "Recent photos", it: "Foto recenti", nl: "Recente foto's", es: "Fotos recientes" },
   "home.viewAll":     { fr: "Voir tout →", en: "View all →", it: "Vedi tutto →", nl: "Alles bekijken →", es: "Ver todo →" },
@@ -716,7 +715,6 @@ const DIZIONARIO: Dizionario = {
   // Note (modale + anteprima)
   "home.notesPlaceholder": { fr: "Un rappel pour l'équipe… (ex. « livraison farine à 10h », « rappeler le fournisseur »)", en: "A reminder for the team… (e.g. « flour delivery at 10am », « call the supplier »)", it: "Un promemoria per il team… (es. « consegna farina alle 10 », « richiamare il fornitore »)", nl: "Een herinnering voor het team… (bijv. « bloemlevering om 10u », « leverancier bellen »)", es: "Un recordatorio para el equipo… (ej. « entrega de harina a las 10 », « llamar al proveedor »)" },
   "home.noNotesShort": { fr: "Aucune note. Appuie sur + pour en ajouter.", en: "No notes. Press + to add one.", it: "Nessuna nota. Premi + per aggiungerne una.", nl: "Geen notities. Druk op + om er een toe te voegen.", es: "Sin notas. Pulsa + para añadir una." },
-  "home.noNotesLong":  { fr: "Aucune note. Ajoute un rappel pour l'équipe.", en: "No notes. Add a reminder for the team.", it: "Nessuna nota. Aggiungi un promemoria per il team.", nl: "Geen notities. Voeg een herinnering voor het team toe.", es: "Sin notas. Añade un recordatorio para el equipo." },
   "home.notesUnavailable": { fr: "Notes indisponibles.", en: "Notes unavailable.", it: "Note non disponibili.", nl: "Notities niet beschikbaar.", es: "Notas no disponibles." },
   "home.deleteQ":     { fr: "Supprimer ?", en: "Delete?", it: "Eliminare?", nl: "Verwijderen?", es: "¿Eliminar?" },
   "tag.important":    { fr: "Important", en: "Important", it: "Importante", nl: "Belangrijk", es: "Importante" },
@@ -776,6 +774,50 @@ const DIZIONARIO: Dizionario = {
   "home.dishesWord":   { fr: "plats", en: "dishes", it: "piatti", nl: "gerechten", es: "platos" },
   "home.ordersWord":   { fr: "commandes", en: "orders", it: "ordini", nl: "bestellingen", es: "pedidos" },
   "home.avisGoogle":   { fr: "avis Google", en: "Google reviews", it: "recensioni Google", nl: "Google-recensies", es: "reseñas de Google" },
+  // ⚠️ Chiave sua, e non `home.notes` ritoccata: quella etichetta un campo in
+  // Reglages, dove «Notes et taches» sarebbe una promessa che quel campo non
+  // mantiene.
+  "home.notesTasks":   { fr: "Notes et tâches", en: "Notes and tasks", it: "Note e attività", nl: "Notities en taken", es: "Notas y tareas" },
+  "home.editNote":     { fr: "Modifier la note", en: "Edit note", it: "Modifica la nota", nl: "Notitie bewerken", es: "Editar la nota" },
+  "home.newNote":      { fr: "Nouvelle note", en: "New note", it: "Nuova nota", nl: "Nieuwe notitie", es: "Nueva nota" },
+  "home.noteTags":     { fr: "Étiquettes", en: "Tags", it: "Etichette", nl: "Labels", es: "Etiquetas" },
+  // ⚠️ Un «Tous» suo e non uno condiviso: in italiano e in spagnolo concorda
+  // col nome. «Tutte» (le note) e «Tutti» (i clienti) sono due parole, e una
+  // chiave sola ne sbaglierebbe una delle due.
+  // --- Scadenza e ricorrenza di una nota (#80) ---
+  "home.noteAssign":   { fr: "Assigner à", en: "Assign to", it: "Assegna a", nl: "Toewijzen aan", es: "Asignar a" },
+  "home.noteAssignQ":  { fr: "Assigner cette note ?", en: "Assign this note?", it: "Assegnare questa nota?", nl: "Deze notitie toewijzen?", es: "¿Asignar esta nota?" },
+  "home.noteTeamAdd":  { fr: "Ajouter quelqu'un à l'équipe", en: "Add someone to the team", it: "Aggiungi qualcuno al team", nl: "Iemand aan het team toevoegen", es: "Añadir a alguien al equipo" },
+  // ⚠️ Dice PERCHE' l'elenco e' vuoto, non solo che lo e': «team» qui vuol
+  // dire chi lavora in sala o in cucina e ha un'email — non i fornitori, che
+  // nella stessa rubrica ci sono ma non si assegnano.
+  "home.noteTeamNone": { fr: "Aucune personne de l'équipe (salle, cuisine, direction) avec une adresse e-mail.", en: "Nobody on the team (floor, kitchen, management) has an email address.", it: "Nessuno del team (sala, cucina, direzione) ha un indirizzo email.", nl: "Niemand in het team (zaal, keuken, directie) heeft een e-mailadres.", es: "Nadie del equipo (sala, cocina, dirección) tiene correo electrónico." },
+  "home.noteWhen":     { fr: "Pour quand", en: "Due by", it: "Per quando", nl: "Wanneer", es: "Para cuándo" },
+  "home.noteEvery":    { fr: "Chaque", en: "Every", it: "Ogni", nl: "Elke", es: "Cada" },
+  "home.everyDay":     { fr: "jour", en: "day", it: "giorno", nl: "dag", es: "día" },
+  "home.everyWeek":    { fr: "semaine", en: "week", it: "settimana", nl: "week", es: "semana" },
+  "home.everyMonth":   { fr: "mois", en: "month", it: "mese", nl: "maand", es: "mes" },
+  "home.everyYear":    { fr: "an", en: "year", it: "anno", nl: "jaar", es: "año" },
+  "home.repDay":       { fr: "chaque jour à {h}", en: "every day at {h}", it: "ogni giorno alle {h}", nl: "elke dag om {h}", es: "cada día a las {h}" },
+  "home.repWeek":      { fr: "chaque {g} à {h}", en: "every {g} at {h}", it: "ogni {g} alle {h}", nl: "elke {g} om {h}", es: "cada {g} a las {h}" },
+  "home.repMonth":     { fr: "le {n} de chaque mois à {h}", en: "on the {n}th each month at {h}", it: "il {n} di ogni mese alle {h}", nl: "de {n}e van elke maand om {h}", es: "el {n} de cada mes a las {h}" },
+  "home.repYear":      { fr: "le {n} {m} à {h}", en: "on {m} {n} at {h}", it: "il {n} {m} alle {h}", nl: "op {n} {m} om {h}", es: "el {n} de {m} a las {h}" },
+  "home.noteLate":     { fr: "en retard", en: "overdue", it: "in ritardo", nl: "te laat", es: "atrasada" },
+  "home.notesMonth":   { fr: "Ce mois-ci", en: "This month", it: "Questo mese", nl: "Deze maand", es: "Este mes" },
+  "home.notesTop":     { fr: "Qui les fait", en: "Who does them", it: "Chi le fa", nl: "Wie ze doet", es: "Quién las hace" },
+  "home.notesTopNone": { fr: "Personne n'a encore coché", en: "Nobody has ticked yet", it: "Nessuno ha ancora spuntato", nl: "Nog niemand afgevinkt", es: "Nadie ha marcado aún" },
+  "home.notesDoneShort": { fr: "faites", en: "done", it: "fatte", nl: "gedaan", es: "hechas" },
+  "home.notesDone":    { fr: "{n} faites sur {t}", en: "{n} done of {t}", it: "{n} fatte su {t}", nl: "{n} van {t} gedaan", es: "{n} hechas de {t}" },
+  "home.notesOldest":  { fr: "la plus ancienne depuis {n} j", en: "oldest one {n}d old", it: "la più vecchia da {n} g", nl: "oudste {n} d oud", es: "la más antigua desde hace {n} d" },
+  "home.notesAll":     { fr: "Toutes", en: "All", it: "Tutte", nl: "Alle", es: "Todas" },
+  "home.noteTagMax":   { fr: "{n} étiquettes au maximum", en: "{n} tags at most", it: "massimo {n} etichette", nl: "hoogstens {n} labels", es: "máximo {n} etiquetas" },
+  "home.noteTagAdd":   { fr: "+ étiquette", en: "+ tag", it: "+ etichetta", nl: "+ label", es: "+ etiqueta" },
+  // ⚠️ Due esempi, non una spiegazione. «Separate da una virgola» e' una
+  // frase da leggere; «livraison, urgent» dice la stessa cosa e si capisce
+  // senza leggerla.
+  "home.noteTagNew":   { fr: "livraison, urgent", en: "delivery, urgent", it: "consegna, urgente", nl: "levering, dringend", es: "entrega, urgente" },
+  "home.avisMois":     { fr: "ce mois-ci", en: "this month", it: "questo mese", nl: "deze maand", es: "este mes" },
+  "home.editHours":    { fr: "Modifier les horaires", en: "Update hours", it: "Modifica gli orari", nl: "Uren aanpassen", es: "Editar horarios" },
 
   // Le feste del calendario eventi non stanno piu' qui: nomi e date
   // vengono da `lib/festivitaRegole.ts`, che li tiene insieme per paese.
@@ -1008,7 +1050,7 @@ const DIZIONARIO: Dizionario = {
   "res.resaModified": { fr: "Réservation modifiée ✓", en: "Reservation modified ✓", it: "Prenotazione modificata ✓", nl: "Reservering gewijzigd ✓", es: "Reserva modificada ✓" },
   "res.resaSaved": { fr: "Réservation enregistrée ✓", en: "Reservation saved ✓", it: "Prenotazione salvata ✓", nl: "Reservering opgeslagen ✓", es: "Reserva guardada ✓" },
   "res.saveError": { fr: "Erreur d'enregistrement.", en: "Save error.", it: "Errore di salvataggio.", nl: "Opslaanfout.", es: "Error al guardar." },
-  "res.tableMissing": { fr: "Table `reservations` absente — lancer la migration supabase/reservations.sql.", en: "Table `reservations` missing — run the migration supabase/reservations.sql.", it: "Tabella `reservations` assente — eseguire la migrazione supabase/reservations.sql.", nl: "Tabel `reservations` ontbreekt — voer de migratie supabase/reservations.sql uit.", es: "Tabla `reservations` ausente — ejecutar la migración supabase/reservations.sql." },
+  "res.tableMissing": { fr: "Table `reservations` absente — lancer la migration supabase/020_reservations.sql.", en: "Table `reservations` missing — run the migration supabase/020_reservations.sql.", it: "Tabella `reservations` assente — eseguire la migrazione supabase/020_reservations.sql.", nl: "Tabel `reservations` ontbreekt — voer de migratie supabase/020_reservations.sql uit.", es: "Tabla `reservations` ausente — ejecutar la migración supabase/020_reservations.sql." },
   "res.new": { fr: "Nouveau", en: "New", it: "Nuovo", nl: "Nieuw", es: "Nuevo" },
   "res.cancellations": { fr: "Annulations", en: "Cancellations", it: "Annullamenti", nl: "Annuleringen", es: "Anulaciones" },
   "res.tableTime": { fr: "Temps à table", en: "Time at table", it: "Tempo a tavola", nl: "Tijd aan tafel", es: "Tiempo en la mesa" },
@@ -2298,14 +2340,14 @@ const DIZIONARIO: Dizionario = {
   "err.maxPeople":             { fr: "Personnes maximum invalide (1–100)", en: "Invalid maximum party size (1–100)", it: "Numero massimo di persone non valido (1–100)", nl: "Ongeldig maximaal aantal personen (1–100)", es: "Número máximo de personas no válido (1–100)" },
   "err.menuUnreadable":        { fr: "Menu illisible", en: "Menu unreadable", it: "Menu illeggibile", nl: "Menu onleesbaar", es: "Menú ilegible" },
   "err.messageRequired":       { fr: "Le message est obligatoire", en: "The message is required", it: "Il messaggio è obbligatorio", nl: "Het bericht is verplicht", es: "El mensaje es obligatorio" },
-  "err.migr29":                { fr: "Migration orders_source.sql (#29) à lancer sur Supabase", en: "Migration orders_source.sql (#29) still to run on Supabase", it: "Migrazione orders_source.sql (#29) da lanciare su Supabase", nl: "Migratie orders_source.sql (#29) moet nog op Supabase worden uitgevoerd", es: "Falta ejecutar la migración orders_source.sql (#29) en Supabase" },
-  "err.migr49":                { fr: "Migration orders_manual_payment.sql (#49) à lancer (langues + paiement)", en: "Migration orders_manual_payment.sql (#49) still to run (languages + payment)", it: "Migrazione orders_manual_payment.sql (#49) da lanciare (lingue + pagamento)", nl: "Migratie orders_manual_payment.sql (#49) moet nog worden uitgevoerd (talen + betaling)", es: "Falta ejecutar la migración orders_manual_payment.sql (#49) (idiomas + pago)" },
-  "err.migr50":                { fr: "Migration orders_modifica_diff.sql (#50) à lancer sur Supabase", en: "Migration orders_modifica_diff.sql (#50) still to run on Supabase", it: "Migrazione orders_modifica_diff.sql (#50) da lanciare su Supabase", nl: "Migratie orders_modifica_diff.sql (#50) moet nog op Supabase worden uitgevoerd", es: "Falta ejecutar la migración orders_modifica_diff.sql (#50) en Supabase" },
-  "err.migrLunch":             { fr: "Création impossible — migration supabase/lunch_menus.sql à lancer ?", en: "Could not create — is migration supabase/lunch_menus.sql still to run?", it: "Creazione impossibile — migrazione supabase/lunch_menus.sql da lanciare?", nl: "Aanmaken mislukt — moet migratie supabase/lunch_menus.sql nog worden uitgevoerd?", es: "No se ha podido crear — ¿falta ejecutar la migración supabase/lunch_menus.sql?" },
-  "err.migrNlCreate":          { fr: "Création impossible — migration supabase/newsletter_schedule.sql à lancer ?", en: "Could not create — is migration supabase/newsletter_schedule.sql still to run?", it: "Creazione impossibile — migrazione supabase/newsletter_schedule.sql da lanciare?", nl: "Aanmaken mislukt — moet migratie supabase/newsletter_schedule.sql nog worden uitgevoerd?", es: "No se ha podido crear — ¿falta ejecutar la migración supabase/newsletter_schedule.sql?" },
-  "err.migrNlSave":            { fr: "Enregistrement impossible — migration supabase/newsletter_schedule.sql à (re)lancer ?", en: "Could not save — is migration supabase/newsletter_schedule.sql still to (re)run?", it: "Salvataggio impossibile — migrazione supabase/newsletter_schedule.sql da (ri)lanciare?", nl: "Opslaan mislukt — moet migratie supabase/newsletter_schedule.sql (opnieuw) worden uitgevoerd?", es: "No se ha podido guardar — ¿falta (volver a) ejecutar la migración supabase/newsletter_schedule.sql?" },
-  "err.migrServiceClosures":   { fr: "Enregistrement impossible — migration supabase/service_closures.sql à lancer ?", en: "Could not save — is migration supabase/service_closures.sql still to run?", it: "Salvataggio impossibile — migrazione supabase/service_closures.sql da lanciare?", nl: "Opslaan mislukt — moet migratie supabase/service_closures.sql nog worden uitgevoerd?", es: "No se ha podido guardar — ¿falta ejecutar la migración supabase/service_closures.sql?" },
-  "err.migrZoneClosures":      { fr: "Enregistrement impossible — migration supabase/zone_closures.sql à lancer ?", en: "Could not save — is migration supabase/zone_closures.sql still to run?", it: "Salvataggio impossibile — migrazione supabase/zone_closures.sql da lanciare?", nl: "Opslaan mislukt — moet migratie supabase/zone_closures.sql nog worden uitgevoerd?", es: "No se ha podido guardar — ¿falta ejecutar la migración supabase/zone_closures.sql?" },
+  "err.migr29":                { fr: "Migration 029_orders_source.sql (#29) à lancer sur Supabase", en: "Migration 029_orders_source.sql (#29) still to run on Supabase", it: "Migrazione 029_orders_source.sql (#29) da lanciare su Supabase", nl: "Migratie 029_orders_source.sql (#29) moet nog op Supabase worden uitgevoerd", es: "Falta ejecutar la migración 029_orders_source.sql (#29) en Supabase" },
+  "err.migr49":                { fr: "Migration 049_orders_manual_payment.sql (#49) à lancer (langues + paiement)", en: "Migration 049_orders_manual_payment.sql (#49) still to run (languages + payment)", it: "Migrazione 049_orders_manual_payment.sql (#49) da lanciare (lingue + pagamento)", nl: "Migratie 049_orders_manual_payment.sql (#49) moet nog worden uitgevoerd (talen + betaling)", es: "Falta ejecutar la migración 049_orders_manual_payment.sql (#49) (idiomas + pago)" },
+  "err.migr50":                { fr: "Migration 050_orders_modifica_diff.sql (#50) à lancer sur Supabase", en: "Migration 050_orders_modifica_diff.sql (#50) still to run on Supabase", it: "Migrazione 050_orders_modifica_diff.sql (#50) da lanciare su Supabase", nl: "Migratie 050_orders_modifica_diff.sql (#50) moet nog op Supabase worden uitgevoerd", es: "Falta ejecutar la migración 050_orders_modifica_diff.sql (#50) en Supabase" },
+  "err.migrLunch":             { fr: "Création impossible — migration supabase/038_lunch_menus.sql à lancer ?", en: "Could not create — is migration supabase/038_lunch_menus.sql still to run?", it: "Creazione impossibile — migrazione supabase/038_lunch_menus.sql da lanciare?", nl: "Aanmaken mislukt — moet migratie supabase/038_lunch_menus.sql nog worden uitgevoerd?", es: "No se ha podido crear — ¿falta ejecutar la migración supabase/038_lunch_menus.sql?" },
+  "err.migrNlCreate":          { fr: "Création impossible — migration supabase/039_newsletter_schedule.sql à lancer ?", en: "Could not create — is migration supabase/039_newsletter_schedule.sql still to run?", it: "Creazione impossibile — migrazione supabase/039_newsletter_schedule.sql da lanciare?", nl: "Aanmaken mislukt — moet migratie supabase/039_newsletter_schedule.sql nog worden uitgevoerd?", es: "No se ha podido crear — ¿falta ejecutar la migración supabase/039_newsletter_schedule.sql?" },
+  "err.migrNlSave":            { fr: "Enregistrement impossible — migration supabase/039_newsletter_schedule.sql à (re)lancer ?", en: "Could not save — is migration supabase/039_newsletter_schedule.sql still to (re)run?", it: "Salvataggio impossibile — migrazione supabase/039_newsletter_schedule.sql da (ri)lanciare?", nl: "Opslaan mislukt — moet migratie supabase/039_newsletter_schedule.sql (opnieuw) worden uitgevoerd?", es: "No se ha podido guardar — ¿falta (volver a) ejecutar la migración supabase/039_newsletter_schedule.sql?" },
+  "err.migrServiceClosures":   { fr: "Enregistrement impossible — migration supabase/022_service_closures.sql à lancer ?", en: "Could not save — is migration supabase/022_service_closures.sql still to run?", it: "Salvataggio impossibile — migrazione supabase/022_service_closures.sql da lanciare?", nl: "Opslaan mislukt — moet migratie supabase/022_service_closures.sql nog worden uitgevoerd?", es: "No se ha podido guardar — ¿falta ejecutar la migración supabase/022_service_closures.sql?" },
+  "err.migrZoneClosures":      { fr: "Enregistrement impossible — migration supabase/023_zone_closures.sql à lancer ?", en: "Could not save — is migration supabase/023_zone_closures.sql still to run?", it: "Salvataggio impossibile — migrazione supabase/023_zone_closures.sql da lanciare?", nl: "Opslaan mislukt — moet migratie supabase/023_zone_closures.sql nog worden uitgevoerd?", es: "No se ha podido guardar — ¿falta ejecutar la migración supabase/023_zone_closures.sql?" },
   "err.minDelay":              { fr: "Délai minimum invalide (0–4320 minutes)", en: "Invalid minimum notice (0–4320 minutes)", it: "Preavviso minimo non valido (0–4320 minuti)", nl: "Ongeldige minimale voorlooptijd (0–4320 minuten)", es: "Antelación mínima no válida (0–4320 minutos)" },
   "err.monthday":              { fr: "Jour du mois invalide (1-28)", en: "Invalid day of the month (1-28)", it: "Giorno del mese non valido (1-28)", nl: "Ongeldige dag van de maand (1-28)", es: "Día del mes no válido (1-28)" },
   "err.mooddAccessDelete":     { fr: "L'accès MOODD ne peut pas être supprimé", en: "The MOODD access cannot be deleted", it: "L'accesso MOODD non si può eliminare", nl: "De MOODD-toegang kan niet worden verwijderd", es: "El acceso MOODD no se puede eliminar" },
@@ -2459,7 +2501,7 @@ const DIZIONARIO: Dizionario = {
   "err.hoursStartEnd":          { fr: "Heures de début et de fin obligatoires (HH:MM)", en: "Start and end times required (HH:MM)", it: "Ora di inizio e di fine obbligatorie (HH:MM)", nl: "Begin- en eindtijd verplicht (UU:MM)", es: "Horas de inicio y fin obligatorias (HH:MM)" },
   "err.linkMax":                { fr: "Une liaison dépasse le nombre maximum de tables", en: "A link exceeds the maximum number of tables", it: "Un collegamento supera il numero massimo di tavoli", nl: "Een koppeling overschrijdt het maximale aantal tafels", es: "Una vinculación supera el número máximo de mesas" },
   "err.locationUnknown":        { fr: "Établissement inconnu", en: "Unknown location", it: "Sede sconosciuta", nl: "Onbekende vestiging", es: "Local desconocido" },
-  "err.migrSetMenus":           { fr: "Création impossible — migration supabase/set_menus.sql à lancer ?", en: "Could not create — is migration supabase/set_menus.sql still to run?", it: "Creazione impossibile — migrazione supabase/set_menus.sql da lanciare?", nl: "Aanmaken mislukt — moet migratie supabase/set_menus.sql nog worden uitgevoerd?", es: "No se ha podido crear — ¿falta ejecutar la migración supabase/set_menus.sql?" },
+  "err.migrSetMenus":           { fr: "Création impossible — migration supabase/061_set_menus.sql à lancer ?", en: "Could not create — is migration supabase/061_set_menus.sql still to run?", it: "Creazione impossibile — migrazione supabase/061_set_menus.sql da lanciare?", nl: "Aanmaken mislukt — moet migratie supabase/061_set_menus.sql nog worden uitgevoerd?", es: "No se ha podido crear — ¿falta ejecutar la migración supabase/061_set_menus.sql?" },
   "err.month":                  { fr: "Mois invalide", en: "Invalid month", it: "Mese non valido", nl: "Ongeldige maand", es: "Mes no válido" },
   "err.occupancyFor":           { fr: "Durée d'occupation invalide (15–360 min) pour", en: "Invalid table occupancy (15–360 min) for", it: "Durata di occupazione non valida (15–360 min) per", nl: "Ongeldige bezettingsduur (15–360 min) voor", es: "Duración de ocupación no válida (15–360 min) para" },
   "err.paymentUnconfirmed":     { fr: "Paiement non confirmé", en: "Payment not confirmed", it: "Pagamento non confermato", nl: "Betaling niet bevestigd", es: "Pago no confirmado" },

@@ -35,26 +35,33 @@ test("header e nav usano LA STESSA fascia del piede di misura", () => {
   }
 });
 
-test("sull'iPad orizzontale la fascia della giornata tiene le tre colonne", () => {
+test("sull'iPad orizzontale le sezioni diventano un bancone che si tira di lato", () => {
   // 1024 CSS px: per il motore e' un desktop, ma la fascia si impilava lo
-  // stesso (la soglia stretta e' 1100) e dell'Accueil restava Google a tutta
-  // larghezza — cioe' la cosa che si guarda meno, grande come lo schermo.
-  // Col piede a 13px le tre colonne ci stanno, e sono il motivo per cui si
-  // apre questa pagina.
+  // stesso (la soglia stretta e' 1100) e dell'Accueil restava una colonna a
+  // tutta larghezza. Su un iPad in mano le sezioni stanno tutte su UNA riga e
+  // la riga si scorre col dito: mandata a capo, per vedere la quarta si
+  // scorre in verticale e si perdono di vista le prime — che e' esattamente
+  // cio' per cui si apre questa pagina.
   const home = nudo("src/pages/admin/index.astro");
   assert.ok(home.includes(QUERY), "la Accueil non e' piu' nella fascia iPad: a 1024px la giornata torna impilata");
   const blocco = home.split(QUERY)[1]?.split("@media")[0] ?? "";
-  assert.match(blocco, /\.jour\s*\{[^}]*--j-cols:\s*initial/,
-    "la fascia iPad non rimette le colonne della giornata");
+  assert.match(blocco, /grid-auto-flow:\s*column/,
+    "sull'iPad le sezioni non stanno piu' su una riga sola");
+  assert.match(blocco, /overflow-x:\s*auto/,
+    "la riga delle sezioni non si scorre piu' di lato: le ultime restano irraggiungibili");
+  // Larghezza FISSA: un bancone ha le colonne tutte uguali. Con `1fr` la
+  // stessa colonna sarebbe larga diversa da un locale all'altro, a seconda di
+  // quante funzioni ha accese.
+  assert.doesNotMatch(blocco, /grid-auto-columns:[^;]*\bfr\b/,
+    "le colonne del bancone si allargano con lo schermo invece di avere la loro misura");
 
-  // ⚠️ `initial` e non il valore riscritto: le misure della fascia stanno in
-  // un posto solo, e una media query che se le ricopia resta indietro al
-  // primo cambio di proporzione — due schermi, due disegni, e nessuno
-  // l'ha deciso.
-  assert.equal((home.match(/1fr 1\.85fr/g) ?? []).length, 1,
+  // ⚠️ Le misure della fascia stanno in UN posto solo, e una media query che
+  // se le ricopia resta indietro al primo cambio — due schermi, due disegni,
+  // e nessuno l'ha deciso.
+  assert.equal((home.match(/repeat\(3, minmax\(0, 1fr\)\)/g) ?? []).length, 1,
     "le colonne della giornata sono scritte in piu' di un posto");
-  assert.equal((home.match(/36\.5rem/g) ?? []).length, 1,
-    "l'altezza della giornata e' scritta in piu' di un posto");
+  assert.equal((home.match(/--j-col-h: calc\(/g) ?? []).length, 1,
+    "l'altezza delle colonne e' calcolata in piu' di un posto");
 });
 
 test("le etichette della barra non scendono sotto il leggibile", () => {

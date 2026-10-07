@@ -18,11 +18,16 @@
    Ne esistevano due disegni — i chip grandi di /admin/orders e i quadratini
    `.cui-p` della tile Cuisine — per la stessa azione: chi imparava l'uno non
    riconosceva l'altro, e il giorno che si cambia il colore dell'«acceso» si
-   cambia in un posto e si dimentica l'altro. La taglia piccola e' una
-   VARIANTE (`.prep-btns.sm`), non un secondo bottone.
+   cambia in un posto e si dimentica l'altro.
+   ⚠️ E LA TAGLIA E' UNA SOLA. C'era una variante piccola (`.prep-btns.sm`)
+   per la colonna della Accueil: stesso comando, stesso colore, ma un
+   bersaglio piu' piccolo proprio dove lo si tocca di corsa, col tablet in
+   mano, mentre si risponde a qualcuno. Se una misura e' giusta su
+   /admin/orders e' giusta anche li'; se e' troppo grande per una colonna, e'
+   la colonna che va a capo — e per questo i bottoni vanno a capo da soli.
    ============================================================ */
 
-.prep-btns { display: flex; gap: 0.6rem; }
+.prep-btns { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 
 .prep-btn {
   display: flex;
@@ -52,9 +57,3 @@
 .prep-close:hover { border-color: #ed1c24; }
 .prep-close.closed { border-color: #ed1c24; background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
 .prep-close.closed .m { color: #ff6b6b; font-weight: 700; }
-
-/* Taglia piccola: la stessa cosa dentro una colonna. Cambiano le misure,
-   non i colori ne' gli stati — altrimenti sarebbe un altro bottone. */
-.prep-btns.sm { gap: 0.35rem; flex-wrap: wrap; }
-.prep-btns.sm .prep-btn { padding: 0.22rem 0.6rem; box-shadow: none; }
-.prep-btns.sm .prep-btn .m { font-size: 0.72rem; }

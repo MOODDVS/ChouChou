@@ -39,6 +39,11 @@
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
+  /* ⚠️ Vale anche quando `.btn` sta su un <a>: un bottone che porta da
+     un'altra parte resta un bottone, e senza questa riga il browser gli
+     disegna sotto la sottolineatura del link — l'unico bottone sottolineato
+     del pannello. */
+  text-decoration: none;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
 

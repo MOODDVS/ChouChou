@@ -22,7 +22,6 @@
    pagina deve deviare lo fa col suo <style> scoped, che vince.
    ============================================================ */
 .md-overlay { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
-.md-overlay[hidden] { display: none; }
 .md-back { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
 
 .md-box {
@@ -57,19 +56,17 @@
 .md-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ------------------------------------------------------------
-   VARIANTE «post-it» (.md-nota) — solo i COLORI cambiano.
-   Il modale Note ha il fondo corallo da sempre: e' la sua identita',
-   si legge come un foglietto attaccato al frigo. La struttura pero'
-   e' quella di tutti gli altri. Questa e' l'unica deviazione
-   ammessa, e vive qui: se un domani serve un secondo modale
-   colorato, si riusa questa classe invece di reinventarla.
+   ⚠️ UN SOLO VESTITO PER TUTTI I MODALI.
+   Qui c'era `.md-nota`, la variante corallo del modale Note: si
+   leggeva come un foglietto attaccato al frigo, e il foglietto era
+   la vecchia tile oro della Accueil. Da quando la lavagnetta e' una
+   colonna di bigliettini corallo, una finestra grande dello stesso
+   colore sembra un bigliettino gigante invece di una finestra — e
+   il modale scriveva una nota, non la mostrava.
+   Se un domani serve davvero un modale colorato, si riapre questa
+   discussione: non si aggiunge una classe accanto a quella di un
+   altro.
    ------------------------------------------------------------ */
-.md-box.md-nota { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-brown); }
-.md-nota .md-head { border-bottom-color: color-mix(in srgb, var(--c-bg) 25%, transparent); }
-.md-nota .md-foot { border-top-color: color-mix(in srgb, var(--c-bg) 25%, transparent); }
-.md-nota .md-title { color: var(--c-brown); }
-.md-nota .md-x { color: color-mix(in srgb, var(--c-bg) 55%, transparent); }
-.md-nota .md-x:hover { color: var(--c-brown); }
 
 /* TABLET (<=1023px, 1024 = iPad orizzontale e sta col desktop):
    titolo piu' piccolo, header e footer piu' bassi. */

@@ -56,3 +56,22 @@
   .dp-panel { width: 372px; }
   .dp-cell { min-height: 44px; font-size: 1.05rem; }
 }
+
+/* ------------------------------------------------------------
+   GIORNO DI CHIUSURA — segnato, non spento.
+   Un pallino sotto il numero, e il numero piu' spento. ⚠️ NON
+   `disabled`: il giorno di chiusura e' quello in cui si fanno le
+   cose che durante il servizio non si possono fare, quindi e' fra
+   i piu' probabili per una scadenza. Il calendario lo DICE e
+   lascia decidere.
+   Il pallino e non un fondo colorato: il fondo e' gia' il segno
+   del giorno scelto (.dp-sel), e due fondi diversi nella stessa
+   griglia si leggono come due stati dello stesso tipo.
+   ------------------------------------------------------------ */
+.dp-cell.dp-chiuso { color: var(--c-muted); }
+.dp-cell.dp-chiuso::after {
+  content: ""; position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--c-accent);
+}
+.dp-cell.dp-sel.dp-chiuso { color: var(--c-bg); }
+.dp-cell.dp-sel.dp-chiuso::after { background: var(--c-bg); }

@@ -193,10 +193,10 @@ test("ogni payment_method scritto dal codice e' ammesso dal database", () => {
   // giorni — con gli switch e con il viewport — quindi vale come regola: un
   // test che cerca una stringa deve guardare il codice, non i commenti.
   const vincolo = readFileSync(
-    new URL("../supabase/orders_onsite_payment.sql", import.meta.url), "utf8")
+    new URL("../supabase/075_orders_onsite_payment.sql", import.meta.url), "utf8")
     .split("\n").filter((r) => !r.trim().startsWith("--")).join("\n");
   const m = vincolo.match(/check\s*\(\s*payment_method\s+in\s*\(([^)]+)\)/i);
-  assert.ok(m, "il check su `payment_method` non e' piu' riconoscibile in orders_onsite_payment.sql");
+  assert.ok(m, "il check su `payment_method` non e' piu' riconoscibile in 075_orders_onsite_payment.sql");
   const ammessi = new Set(m[1].split(",").map((x) => x.trim().replace(/^'|'$/g, "")));
 
   // Quello che il codice scrive davvero: `payment_method: "..."` negli insert.

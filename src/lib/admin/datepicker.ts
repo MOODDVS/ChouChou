@@ -51,6 +51,22 @@ export function creaDatepicker(opz: {
   loc: string;
   /** Iniziali dei giorni, da lunedi': `tr("res.dowInitials").split(",")`. */
   dow: string[];
+  /**
+   * IL LOCALE E' CHIUSO QUEL GIORNO? Serve a SEGNARLO, non a vietarlo.
+   *
+   * ⚠️ Segnato e cliccabile, e non spento. Un giorno di chiusura e' il giorno
+   * in cui si fanno le cose che durante il servizio non si possono fare —
+   * l'inventario, la manutenzione, la chiamata al commercialista — quindi e'
+   * fra i piu' probabili per una scadenza, non fra i meno. Spegnerlo
+   * vorrebbe dire che il calendario sa meglio del ristoratore cosa si puo'
+   * fare di lunedi'.
+   *
+   * ⚠️ Si legge A OGNI DISEGNO, non una volta alla creazione: la funzione
+   * puo' guardare dati che arrivano dopo (le chiusure speciali vengono da una
+   * chiamata), e una copia presa alla nascita del calendario sarebbe sempre
+   * vuota.
+   */
+  chiuso?: (iso: string) => boolean;
 }): Datepicker {
   const MESI = Array.from({ length: 12 }, (_, m) =>
     new Date(2000, m, 1).toLocaleDateString(opz.loc, { month: "long" }),
@@ -95,6 +111,7 @@ export function creaDatepicker(opz: {
       const cls = ["dp-cell"];
       const spento = !passato && iso < oggi;
       if (spento) cls.push("dp-off");
+      if (!spento && opz.chiuso?.(iso)) cls.push("dp-chiuso");
       if (iso === oggi) cls.push("dp-today");
       if (iso === sel) cls.push("dp-sel");
       celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${spento ? "disabled" : ""}>${g}</button>`;

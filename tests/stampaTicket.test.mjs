@@ -173,7 +173,7 @@ test("un ordine pagato non puo' avere due ticket automatici", () => {
   // coda lo stesso ticket. In cucina due comande uguali sono due pizze.
   // La protezione non puo' stare nel codice che inserisce: deve stare nel
   // database, perche' due richieste possono arrivare nello stesso istante.
-  const sql = leggi("supabase/print_tickets.sql");
+  const sql = leggi("supabase/076_print_tickets.sql");
   assert.match(sql, /create unique index[\s\S]*?print_tickets \(order_id, kind\)[\s\S]*?where origin = 'auto'/,
     "l'indice unico sui ticket automatici non c'e' piu': lo stesso ordine puo' uscire due volte in cucina");
   // E le ristampe a mano devono restare possibili quante se ne vogliono.
@@ -184,7 +184,7 @@ test("un ordine pagato non puo' avere due ticket automatici", () => {
 test("lo stato «stampato» lo decide la stampante, non noi", () => {
   // ⚠️ Senza uno stato intermedio non si distingue «spedito» da «uscito»: o si
   // perdono ticket (segnati fatti e mai stampati), o si stampano doppi.
-  const sql = leggi("supabase/print_tickets.sql");
+  const sql = leggi("supabase/076_print_tickets.sql");
   assert.match(sql, /check \(status in \('queued', 'sent', 'printed', 'failed'\)\)/,
     "gli stati della coda sono cambiati: servono tutti e quattro per sapere se un ticket e' davvero uscito");
   assert.match(sql, /printed_at/, "sparita l'ora di stampa: non si puo' piu' dire quando il ticket e' uscito");
@@ -502,7 +502,7 @@ test("l'indice unico della coda conta anche la stampante", () => {
   // ⚠️ IL GUASTO EVITATO: l'indice della #76, su (order_id, kind), vietava il
   // secondo e il terzo ticket dello stesso ordine — cioe' proprio le bibite
   // al bar. Si scopre qui, o in servizio quando il bar non riceve niente.
-  const sql = leggi("supabase/print_tickets_dest.sql");
+  const sql = leggi("supabase/077_print_tickets_dest.sql");
   assert.match(sql, /add column if not exists dest/i);
   assert.match(sql, /\(order_id, kind, dest\) where origin = 'auto'/);
   assert.match(sql, /drop index if exists print_tickets_auto_unico/i, "il vecchio indice resta accanto al nuovo: due regole sullo stesso fatto");

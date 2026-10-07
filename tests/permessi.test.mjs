@@ -436,10 +436,15 @@ test("cio' che e' spento sparisce prima del primo paint", () => {
     "AdminHead non nasconde cio' che e' marcato data-admin-page");
   assert.ok(/SPENTE_CSS/.test(head) && /\+ SPENTE_CSS/.test(head), "la regola non finisce nel CSS stampato");
 
-  // E la fascia della giornata deve CONTARE le colonne vive guardando lo
-  // stile calcolato: una colonna spenta da quella regola ha lo stile inline
-  // vuoto, e la griglia le terrebbe il posto.
-  const home = readFileSync("src/pages/admin/index.astro", "utf8");
-  const blocco = home.slice(home.indexOf('["j-resa", "j-ord"]'));
-  assert.ok(/getComputedStyle/.test(blocco.slice(0, 400)), "le colonne vive si contano dallo stile inline");
+  // ⚠️ Qui si pretendeva anche che la fascia CONTASSE le colonne vive con
+  // `getComputedStyle`, per non lasciare mezzo schermo vuoto quando una
+  // funzione e' spenta. Quel conto non c'e' piu' e non serve: la fascia era
+  // fatta di caselle di misura fissa, adesso e' una griglia di sezioni e una
+  // sezione spenta esce dal flusso — le altre scorrono al suo posto da sole.
+  // La prova e' passata al difetto che resta possibile: che qualcuno rimetta
+  // un involucro attorno a due sezioni «per tenerle insieme», e il buco
+  // torni. La guarda `tests/giornata.test.mjs`.
+  //
+  // Cio' che conta QUI e' solo che la regola arrivi prima del primo paint, ed
+  // e' quello che si e' appena provato.
 });

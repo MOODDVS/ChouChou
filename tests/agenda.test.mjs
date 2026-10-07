@@ -127,7 +127,7 @@ test("l'agenda NON e' piu' fra le tabelle che lo storico riattribuisce", () => {
   // giusto — sono orfane. Su una MISTA, NULL vuol dire «di tutto il
   // gruppo»: riempirlo trasformerebbe il calendario del marchio nel
   // calendario di un punto solo, in silenzio e senza ritorno.
-  const sql = readFileSync("supabase/locations.sql", "utf8");
+  const sql = readFileSync("supabase/073_locations.sql", "utf8");
   const m = /create or replace function public\.tabelle_di_sede\(\)[\s\S]*?select array\[([\s\S]*?)\]::text\[\]/.exec(sql);
   assert.ok(m, "funzione `tabelle_di_sede()` non trovata");
   const nelSql = [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]);
