@@ -19,9 +19,32 @@ const BASE = "https://print.bizswoop.app/api/connect-application/v1";
  *  sostituisce affatto — sarebbe `undefined` nel build, cioe' una stampa che
  *  funziona in sviluppo e non in produzione. `process.env` fa da rete. */
 function chiavi(): { pub: string; sec: string } {
-  const pub = String(import.meta.env.BIZPRINT_PUBLIC_KEY ?? process.env.BIZPRINT_PUBLIC_KEY ?? "").trim();
-  const sec = String(import.meta.env.BIZPRINT_SECRET_KEY ?? process.env.BIZPRINT_SECRET_KEY ?? "").trim();
-  return { pub, sec };
+  // ⚠️ Via le VIRGOLETTE, non solo gli spazi. Incollando una chiave nel
+  // pannello dell'hosting ci si porta dietro le virgolette del .env
+  // (`BIZPRINT_SECRET_KEY="abc"`), e restano DENTRO il valore. La chiave
+  // diventa due caratteri piu' lunga, la firma non torna, e il servizio
+  // risponde 401 — cioe' «chiave sbagliata», che manda a cercare la chiave
+  // giusta quando la chiave era giusta. `RESEND_FROM` si spoglia cosi' da
+  // mesi, per lo stesso incidente con un 422.
+  const nudo = (v: unknown) => String(v ?? "").trim().replace(/^["']|["']$/g, "").trim();
+  return {
+    pub: nudo(import.meta.env.BIZPRINT_PUBLIC_KEY ?? process.env.BIZPRINT_PUBLIC_KEY),
+    sec: nudo(import.meta.env.BIZPRINT_SECRET_KEY ?? process.env.BIZPRINT_SECRET_KEY),
+  };
+}
+
+/**
+ * Perche' il servizio ha detto 401 — senza far uscire le chiavi.
+ *
+ * ⚠️ «HTTP 401» da solo manda a cercare nel posto sbagliato: sembra che la
+ * stampante non ci sia, e invece le chiavi sono arrivate e sono state
+ * rifiutate. La LUNGHEZZA non e' un segreto e dice quasi tutto: zero vuol
+ * dire che quella variabile non c'e', due caratteri di troppo vuol dire
+ * virgolette, e due lunghezze scambiate fra loro vuol dire chiavi invertite.
+ */
+function perche401(): string {
+  const { pub, sec } = chiavi();
+  return `chiavi rifiutate (public ${pub.length} caratteri, secret ${sec.length}). Controlla che non siano invertite e che non abbiano virgolette intorno.`;
 }
 
 /** Questo cliente ha un servizio di stampa configurato? */
@@ -49,7 +72,9 @@ export async function elencoStampanti(): Promise<{ ok: boolean; stampanti: Stamp
   q.set("hash", createHash("sha256").update(`${q.toString()}:${sec}`).digest("hex"));
   try {
     const r = await fetch(`${BASE}/printers?${q}`, { signal: AbortSignal.timeout(10_000) });
-    if (!r.ok) return { ok: false, stampanti: [], errore: `HTTP ${r.status}` };
+    if (!r.ok) {
+      return { ok: false, stampanti: [], errore: r.status === 401 ? `HTTP 401 — ${perche401()}` : `HTTP ${r.status}` };
+    }
     const j = (await r.json()) as { data?: unknown[] };
     const righe = Array.isArray(j?.data) ? j.data : [];
     return {
@@ -100,6 +125,9 @@ export async function mandaStampa(
       // Il corpo dell'errore puo' contenere l'eco delle chiavi: si taglia e
       // si maschera sul nome del campo, non sul valore atteso.
       const pulito = testo.replace(/"(secretKey|publicKey|key|token|apiKey|hash)"\s*:\s*"[^"]*"/gi, '"$1":"***"');
+      // Stessa spiegazione dell'elenco: un 401 qui non e' una stampante
+      // spenta, sono le chiavi rifiutate — e si cerca in due posti diversi.
+      if (r.status === 401) return { ok: false, errore: `HTTP 401 — ${perche401()}` };
       return { ok: false, errore: `HTTP ${r.status} ${pulito.slice(0, 200)}` };
     }
     let jobId: string | undefined;
