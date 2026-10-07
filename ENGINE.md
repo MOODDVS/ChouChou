@@ -158,7 +158,7 @@ nel bundle del browser.
     più sopra: senza `/order-confirm` un pagamento riuscito finisce su un 404.
     Se il sito sta sotto un prefisso, va scritto in `public_site_base`.
 
-11. **Multi-sede (solo se ne ha più di uno)** — lancia `supabase/locations.sql`
+11. **Multi-sede (solo se ne ha più di uno)** — lancia `supabase/073_locations.sql`
     e crea le sedi da `/admin/super` → Sedi. ⚠️ Un cliente con UN punto solo
     **non deve creare nessuna sede**: tabella `locations` vuota vuol dire
     nessun filtro, cioè esattamente il comportamento di sempre. La sede si

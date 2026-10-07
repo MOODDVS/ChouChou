@@ -46,6 +46,37 @@ test("ogni riga di MIGRATIONS.md punta a un file che esiste", () => {
   assert.deepEqual(fantasmi, [], "MIGRATIONS.md elenca file che non ci sono");
 });
 
+test("il NOME del file comincia col suo numero, a tre cifre", () => {
+  // ⚠️ Due cifre bastavano fino alla #99, ma non e' per quello: `ls` mette in
+  // fila 1, 10, 11, 2 — l'ordine sbagliato proprio nel file che serve a
+  // sapere l'ordine. Tre cifre lo tengono giusto fino alla #999.
+  const sbagliati = [];
+  for (const { n, file } of elencoMigrazioni()) {
+    const atteso = `${String(n).padStart(3, "0")}_`;
+    if (!file.startsWith(atteso)) sbagliati.push(`${file} (dovrebbe cominciare con ${atteso})`);
+  }
+  assert.deepEqual(sbagliati, [],
+    `questi file non portano il proprio numero nel nome:\n  ${sbagliati.join("\n  ")}`);
+});
+
+test("ogni file .sql porta il SUO numero scritto dentro", () => {
+  // ⚠️ Il numero di una migrazione vive in MIGRATIONS.md, cioe' FUORI dal
+  // file. Finche' le due cose non si toccano va tutto bene; il guaio arriva
+  // quando qualcuno dice «lancia la #78» e chi deve lanciarla ha davanti una
+  // cartella di settantotto nomi senza un numero. Si apre il .md, si cerca, e
+  // nel frattempo si sbaglia file — una migrazione lanciata al posto di
+  // un'altra non si disfa.
+  // Scritto in testa al file, il numero viaggia con lui: nella cartella, nel
+  // messaggio su WhatsApp, incollato nell'editor SQL di Supabase.
+  const senza = [];
+  for (const { n, file } of elencoMigrazioni()) {
+    const testa = readFileSync(join(CARTELLA, file), "utf8").split("\n").slice(0, 8).join("\n");
+    if (!new RegExp(`^--\\s*#${n}\\b`, "m").test(testa)) senza.push(`${file} (dovrebbe dire #${n})`);
+  }
+  assert.deepEqual(senza, [],
+    `queste migrazioni non dicono il proprio numero nelle prime righe:\n  ${senza.join("\n  ")}`);
+});
+
 test("i numeri sono progressivi e senza buchi ne' doppioni", () => {
   const n = elencoMigrazioni().map((m) => m.n);
   assert.ok(n.length > 0, "la tabella di MIGRATIONS.md non e' piu' leggibile");
@@ -104,7 +135,7 @@ test("nessun seed porta l'email di un cliente vero", () => {
       }
     }
   }
-  // ⚠️ Il caso vero: `app_config.sql` seminava kitchen_email =
+  // ⚠️ Il caso vero: `002_app_config.sql` seminava kitchen_email =
   // 'info@lamolisana.be'. Ogni installazione nuova mandava i ticket degli
   // ordini a La Molisana — e `app_config` BATTE la variabile d'ambiente,
   // quindi KITCHEN_EMAIL dell'.env non salvava nessuno.

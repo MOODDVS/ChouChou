@@ -122,7 +122,7 @@ importi da `src/layouts/`.
 
 Cinque clienti portati sul motore multi-sede in un giorno, con la ricetta in
 `MIGRAZIONE-MULTISEDE.md`. La migrazione di database è **una sola**, la #73
-`locations.sql`, dichiarata «solo schema, nessun effetto visibile»: si lancia
+`073_locations.sql`, dichiarata «solo schema, nessun effetto visibile»: si lancia
 `supabase/TUTTO.sql` intero, che è idempotente.
 
 Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
@@ -159,7 +159,7 @@ Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
 - **Agenda**: modale evento che non accavalla più le due colonne a una colonna.
 - **Documenti**: lingua scelta per documento (résiliation nella lingua del fornitore) → **migrazione #72**. Email «Commande Print» con il guscio delle altre.
 
-✅ **Migrazione #72 (`supabase/admin_docs_lang.sql`) lanciata su tutti e 4** l'08/09.
+✅ **Migrazione #72 (`supabase/072_admin_docs_lang.sql`) lanciata su tutti e 4** l'08/09.
 
 ---
 
@@ -258,7 +258,7 @@ Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ri
 ---
 
 ## ⚠️ Migrazioni — #75 lanciata solo su BROS (04/10/2026)
-**#75 `orders_onsite_payment.sql`** allarga il `check` di
+**#75 `075_orders_onsite_payment.sql`** allarga il `check` di
 `orders.payment_method` a `'onsite'`. Lanciata su **BROS**, l'unico che incassa
 al ritiro. Sugli altri cinque **non è stata lanciata**: accettano pagamenti
 online, quindi oggi non serve.
@@ -276,9 +276,9 @@ non cambia nulla, ed è idempotente. Lanciarla ovunque toglie la mina.
 ---
 
 ## ✅ Migrazioni — nessuna pendente (08/09/2026)
-**#72 `admin_docs_lang.sql`** (colonna `lang` su `admin_docs_meta`) **lanciata su tutti e quattro** l'08/09. Tutti i clienti sono a pari con le migrazioni del motore.
+**#72 `072_admin_docs_lang.sql`** (colonna `lang` su `admin_docs_meta`) **lanciata su tutti e quattro** l'08/09. Tutti i clienti sono a pari con le migrazioni del motore.
 
-**#71 `menu_variants.sql` lanciata su ChouChou, La Molisana e L'Huile.** Educazione Napoletana v2 aveva già #1→#71. Tutti e 4 i clienti sono a pari con le migrazioni del motore.
+**#71 `071_menu_variants.sql` lanciata su ChouChou, La Molisana e L'Huile.** Educazione Napoletana v2 aveva già #1→#71. Tutti e 4 i clienti sono a pari con le migrazioni del motore.
 
 **Chiavi VAPID: tutte e 4 a posto.** Mancavano su ChouChou (righe assenti nel `.env`) e su L'Huile (righe vuote) — generate il 07/09 con `npx web-push generate-vapid-keys`.
 ⚠️ `PUBLIC_VAPID_KEY` è una variabile `PUBLIC_*`: Astro la **incolla nel bundle al build**. Metterla su Hostinger e riavviare NON basta, serve il rebuild.
@@ -288,7 +288,7 @@ non cambia nulla, ed è idempotente. Lanciarla ovunque toglie la mina.
 ℹ️ **«Varianti» è una feature opzionale**: si accende cliente per cliente da Super admin → Impostazioni. Per ora la vuole **solo Educazione Napoletana**; gli altri non vedono nemmeno il tab.
 
 - **04/09** — #68 `print_orders`, #69 `reservations.extra_minutes`, #46 `gift_card_orders`: lanciate su tutti e 3.
-- **05/09** — #70 `gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.
+- **05/09** — #70 `070_gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.
 
 **Nessun cron nuovo.** Il merge del 05/09 porta anche: CSP `script-src` enforced su `/admin` (nonce per-richiesta), **guard di autenticazione lato server** sulle pagine `/admin` (niente più flash della nav prima del login), cache `app_config` 30s + `/api/admin/pages` da 6 query a 1, revisione di sicurezza (`esc()` con virgolette, `no-store` su admin/api-admin, limiti input form contatti) — **tutto senza migrazioni**.
 

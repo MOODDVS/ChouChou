@@ -19,10 +19,10 @@
 
 
 -- ------------------------------------------------------------
--- #1 — schema.sql
+-- #1 — 001_schema.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- RestoHub — Schema DB
+-- #1 — RestoHub — Schema DB
 -- Da lanciare nel SQL Editor del progetto Supabase del cliente.
 -- Sicuro da rilanciare (idempotente): usa IF NOT EXISTS / ON CONFLICT.
 -- ============================================================
@@ -153,10 +153,10 @@ grant select on public.settings   to anon, authenticated;
 
 
 -- ------------------------------------------------------------
--- #2 — app_config.sql
+-- #2 — 002_app_config.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- APP_CONFIG — coppie chiave/valore per configurazioni
+-- #2 — APP_CONFIG — coppie chiave/valore per configurazioni
 -- modificabili dall'admin (es. email cucina).
 -- RLS attiva SENZA policy => accesso solo via service key.
 -- Idempotente: sicuro da rilanciare.
@@ -182,10 +182,10 @@ on conflict (key) do nothing;
 
 
 -- ------------------------------------------------------------
--- #3 — special_days.sql
+-- #3 — 003_special_days.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- SPECIAL_DAYS — giorni speciali che scavalcano gli orari settimanali:
+-- #3 — SPECIAL_DAYS — giorni speciali che scavalcano gli orari settimanali:
 --   type='closed' : chiuso in quelle date (ferie, festivi)
 --   type='open'   : aperto eccezionalmente (es. un martedì specifico),
 --                   con orari propri (lunch_* e opzionale dinner_*)
@@ -215,10 +215,10 @@ grant select, insert, update, delete on public.special_days to service_role;
 
 
 -- ------------------------------------------------------------
--- #4 — menu_categories.sql
+-- #4 — 004_menu_categories.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- MENU_CATEGORIES — le sezioni del menu come entità gestibile
+-- #4 — MENU_CATEGORIES — le sezioni del menu come entità gestibile
 -- dall'admin (creare/rinominare/riordinare/eliminare).
 -- I piatti (menu_items) restano la fonte per il sito pubblico:
 -- l'admin tiene sincronizzati category/category_order dei piatti.
@@ -242,10 +242,10 @@ on conflict (name) do nothing;
 
 
 -- ------------------------------------------------------------
--- #5 — menu_categories_kind.sql
+-- #5 — 005_menu_categories_kind.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Aggiunge alle sezioni il tipo: 'food' (cibo) o 'drink' (bevanda).
+-- #5 — Aggiunge alle sezioni il tipo: 'food' (cibo) o 'drink' (bevanda).
 -- Seed: marca come 'drink' le sezioni bevande già esistenti.
 -- Idempotente.
 -- ============================================================
@@ -270,10 +270,10 @@ and not exists (select 1 from public.menu_categories where kind = 'drink');
 
 
 -- ------------------------------------------------------------
--- #6 — menu_discount.sql
+-- #6 — 006_menu_discount.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Sconti sui piatti:
+-- #6 — Sconti sui piatti:
 --   discount_type  : null (nessuno) | 'fixed' (riduzione fissa in
 --                    centesimi) | 'percent' (percentuale intera)
 --   discount_value : centesimi se fixed, 1-99 se percent
@@ -287,10 +287,10 @@ alter table public.menu_items
 
 
 -- ------------------------------------------------------------
--- #7 — menu_flags.sql
+-- #7 — 007_menu_flags.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Badge dei piatti:
+-- #7 — Badge dei piatti:
 --   is_bestseller : piatto in evidenza / più venduto
 --   is_vegan      : piatto vegano
 --   is_spicy      : piatto piccante
@@ -305,10 +305,10 @@ alter table public.menu_items
 
 
 -- ------------------------------------------------------------
--- #8 — menu_suggestion.sql
+-- #8 — 008_menu_suggestion.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Badge "Suggestion" (suggestion du chef) sui piatti.
+-- #8 — Badge "Suggestion" (suggestion du chef) sui piatti.
 -- Colonna nuova su tabella già concessa: NIENTE nuovi GRANT.
 -- Idempotente.
 -- ============================================================
@@ -317,10 +317,10 @@ alter table public.menu_items
 
 
 -- ------------------------------------------------------------
--- #9 — menu_image.sql
+-- #9 — 009_menu_image.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Foto degli articoli del menu (admin → Menu).
+-- #9 — Foto degli articoli del menu (admin → Menu).
 -- Colonna opzionale `image_url` su menu_items: se NULL, l'admin
 -- mostra un placeholder. Include il bucket Storage `menu` per le
 -- foto caricate dall'admin (lettura pubblica, scrittura solo via
@@ -334,10 +334,10 @@ on conflict (id) do nothing;
 
 
 -- ------------------------------------------------------------
--- #10 — admin_notes.sql
+-- #10 — 010_admin_notes.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- ADMIN_NOTES — lavagnetta promemoria della Home admin.
+-- #10 — ADMIN_NOTES — lavagnetta promemoria della Home admin.
 -- Note interne dello staff (passaggio di consegne tra un giorno
 -- e l'altro). RLS attiva SENZA policy pubblica => leggibili/scrivibili
 -- solo con la service key server-side (come orders).
@@ -365,10 +365,10 @@ grant select, insert, update, delete on public.admin_notes to service_role;
 
 
 -- ------------------------------------------------------------
--- #11 — order_status_done.sql
+-- #11 — 011_order_status_done.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Aggiunge lo stato 'done' (ordine preparato/consegnato) agli ordini.
+-- #11 — Aggiunge lo stato 'done' (ordine preparato/consegnato) agli ordini.
 -- Stati: pending (Stripe non completato) → paid (attivo in cucina)
 --        → done (terminato) | cancelled (annullato dallo staff).
 -- Idempotente.
@@ -381,10 +381,10 @@ alter table public.orders
 
 
 -- ------------------------------------------------------------
--- #12 — clients.sql
+-- #12 — 012_clients.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Tabella `clients` — clienti aggiunti/gestiti a mano dall'admin.
+-- #12 — Tabella `clients` — clienti aggiunti/gestiti a mano dall'admin.
 -- La pagina /admin/clients UNISCE questi ai clienti calcolati dagli
 -- ordini (paid/done): un cliente manuale che poi ordina viene fuso
 -- per email. Utile per registrare contatti (habitué, ordini al telefono).
@@ -410,10 +410,10 @@ grant select, insert, update, delete on public.clients to service_role;
 
 
 -- ------------------------------------------------------------
--- #13 — clients_hidden.sql
+-- #13 — 013_clients_hidden.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Colonna `hidden` sulla tabella clients.
+-- #13 — Colonna `hidden` sulla tabella clients.
 -- Un cliente "cancellato" dall'admin che ha degli ordini non viene
 -- eliminato davvero (gli ordini restano in contabilità): viene
 -- nascosto dalla lista con hidden = true. Se rifà un ordine,
@@ -425,10 +425,10 @@ alter table public.clients
 
 
 -- ------------------------------------------------------------
--- #14 — coupons.sql
+-- #14 — 014_coupons.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Tabella `coupons` — codici promo gestiti dall'admin
+-- #14 — Tabella `coupons` — codici promo gestiti dall'admin
 -- (Marketing → Coupons) e applicati al checkout take-away online.
 --
 -- Variabili di ogni coupon:
@@ -502,10 +502,10 @@ create index if not exists idx_orders_coupon on public.orders (coupon_id) where 
 
 
 -- ------------------------------------------------------------
--- #15 — popups.sql
+-- #15 — 015_popups.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Tabella `popups` — modali di comunicazione gestiti dall'admin
+-- #15 — Tabella `popups` — modali di comunicazione gestiti dall'admin
 -- (Marketing → Pop-up) e mostrati sul sito pubblico.
 -- Bilingue: i campi *_en sono la versione inglese. Il pop-up appare
 -- su una versione del sito SOLO se il titolo di quella lingua è
@@ -563,10 +563,10 @@ on conflict (id) do nothing;
 
 
 -- ------------------------------------------------------------
--- #16 — newsletter.sql
+-- #16 — 016_newsletter.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Newsletter (admin Marketing → Newsletter).
+-- #16 — Newsletter (admin Marketing → Newsletter).
 -- `newsletter_log`    — storico invii (per la quota mensile: la somma
 --                        di `count` nel mese corrente non supera 1000).
 -- `newsletter_optout` — email disiscritte tramite il link presente in
@@ -594,10 +594,10 @@ grant select, insert, update, delete on public.newsletter_optout to service_role
 
 
 -- ------------------------------------------------------------
--- #17 — newsletter_credits.sql
+-- #17 — 017_newsletter_credits.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Crediti newsletter acquistati (admin Marketing → Newsletter).
+-- #17 — Crediti newsletter acquistati (admin Marketing → Newsletter).
 -- Ogni riga = un acquisto via Stripe MOODD. `status`:
 --   pending = sessione creata, pagamento non ancora verificato
 --   paid    = pagamento verificato, crediti attivi
@@ -621,10 +621,10 @@ grant select, insert, update, delete on public.newsletter_credits to service_rol
 
 
 -- ------------------------------------------------------------
--- #18 — team.sql
+-- #18 — 018_team.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Tabella `team` — rubrica delle persone che ruotano attorno al
+-- #18 — Tabella `team` — rubrica delle persone che ruotano attorno al
 -- ristorante (Réglages → tab Team): personale interno, fornitori,
 -- tecnici, consulenti, contabile, partner, ecc.
 --
@@ -671,10 +671,10 @@ grant select, insert, update, delete on public.team to service_role;
 
 
 -- ------------------------------------------------------------
--- #19 — documents.sql
+-- #19 — 019_documents.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Bucket Storage `documents` (admin → Assets → Documents) :
+-- #19 — Bucket Storage `documents` (admin → Assets → Documents) :
 -- PDF caricati dall'admin (menu stampabili, volantini, listini…).
 -- Lettura pubblica, scrittura solo via API admin. Idempotente.
 -- ============================================================
@@ -684,10 +684,10 @@ on conflict (id) do nothing;
 
 
 -- ------------------------------------------------------------
--- #20 — reservations.sql
+-- #20 — 020_reservations.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- RÉSERVATIONS V1 (widget proprio, seme del prodotto MOODD).
+-- #20 — RÉSERVATIONS V1 (widget proprio, seme del prodotto MOODD).
 -- Modello: conferma AUTOMATICA se c'è posto (capienza = somma dei
 -- coperti delle sezioni in reservation_zones, meno le prenotazioni
 -- confermate che occupano la fascia [heure, heure + hold_minutes]).
@@ -726,7 +726,7 @@ grant select, insert, update, delete on public.reservations to service_role;
 
 
 -- ------------------------------------------------------------
--- #21 — reservations_source.sql
+-- #21 — 021_reservations_source.sql
 -- ------------------------------------------------------------
 -- #21 — Origine della prenotazione
 -- 'web'    : widget del sito (default)
@@ -739,7 +739,7 @@ alter table reservations
 
 
 -- ------------------------------------------------------------
--- #22 — service_closures.sql
+-- #22 — 022_service_closures.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #22 — CHIUSURE DI SERVIZIO PER GIORNO (admin Réservations).
@@ -766,7 +766,7 @@ grant select, insert, update, delete on public.service_closures to service_role;
 
 
 -- ------------------------------------------------------------
--- #23 — zone_closures.sql
+-- #23 — 023_zone_closures.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #23 — CHIUSURE DI SEZIONE PER GIORNO (admin Réservations).
@@ -794,7 +794,7 @@ grant select, insert, update, delete on public.zone_closures to service_role;
 
 
 -- ------------------------------------------------------------
--- #24 — reservations_review.sql
+-- #24 — 024_reservations_review.sql
 -- ------------------------------------------------------------
 -- #24 — Email di recensione per le prenotazioni.
 -- Salva l'id dell'email programmata su Resend, così un annullamento
@@ -804,7 +804,7 @@ alter table reservations
 
 
 -- ------------------------------------------------------------
--- #25 — reservations_options.sql
+-- #25 — 025_reservations_options.sql
 -- ------------------------------------------------------------
 -- #25 · Opzioni prenotazione: Anniversaire + Événement spécial
 -- Due nuove opzioni selezionabili nel widget pubblico e nel modale admin.
@@ -815,7 +815,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #26 — reservations_seated.sql
+-- #26 — 026_reservations_seated.sql
 -- ------------------------------------------------------------
 -- #26 · Orario di arrivo al tavolo (timer "En cours")
 -- Impostato quando lo staff mette manualmente lo stato "En cours" (seated):
@@ -826,7 +826,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #27 — reservations_table_time.sql
+-- #27 — 027_reservations_table_time.sql
 -- ------------------------------------------------------------
 -- #27 · Durata reale del tavolo (minuti)
 -- Valorizzata quando la prenotazione diventa "Fini":
@@ -839,7 +839,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #28 — reservations_spent.sql
+-- #28 — 028_reservations_spent.sql
 -- ------------------------------------------------------------
 -- #28 · Addition della prenotazione (centesimi)
 -- Inserita dallo staff nel modale dettagli quando la prenotazione è "Fini".
@@ -850,7 +850,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #29 — orders_source.sql
+-- #29 — 029_orders_source.sql
 -- ------------------------------------------------------------
 -- #29 · Origine dell'ordine
 -- 'web' = checkout dal sito (default) · 'manual' = creato dallo staff
@@ -861,7 +861,7 @@ alter table public.orders
 
 
 -- ------------------------------------------------------------
--- #30 — orders_cancel_token.sql
+-- #30 — 030_orders_cancel_token.sql
 -- ------------------------------------------------------------
 -- #30 · Token di annullamento dell'ordine (link "Annuler ma commande")
 -- Usato nell'email col link di pagamento (ordini manuali): il cliente può
@@ -872,7 +872,7 @@ alter table public.orders
 
 
 -- ------------------------------------------------------------
--- #31 — clients_photo.sql
+-- #31 — 031_clients_photo.sql
 -- ------------------------------------------------------------
 -- #31 · Foto del cliente (modale di modifica nella pagina Clients)
 
@@ -881,7 +881,7 @@ alter table public.clients
 
 
 -- ------------------------------------------------------------
--- #32 — clients_block.sql
+-- #32 — 032_clients_block.sql
 -- ------------------------------------------------------------
 -- #32 · Blocco prenotazioni per cliente
 -- blocked = true → il WIDGET pubblico rifiuta le prenotazioni con la sua
@@ -892,7 +892,7 @@ alter table public.clients
 
 
 -- ------------------------------------------------------------
--- #33 — special_days_services.sql
+-- #33 — 033_special_days_services.sql
 -- ------------------------------------------------------------
 -- #33 · Servizi attivi nei jours spéciaux "ouvert"
 -- null = tutti i servizi (retro-compatibile con i giorni già salvati)
@@ -904,16 +904,22 @@ alter table public.special_days
 
 
 -- ------------------------------------------------------------
--- #34 — admin_notes_tags.sql
+-- #34 — 034_admin_notes_tags.sql
 -- ------------------------------------------------------------
--- #34 — Tag sulle note admin (Important / Recurrent / Fournisseur)
--- Colonna jsonb: lista di tag testuali, es. ["important","fournisseur"].
+-- #34 — Tag sulle note admin
+-- Colonna jsonb: lista di tag TESTUALI LIBERI, es. ["important","metro"].
+-- I tre tag storici (important / recurrent / fournisseur) sono solo quelli che
+-- l'admin propone gia' pronti e traduce; la colonna non li conosce e non ha
+-- nessun vincolo. ⚠️ Percio' aggiungere un tag nuovo NON e' una migrazione:
+-- chi cerca qui la tabella dei tag non la trova perche' non esiste, ed e'
+-- voluto — una lista chiusa in SQL vorrebbe dire una migrazione per ogni
+-- parola che a un ristoratore viene in mente.
 -- Tabella gia' concessa a service_role: nessun GRANT necessario.
 alter table public.admin_notes add column if not exists tags jsonb;
 
 
 -- ------------------------------------------------------------
--- #35 — brand_bucket.sql
+-- #35 — 035_brand_bucket.sql
 -- ------------------------------------------------------------
 -- #35 — Bucket Storage "brand" (loghi + favicon del cliente, pubblici)
 -- Caricati da Reglages -> General; URL salvati in app_config
@@ -924,7 +930,7 @@ on conflict (id) do nothing;
 
 
 -- ------------------------------------------------------------
--- #36 — restaurant_tables.sql
+-- #36 — 036_restaurant_tables.sql
 -- ------------------------------------------------------------
 -- #36 — Plan de salle: tavoli disegnati per section (Reglages -> Reservations)
 -- Coordinate in unita' astratte (canvas 1000x600). zone = nome della section
@@ -948,7 +954,7 @@ grant select, insert, update, delete on public.restaurant_tables to service_role
 
 
 -- ------------------------------------------------------------
--- #37 — reservations_tables.sql
+-- #37 — 037_reservations_tables.sql
 -- ------------------------------------------------------------
 -- #37 -- Plan de salle fase 2: tavoli assegnati automaticamente alla prenotazione.
 -- jsonb = array di uuid (id di restaurant_tables), es. ["a1...", "b2..."].
@@ -961,7 +967,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #38 — lunch_menus.sql
+-- #38 — 038_lunch_menus.sql
 -- ------------------------------------------------------------
 -- #38 -- LUNCH: formules del mezzogiorno (tab Lunch della pagina Menu admin).
 -- courses jsonb  = portate attive in ordine canonico: ["entree","plat","dessert"]
@@ -991,7 +997,7 @@ grant select, insert, update, delete on public.lunch_menus to service_role;
 
 
 -- ------------------------------------------------------------
--- #39 — newsletter_schedule.sql
+-- #39 — 039_newsletter_schedule.sql
 -- ------------------------------------------------------------
 -- #39 -- NEWSLETTER programmate e ricorrenti (Marketing → Newsletter).
 -- send_at    = invio una tantum (UTC); null se ricorrente
@@ -1043,7 +1049,7 @@ grant select, insert, update, delete on public.newsletter_schedule to service_ro
 
 
 -- ------------------------------------------------------------
--- #40 — admin_docs_meta.sql
+-- #40 — 040_admin_docs_meta.sql
 -- ------------------------------------------------------------
 -- #40 -- METADATI dei documents dell'ADMIN (pagina Admin → tab Documents).
 -- Una riga per documento (chiave = "categoria/nomefile.pdf" nel bucket
@@ -1070,10 +1076,10 @@ grant select, insert, update, delete on public.admin_docs_meta to service_role;
 
 
 -- ------------------------------------------------------------
--- #41 — orders_refund.sql
+-- #41 — 041_orders_refund.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Rimborsi ordini (Stripe).
+-- #41 — Rimborsi ordini (Stripe).
 -- Traccia il totale già rimborsato (per rimborsi parziali cumulativi),
 -- l'ora dell'ultimo rimborso e l'id dell'ultimo refund Stripe.
 -- Evita doppi rimborsi e permette di mostrare lo stato "Remboursé".
@@ -1085,10 +1091,10 @@ alter table public.orders add column if not exists last_refund_id text;
 
 
 -- ------------------------------------------------------------
--- #42 — reservations_client_action.sql
+-- #42 — 042_reservations_client_action.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Traccia le azioni del CLIENTE sulle prenotazioni (annullo / modifica dal
+-- #42 — Traccia le azioni del CLIENTE sulle prenotazioni (annullo / modifica dal
 -- link nell'email) per il toast live nell'admin: `client_action_at` viene
 -- valorizzato SOLO dagli endpoint pubblici (/api/reservation DELETE e PUT),
 -- mai dalle azioni dello staff. Il poller admin confronta questo timestamp
@@ -1101,7 +1107,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #43 — reservations_recontact.sql
+-- #43 — 043_reservations_recontact.sql
 -- ------------------------------------------------------------
 -- #43 — Flag "à recontacter" sulle prenotazioni.
 -- Valorizzato quando, chiudendo una SECTION (Fermeture exceptionnelle), il
@@ -1112,7 +1118,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #44 — push_subscriptions.sql
+-- #44 — 044_push_subscriptions.sql
 -- ------------------------------------------------------------
 -- #44 — Iscrizioni push (PWA admin). Ogni device/browser del ristoratore che
 -- attiva le notifiche salva qui la sua subscription (endpoint + chiavi). Le
@@ -1131,7 +1137,7 @@ grant select, insert, update, delete on public.push_subscriptions to service_rol
 
 
 -- ------------------------------------------------------------
--- #45 — gift_cards.sql
+-- #45 — 045_gift_cards.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #45 — Buoni regalo (Marketing → Bons cadeaux)
@@ -1241,7 +1247,7 @@ create index if not exists idx_orders_gift on public.orders (gift_card_id) where
 
 
 -- ------------------------------------------------------------
--- #46 — gift_card_orders.sql
+-- #46 — 046_gift_card_orders.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #46 — Ordini di BUONI FISICI acquistati dal ristoratore presso MOODD.
@@ -1275,7 +1281,7 @@ grant select, insert, update, delete on public.gift_card_orders to service_role;
 
 
 -- ------------------------------------------------------------
--- #47 — traffic.sql
+-- #47 — 047_traffic.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #47 — Analytics interne (Statistiques → Google : Sources de trafic)
@@ -1330,7 +1336,7 @@ $$;
 
 
 -- ------------------------------------------------------------
--- #48 — reservation_reminder.sql
+-- #48 — 048_reservation_reminder.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #48 — Rappel client 3 h avant la réservation
@@ -1348,7 +1354,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #49 — orders_manual_payment.sql
+-- #49 — 049_orders_manual_payment.sql
 -- ------------------------------------------------------------
 -- #49 · Ordini manuali pagati di persona + lingue email estese
 --
@@ -1379,10 +1385,10 @@ alter table public.orders
 
 
 -- ------------------------------------------------------------
--- #50 — orders_modifica_diff.sql
+-- #50 — 050_orders_modifica_diff.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Modifica ordini: differenza di importo dopo una modifica.
+-- #50 — Modifica ordini: differenza di importo dopo una modifica.
 -- Quando lo staff modifica un ordine GIA' PAGATO ONLINE (sito o payment link):
 --   - se il totale AUMENTA  -> supplement_due_cents = differenza da incassare
 --     (mail al cliente con link Stripe; il webhook azzera e segna
@@ -1398,9 +1404,9 @@ alter table public.orders add column if not exists refund_due_cents       intege
 
 
 -- ------------------------------------------------------------
--- #51 — lunch_hide_by_course.sql
+-- #51 — 051_lunch_hide_by_course.sql
 -- ------------------------------------------------------------
--- Nascondere i piatti del lunch dal menu pubblico PER SINGOLA PORTATA.
+-- #51 — Nascondere i piatti del lunch dal menu pubblico PER SINGOLA PORTATA.
 -- Estende (senza sostituire) il vecchio flag globale hide_items:
 --   { "entree": true, "plat": false, "dessert": true }
 -- Se la colonna manca, il codice ricade automaticamente su hide_items
@@ -1410,10 +1416,10 @@ alter table lunch_menus add column if not exists hide_by_course jsonb;
 
 
 -- ------------------------------------------------------------
--- #52 — agenda_events.sql
+-- #52 — 052_agenda_events.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- Tabella `agenda_events` — Eventi / Agenda del ristorante
+-- #52 — Tabella `agenda_events` — Eventi / Agenda del ristorante
 -- (admin RestoHub → Agenda). Ogni evento: titolo, immagine
 -- principale, descrizione, galleria di immagini, data singola o
 -- intervallo di date, link esterni e flag RSVP (inscriptions).
@@ -1450,9 +1456,9 @@ on conflict (id) do nothing;
 
 
 -- ------------------------------------------------------------
--- #53 — agenda_events_i18n.sql
+-- #53 — 053_agenda_events_i18n.sql
 -- ------------------------------------------------------------
--- Traduzioni di titolo e descrizione degli eventi (agenda) per lingua del sito.
+-- #53 — Traduzioni di titolo e descrizione degli eventi (agenda) per lingua del sito.
 alter table public.agenda_events add column if not exists title_i18n jsonb;
 alter table public.agenda_events add column if not exists body_i18n jsonb;
 
@@ -1462,18 +1468,18 @@ alter table public.agenda_events add column if not exists rsvp_max int;
 
 
 -- ------------------------------------------------------------
--- #54 — clients_lang.sql
+-- #54 — 054_clients_lang.sql
 -- ------------------------------------------------------------
--- Colonna lingua del cliente (per le email di conferma nella lingua giusta
+-- #54 — Colonna lingua del cliente (per le email di conferma nella lingua giusta
 -- e per la colonna/i filtri Lingua nella pagina Clienti).
 -- Idempotente: sicura da rilanciare.
 alter table public.clients add column if not exists lang text;
 
 
 -- ------------------------------------------------------------
--- #55 — menu_sold_out.sql
+-- #55 — 055_menu_sold_out.sql
 -- ------------------------------------------------------------
--- Stato "esaurito" di un piatto (temporaneamente non disponibile).
+-- #55 — Stato "esaurito" di un piatto (temporaneamente non disponibile).
 -- Distinto da `available` (visibile sul sito) e `orderable` (ordinabile):
 -- un piatto esaurito resta in carta ma è segnalato come non disponibile.
 -- Idempotente.
@@ -1481,9 +1487,9 @@ alter table public.menu_items add column if not exists sold_out boolean not null
 
 
 -- ------------------------------------------------------------
--- #56 — menu_i18n.sql
+-- #56 — 056_menu_i18n.sql
 -- ------------------------------------------------------------
--- Traduzioni per i piatti nelle lingue del sito pubblico.
+-- #56 — Traduzioni per i piatti nelle lingue del sito pubblico.
 -- name_i18n / desc_i18n = { "fr": "...", "en": "...", "it": "..." } (solo lingue attive).
 -- `name` resta il nome canonico (lingua predefinita, usato in ordini/cucina).
 -- description_fr / description_en restano allineate (retro-compatibilità menu pubblico legacy).
@@ -1493,9 +1499,9 @@ alter table public.menu_items add column if not exists desc_i18n jsonb not null 
 
 
 -- ------------------------------------------------------------
--- #57 — menu_subcategories.sql
+-- #57 — 057_menu_subcategories.sql
 -- ------------------------------------------------------------
--- Sotto-categorie del menu (fino a 3 livelli sotto la categoria radice).
+-- #57 — Sotto-categorie del menu (fino a 3 livelli sotto la categoria radice).
 -- Gerarchia su menu_categories: parent_id (null = radice) + depth (0..3).
 -- I piatti restano collegati alla sezione per NOME (menu_items.category),
 -- quindi i nomi delle sezioni restano UNICI (constraint esistente invariata).
@@ -1508,35 +1514,35 @@ create index if not exists idx_menu_categories_parent on public.menu_categories(
 
 
 -- ------------------------------------------------------------
--- #58 — menu_categories_i18n.sql
+-- #58 — 058_menu_categories_i18n.sql
 -- ------------------------------------------------------------
--- Traduzioni del nome delle sezioni/categorie per lingua del sito pubblico.
+-- #58 — Traduzioni del nome delle sezioni/categorie per lingua del sito pubblico.
 -- Per le categorie STANDARD viene riempito dal dizionario (fisso); per quelle
 -- personalizzate lo inserisce il ristoratore.
 alter table public.menu_categories add column if not exists name_i18n jsonb;
 
 
 -- ------------------------------------------------------------
--- #59 — lunch_i18n.sql
+-- #59 — 059_lunch_i18n.sql
 -- ------------------------------------------------------------
--- Traduzioni del nome del lunch (formule del mezzogiorno) per lingua del sito pubblico.
+-- #59 — Traduzioni del nome del lunch (formule del mezzogiorno) per lingua del sito pubblico.
 -- Chiavi = codici lingua (fr,en,it,nl,es); valori = nome tradotto.
 alter table lunch_menus add column if not exists name_i18n jsonb;
 
 
 -- ------------------------------------------------------------
--- #60 — lunch_hide_items.sql
+-- #60 — 060_lunch_hide_items.sql
 -- ------------------------------------------------------------
--- Switch per nascondere dal menu pubblico i piatti inseriti in un lunch/formula.
+-- #60 — Switch per nascondere dal menu pubblico i piatti inseriti in un lunch/formula.
 -- Quando true e il lunch è attivo (e nel range di date), i suoi piatti non
 -- compaiono più nella lista del menu pubblico.
 alter table lunch_menus add column if not exists hide_items boolean default false;
 
 
 -- ------------------------------------------------------------
--- #61 — set_menus.sql
+-- #61 — 061_set_menus.sql
 -- ------------------------------------------------------------
--- Menù fissi (tab « Menù » della pagina Menu admin) — menu à prix fixe.
+-- #61 — Menù fissi (tab « Menù » della pagina Menu admin) — menu à prix fixe.
 -- Prezzo unico + eventuale supplemento vini; portate personalizzabili (nomi
 -- liberi), ognuna con piatti a scelta (id di menu_items). Traduzioni nome e
 -- descrizione per lingua del sito pubblico. hide_items: nasconde dal menu
@@ -1567,17 +1573,17 @@ grant select, insert, update, delete on public.set_menus to service_role;
 
 
 -- ------------------------------------------------------------
--- #62 — set_menus_draft.sql
+-- #62 — 062_set_menus_draft.sql
 -- ------------------------------------------------------------
--- Stato bozza per i menù fissi: consente di salvare e continuare più tardi
+-- #62 — Stato bozza per i menù fissi: consente di salvare e continuare più tardi
 -- un menù incompleto (non pubblicato). is_draft=true => bozza.
 alter table set_menus add column if not exists is_draft boolean default false;
 
 
 -- ------------------------------------------------------------
--- #63 — set_menus_grant.sql
+-- #63 — 063_set_menus_grant.sql
 -- ------------------------------------------------------------
--- La tabella set_menus è stata creata senza GRANT: senza questo, ogni query
+-- #63 — La tabella set_menus è stata creata senza GRANT: senza questo, ogni query
 -- del service_role dà "permission denied for table set_menus" (SQLSTATE 42501),
 -- perché nel progetto "Automatically expose new tables" è OFF.
 alter table public.set_menus enable row level security;
@@ -1585,16 +1591,16 @@ grant select, insert, update, delete on public.set_menus to service_role;
 
 
 -- ------------------------------------------------------------
--- #64 — menu_seasonal.sql
+-- #64 — 064_menu_seasonal.sql
 -- ------------------------------------------------------------
--- Badge "stagionale" per piatti e bevande. Idempotente.
+-- #64 — Badge "stagionale" per piatti e bevande. Idempotente.
 alter table public.menu_items add column if not exists is_seasonal boolean not null default false;
 
 
 -- ------------------------------------------------------------
--- #65 — popups_i18n.sql
+-- #65 — 065_popups_i18n.sql
 -- ------------------------------------------------------------
--- Pop-up multilingua: traduzioni per lingua del sito (stesso schema di agenda_events).
+-- #65 — Pop-up multilingua: traduzioni per lingua del sito (stesso schema di agenda_events).
 alter table public.popups add column if not exists title_i18n      jsonb;
 alter table public.popups add column if not exists body_i18n       jsonb;
 alter table public.popups add column if not exists btn1_label_i18n jsonb;
@@ -1618,16 +1624,16 @@ where title_i18n is null;
 
 
 -- ------------------------------------------------------------
--- #66 — popups_position.sql
+-- #66 — 066_popups_position.sql
 -- ------------------------------------------------------------
--- Posizione del pop-up sullo schermo: center | bottom-left | bottom-center | bottom-right
+-- #66 — Posizione del pop-up sullo schermo: center | bottom-left | bottom-center | bottom-right
 alter table public.popups add column if not exists position text not null default 'center';
 
 
 -- ------------------------------------------------------------
--- #67 — google_reviews.sql
+-- #67 — 067_google_reviews.sql
 -- ------------------------------------------------------------
--- Recensioni Google importate dalla scheda Business Profile del cliente.
+-- #67 — Recensioni Google importate dalla scheda Business Profile del cliente.
 -- Cache locale: la pagina admin legge SEMPRE da qui (istantaneo); la
 -- sincronizzazione con Google avviene "Sincronizza ora" + cron orario.
 -- Idempotente: rilanciarla e' sicuro.
@@ -1659,10 +1665,10 @@ grant select, insert, update, delete on public.google_reviews to service_role;
 
 
 -- ------------------------------------------------------------
--- #68 — print_orders.sql
+-- #68 — 068_print_orders.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- PRINT_ORDERS — ordini di prodotti stampati che il ristoratore
+-- #68 — PRINT_ORDERS — ordini di prodotti stampati che il ristoratore
 -- acquista da MOODD (menu, biglietti da visita, ecc.).
 --
 -- Pagato sullo Stripe di MOODD (MOODD_STRIPE_SECRET_KEY), come i buoni
@@ -1699,10 +1705,10 @@ grant select, insert, update, delete on public.print_orders to service_role;
 
 
 -- ------------------------------------------------------------
--- #69 — reservations_extra_minutes.sql
+-- #69 — 069_reservations_extra_minutes.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- reservations.extra_minutes — minuti di ESTENSIONE del tavolo aggiunti
+-- #69 — reservations.extra_minutes — minuti di ESTENSIONE del tavolo aggiunti
 -- dal ristoratore dal modale (+15/+30/+45). La finestra effettiva del
 -- tavolo diventa: heure + durée(service) + extra_minutes.
 -- Usato da: fase/timer (admin), auto-Fini, disponibilità pubblica, piano sala.
@@ -1713,7 +1719,7 @@ alter table public.reservations
 
 
 -- ------------------------------------------------------------
--- #70 — gift_cards_langs.sql
+-- #70 — 070_gift_cards_langs.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #70 — Lingua di MITTENTE e DESTINATARIO su un buono regalo.
@@ -1735,10 +1741,10 @@ alter table public.gift_cards
 
 
 -- ------------------------------------------------------------
--- #71 — menu_variants.sql
+-- #71 — 071_menu_variants.sql
 -- ------------------------------------------------------------
 -- ============================================================
--- MENU_ITEMS.variants — formati/varianti di un piatto
+-- #71 — MENU_ITEMS.variants — formati/varianti di un piatto
 --
 -- Un piatto può essere venduto in più formati mutuamente esclusivi
 -- (pizza 30/40 cm, vino calice/bottiglia, porzione piccola/grande).
@@ -1788,7 +1794,7 @@ end $$;
 
 
 -- ------------------------------------------------------------
--- #72 — admin_docs_lang.sql
+-- #72 — 072_admin_docs_lang.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #72 — ADMIN_DOCS_META.lang : lingua della lettera di disdetta
@@ -1809,7 +1815,7 @@ alter table public.admin_docs_meta
 
 
 -- ------------------------------------------------------------
--- #73 — locations.sql
+-- #73 — 073_locations.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #73 — MULTI-SEDE, passo 1: lo SCHEMA. Nessun cambiamento visibile.
@@ -2421,7 +2427,7 @@ end $$;
 
 
 -- ------------------------------------------------------------
--- #74 — reservations_source_canali.sql
+-- #74 — 074_reservations_source_canali.sql
 -- ------------------------------------------------------------
 -- #74 — Altri canali di provenienza: instagram e qr
 --
@@ -2459,7 +2465,7 @@ end $$;
 
 
 -- ------------------------------------------------------------
--- #75 — orders_onsite_payment.sql
+-- #75 — 075_orders_onsite_payment.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #75 — `orders.payment_method` accetta 'onsite'
@@ -2489,7 +2495,7 @@ alter table public.orders add constraint orders_payment_method_check
 
 
 -- ------------------------------------------------------------
--- #76 — print_tickets.sql
+-- #76 — 076_print_tickets.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #76 — `print_tickets`: la coda dei ticket da stampare
@@ -2561,7 +2567,7 @@ grant select, insert, update, delete on public.print_tickets to service_role;
 
 
 -- ------------------------------------------------------------
--- #77 — print_tickets_dest.sql
+-- #77 — 077_print_tickets_dest.sql
 -- ------------------------------------------------------------
 -- ============================================================
 -- #77 — `print_tickets.dest`: un ticket per STAMPANTE, non per ordine
@@ -2591,4 +2597,120 @@ drop index if exists print_tickets_auto_unico;
 
 create unique index if not exists print_tickets_auto_unico
   on public.print_tickets (order_id, kind, dest) where origin = 'auto';
+
+
+-- ------------------------------------------------------------
+-- #78 — 078_admin_notes_done_at.sql
+-- ------------------------------------------------------------
+-- #78 — `done_at` sulle note admin: QUANDO una nota e' stata spuntata.
+--
+-- La colonna `done` sa solo che e' fatta. «Quante ne abbiamo chiuse questa
+-- settimana» non e' una domanda difficile: e' una domanda IMPOSSIBILE senza
+-- questa colonna, e lo resta anche per il passato — nessuna query potra' mai
+-- ricostruire quando e' stata spuntata una nota gia' spuntata.
+--
+-- ⚠️ Le note gia' fatte restano a NULL, ed e' giusto: «non si sa» e «fatta il
+-- 3 marzo» sono due cose diverse, e riempirle con `created_at` o con `now()`
+-- avrebbe inventato una data — l'unico modo di avere una statistica
+-- sbagliata che sembra vera. Il conto parte da oggi.
+--
+-- Si azzera alla riapertura: una nota rimessa fra quelle da fare non e' piu'
+-- stata fatta in nessun giorno.
+alter table public.admin_notes add column if not exists done_at timestamptz;
+
+
+-- ------------------------------------------------------------
+-- #79 — 079_admin_notes_done_by.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #79 — `done_by` sulle note admin: CHI ha spuntato una nota.
+--
+-- `author` dice chi l'ha SCRITTA, ed e' un'altra domanda. In una lavagnetta
+-- di squadra chi scrive «chiamare il fornitore» e chi lo chiama non sono la
+-- stessa persona quasi mai: contare gli autori e chiamarlo «chi fa le cose»
+-- sarebbe una classifica plausibile e sbagliata — il tipo di numero che
+-- nessuno va a verificare perche' sembra giusto.
+--
+-- ⚠️ Si riempie solo da adesso: le note gia' spuntate restano a NULL. Chi le
+-- ha chiuse non e' scritto da nessuna parte e non si puo' indovinare.
+--
+-- Si azzera alla riapertura, come `done_at` (#78): una nota rimessa fra
+-- quelle da fare non e' piu' stata fatta da nessuno.
+--
+-- Il NOME, non l'id: la riga deve restare leggibile anche dopo che quella
+-- persona ha lasciato il locale e il suo account non c'e' piu'.
+-- ============================================================
+alter table public.admin_notes add column if not exists done_by text;
+
+
+-- ------------------------------------------------------------
+-- #80 — 080_admin_notes_scadenza.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #80 — Scadenza e ricorrenza sulle note admin.
+--
+--   due_at  timestamptz  quando va fatta (NULL = nessuna scadenza)
+--   repeat  jsonb        la regola, o NULL per una nota che si fa una volta
+--
+-- FORMA DI `repeat` — una sola, descritta qui e provata in
+-- `tests/ricorrenza.test.mjs`:
+--   { "ogni": "giorno",   "ora": "09:00" }
+--   { "ogni": "settimana","ora": "09:00", "dow": 1 }   -- 1 = lunedi', 7 = domenica
+--   { "ogni": "mese",     "ora": "09:00", "dom": 15 }  -- 1..31
+--   { "ogni": "anno",     "ora": "09:00", "mese": 9, "dom": 1 }
+--
+-- ⚠️ `jsonb` e non cinque colonne: quattro regole su cinque lascerebbero
+-- sempre tre colonne vuote, e la quinta regola che qualcuno vorra' domani
+-- sarebbe una migrazione. Nessun vincolo in SQL — la forma la fa rispettare
+-- l'API, che e' l'unica a scriverla; un `check` qui vorrebbe dire una
+-- migrazione per ogni regola nuova, cioe' il problema di prima con piu'
+-- passaggi.
+--
+-- ⚠️ `timestamptz` per la scadenza, non `date`: «tutti i giorni alle 9»
+-- esiste, e un'ora senza fuso in un pannello che gira su tre sedi e' un'ora
+-- che cambia da sola.
+-- ============================================================
+alter table public.admin_notes add column if not exists due_at timestamptz;
+alter table public.admin_notes add column if not exists repeat jsonb;
+
+-- Le note da fare si leggono per scadenza: chi scade prima, prima.
+create index if not exists idx_admin_notes_due
+  on public.admin_notes (due_at) where done = false;
+
+
+-- ------------------------------------------------------------
+-- #81 — 081_admin_notes_assegnata.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #81 — `assigned_to` / `assigned_name` sulle note admin.
+--
+--   assigned_to    uuid  la persona in `team` (NULL = nessuno)
+--   assigned_name  text  il suo nome AL MOMENTO dell'assegnazione
+--
+-- ⚠️ DUE COLONNE PER UNA COSA SOLA, ed e' voluto. L'id serve a sapere a chi
+-- riscrivere quando la nota ricorrente torna; il nome serve a leggere la nota
+-- fra sei mesi, quando quella persona magari non lavora piu' qui e la sua
+-- riga in `team` non c'e' piu'. Con il solo id, una nota di marzo diventa
+-- «assegnata a (nessuno)»; con il solo nome, non si sa piu' a chi scrivere.
+--
+-- ⚠️ `assigned_to` NON ha una foreign key verso `team`. Cancellando una
+-- persona dalla rubrica, un vincolo obbligherebbe a scegliere fra rifiutare
+-- la cancellazione e cancellare anche le note: due comportamenti sbagliati
+-- per lo stesso fatto. Senza vincolo l'id resta e non trova nessuno —
+-- l'assegnazione diventa storia, che e' cio' che e'. Il nome, salvato
+-- accanto, continua a dire di chi si trattava.
+--
+-- ⚠️ Non tutta la rubrica si puo' assegnare: `team` contiene anche
+-- fornitori, tecnici e consulenti. La regola di chi e' assegnabile sta in
+-- `src/lib/admin/teamRegole.ts`, in UN posto, e la applicano sia l'elenco che
+-- si vede sia l'email che parte. Un vincolo qui direbbe la stessa cosa in un
+-- secondo posto, e il giorno in cui si aggiunge una categoria sarebbe una
+-- migrazione.
+-- ============================================================
+alter table public.admin_notes add column if not exists assigned_to uuid;
+alter table public.admin_notes add column if not exists assigned_name text;
+
+-- «Che cosa tocca a Marco»: la domanda che questa colonna rende possibile.
+create index if not exists idx_admin_notes_assigned
+  on public.admin_notes (assigned_to) where done = false;
 
