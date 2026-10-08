@@ -227,3 +227,27 @@ test("quando si e' chiusi, la colonna dice fino a quando", () => {
   assert.match(HOME, /stato === "chiuso" && jt\?\.reopen/, "la riapertura non si mostra piu'");
   assert.match(HOME, /home\.reopen/, "sparita la parola «Riapertura»");
 });
+
+test("Google che non risponde non e' Google che non c'e'", () => {
+  // ⚠️ IL GUASTO DI 450 GRADI, 08/10/2026. Tre sedi: il voto si vedeva per
+  // Schaerbeek e Stockel, e su Jourdan compariva e spariva. Dallo schermo non
+  // c'era modo di capire perche', e il motivo l'API lo mandava gia': quando
+  // Google rifiuta la scheda rende `configured: true` con un messaggio, e la
+  // Accueil trattava quel caso come «nessuna scheda configurata» — cioe'
+  // nascondeva tutto, messaggio compreso.
+  //
+  // I due casi ora si separano: senza scheda il blocco se ne va (non c'e'
+  // niente da dire), con la scheda e Google che rifiuta il blocco RESTA e dice
+  // cosa e' successo — un 404 vuol dire che quel Place ID non e' di quella
+  // sede, ed e' una cosa che si va a correggere.
+  assert.match(HOME, /if \(!g\.configured\) \{ soloOrari\(\); return; \}/,
+    "il caso «nessuna scheda» non e' piu' distinto: o sparisce tutto o resta un blocco vuoto");
+  assert.match(HOME, /g\.rating == null[\s\S]{0,400}?guastoGoogle\(/,
+    "Google che rifiuta fa di nuovo sparire il blocco: il motivo non arriva piu' a nessuno");
+  // E il motivo deve esserci davvero: senza il codice (404 · 403 · 429) resta
+  // «non disponibile», che su tre sedi non dice da che parte cominciare.
+  const API = readFileSync("src/pages/api/admin/google-info.ts", "utf8");
+  assert.match(API, /motivo/, "l'API non manda piu' il motivo del rifiuto di Google");
+  assert.match(API, /console\.error\("\[google-info\]"/,
+    "il rifiuto di Google non lascia piu' traccia nei log del server");
+});

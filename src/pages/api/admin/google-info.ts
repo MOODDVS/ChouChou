@@ -203,7 +203,18 @@ export const GET: APIRoute = async ({ request }) => {
       }
     } catch { /* tabella assente/non collegato: restano le recensioni Places */ }
     return json({ configured: true, ...info, avis: avisOut, mois });
-  } catch {
-    return json({ configured: true, error: await msg("err.googleDown") }, 200);
+  } catch (e) {
+    // ⚠️ IL MOTIVO, non solo «non disponibile». Questa riga si accende quando
+    // Google rifiuta la scheda, e il perche' e' la meta' della risposta: 404
+    // vuol dire che quel Place ID non esiste (di solito e' stato incollato
+    // male, o e' di un'altra sede), 403 che la chiave non ha i permessi, 429
+    // che la quota e' finita. Senza, su un cliente a tre sedi si vede «non
+    // disponibile» su una sola e non si sa da che parte cominciare — e' il
+    // caso di 450 Gradi Jourdan, 08/10/2026.
+    // Il Place ID NON entra nel messaggio: va a schermo, e non e' un segreto
+    // ma e' rumore in una riga che deve dire una cosa sola.
+    const motivo = String((e as Error)?.message ?? "").trim().slice(0, 40);
+    console.error("[google-info]", motivo || "errore sconosciuto");
+    return json({ configured: true, error: await msg("err.googleDown"), motivo }, 200);
   }
 };
