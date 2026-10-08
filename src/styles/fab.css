@@ -39,6 +39,13 @@
    responsive (desktop → tablet → mobile) e SEMPRE una piccola
    drop shadow. Le classi per-pagina (.fab-add / .fab / .mn-fab)
    restano solo per il POSIZIONAMENTO.
+   ⚠️ L'ALTEZZA QUI SOTTO E' ANCHE UN INGOMBRO: l'isola dei link e questi
+   bottoni galleggiano sul contenuto, e l'altezza + il `bottom` di
+   `.admin-nav` sono scritti una volta sola come `--h-nav` in AdminHead
+   (accanto a `--h-header`), da cui il piede del `main` lascia passare la
+   barra. Se si cambia `height` qui o il `bottom` di `.admin-nav`, quella
+   variabile li segue — se no l'ultima riga di ogni pagina finisce dietro
+   la barra.
    ============================================================ */
 .fab-pill {
   display: inline-flex;

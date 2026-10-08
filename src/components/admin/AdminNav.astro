@@ -246,6 +246,11 @@ const breve = (chiave: string): string => {
     display: inline-block;
   }
 
+  /* ⚠️ Questa barra GALLEGGIA sul contenuto: la sua altezza piu' il suo
+     `bottom` sono lo spazio che copre, ed e' scritto una volta sola come
+     `--h-nav` in AdminHead (accanto a `--h-header`): e' da li' che il piede
+     del `main` sa quanta aria lasciare in fondo a ogni pagina. Toccando
+     `bottom` o le misure dei link qui sotto, si aggiorna quella variabile. */
   .admin-nav {
     position: fixed;
     bottom: 1.25rem;

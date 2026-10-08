@@ -64,13 +64,40 @@ const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-barra:#4e8f9c}
 // `!important` e' voluto: `hidden` dice che la cosa NON C'E', e non e' una
 // preferenza di stile che un'altra regola possa discutere.
 const HIDDEN_CSS = "[hidden]{display:none!important}";
+// ⚠️ L'ISOLA IN BASSO, IN DUE PEZZI E UNA SOMMA. Sta qui accanto a
+// `--h-header` perche' e' la stessa specie di misura: l'altezza che il telaio
+// del pannello si prende sullo schermo.
+//   --h-nav-h    altezza dell'isola (uguale a `.fab-pill` in styles/fab.css,
+//                che e' disegnato apposta per posarsi sulla sua linea)
+//   --h-nav-gap  quanto sta staccata dal bordo (`bottom` di `.admin-nav`)
+//   --h-nav      la somma: l'ingombro totale, per chi deve starci FUORI
+//                (il piede del `main` qui sotto).
+// ⚠️ I pezzi separati non sono pedanteria: chi ci passa SOTTO di proposito
+// — la fascia della Accueil, che si ferma a meta' isola — ha bisogno della
+// meta' dell'ALTEZZA, e con la sola somma dovrebbe dividere per due anche lo
+// stacco dal bordo, cioe' inventarsi un numero che nessuna delle due scale
+// controlla. Qui ogni scala dichiara i due pezzi e la somma si rifa' da sola.
+//   desktop  57px + 1.25rem                               = 77px
+//   tablet   46px + 0.9rem col piede a 13px               = 58px
+// Se si tocca una di quelle misure, questa riga la segue: sono scritte nei
+// commenti di fab.css e AdminNav, che rimandano qui.
+// Telefono: l'isola e' alta come sul desktop, quindi i valori non cambiano.
+// ⚠️ Il filo del copyright (AdminFooter, ~28px) sta SOTTO l'isola e piu'
+// basso di lei: chi sta fuori dall'isola e' gia' fuori anche da quello.
+//
+// ⚠️ E' LA STESSA MISURA DEL PIEDE DEL `main`, e percio' il piede la USA
+// invece di riscriverla. Erano `8rem` sul desktop e `6rem` sul tablet, scelti
+// a occhio: due numeri che esistevano solo per lasciar passare l'isola e che
+// nessuno avrebbe aggiornato il giorno in cui l'isola cambia altezza — anzi,
+// sul tablet i 6rem col piede a 13px fanno 78px contro un'isola da 58, cioe'
+// gia' due misure che non si parlavano. Ora il piede e' l'ingombro + l'aria
+// per staccare l'ultima riga, e le media query cambiano solo le VARIABILI.
 const LAYOUT_CSS =
-  ":root{--h-header:81px}" +
-  "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) 8rem}" +
-  "@media(max-width:640px){main{--pad-y:1.25rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 8rem}}" +
-  // iPad orizzontale al dito: stessa fascia di styles/tablet.css. Il fondo
-  // scende da 8rem a 6rem perche' anche la barra in basso e' piu' bassa.
-  "@media(min-width:1024px) and (max-width:1366px) and (pointer:coarse){:root{--h-header:51px}main{--pad-y:1rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 6rem}}";
+  ":root{--h-header:81px;--h-nav-h:57px;--h-nav-gap:1.25rem;--h-nav:calc(var(--h-nav-h) + var(--h-nav-gap))}" +
+  "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) calc(var(--h-nav) + 3rem)}" +
+  "@media(max-width:640px){main{--pad-y:1.25rem;--pad-x:1rem}}" +
+  // iPad orizzontale al dito: stessa fascia di styles/tablet.css.
+  "@media(min-width:1024px) and (max-width:1366px) and (pointer:coarse){:root{--h-header:51px;--h-nav-h:46px;--h-nav-gap:0.9rem}main{--pad-y:1rem;--pad-x:1rem}}";
 // ⚠️ LE FUNZIONI SPENTE, una volta per tutto il pannello e per TUTTI.
 // `data-admin-page="orders"` marca cio' che PARLA di ordini: la colonna della
 // giornata, le tile, i numeri. Se il super ha spento Commandes in Pages

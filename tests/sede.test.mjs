@@ -802,17 +802,29 @@ const HOME_MARCHIO = {
     "di un'altra sede perche' non si vedono. Vedi la nota in images.ts",
 };
 
+/* Una chiamata a un endpoint dell'admin, scritta fra virgolette O fra apici
+   inversi: `fetch("/api/...")` e `` fetch(`/api/...?x=${n}`) `` sono la stessa
+   cosa, e una prova che ne vede una sola lascia passare l'altra. */
+const FETCH_API = /fetch\(\s*["`](\/api\/[^"`?]+)/g;
+const FETCH_API_SEDE = /fetch\(\s*["`](\/api\/[^"`?]+)[^;]{0,300}?hSede\(\)/g;
+
 test("ogni tile della home legge la sede selezionata", () => {
   const home = readFileSync("src/pages/admin/index.astro", "utf8");
 
   // Gli endpoint chiamati dalla home. ⚠️ Sul testo CON le stringhe: e'
   // proprio la stringa dell'URL che si sta cercando.
-  const punti = [...new Set([...home.matchAll(/fetch\(\s*"(\/api\/[^"?]+)/g)].map((m) => m[1]))];
+  // ⚠️ VIRGOLETTE O APICI INVERSI. Cercando le sole virgolette doppie, una
+  // chiamata scritta con un modello (`` `/api/...?x=${n}` ``) era invisibile a
+  // questa prova: non «dichiarata del marchio», proprio NON VISTA — cioe' un
+  // endpoint che poteva leggere la sede sbagliata senza che niente lo dicesse.
+  // Ci siamo cascati l'08/10/2026 con `search-console`, e si e' visto solo
+  // perche' la sua riga nell'elenco e' sembrata morta.
+  const punti = [...new Set([...home.matchAll(FETCH_API)].map((m) => m[1]))];
   assert.ok(punti.length > 8, `trovati solo ${punti.length} endpoint: la ricerca non funziona`);
 
   // Chi riceve l'header `x-sede` in questa pagina: la home glielo dice.
   const conHeader = new Set();
-  for (const m of home.matchAll(/fetch\(\s*"(\/api\/[^"?]+)[^;]{0,300}?hSede\(\)/g)) {
+  for (const m of home.matchAll(FETCH_API_SEDE)) {
     conHeader.add(m[1]);
   }
 
@@ -838,7 +850,7 @@ test("ogni tile della home legge la sede selezionata", () => {
    qualcuno leggera' come se fosse ancora vera. */
 test("l'elenco «e' del marchio» della home non contiene voci morte", () => {
   const home = readFileSync("src/pages/admin/index.astro", "utf8");
-  const punti = new Set([...home.matchAll(/fetch\(\s*"(\/api\/[^"?]+)/g)].map((m) => m[1]));
+  const punti = new Set([...home.matchAll(FETCH_API)].map((m) => m[1]));
   const morte = Object.keys(HOME_MARCHIO).filter((p) => !punti.has(p));
   assert.deepEqual(morte.sort(), [], `eccezioni per endpoint che la home non chiama piu': ${morte.join(", ")}`);
   // E ognuna deve avere un motivo scritto, non una stringa vuota.

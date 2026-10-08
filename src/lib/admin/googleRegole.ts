@@ -74,6 +74,22 @@ export function variazione(punti: Punto[] | null | undefined, giorni = 30): Vari
   const ultimi = somma(p.length - giorni, p.length);
   if (p.length < giorni * 2) return { ultimi, diff: null };
   const prima = somma(p.length - giorni * 2, p.length - giorni);
-  if (prima <= 0) return { ultimi, diff: null };
-  return { ultimi, diff: Math.round(((ultimi - prima) / prima) * 100) };
+  return { ultimi, diff: scarto(ultimi, prima) };
+}
+
+/**
+ * LA VARIAZIONE PERCENTUALE fra due periodi, o `null` quando non si puo' dire.
+ *
+ * ⚠️ `null` SE PRIMA ERA ZERO, e non «+100 %»: da zero non esiste un aumento
+ * percentuale — da una visita a due si sale del cento per cento come da mille
+ * a duemila, e la prima non vuol dire niente. La colonna scrive un trattino.
+ *
+ * ⚠️ Sta qui, e la colonna «Visibilité» la importa da questo file: era la
+ * stessa riga di aritmetica, con la stessa trappola dello zero, e due copie si
+ * dividono alla prima volta che qualcuno «sistema» una delle due.
+ */
+export function scarto(ora: unknown, prima: unknown): number | null {
+  const a = Number(ora), b = Number(prima);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return null;
+  return Math.round(((a - b) / b) * 100);
 }

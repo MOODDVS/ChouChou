@@ -241,11 +241,25 @@ export function conti(righe: RigaSpeciale[]): {
   };
 }
 
-/** Le etichette dei filtri: solo quelle che hanno davvero delle righe. */
-export function filtriUtili(righe: RigaSpeciale[]): TipoRiga[] {
-  const out: TipoRiga[] = [];
-  for (const t of ["closed", "open", "fete"] as TipoRiga[]) {
-    if (righe.some((r) => r.tipo === t)) out.push(t);
-  }
-  return out;
+/**
+ * I FILTRI DELLA COLONNA: sempre questi tre, sempre in quest'ordine.
+ *
+ * Chiusure e aperture sono le decisioni — le righe che qualcuno ha scritto —
+ * e le feste sono il calendario. Una festa in cui il locale resta chiuso NON
+ * entra fra le chiusure: non l'ha decisa nessuno, e la sua pastiglia dice
+ * gia' cosa succede quel giorno.
+ *
+ * ⚠️ FISSI, anche quando uno non ha righe. Prima comparivano solo quelli che
+ * avevano qualcosa — un filtro che da' sempre una colonna vuota e' un bottone
+ * che non si puo' usare — ma il prezzo era una riga di comandi che cambiava
+ * forma da sola: le aperture sparivano quando non ce n'erano, e chi aveva
+ * imparato dov'era il bottone lo ritrovava altrove. Tre posti fermi si
+ * imparano una volta; e una colonna vuota, con la sua frase, dice una cosa
+ * vera — li' non c'e' niente.
+ */
+export const TIPI_FILTRO: readonly TipoRiga[] = ["closed", "open", "fete"];
+
+/** Quante righe ha un filtro: serve a chi vuole dirlo sulla pastiglia. */
+export function quante(righe: RigaSpeciale[], tipo: TipoRiga): number {
+  return righe.filter((r) => r.tipo === tipo).length;
 }

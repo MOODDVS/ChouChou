@@ -9,13 +9,11 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Giornata from "../../components/admin/home/Giornata.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 import Modal from "../../components/admin/Modal.astro";
-import TileMenu from "../../components/admin/home/TileMenu.astro";
-import TilePhotos from "../../components/admin/home/TilePhotos.astro";
-import TileSearchConsole from "../../components/admin/home/TileSearchConsole.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaHomeData } from "../../lib/admin/caricaHomeData";
 import { contestoDiStaff } from "../../lib/admin/permessi";
+import { puoVederePagina } from "../../lib/admin/permessiRegole";
 import { ambitoDiRichiesta } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -31,6 +29,17 @@ export const prerender = false;
 // client). Se il cookie manca/è scaduto o c'è errore, ssrHome resta null e la
 // pagina carica tutto lato client come prima (nessun rischio).
 let ssrHome: unknown = null;
+// ⚠️ LA COLONNA DELLE RECETTES SI DECIDE QUI, e parte SPENTA. E' l'unica
+// colonna della fascia che legge un'API permessa a pochi (`/api/admin/stats`,
+// della pagina Statistiques): disegnata a tutti e nascosta dopo, chiederebbe
+// lo stesso, e chi non ha quella pagina si prenderebbe dei 403 a ogni
+// caricamento — e' gia' successo, e per anni la risposta e' stata «la Accueil
+// non chiede affatto le statistiche». Ora le chiede, ma solo chi puo'.
+// Spenta anche quando non sappiamo chi guarda (cookie scaduto, SSR saltato):
+// in quel caso la pagina si ricarica dopo il rinnovo del token, e un dato
+// chiuso che appare per un attimo e' peggio di un dato che arriva un secondo
+// dopo. La STESSA decisione del middleware, presa con lo stesso contesto.
+let vedeRecettes = false;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
@@ -38,13 +47,13 @@ try {
   // che usa il middleware per decidere se un'API risponde. Due copie di
   // quella decisione e i dati nell'HTML direbbero una cosa e le API un'altra.
   if (staff) {
-    ssrHome = await caricaHomeData(
-      await ambitoDiRichiesta(Astro.request, staff),
-      await contestoDiStaff(staff),
-    );
+    const ctx = await contestoDiStaff(staff);
+    ssrHome = await caricaHomeData(await ambitoDiRichiesta(Astro.request, staff), ctx);
+    vedeRecettes = puoVederePagina("stats", ctx);
   }
 } catch {
   ssrHome = null;
+  vedeRecettes = false;
 }
 const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") : "";
 ---
@@ -141,8 +150,48 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            l'intestazione cambia altezza una fascia su due resta indietro.
            `dvh` e non `vh`: su un telefono la barra del browser entra e esce,
            e `vh` e' l'altezza con la barra NASCOSTA — cioe' sempre un po'
-           troppa. */
-        --j-col-h: calc(100dvh - var(--h-header, 81px) - var(--pad-y, 2rem) - 3rem);
+           troppa.
+           ⚠️ L'ARIA IN FONDO SI MISURA DAL BORDO DELLO SCHERMO, non
+           dall'isola dei link. L'isola galleggia alta 77px (`--h-nav`), e
+           toglierla dall'altezza — com'era fino all'08/10 — costava a OGNI
+           colonna, su tutta la larghezza, lo spazio di una barra che copre
+           solo il centro: su un tablet si perdevano cinque righe di lista per
+           non far passare i numeri sotto una pillola larga mezza pagina.
+           Scelta del ristoratore: la fascia ci passa SOTTO, ma si ferma a DUE
+           TERZI DELL'ISOLA — cioe' le entra dietro solo per il terzo basso,
+           e non si appoggia al filo del copyright, che sta piu' in basso
+           ancora. `--j-col-sotto` e' quel punto detto in misure che esistono
+           gia': lo stacco dell'isola dal bordo piu' due terzi della sua
+           altezza. Quindi sul desktop la colonna finisce 58px sopra il bordo
+           e sul tablet 42, e il giorno in cui l'isola cambia altezza o si
+           alza da terra quel punto si sposta con lei, in tutte e due le
+           scale. Un `3rem` scritto a mano — com'era fino all'08/10 — non
+           sapeva nemmeno che sul tablet l'isola e' piu' bassa.
+           Quel che le finisce dietro e' l'aria sotto i numeri, non i numeri.
+           ⚠️ Chi invece deve stare FUORI dall'isola non si arrangia qui:
+           `--h-nav` sta in AdminHead accanto a `--h-header` ed e' quello che
+           il piede del `main` usa per lasciarla passare.
+           ⚠️ IL MINIMO IN PIXEL, perche' su uno schermo basso (un portatile
+           da 13" col browser a mezza altezza, un iPad in orizzontale) la
+           sottrazione darebbe una colonna alta due righe: li' e' giusto che
+           la fascia sfori e sia la PAGINA a scorrere, non che ogni colonna
+           diventi una fessura. `max()`, non `min-height`: l'altezza deve
+           restare UNA, perche' il corpo della colonna (`.j-lista`) ci calcola
+           dentro il suo scorrimento.
+           ⚠️ DUE VARIABILI E NON UNA: `--j-col-piena` e' la formula,
+           `--j-col-h` e' quella che si usa. Cosi' la fascia stretta puo'
+           spegnere l'altezza (`auto`) e il tablet puo' RIACCENDERLA senza
+           ricopiare la formula — che e' esattamente il modo in cui il tablet
+           era rimasto indietro: fra 1024 e 1100 le due media query valgono
+           entrambe, quella stretta diceva `auto` e nessuno la contraddiceva,
+           quindi su un iPad mini in orizzontale le colonne del bancone
+           crescevano col contenuto e sbordavano dallo schermo. */
+        /* L'imbottitura laterale delle righe dell'elenco: la usa anche chi le
+           intitola, cosi' le due cose restano incolonnate (vedi `.j-lista-h`). */
+        --j-li-x: 0.9rem;
+        --j-col-sotto: calc(var(--h-nav-gap, 1.25rem) + var(--h-nav-h, 57px) * 2 / 3);
+        --j-col-piena: max(var(--j-col-min, 420px), calc(100dvh - var(--h-header, 81px) - var(--pad-y, 2rem) - var(--j-col-sotto)));
+        --j-col-h: var(--j-col-piena);
         /* ⚠️ `start`, e non il comportamento normale della griglia. Da quando
            le righe sono piu' d'una, la griglia si spartirebbe fra loro lo
            spazio che avanza fino al `min-height`: le sezioni della prima riga
@@ -150,10 +199,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            sotto e non le riguarda. Le righe restano alte quanto cio' che
            hanno dentro, e lo spazio che avanza resta in fondo. */
         align-content: start;
-        /* La linea dice dove finisce la giornata e dove cominciano le tile:
-           senza, i blocchi dei numeri e i riquadri delle tile si leggevano
-           come un elenco solo che cambia forma a meta'. */
-        padding-bottom: 2.4rem; border-bottom: 1px solid var(--c-line); margin-bottom: 2.4rem;
+        /* ⚠️ NIENTE LINEA SOTTO. C'era, e diceva dove finiva la giornata e dove
+           cominciavano le tile: senza, i numeri delle colonne e i riquadri
+           delle tile si leggevano come un elenco solo che cambiava forma a
+           meta'. Le tile non ci sono piu' — sono diventate colonne, una dopo
+           l'altra — e quella linea era rimasta a separare la fascia da niente:
+           un filo in fondo alla pagina che prometteva qualcosa sotto. Sotto
+           adesso c'e' il marchio, che non ha bisogno di essere separato. */
+        padding-bottom: 2.4rem;
       }
       /* ⚠️ UNA GRIGLIA SOLA, e le sezioni sono i suoi figli diretti. Prima
          c'erano due involucri — `.j-dx` e `.j-due` — che tenevano insieme
@@ -336,7 +389,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          card, non un pallino del colore del filo che ci si confondeva. */
       .j-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-bg); display: block; }
       .j-dots i.on { background: var(--c-accent); }
-      .j-per { font-size: 0.7rem; color: var(--c-muted); margin-top: 0.6rem; }
+      /* LA DIDASCALIA DEL PIEDE: una frase piccola che spiega i numeri sotto
+         («ultimi 30 giorni», «la piu' vecchia da 2 giorni»). Sta SULLA linea,
+         non sopra una linea sua: il filo e' il suo `::after` qui sotto. */
+      .j-per { font-size: 0.7rem; color: var(--c-muted); margin-top: 0.6rem;
+        display: flex; align-items: center; gap: 0.75rem; }
       /* ⚠️ Vuota non esiste. Nella lavagnetta questa riga dice «la piu' vecchia
          da N giorni» e TACE quando non c'e' niente in ritardo — ma taceva
          occupando il suo posto: una riga di niente piu' il suo margine, cioe'
@@ -366,12 +423,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          larghezza scritta a mano: la nota e' lunga diversa in cinque lingue,
          e «Laatste 30 dagen» avrebbe scavalcato un filo tagliato su misura
          per il francese. */
-      /* ⚠️ DUE COLONNE, UNA REGOLA. La colonna dei giorni speciali vuole lo
-         stesso piede: la nota sulla linea e i numeri sotto senza un secondo
-         filo. Scrivendola una seconda volta per `.j-spx`, il giorno che
-         qualcuno ritocca il colore del filo ne resterebbe indietro uno — e
-         sarebbero due fili diversi nella stessa fascia. */
-      .j-google .j-per, .j-spx .j-per { display: flex; align-items: center; gap: 0.75rem; }
+      /* ⚠️ TUTTE LE COLONNE, UNA REGOLA. La didascalia del piede sta SULLA
+         linea, non sopra una linea sua: era scritta per Google, poi copiata
+         per i giorni speciali, e la lavagnetta — che ha la stessa frase, «la
+         piu' vecchia da N giorni» — era rimasta fuori dall'elenco dei nomi.
+         Non era rotta: era semplicemente un'altra cosa, nella stessa fascia,
+         a un centimetro di distanza. Un elenco di nomi va allungato a mano
+         ogni volta, e chi se ne scorda non lo sa; una regola su `.j-per` vale
+         per chi ce l'ha, e basta. */
       .j-google .j-per { margin-top: 0; padding-top: 0; }
       /* ⚠️ `auto` e non un margine scritto: la nota e i numeri sono una cosa
          sola e scendono insieme in fondo alla colonna, come la fila delle
@@ -385,7 +444,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          sta attaccata a cio' che spiega. Limarlo dalla nota non bastava:
          la nota partiva gia' da zero. */
       .j-g-blocco { margin-bottom: 0.55rem; }
-      .j-google .j-per::after, .j-spx .j-per::after { content: ""; flex: 1; height: 1px; background: rgba(36, 74, 82, .65); }
+      .j-per::after { content: ""; flex: 1; height: 1px; background: rgba(36, 74, 82, .65); }
+      /* ⚠️ LA LINEA LA DISEGNA UNO SOLO. Se la didascalia c'e', la porta lei e
+         i numeri non ne fanno una seconda a un centimetro; se TACE — nella
+         lavagnetta la frase sparisce quando non c'e' niente in ritardo —
+         torna sui numeri, che se no restano senza niente sopra.
+         Due righe di CSS invece di un nome di colonna: cosi' vale anche per
+         la prossima colonna che avra' un piede. */
+      .j-per + .j-nums { border-top: none; padding-top: 0; margin-top: 0.55rem; }
+      .j-per:empty + .j-nums { border-top: 1px solid rgba(36, 74, 82, .65); padding-top: 1.2rem; margin-top: 1.5rem; }
       /* ⚠️ E la linea sparisce da SOTTO: era il `border-top` dei numeri, ed e'
          salita nella nota. Lasciandola, sarebbero stati due fili a un
          centimetro l'uno dall'altro.
@@ -395,7 +462,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          i numeri sono di GOOGLE, non il conteggio di una colonna: stanno
          attaccati al blocco che li spiega. Le due file a destra restano
          incolonnate fra loro — e' quella la coppia che si confronta. */
-      .j-google .j-nums, .j-spx .j-nums { border-top: none; padding-top: 0; margin-top: 0.55rem; }
+      /* ⚠️ Google resta nominata, e non per dimenticanza: la sua didascalia sta
+         DOPO i numeri nel markup (`order: 9` la rimette sotto), quindi la
+         regola dei fratelli qui sopra non la raggiunge — `+` guarda il DOM,
+         non quello che si vede. */
+      .j-google .j-nums { border-top: none; padding-top: 0; margin-top: 0.55rem; }
       .j-nums > div { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
         padding: 0.7rem 0.85rem 0.8rem; box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
         container-type: inline-size; }
@@ -432,6 +503,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-pil { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
         padding: 0.28rem 0.68rem; border-radius: 999px; background: var(--c-ok); color: #fff; white-space: nowrap; }
       .j-pil.off { background: var(--c-accent); }
+      /* ⚠️ ROSSO, e non `--c-accent`: «chiuso oggi» e' un fatto che ferma
+         tutto, e l'accento e' il colore delle AZIONI del pannello — cambia da
+         cliente a cliente, e su un tema verde la pastiglia di chiusura sarebbe
+         stata verde. E' lo stesso rosso delle pastiglie di chiusura dei giorni
+         speciali. */
+      .j-pil.ko { background: #ed1c24; color: #fff; }
       /* La pastiglia NEUTRA: dice un numero, non uno stato. Il fondo e' la
          stessa formula dei piani rialzati del pannello (`color-mix` sul testo
          contro il fondo), non un grigio scritto a mano che su un tema chiaro
@@ -457,7 +534,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          `min-height: 0` non si lascerebbe stringere sotto il suo contenuto e
          la citazione non avrebbe mai un limite da cui scorrere. */
       .j-g-blocco { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-      .j-oggi-blocco, .j-g-blocco, .j-serv {
+      /* ⚠️ LA SCATOLA DELLA FASCIA, un nome solo. Era un elenco di nomi
+         (`.j-oggi-blocco, .j-g-blocco, .j-serv`) che bisognava allungare ogni
+         volta che una colonna ne voleva una — e chi se ne scordava disegnava
+         la quarta scatola a mano, leggermente diversa. Adesso la scatola e'
+         `.j-box` e i nomi specifici restano solo per cio' che CAMBIA (il
+         blocco Google e' elastico, i servizi spariscono da vuoti). */
+      .j-box {
         background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
         padding: 0.95rem 1.15rem 0.9rem;
@@ -539,6 +622,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          cliente senza che nessuno l'abbia scelto. */
       .j-hb .ord { background: color-mix(in srgb, var(--c-accent) 40%, var(--c-card)); }
       .j-hb .ord.oggi { background: var(--c-accent); }
+      /* LE DUE SERIE DELLE RECETTES: lo stesso significato dei colori di sopra
+         — `--c-barra` e' la serie normale, il corallo e' l'ATTENZIONE, qui i
+         soldi tornati indietro. Piene tutte e due: fra incassi e resi non c'e'
+         nessun «di solito» da distinguere con la tinta. */
+      .j-hb .inc { background: var(--c-barra, #4e8f9c); }
+      .j-hb .rb { background: var(--c-accent); }
       /* La larghezza dipende da quante serie sono accese: con i soli coperti
          restano due barre, e devono riempire la colonna come le quattro. */
       .j-hm.serie2 .j-hb span { width: 46%; max-width: 20px; }
@@ -549,6 +638,79 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          imparare tre segni. Gli orari sono scritti in lettere due righe
          sopra — il grafico non deve ripeterli, deve dire quanta gente c'e'.
          Un'ora senza barre e' un'ora senza nessuno, e si capisce da sola. */
+      /* ---------- La colonna «Visibilité» ----------
+         ⚠️ Il grafico e' QUELLO dell'affluenza (`.j-hm`, `.j-hm-plot`,
+         `.j-hm-x`, `.j-grid`): qui si aggiunge solo la larghezza di una serie
+         sola e il colore, che e' quello delle barre del pannello. */
+      .j-hm.serie1 .j-hb span { width: 100%; max-width: 12px; }
+      .j-hb .vis { background: color-mix(in srgb, var(--c-barra, #4e8f9c) 55%, var(--c-card)); }
+      /* L'ultima barra e' il periodo che sta finendo: piena, come «oggi»
+         nell'affluenza. */
+      .j-hb .vis.oggi { background: var(--c-barra, #4e8f9c); }
+      /* Dentro la scatola il grafico non ha piu' bisogno del suo stacco: e'
+         l'imbottitura della scatola a fare l'aria, sopra e sotto. */
+      .j-vis-hm { margin-top: 0; }
+      /* ---- RECETTES ----
+         Il totale in testa alla scatola: e' IL numero della colonna, e si
+         legge da lontano come l'orario di «Aujourd'hui» (stessa taglia,
+         stessa famiglia). La variazione e il periodo gli stanno accanto
+         piccoli: spiegano il numero, non si confrontano con lui. */
+      .j-tot { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+      .j-tot .big { font-family: var(--font-title); font-size: 1.75rem; line-height: 1; }
+      .j-tot .d { font-size: 0.78rem; font-weight: 700; }
+      .j-tot .d.up { color: var(--c-ok-chiaro, #4fbe8c); }
+      .j-tot .d.giu { color: var(--c-accent); }
+      .j-tot .q { font-size: 0.74rem; color: var(--c-muted); margin-left: auto; }
+      /* I soldi resi, sotto il totale. ⚠️ `:empty` non esiste: senza rimborsi
+         questa riga tace, e tacendo non deve lasciare il suo spazio fra il
+         totale e il grafico. */
+      .j-rb { font-size: 0.78rem; color: var(--c-muted); margin-top: 0.45rem;
+        display: flex; align-items: baseline; gap: 0.4rem; }
+      .j-rb:empty { display: none; }
+      .j-rb b { font-family: var(--font-title); font-weight: 400; font-size: 1rem; color: var(--c-accent); }
+      .j-rec-hm { margin-top: 0.9rem; }
+      .j-rec-box { flex: none; }
+      /* La riga di un articolo: posto, nome, quantita', incasso — la stessa
+         riga delle parole cercate di Visibilité, con un numero in piu'.
+         ⚠️ `.j-li.j-art` e non `.j-art`: la riga condivisa `.j-li` sta PIU' IN
+         BASSO in questo foglio, e con la stessa specificita' vince l'ultima —
+         le righe sarebbero rimaste allineate in alto e con la spaziatura
+         dell'altra. Due classi: la variante batte la base, ovunque stia. */
+      .j-li.j-art { align-items: baseline; gap: 0.7rem; }
+      .j-li.j-art .pos { flex: none; font-family: var(--font-title); font-size: 0.9rem; color: var(--c-muted); width: 1.1rem; }
+      .j-li.j-art .q { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .j-li.j-art .qty { flex: none; color: var(--c-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+      .j-li.j-art .eur { flex: none; font-family: var(--font-title); font-size: 1rem;
+        font-variant-numeric: tabular-nums; min-width: 3.4rem; text-align: right; }
+      .j-vis-box { flex: none; }
+      /* Il quadratino della legenda ha il colore delle barre dei clic — la
+         stessa tinta, non una simile: viene dalla stessa variabile. */
+      .j-key b.vis { background: var(--c-barra, #4e8f9c); }
+      /* L'intestazione dell'elenco: due parole, una volta sola. */
+      /* L'INTESTAZIONE DI UN ELENCO: due parole, una volta sola, sopra le
+         righe che intitolano. ⚠️ Si chiamava `.j-vis-h` — il nome di una
+         colonna — e la seconda colonna che ne ha avuto bisogno (le recettes)
+         avrebbe dovuto o portarsi addosso il nome dell'altra o rifarsela
+         uguale. Il nome dice cos'e', non chi la usa.
+         ⚠️ LA STESSA IMBOTTITURA DELLE RIGHE, e per questo e' una variabile.
+         «Clics» stava 0.2rem dal bordo e i numeri che intitola 0.9rem: scritto
+         cosi' sembrava spostato a destra di mezza parola, e nessuno dei due
+         numeri era sbagliato — erano due numeri per la stessa misura. */
+      .j-lista-h { display: flex; justify-content: space-between; color: var(--c-muted);
+        font-size: 0.66rem; text-transform: uppercase; letter-spacing: .06em;
+        padding: 0 var(--j-li-x, 0.9rem) 0.3rem; }
+      .j-vq { display: flex; align-items: baseline; gap: 0.7rem; }
+      /* La parola cercata prende tutto lo spazio che resta e si taglia coi
+         puntini: sono frasi intere («restaurant ouvert dimanche bruxelles»). */
+      .j-vq .q { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* ⚠️ Le IMPRESSIONI in grigio accanto ai clic: comparire di piu' e
+         farsi cliccare uguale non e' crescere. Senza questo numero, «3 clic»
+         su una parola non dice se e' una parola che nessuno cerca o una in cui
+         si compare e non si viene scelti — due problemi diversi. */
+      .j-vq .imp { flex: none; color: var(--c-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+      .j-vq .n { flex: none; font-family: var(--font-title); font-size: 1rem;
+        font-variant-numeric: tabular-nums; min-width: 1.8rem; text-align: right; }
+
       .j-hm-x { display: flex; gap: 4px; margin-top: 0.7rem; }
       .j-hm-x span { flex: 1 1 0; text-align: center; font-size: 0.66rem; color: var(--c-muted); }
       .j-hm-f { display: flex; align-items: center; gap: 0.85rem; margin-top: 0.8rem; font-size: 0.7rem; color: var(--c-muted); flex-wrap: wrap; }
@@ -557,8 +719,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* Ogni segno della legenda ha la FORMA di cio' che spiega: il quadrato
          e' la barra, il trattino e' il trattino, il contorno e' il cerchio
          dell'ora in corso. Un pallino uguale per tutti non spiega niente. */
-      .j-key b.cov { background: var(--c-barra, #4e8f9c); }
-      .j-key b.ord { background: var(--c-accent); }
+      .j-key b.cov, .j-key b.inc { background: var(--c-barra, #4e8f9c); }
+      .j-key b.ord, .j-key b.rb { background: var(--c-accent); }
       .j-pale { font-style: italic; }
       .j-hm-f .src { margin-left: auto; }
 
@@ -629,7 +791,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          testo tagliato — un elenco che si rimpicciolisce invece di scorrere,
          e nessun errore da nessuna parte. */
       .j-li { flex: none; display: flex; align-items: flex-start; gap: 0.85rem; background: var(--c-card);
-        border: 1px solid var(--c-line); border-radius: 12px; padding: 0.7rem 0.9rem;
+        border: 1px solid var(--c-line); border-radius: 12px; padding: 0.7rem var(--j-li-x, 0.9rem);
         box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); text-decoration: none; color: var(--c-text); }
       .j-li .h { font-family: var(--font-title); font-size: 0.95rem; width: 44px; flex: none; color: var(--c-accent); }
       .j-li .h small { display: block; font-family: var(--font-body); font-size: 0.64rem; color: var(--c-muted); font-weight: 700; margin-top: 2px; }
@@ -654,6 +816,37 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          allineata, qualunque cosa porti la riga. */
       .j-dx-col { display: flex; flex-direction: column; align-items: flex-end; gap: 0.35rem; flex: none; }
       .j-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.25rem; max-width: 11rem; }
+
+      /* ---------- La colonna «Menu»: la foto del piatto ----------
+         ⚠️ LA CASELLA RESTA ANCHE SENZA FOTO. Nascondendola, le righe
+         ballerebbero da sinistra e un piatto senza foto sembrerebbe a posto —
+         mentre sul sito e' esattamente quello che vende meno, ed e' lo stesso
+         buco che conta il numero in fondo alla colonna. Vuota, mostra l'icona
+         grigia: il posto c'e' e si vede che e' vuoto.
+         ⚠️ `object-fit: cover`: le foto del menu arrivano di ogni forma, e una
+         pizza schiacciata dentro un quadrato e' una foto che fa sembrare il
+         piatto peggiore di com'e'. */
+      .m-foto { flex: none; width: 46px; height: 46px; border-radius: 10px; overflow: hidden;
+        background: var(--c-bg); border: 1px solid var(--c-line);
+        display: flex; align-items: center; justify-content: center; }
+      .m-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .m-foto svg { width: 19px; height: 19px; stroke: var(--c-muted); fill: none; stroke-width: 1.5; opacity: 0.65; }
+      /* Un piatto NASCOSTO non e' sul sito: foto spenta e nome grigio lo
+         dicono prima che si legga la pastiglia. */
+      .j-menu .j-li.m-off .m-foto { opacity: 0.42; }
+      .j-menu .j-li.m-off .j-nome { color: var(--c-muted); }
+      .j-menu .j-li { align-items: center; }
+      /* ⚠️ La riga NON e' un link: l'unica cosa che si tocca e' l'interruttore
+         (vedi `rigaMenu`). Quindi niente mano del cursore e niente colore da
+         link — e' una riga che si legge. */
+      .j-menu .j-li { cursor: default; }
+      .j-menu .j-li .tx small { flex-wrap: wrap; row-gap: 0.15rem; }
+      .m-prezzo { color: var(--c-text); font-family: var(--font-title); font-size: 0.88rem; }
+      /* I formati finiti: in corallo chiaro, perche' sono la parte del piatto
+         che NON si puo' vendere mentre il resto si. */
+      .m-var { color: #ffb9ad; }
+      /* L'interruttore dentro la riga non deve stirarsi in altezza con lei. */
+      .j-menu .j-li .switch { flex: none; align-self: center; }
       .j-tag { font-size: 0.6rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
         padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid var(--c-line); color: var(--c-muted); }
       .j-li .tx small b { color: var(--c-text); font-weight: 700; }
@@ -730,6 +923,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            sezioni accese sono due e ci stanno, si prendono lo schermo invece
            di lasciare mezzo bancone vuoto. */
         .jour { --j-cols: none; --j-gap: 2rem; --j-scroll: auto;
+          /* ⚠️ L'ALTEZZA SI RIACCENDE QUI. Da 1024 a 1100 vale anche la media
+             query della fascia stretta, che l'aveva spenta (`auto`): senza
+             questa riga un iPad mini in orizzontale si teneva le colonne alte
+             quanto il loro contenuto — tre righe di ordini e il bancone
+             sbordava sotto la barra. Si riaccende la FORMULA, non il numero. */
+          --j-col-h: var(--j-col-piena);
           /* ⚠️ LARGHEZZA FISSA, e non `1fr`: e' un bancone, e le colonne di un
              bancone sono tutte larghe uguali. Con `1fr` le colonne si
              allargherebbero per riempire lo schermo quando sono poche e si
@@ -747,6 +946,25 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       }
       @media (max-width: 759px) { .j-hm-f .src { margin-left: 0; } }
 
+      /* IL MARCHIO IN FONDO: bianco, quasi trasparente, e largo quanto serve
+         per leggersi senza diventare un titolo. ⚠️ `pointer-events: none` e
+         `aria-hidden`: non e' un link e non e' un'informazione, e chi legge lo
+         schermo ad alta voce non deve annunciarlo in fondo a ogni giornata. */
+      .j-marchio { display: flex; justify-content: center; padding: 0.5rem 0 0.5rem;
+        pointer-events: none; }
+      /* ⚠️ `brightness(0) invert(1)` e non il file cosi' com'e': il marchio
+         «negative» e' bianco MA il blocco finale e' nel rosso del marchio, e
+         a un decimo di opacita' un rosa sbiadito accanto al bianco non si
+         legge come un colore — si legge come una macchia. Qui il marchio e'
+         una filigrana, e una filigrana ha un colore solo. Due passaggi:
+         tutto nero, poi tutto bianco, qualunque cosa ci sia dentro il file. */
+      .j-marchio img { width: 180px; max-width: 45vw; height: auto;
+        opacity: 0.12; filter: brightness(0) invert(1); }
+      /* ⚠️ Sul tablet al dito la fascia e' un bancone che si scorre di lato:
+         il marchio sta sotto, e non deve prendersi mezzo schermo in altezza. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        .j-marchio img { width: 140px; }
+      }
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
@@ -766,25 +984,79 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .st-link:hover { color: var(--c-accent); }
 
       /* --- Card Photos récentes (2 colonne, griglia 4x2) --- */
-      .tile-photos { grid-column: span 2; }
-      .ph-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
+      /* La griglia della colonna «Photos». Tre per riga: a quattro, dentro
+         una colonna della fascia, la miniatura diventa un francobollo e una
+         foto che non si riconosce vale meno di niente. */
+      .j-foto-wrap { overflow-y: auto; }
+      .ph-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+      /* ⚠️ `position: relative`: la pastiglia «Libre» e il cestino si
+         appoggiano QUI dentro. Senza, finivano sull'angolo del primo antenato
+         posizionato — cioe' da un'altra parte nella pagina, e il cestino di
+         tutte le foto libere si sarebbe impilato nello stesso punto.
+         ⚠️ Niente piu' ingrandimento al passaggio: la cella non si clicca, e
+         un quadrato che reagisce al dito promette qualcosa che non succede. */
       .ph-cell {
-        display: block; border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden;
-        transition: border-color 0.15s, transform 0.15s;
+        position: relative; display: block; cursor: default;
+        border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden;
+        background: var(--c-bg);
       }
-      .ph-cell:hover { border-color: var(--c-accent); transform: scale(0.97); }
       .ph-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
-      .ph-empty { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; }
+      /* ⚠️ La casella resta anche se l'immagine non arriva: un buco nella
+         griglia sembra un pezzo non caricato, e invece e' un file che non
+         risponde piu'. L'icona grigia lo dice. */
+      .ph-cell.rotta { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; }
+      .ph-cell.rotta svg { width: 20px; height: 20px; stroke: var(--c-muted); fill: none; stroke-width: 1.5; opacity: 0.6; }
+      /* Le pastiglie in basso a sinistra: a cosa serve la foto. Sempre in
+         vista, non al passaggio del dito. Vanno a capo da sole, perche' una
+         foto puo' stare in due famiglie. */
+      .ph-tags { position: absolute; left: 0.3rem; bottom: 0.3rem; right: 0.3rem;
+        display: flex; flex-wrap: wrap; gap: 0.2rem; }
+      .ph-t, .ph-b { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em;
+        text-transform: uppercase; padding: 0.12rem 0.4rem; border-radius: 999px; }
+      /* ⚠️ TUTTE PIENE, con la scritta bianca. Queste pastiglie stanno SOPRA
+         una fotografia: un fondo trasparente prende il colore di cio' che c'e'
+         sotto, e la stessa parola che si legge su una tagliata scura sparisce
+         su una panna cotta. Il colore pieno e' l'unico che non dipende dalla
+         foto.
+         I colori sono quelli che il pannello usa gia' altrove: il blu di «a
+         tavola» e il verde di «confermata» nelle pastiglie di stato. */
+      .ph-t { background: rgba(8, 26, 30, 0.78); color: #fff; }
+      /* Un colore pieno per famiglia: arancione il menu, blu il marketing,
+         grigio il sito. ⚠️ L'arancione NON e' `--c-accent`: quello e' il
+         colore delle AZIONI del pannello (il bottone pieno, la pastiglia del
+         filtro acceso) e cambia da cliente a cliente — una pastiglia che si
+         legge «menu» non deve diventare rossa, blu o verde a seconda del tema
+         di chi guarda. */
+      .ph-menu { background: #e07a3b; }
+      .ph-marketing { background: #3b82f6; }
+      .ph-site { background: #5f7378; }
+      /* «Libre» e' VERDE PIENO, testo bianco: una foto che non usa nessuno non
+         e' un guasto — e' una foto disponibile, da montare da qualche parte o
+         da buttare. Il rosso qui dentro vuol dire «qualcosa non va», e su
+         mezza libreria avrebbe gridato tutto il giorno per niente.
+         ⚠️ `#2e9e6b` e' il verde che il pannello usa gia' per «confermata»
+         nelle pastiglie di stato: pieno perche' sta SOPRA una fotografia, dove
+         un fondo trasparente prende il colore di quello che c'e' sotto e una
+         scritta chiara su una panna cotta non si legge piu'. */
+      .ph-b { background: #2e9e6b; color: #fff; }
+      /* Il cestino sta sulla foto, in alto a DESTRA: e' il tondo del pannello
+         in taglia piccola (`.ibtn.ibtn-sm.ibtn-danger`), con la sua guardia a
+         due tocchi. Si vede solo sulle foto che non usa nessuno — e si vede
+         sempre, perche' su un tablet non c'e' un passaggio del dito che lo
+         faccia comparire. */
+      .ph-del { position: absolute; right: 0.3rem; top: 0.3rem; }
+      .ph-del.confirm { width: auto; border-radius: 999px; padding: 0 0.45rem; font-size: 0.58rem;
+        font-weight: 800; letter-spacing: 0.03em; }
+      .ph-empty { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; padding: 1rem 0; text-align: center; }
 
       /* --- Pastiglie aperto/chiuso: colonna Jours spéciaux, tile Menu, Visibilité --- */
-      .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
-      .spx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; row-gap: 0.15rem; font-size: 0.92rem; min-width: 0; }
+      /* `.spx-list` e `.spx-row` erano l'elenco dentro la tile Menu, che non
+         c'e' piu'. La pastiglia `.spx-b` invece e' rimasta: sta in
+         `styles/stati.css` e la usano la colonna dei giorni speciali e quella
+         del menu. */
       /* `.spx-b` (aperto / chiuso / festa / oggi) sta in `styles/stati.css`:
          la stessa pastiglia la disegna anche l'elenco dei giorni speciali nei
          Réglages, e scritta qui era piu' grande di la'. */
-      .spx-nome { color: var(--c-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 6rem; min-width: 0; }
-      .spx-more { color: var(--c-muted); font-size: 0.8rem; }
-      .spx-empty { color: var(--c-muted); font-size: 0.9rem; padding: 0.4rem 0; }
       .ev-cal { width: 50px; flex: 0 0 auto; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 8px; display: flex; flex-direction: column; align-items: center; padding: 0.3rem 0 0.28rem; line-height: 1; }
       .ev-cal b { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-text); }
       .ev-cal i { font-style: normal; font-size: 0.56rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); margin-top: 3px; }
@@ -876,9 +1148,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
 
       /* --- Tile Menu --- */
-      .menu-counts { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
-      .mc-num { font-family: var(--font-title); font-size: 2.8rem; line-height: 1; color: var(--c-accent); display: block; }
-      .mc-lab { color: var(--c-muted); font-size: 0.85rem; }
 
       /* --- La lavagnetta nella colonna (il modale resta su fondo oro) ---
          ⚠️ Qui c'era il vestito della tile: fondo oro, testo marrone, due
@@ -1205,11 +1474,38 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       <main>
         <div class="home-hello" id="home-hello" aria-live="polite"></div>
         <div class="state" id="state">{t("sup.loading")}</div>
-        <Giornata />
-        <div class="cards" id="cards" style="display:none">
-          <TileMenu />
-          <TileSearchConsole />
-          <TilePhotos />
+        <Giornata recettes={vedeRecettes} />
+        {/* ⚠️ La tile «Menu» non c'e' piu': e' diventata una colonna della
+            fascia, come la lavagnetta e i giorni speciali prima di lei.
+            Mostrava due conteggi e i primi quattro piatti indisponibili, con
+            un «+3 in piu'…» che per sapere QUALI mandava ad aprire la pagina
+            Menu — cioe' il contrario di cio' che serve guardando la Accueil
+            all'apertura del servizio. */}
+        {/* ⚠️ Anche «Photos récentes» e' diventata una colonna della fascia.
+            Mostrava le ultime otto miniature, larga due colonne, e di ognuna
+            diceva solo il nome nel titolo: quali foto non le usasse nessuno —
+            cioe' le uniche cancellabili — non si vedeva da nessuna parte. */}
+        {/* ⚠️ LA GRIGLIA DELLE ISOLE E' VUOTA: «Visibilité» era l'ultima tile,
+            ed e' diventata una colonna della fascia come tutte le altre. Il
+            contenitore resta perche' il codice dell'Organiser (trascinamento,
+            ridimensionamento, modale delle tile) lo cerca all'avvio e si ferma
+            se non lo trova — e in quello stesso blocco vive la colonna Google.
+            Separarli e' una potatura di settecento righe che merita il suo
+            giro: vedi `ENGINE.md`. Intanto nessuna tile = nessun comando, e i
+            FAB dell'Organiser restano spenti. */}
+        <div class="cards" id="cards" style="display:none"></div>
+        {/* IL MARCHIO DEL MOTORE, in fondo alla giornata. Non e' una
+            decorazione in cerca di posto: la fascia finisce e la pagina deve
+            dire che e' finita — prima lo faceva una linea rimasta li' dalle
+            tile, che prometteva qualcosa sotto.
+            ⚠️ E' il marchio del PRODOTTO, non quello del ristorante: quello
+            sta in alto a sinistra nell'intestazione, ed e' del cliente. Qui
+            sotto, scolorito, c'e' chi fa funzionare il pannello.
+            ⚠️ La versione «negative» (bianca) e l'opacita' nel CSS: un PNG
+            grigio «gia' giusto» sarebbe giusto su un tema solo, e il fondo
+            dell'admin cambia da cliente a cliente. */}
+        <div class="j-marchio" aria-hidden="true">
+          <img src="/restohub/wordmark-negative.svg" alt="" width="420" height="56" loading="lazy" decoding="async" />
         </div>
       </main>
 
@@ -1402,6 +1698,23 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       } from "../../lib/admin/ordiniConti";
       import { euroDa } from "../../lib/soldi";
       import {
+        fuori as piattiFuori, conStato, conti as contiMenu, statoPiatto, etichettaFormati,
+        type RigaMenu, type StatoPiatto,
+      } from "../../lib/admin/menuRegole";
+      import {
+        conFiltro as fotoConFiltro, conti as contiFoto, usata as fotoUsata,
+        famiglieDi, peso, type RigaFoto, type FiltroFoto, type Famiglia,
+      } from "../../lib/admin/fotoRegole";
+      import { caricaFoto } from "../../lib/admin/caricaFoto";
+      import {
+        PERIODI, periodoValido, istogramma, etichetteAsse, andamento, andamentoPosizione,
+        type Periodo,
+      } from "../../lib/admin/visibilitaRegole";
+      import {
+        PERIODI_R, PERIODO_R_DEFAULT, periodoValidoR, istogrammaSoldi, quotaResi, articoli,
+        type PeriodoR,
+      } from "../../lib/admin/recetteRegole";
+      import {
         tagDi, inRitardo, etichette, conEtichetta, filtroValido,
         contoDelMese, chiLeFa, attesaPiuVecchia, daFare as noteDaFare,
       } from "../../lib/admin/noteRegole";
@@ -1410,7 +1723,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         serviziDelGiorno, type Serie,
       } from "../../lib/admin/giornataRegole";
       import {
-        fondi, conti, filtriUtili, piuGiorni,
+        fondi, conti, TIPI_FILTRO, piuGiorni,
         type Festa, type RigaSpeciale, type TipoRiga,
       } from "../../lib/admin/giorniSpecialiRegole";
 
@@ -1465,7 +1778,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         dinner_active: boolean; dinner_open: string | null; dinner_close: string | null;
         prep_time_minutes: number; slot_duration_minutes: number;
       } | null;
-      type MenuRow = { category: string; available: boolean; name: string; sold_out?: boolean | null };
+      /* ⚠️ `image_url`, `price_cents` e `variants` arrivavano gia' nella
+         risposta e non erano dichiarati: la tile mostrava due conteggi e
+         quattro nomi, e il resto del piatto restava nella risposta senza che
+         nessuno lo guardasse. */
+      type MenuRow = RigaMenu & { id: string; category: string; available: boolean; name: string };
       type Cat = { name: string; kind: "food" | "drink" };
       type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string; tags?: string[] | null;
         /** Quando e' stata spuntata (#78). Oggi non si legge ancora: la riga
@@ -1686,6 +2003,724 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const label = v?.label ?? String(r.status ?? "");
         return `<button type="button" class="j-badge ${cls} j-st" data-st-id="${escHtml(String(r.id ?? ""))}">${escHtml(label)}</button>`;
       }
+      // ============================================================
+      // LA COLONNA «MENU» — cosa non si puo' vendere adesso
+      // ------------------------------------------------------------
+      // ⚠️ Le regole (chi e' fuori, in che ordine, i formati finiti, i conti
+      // del piede) stanno in `menuRegole.ts`: la pagina Menu disegna le stesse
+      // cose, e due copie della stessa regola si dividono alla prima modifica.
+      // ============================================================
+      let menuRighe: MenuRow[] = [];
+      /** Il filtro acceso. Vuoto = tutti quelli fuori. */
+      let menuFiltro: StatoPiatto | "" = "";
+
+      /** L'icona del posto vuoto: una foto che non c'e'. */
+      const ICO_NOFOTO =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/>' +
+        '<circle cx="8.5" cy="10" r="1.5"/><polyline points="21 16 15.5 10.5 7 19"/></svg>';
+
+      /** La casella della foto. ⚠️ C'E' SEMPRE, anche vuota: nascosta, le
+       *  righe ballerebbero da sinistra e un piatto senza foto sembrerebbe a
+       *  posto — mentre sul sito e' quello che vende meno, ed e' lo stesso
+       *  buco che conta il numero in fondo alla colonna.
+       *  ⚠️ `onerror` toglie l'immagine rotta e lascia la casella: un link
+       *  morto disegnerebbe l'icona grigia del browser, che non e' la nostra e
+       *  non dice niente. */
+      function fotoDi(r: MenuRow): string {
+        const url = String(r.image_url ?? "").trim();
+        if (!url) return `<span class="m-foto" title="${escHtml(tr("home.menuPhotoNone"))}">${ICO_NOFOTO}</span>`;
+        return `<span class="m-foto"><img src="${escHtml(url)}" alt="" loading="lazy" ` +
+          `referrerpolicy="no-referrer" onerror="this.remove()" /></span>`;
+      }
+
+      function rigaMenu(r: MenuRow): string {
+        const st = statoPiatto(r);
+        const badge = st === "hidden"
+          ? `<span class="spx-b hid">${tr("print.hidden")}</span>`
+          : `<span class="spx-b closed">${tr("menu.soldOut")}</span>`;
+        // ⚠️ I FORMATI FINITI si dicono col loro nome. Con «40 cm» finita e
+        // «30 cm» disponibile l'interruttore del piatto e' spento — e' del
+        // piatto INTERO — e senza questa riga l'unico modo di saperlo era
+        // aprire il modale nella pagina Menu.
+        // La lingua: quella del pannello, perche' qui legge lo staff; se
+        // quell'etichetta manca, il modulo ripiega sulla prima che c'e'.
+        const formati = etichettaFormati(r, LANG);
+        const prezzo = Number(r.price_cents);
+        const sotto = [
+          badge,
+          String(r.category ?? "").trim() ? `<span>${escHtml(String(r.category))}</span>` : "",
+          Number.isFinite(prezzo) ? `<span class="m-prezzo">${euro(prezzo)}</span>` : "",
+          formati ? `<span class="m-var">${escHtml(formati)}</span>` : "",
+        ].filter(Boolean).join("");
+        /* ⚠️ L'INTERRUTTORE SOLO SUGLI ESAURITI, ed e' quello della pagina
+           Menu (`.switch.sw-sold`), con lo stesso verso: acceso = esaurito.
+           Un tocco a inizio servizio rimette il piatto in vendita senza aprire
+           niente. Sui NASCOSTI non c'e': togliere un piatto dal sito e' una
+           decisione che si prende con foto, descrizione e prezzo davanti, e la
+           riga porta li'. */
+        const sw = st === "sold"
+          ? `<label class="switch sw-sold" title="${escHtml(tr("menu.soldOut"))}">` +
+            `<input type="checkbox" data-menu-id="${escHtml(String(r.id ?? ""))}" checked />` +
+            `<span class="track"></span></label>`
+          : "";
+        /* ⚠️ LA RIGA NON E' UN LINK, e l'unica cosa che si tocca e'
+           l'interruttore. Nelle altre colonne la riga porta alla sua pagina
+           perche' li' c'e' dell'altro da fare — leggere una prenotazione,
+           aprire un ordine. Qui la cosa da fare e' UNA: rimettere in vendita.
+           Un rettangolo largo che porta a una pagina qualsiasi del menu, con
+           dentro il solo comando che serve, e' un bersaglio che si preme per
+           sbaglio mentre si cerca la casella.
+           ⚠️ E anche quando era un link, la casella stava fuori: su un
+           `<button>` basta un `preventDefault()` per non far partire il link,
+           ma su una CASELLA quello stesso `preventDefault()` annulla il cambio
+           di stato — l'interruttore non si gira, `change` non parte, e il
+           tocco non fa niente. Senza un errore da nessuna parte. */
+        return `<div class="j-li${st === "hidden" ? " m-off" : ""}">` +
+          fotoDi(r) +
+          `<span class="tx"><span class="j-nome">${escHtml(String(r.name ?? ""))}</span>` +
+          `<small>${sotto}</small></span>` +
+          sw + `</div>`;
+      }
+
+      // ============================================================
+      // LA COLONNA «VISIBILITÉ» — chi ci cerca su Google
+      // ------------------------------------------------------------
+      // ⚠️ IL GRAFICO E' QUELLO DELL'AFFLUENZA: stesse classi, stessa
+      // `altezza()`, stesse linee della griglia. Un secondo grafico scritto da
+      // zero nella stessa pagina sarebbe un secondo righello — e due barre
+      // alte uguali in due colonne vorrebbero dire due cose diverse.
+      //
+      // ⚠️ OGNI PERIODO SI CHIEDE UNA VOLTA SOLA. La risposta si tiene qui:
+      // premere «7 g» e tornare a «28 g» non deve rifare il giro fino a
+      // Google, che e' lento e ha una quota giornaliera.
+      // ============================================================
+      type VisKpi = { clicks: number; impressions: number; position: number };
+      type VisDett = {
+        configured: boolean;
+        periode: string;
+        kpi: VisKpi & { prev: VisKpi };
+        serie: { date: string; clicks: number; impressions: number }[];
+        topQueries: { key: string; clicks: number; impressions: number }[];
+      };
+      let visPeriodo: Periodo = 28;
+      const visCache = new Map<number, VisDett>();
+
+      function disegnaVisFiltri(): void {
+        const box = document.getElementById("j-vis-filtri");
+        if (!box) return;
+        box.innerHTML = PERIODI.map((g) =>
+          `<button type="button" class="rh-filter${g === visPeriodo ? " is-on" : ""}" data-g="${g}">` +
+          `<span class="et">${escHtml(tr("home.visDays").replace("{n}", String(g)))}</span></button>`).join("");
+      }
+
+      /** Un numero come lo scrive il pannello: con i separatori della lingua. */
+      const nVis = (n: number): string => new Intl.NumberFormat(LOC).format(Math.round(Number(n) || 0));
+
+      /** La riga sotto un numero: «▲ 18 %», verde o corallo, o niente. */
+      function frecciaVis(id: string, a: { diff: number | null; meglio: boolean }, testo: string): void {
+        const el = document.getElementById(id + "-d");
+        if (!el) return;
+        // ⚠️ Niente freccia quando non si puo' dire (il periodo prima era a
+        // zero): una freccia verde messa per ripiego e' una buona notizia
+        // inventata.
+        el.textContent = a.diff === null ? "" : testo;
+        el.classList.toggle("up", a.diff !== null && a.meglio);
+        el.classList.toggle("giu", a.diff !== null && !a.meglio);
+      }
+
+      function disegnaVis(): void {
+        disegnaVisFiltri();
+        const v = visCache.get(visPeriodo);
+        const lista = document.getElementById("j-vis-lista");
+        const hm = document.getElementById("j-vis-box");
+        const intest = document.getElementById("j-vis-h");
+        const nums = document.getElementById("j-vis-nums");
+        if (!lista) return;
+        if (!v) {
+          // Sta arrivando: non si scrive «nessun dato», che e' un'altra cosa.
+          lista.innerHTML = "";
+          return;
+        }
+        if (nums) nums.style.display = "";
+
+        // ---- I tre numeri, col confronto sul periodo precedente ----
+        const cl = andamento(v.kpi.clicks, v.kpi.prev.clicks);
+        const im = andamento(v.kpi.impressions, v.kpi.prev.impressions);
+        const po = andamentoPosizione(v.kpi.position, v.kpi.prev.position);
+        numero("j-vis-clic", nVis(v.kpi.clicks), "");
+        frecciaVis("j-vis-clic", cl, `${cl.meglio ? "▲" : "▼"} ${Math.abs(cl.diff ?? 0)} %`);
+        numero("j-vis-imp", nVis(v.kpi.impressions), "");
+        frecciaVis("j-vis-imp", im, `${im.meglio ? "▲" : "▼"} ${Math.abs(im.diff ?? 0)} %`);
+        // ⚠️ La posizione si scrive com'e' (12,4) e la variazione in POSTI:
+        // «+18 %» su una posizione media non vuol dire niente a nessuno. E la
+        // freccia e' girata: da 14,2 a 12,4 si e' SALITI.
+        numero("j-vis-pos", v.kpi.position > 0 ? nVis(Math.round(v.kpi.position * 10) / 10) : "—", "");
+        frecciaVis("j-vis-pos", po,
+          `${po.meglio ? "▲" : "▼"} ${tr("home.visSpots").replace("{n}", String(Math.abs(po.posti ?? 0)).replace(".", ","))}`);
+
+        // ---- Il grafico, col righello dell'affluenza ----
+        const g = istogramma(v.serie);
+        const plot = document.getElementById("j-vis-plot");
+        const assi = document.getElementById("j-vis-x");
+        if (hm && plot && assi && g) {
+          hm.style.display = "";
+          const griglia =
+            `<div class="j-grid" aria-hidden="true">` +
+            `<i class="base"></i>` +
+            `<i style="bottom:${altezza(g.cima, g.cima)}%"><b>${g.cima}</b></i>` +
+            `</div>`;
+          plot.innerHTML = g.barre
+            .map((b, i) =>
+              `<div class="j-hb"><span class="vis${i === g.barre.length - 1 ? " oggi" : ""}" ` +
+              `style="height:${altezza(b.valore, g.cima)}%" title="${escHtml(`${b.iso} · ${b.valore}`)}"></span></div>`)
+            .join("") + griglia;
+          // ⚠️ LE DATE VERE SOTTO IL GRAFICO, e non «28 giorni»: Google ha
+          // circa tre giorni di ritardo, quindi l'ultima barra NON e' oggi — e
+          // chi guarda deve poterlo vedere invece di crederlo.
+          // Quali barre la portano lo decide `etichetteAsse` (una regola, con
+          // i suoi test): due date sole non dicevano DOVE si e' alzato il
+          // grafico, e una per barra sarebbe una riga grigia.
+          // ⚠️ L'ultima scrive `g.a`, cioe' l'ULTIMO GIORNO VERO: a settimane
+          // raggruppate `b.iso` e' il lunedi' di quel gruppo, e sotto l'ultima
+          // barra si leggerebbe una data piu' vecchia di quella che i dati
+          // arrivano — che e' proprio il numero che quel piede deve dire.
+          const ultimo = g.barre.length - 1;
+          const segnate = new Set(etichetteAsse(g.barre.length));
+          assi.innerHTML = g.barre
+            .map((b, i) => {
+              if (!segnate.has(i)) return "<span></span>";
+              // Agli estremi la data si appoggia al bordo del grafico: centrata
+              // sulla sua barra sporgerebbe fuori dal riquadro.
+              const dove = i === 0 ? "left" : i === ultimo ? "right" : "center";
+              return `<span style="text-align:${dove}">${escHtml(dataCorta(i === ultimo ? g.a : b.iso))}</span>`;
+            })
+            .join("");
+          // Il piede: di che passo sono le barre (un giorno o una settimana —
+          // a novanta giorni si raggruppa, e senza scritto si legge un crollo
+          // dove c'e' solo una barra che conta sette giorni invece di uno) e
+          // fino a quando arrivano i dati di Google.
+          const passo = document.getElementById("j-vis-passo");
+          if (passo) passo.textContent = tr(g.passo === "settimana" ? "home.visPerWeek" : "home.visPerDay");
+          const vsrc = document.getElementById("j-vis-src");
+          if (vsrc) vsrc.textContent = `Search Console · ${tr("home.visUpTo").replace("{d}", dataCorta(g.a))}`;
+        } else if (hm) {
+          hm.style.display = "none";
+        }
+
+        // ---- Le parole cercate ----
+        if (intest) intest.style.display = v.topQueries.length ? "" : "none";
+        lista.innerHTML = v.topQueries.length
+          ? v.topQueries.map((q) =>
+              `<div class="j-li j-vq"><span class="q">${escHtml(q.key)}</span>` +
+              `<span class="imp">${escHtml(nVis(q.impressions))}</span>` +
+              `<span class="n">${escHtml(nVis(q.clicks))}</span></div>`).join("")
+          : `<p class="j-vuoto">${tr("home.visNoData")}</p>`;
+      }
+
+      /** «11 sett.» — la data corta, nella lingua del pannello. */
+      function dataCorta(iso: string): string {
+        const t = Date.parse(`${iso}T12:00:00Z`);
+        return Number.isFinite(t)
+          ? new Date(t).toLocaleDateString(LOC, { day: "numeric", month: "short" })
+          : "";
+      }
+
+      async function caricaVis(giorni: Periodo): Promise<void> {
+        if (visCache.has(giorni)) { disegnaVis(); return; }
+        try {
+          const res = await fetch(`/api/admin/search-console?detail=1&days=${giorni}`, {
+            headers: await authFresh(),
+          });
+          if (!res.ok) return;
+          const v = (await res.json()) as VisDett;
+          // ⚠️ Senza proprieta' configurata la colonna NON si accende: a un
+          // locale che non ha Search Console una colonna vuota non dice
+          // niente, e non si puo' nemmeno riempire da qui.
+          if (!v?.configured) return;
+          visCache.set(giorni, v);
+          const col = document.getElementById("j-vis");
+          if (col) col.style.display = "";
+          disegnaVis();
+        } catch { /* rete assente: la colonna resta spenta */ }
+      }
+
+      document.getElementById("j-vis-filtri")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+        if (!b) return;
+        visPeriodo = periodoValido(b.dataset.g);
+        disegnaVis();
+        void caricaVis(visPeriodo);
+      });
+
+      // ============================================================
+      // LA COLONNA «RECETTES» — quanto e' entrato, quanto e' tornato indietro
+      // ------------------------------------------------------------
+      // ⚠️ QUI NON SI SOMMA NIENTE. I totali arrivano gia' fatti da
+      // `/api/admin/stats`, cioe' da `calcolaStats`: la stessa funzione che
+      // riempie la pagina Statistiques, che a sua volta chiede a
+      // `ordiniConti` cosa vuol dire «entrato» e «rimborsato». La parola
+      // «incassato» ha gia' avuto quattro definizioni in questo progetto e
+      // quattro numeri diversi sullo stesso schermo: la quinta non la
+      // scriviamo qui.
+      //
+      // ⚠️ OGNI PERIODO SI CHIEDE UNA VOLTA SOLA, come in Visibilité: la
+      // risposta si tiene, e tornare indietro fra «Mese» e «Settimana» non
+      // rifa' il giro fino al database.
+      // ============================================================
+      type RecSerie = { label: string; count: number; cents: number; refund_cents: number };
+      type RecDett = {
+        period: string;
+        orders: number;
+        revenue_cents: number;
+        refunded_cents?: number;
+        refunded_orders?: number;
+        avg_cents: number;
+        prev?: { orders: number; revenue_cents: number; refunded_cents: number } | null;
+        series_kind: string;
+        series: RecSerie[];
+        top: { name: string; qty: number; cents: number }[];
+      };
+      let recPeriodo: PeriodoR = PERIODO_R_DEFAULT;
+      const recCache = new Map<string, RecDett>();
+
+      /** Le etichette dei periodi sono quelle della pagina Statistiques: le
+       *  stesse parole per la stessa cosa, e nessuna chiave nuova. */
+      const REC_ET: Record<PeriodoR, string> = {
+        day: "st.pDay", week: "res.week", month: "res.month", ytd: "st.pYear",
+      };
+
+      function disegnaRecFiltri(): void {
+        const box = document.getElementById("j-rec-filtri");
+        if (!box) return;
+        box.innerHTML = PERIODI_R.map((p) =>
+          `<button type="button" class="rh-filter${p === recPeriodo ? " is-on" : ""}" data-p="${p}">` +
+          `<span class="et">${escHtml(tr(REC_ET[p]))}</span></button>`).join("");
+      }
+
+      function disegnaRec(): void {
+        disegnaRecFiltri();
+        const v = recCache.get(recPeriodo);
+        const lista = document.getElementById("j-rec-lista");
+        if (!lista) return;
+        if (!v) { lista.innerHTML = ""; return; }
+
+        const box = document.getElementById("j-rec-box");
+        const nums = document.getElementById("j-rec-nums");
+        if (nums) nums.style.display = "";
+
+        // ---- Il totale, e com'e' andata rispetto al periodo di prima ----
+        // ⚠️ Il confronto e' con la stessa FETTA di tempo gia' passata (lo
+        // taglia `calcolaStats`): alle tre del pomeriggio, «oggi» contro
+        // «ieri intero» direbbe ogni giorno che stiamo crollando.
+        const resi = Number(v.refunded_cents ?? 0);
+        const tot = document.getElementById("j-rec-tot");
+        if (tot) tot.textContent = euro(v.revenue_cents);
+        const a = andamento(v.revenue_cents, v.prev?.revenue_cents);
+        const td = document.getElementById("j-rec-tot-d");
+        if (td) {
+          td.textContent = a.diff === null ? "" : `${a.meglio ? "▲" : "▼"} ${Math.abs(a.diff)} %`;
+          td.classList.toggle("up", a.diff !== null && a.meglio);
+          td.classList.toggle("giu", a.diff !== null && !a.meglio);
+        }
+        const per = document.getElementById("j-rec-per");
+        if (per) per.textContent = tr(REC_ET[recPeriodo]);
+
+        // ---- I resi: la riga tace quando non ce ne sono ----
+        const rb = document.getElementById("j-rec-rb");
+        if (rb) {
+          const quota = quotaResi(v.revenue_cents, resi);
+          rb.innerHTML = resi > 0
+            ? `${escHtml(tr("home.recRefunded"))} <b>−${escHtml(euro(resi))}</b> ` +
+              `<span>· ${escHtml(tr("home.nOrders").replace("{n}", String(v.refunded_orders ?? 0)))}` +
+              `${quota === null ? "" : ` · ${quota} %`}</span>`
+            : "";
+        }
+
+        // ---- Il grafico: due serie, lo stesso righello della fascia ----
+        const g = istogrammaSoldi(v.series);
+        const plot = document.getElementById("j-rec-plot");
+        const assi = document.getElementById("j-rec-x");
+        if (box && plot && assi && g) {
+          box.style.display = "";
+          const griglia =
+            `<div class="j-grid" aria-hidden="true">` +
+            `<i class="base"></i>` +
+            `<i style="bottom:${altezza(g.cima, g.cima)}%"><b>${escHtml(euro(g.cima))}</b></i>` +
+            `</div>`;
+          plot.innerHTML = g.barre
+            .map((b) =>
+              `<div class="j-hb" title="${escHtml(`${b.label} · ${euro(b.inc)}`)}">` +
+                `<span class="inc" style="height:${altezza(b.inc, g.cima)}%"></span>` +
+                `<span class="rb" style="height:${altezza(b.rb, g.cima)}%"></span>` +
+              `</div>`)
+            .join("") + griglia;
+          // Le etichette dell'asse: la stessa regola della colonna Visibilité
+          // — poche, leggibili, e la prima e l'ultima sempre.
+          const ultimo = g.barre.length - 1;
+          const segnate = new Set(etichetteAsse(g.barre.length));
+          assi.innerHTML = g.barre
+            .map((b, i) => {
+              if (!segnate.has(i)) return "<span></span>";
+              const dove = i === 0 ? "left" : i === ultimo ? "right" : "center";
+              return `<span style="text-align:${dove}">${escHtml(b.label)}</span>`;
+            })
+            .join("");
+          // Il colore dei resi si nomina solo se ce ne sono.
+          const kRb = document.getElementById("j-rec-k-rb");
+          if (kRb) kRb.style.display = g.conResi ? "" : "none";
+          // ⚠️ Solo i passi che hanno una parola: `tr()` di una chiave che non
+          // esiste rende LA CHIAVE, cioe' scriverebbe «home.recStep.xyz» sotto
+          // il grafico il giorno in cui il server impara un intervallo nuovo.
+          const passo = document.getElementById("j-rec-passo");
+          const PASSI = ["hour", "weekday", "day", "month", "quarter"];
+          if (passo) passo.textContent = PASSI.includes(String(v.series_kind))
+            ? tr(`home.recStep.${v.series_kind}`)
+            : "";
+        } else if (box) {
+          box.style.display = "none";
+        }
+
+        // ---- Gli articoli piu' ordinati ----
+        const art = articoli(v.top, 6);
+        const intest = document.getElementById("j-rec-h");
+        if (intest) intest.style.display = art.length ? "" : "none";
+        lista.innerHTML = art.length
+          ? art.map((x, i) =>
+              `<div class="j-li j-art"><span class="pos">${i + 1}</span>` +
+              `<span class="q">${escHtml(x.name)}</span>` +
+              `<span class="qty">×${escHtml(nVis(x.qty))}</span>` +
+              `<span class="eur">${escHtml(euro(x.cents))}</span></div>`).join("")
+          : `<p class="j-vuoto">${escHtml(tr("home.recNone"))}</p>`;
+
+        // ---- I tre numeri in fondo ----
+        // ⚠️ Lo scontrino medio arriva gia' fatto: dividere qui `revenue` per
+        // `orders` sarebbe il quinto conto dei soldi, e con l'arrotondamento
+        // darebbe un centesimo diverso dalla pagina Statistiques.
+        numero("j-rec-avg", euro(v.avg_cents), "");
+        frecciaVis("j-rec-avg", andamento(v.avg_cents, scontrinoPrima(v)),
+          scontrinoFreccia(v));
+        numero("j-rec-ord", nVis(v.orders), "");
+        const ao = andamento(v.orders, v.prev?.orders);
+        frecciaVis("j-rec-ord", ao, `${ao.meglio ? "▲" : "▼"} ${Math.abs(ao.diff ?? 0)} %`);
+        numero("j-rec-rbt", resi > 0 ? euro(resi) : "—", "");
+        const rbd = document.getElementById("j-rec-rbt-d");
+        if (rbd) rbd.textContent = resi > 0
+          ? tr("home.nOrders").replace("{n}", String(v.refunded_orders ?? 0))
+          : "";
+      }
+
+      /** Lo scontrino medio del periodo di prima, o `undefined` se non c'e' un
+       *  prima: `andamento()` dice gia' «niente freccia» quando manca. */
+      function scontrinoPrima(v: RecDett): number | undefined {
+        const p = v.prev;
+        return p && p.orders > 0 ? Math.round(p.revenue_cents / p.orders) : undefined;
+      }
+      function scontrinoFreccia(v: RecDett): string {
+        const a = andamento(v.avg_cents, scontrinoPrima(v));
+        return `${a.meglio ? "▲" : "▼"} ${Math.abs(a.diff ?? 0)} %`;
+      }
+
+      async function caricaRec(p: PeriodoR): Promise<void> {
+        // ⚠️ SI CHIEDE SOLO SE LA COLONNA C'E'. Il server non la disegna a chi
+        // non puo' vedere il fatturato, e AdminNav la rimuove coi permessi
+        // veri quando la pagina e' arrivata senza SSR: in tutti e due i casi
+        // questo elemento non esiste, e senza questa riga il codice chiederebbe
+        // lo stesso `/api/admin/stats` — un 403 in console a ogni caricamento,
+        // per una colonna che non si vede nemmeno.
+        if (!document.getElementById("j-rec")) return;
+        if (recCache.has(p)) { disegnaRec(); return; }
+        try {
+          const res = await fetch(`/api/admin/stats?period=${p}`, { headers: await authFresh() });
+          if (!res.ok) return;
+          const v = (await res.json()) as RecDett;
+          if (!v || typeof v.revenue_cents !== "number") return;
+          recCache.set(p, v);
+          const col = document.getElementById("j-rec");
+          if (col) col.style.display = "";
+          disegnaRec();
+        } catch { /* rete assente: la colonna resta spenta */ }
+      }
+
+      document.getElementById("j-rec-filtri")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+        if (!b) return;
+        recPeriodo = periodoValidoR(b.dataset.p);
+        disegnaRec();
+        void caricaRec(recPeriodo);
+      });
+
+      // ============================================================
+      // LA COLONNA «PHOTOS» — cosa e' entrato, e cosa non serve a niente
+      // ------------------------------------------------------------
+      // ⚠️ `used_by` ARRIVAVA GIA' NELLA RISPOSTA e nessuno lo leggeva: la
+      // tile mostrava le ultime otto miniature, e quali foto non le usasse
+      // nessuno — le uniche che si possono cancellare — si scopriva solo
+      // aprendo la pagina Assets e guardando le card una per una.
+      // ============================================================
+      type FotoRow = RigaFoto & { bucket: string; name: string; url: string };
+      let fotoTutte: FotoRow[] = [];
+      let fotoFiltro: FiltroFoto = "";
+
+      /** I nomi delle famiglie, quelli del pannello: «Menu» e «Marketing» sono
+       *  le voci della barra, «Site» e' la linguetta della pagina Assets. */
+      const NOME_FAMIGLIA: Record<Famiglia, string> = {
+        menu: tr("nav.menu"),
+        marketing: tr("nav.marketing"),
+        site: tr("as.site"),
+      };
+
+      function cellaFoto(f: FotoRow): string {
+        const libera = !fotoUsata(f);
+        // ⚠️ Il titolo porta il nome E dove e' usata: e' l'informazione che
+        // la griglia non puo' mostrare e che la libreria nascondeva.
+        const dove = (f.used_by ?? []).join(" · ");
+        const titolo = [String(f.name ?? ""), dove || tr("as.free")].filter(Boolean).join(" · ");
+        /* ⚠️ IL CESTINO SOLO SULLE LIBERE, e sempre in vista, in alto a
+           destra. La pagina Assets rifiuta di cancellare una foto usata
+           (risponde 409 con l'elenco di chi la mostra): un cestino che si puo'
+           premere e risponde «no» e' un bottone che insegna a non fidarsi dei
+           bottoni.
+           ⚠️ SEMPRE VISIBILE e non «al passaggio del dito»: su un tablet
+           appeso in sala non esiste un passaggio del dito, e un comando che si
+           scopre solo col mouse e' un comando che meta' delle persone non
+           trova mai. */
+        const cestino = libera
+          ? `<button type="button" class="ibtn ibtn-sm ibtn-danger ph-del" ` +
+            `data-b="${escHtml(String(f.bucket ?? ""))}" data-n="${escHtml(String(f.name ?? ""))}" ` +
+            `title="${escHtml(tr("common.delete"))}" aria-label="${escHtml(tr("common.delete"))}">${TRASH_ICON}</button>`
+          : "";
+        /* ⚠️ LA CELLA NON E' UN LINK: l'unica cosa che si tocca e' il
+           cestino. Un quadrato grande che porta alla pagina Assets, con dentro
+           il solo comando che serve, e' un bersaglio che si preme per sbaglio
+           mentre si cerca il cestino — e per andare alla libreria c'e' «Voir
+           tout» in testa alla colonna, dove sta in tutte le altre.
+           ⚠️ Il NOME e DOVE E' USATA restano nel titolo: e' l'informazione che
+           una griglia non puo' mostrare, ed e' quella che la libreria
+           nascondeva. */
+        /* ⚠️ LE PASTIGLIE DICONO A COSA SERVE la foto: Menu, Marketing, Site.
+           Una foto puo' averne due — la stessa immagine su un piatto e in un
+           pop-up — e si leggono tutte, in ordine fisso. «Libre» non e' una
+           famiglia: e' quello che resta quando non ce n'e' nessuna, ed e'
+           l'unica rossa perche' e' l'unica che chiede di fare qualcosa.
+           ⚠️ La parola «Libre» e' `as.freeSg`, quella che la pagina Assets usa
+           gia' sulla sua card: due parole per la stessa cosa sarebbero due
+           cose. */
+        const fam = famiglieDi(f)
+          .map((x) => `<span class="ph-t ph-${x}">${escHtml(NOME_FAMIGLIA[x])}</span>`)
+          .join("");
+        return `<div class="ph-cell" title="${escHtml(titolo)}">` +
+          `<img src="${escHtml(String(f.url ?? ""))}" alt="" loading="lazy" ` +
+          `onerror="this.closest('.ph-cell')?.classList.add('rotta'); this.remove()" />` +
+          `<span class="ph-tags">${fam}` +
+          (libera ? `<span class="ph-b">${escHtml(tr("as.freeSg"))}</span>` : "") +
+          `</span>` + cestino + `</div>`;
+      }
+
+      function disegnaFotoFiltri(): void {
+        const box = document.getElementById("j-foto-filtri");
+        if (!box) return;
+        // Fissi, come nelle altre colonne. ⚠️ «Menu» e «Marketing» vengono
+        // dall'USO della foto, non dalla cartella in cui sta: lo decide l'API.
+        const voci: { f: FiltroFoto; testo: string; ico?: string }[] = [
+          { f: "", testo: tr("home.notesAll"), ico: ICO_TUTTE },
+          { f: "site", testo: NOME_FAMIGLIA.site },
+          { f: "menu", testo: NOME_FAMIGLIA.menu },
+          { f: "marketing", testo: NOME_FAMIGLIA.marketing },
+          { f: "libere", testo: tr("as.free") },
+        ];
+        box.innerHTML = voci.map((v) =>
+          `<button type="button" class="rh-filter${v.ico ? " tutte" : ""}${v.f === fotoFiltro ? " is-on" : ""}"` +
+          ` data-f="${escHtml(v.f)}"${v.ico ? ` aria-label="${escHtml(v.testo)}" title="${escHtml(v.testo)}"` : ""}>` +
+          `${v.ico ?? ""}<span class="et">${escHtml(v.testo)}</span></button>`).join("");
+      }
+
+      function disegnaFoto(): void {
+        disegnaFotoFiltri();
+        const oggiK = dayKeyBrussels(new Date().toISOString());
+        const c = contiFoto(fotoTutte, oggiK, dayKeyBrussels);
+        // La pastiglia conta le LIBERE: e' quello che c'e' da guardare.
+        pastigliaConta("j-foto-cnt", c.libere);
+        numero("j-foto-tot", String(c.totale),
+          c.settimana ? tr("home.phWeek").replace("{n}", String(c.settimana)) : "");
+        // ⚠️ Un trattino e non «0»: zero foto libere e' una buona notizia, e in
+        // corallo grande sembrerebbe un allarme.
+        numero("j-foto-libere", c.libere ? String(c.libere) : "—",
+          c.totale ? tr("home.menuOfN").replace("{n}", String(c.totale)) : "");
+        numero("j-foto-peso", peso(c.byte, tr("as.kb"), tr("as.mb")) || "—",
+          c.media ? tr("home.phEach").replace("{n}", peso(c.media, tr("as.kb"), tr("as.mb"))) : "");
+        const lista = document.getElementById("j-foto-lista");
+        if (!lista) return;
+        const viste = fotoConFiltro(fotoTutte, fotoFiltro);
+        // Due vuoti diversi: «non ce n'e' nessuna» e «nessuna di queste».
+        lista.innerHTML = viste.length
+          ? `<div class="ph-grid">${viste.map((f) => cellaFoto(f)).join("")}</div>`
+          : `<div class="ph-grid"><div class="ph-empty">${
+              fotoFiltro ? tr("home.nothingToShow") : tr("home.noImages")}</div></div>`;
+      }
+
+      document.getElementById("j-foto-filtri")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+        if (!b) return;
+        fotoFiltro = (b.dataset.f ?? "") as FiltroFoto;
+        disegnaFoto();
+      });
+
+      /** Il cestino di una foto libera: due tocchi, come ovunque nel pannello. */
+      document.getElementById("j-foto-lista")?.addEventListener("click", (ev) => {
+        const del = (ev.target as HTMLElement).closest(".ph-del") as HTMLButtonElement | null;
+        if (!del) return;
+        if (!del.classList.contains("confirm")) {
+          del.classList.add("confirm");
+          del.textContent = tr("home.deleteQ");
+          window.setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = TRASH_ICON; }, 3000);
+          return;
+        }
+        void cancellaFoto(del);
+      });
+
+      /** Rilegge la bibliotheque e ridisegna. ⚠️ Si RICHIEDE invece di
+       *  aggiungere la riga a mano: la risposta del caricamento porta il solo
+       *  URL, mentre la colonna ha bisogno anche del peso, della data e di chi
+       *  la usa — inventarli vorrebbe dire una miniatura con «0 Ko» che si
+       *  corregge da sola al prossimo caricamento della pagina. */
+      async function rileggiFoto(): Promise<void> {
+        try {
+          const res = await fetch("/api/admin/images", { headers: await authFresh() });
+          if (!res.ok) return;
+          fotoTutte = (((await res.json()) as { images?: FotoRow[] }).images) ?? [];
+          disegnaFoto();
+        } catch { /* la colonna resta com'era: nessun dato inventato */ }
+      }
+
+      /** «+ Image»: il bottone apre il campo nascosto, il campo fa il lavoro.
+       *  ⚠️ IL GESTO sta in `caricaFoto.ts`, lo stesso della pagina Assets —
+       *  comprime, controlla il peso PRIMA di spedire, e spedisce. Scritto due
+       *  volte, una delle due copie prima o poi dimentica un controllo: quello
+       *  del peso soprattutto, che il server rifiuterebbe comunque ma dopo
+       *  quattro mega in salita da un telefono in sala. */
+      (() => {
+        const btn = document.getElementById("j-foto-add") as HTMLButtonElement | null;
+        const campo = document.getElementById("j-foto-file") as HTMLInputElement | null;
+        if (!btn || !campo) return;
+        btn.addEventListener("click", () => campo.click());
+        campo.addEventListener("change", async () => {
+          const file = campo.files?.[0];
+          if (!file) return;
+          btn.disabled = true;
+          const esito = await caricaFoto(file, { headers: await authFresh() });
+          if (esito.ok) {
+            toast(`${tr("as.imgAdded")} ✓`);
+            await rileggiFoto();
+          } else {
+            // Il motivo lo decide il modulo, la parola questa pagina: «troppo
+            // pesante» e «illeggibile» mandano a fare due cose diverse.
+            const parola = esito.motivo === "grande" ? tr("as.tooBig4")
+              : esito.motivo === "illeggibile" ? tr("as.fileUnreadable")
+                : (esito.dettaglio || tr("as.uploadFailed"));
+            toast(parola, true);
+          }
+          btn.disabled = false;
+          // ⚠️ Si svuota SEMPRE: senza, ricaricare la stessa foto dopo un
+          // errore non fa scattare `change` — il valore non cambia — e il
+          // bottone sembra rotto.
+          campo.value = "";
+        });
+      })();
+
+      async function cancellaFoto(btn: HTMLButtonElement): Promise<void> {
+        const bucket = btn.dataset.b ?? "";
+        const nome = btn.dataset.n ?? "";
+        if (!bucket || !nome) return;
+        btn.disabled = true;
+        try {
+          // ⚠️ LA STESSA CHIAMATA della pagina Assets, che rifiuta (409) una
+          // foto usata da qualcuno: il controllo sta sul server, e questo
+          // cestino non ne inventa un secondo.
+          const res = await fetch(
+            `/api/admin/images?bucket=${encodeURIComponent(bucket)}&name=${encodeURIComponent(nome)}`,
+            { method: "DELETE", headers: await authFresh() },
+          );
+          if (!res.ok) throw new Error();
+          fotoTutte = fotoTutte.filter((f) => !(f.bucket === bucket && f.name === nome));
+          disegnaFoto();
+        } catch {
+          btn.disabled = false;
+          btn.classList.remove("confirm");
+          btn.innerHTML = TRASH_ICON;
+          toast(tr("us.editErr"), true);
+        }
+      }
+
+      function disegnaMenuFiltri(): void {
+        const box = document.getElementById("j-menu-filtri");
+        if (!box) return;
+        // ⚠️ Fissi, come nei giorni speciali: tre posti che si imparano una
+        // volta. Una colonna vuota lo dice con la sua frase.
+        const voci: { f: StatoPiatto | ""; testo: string; ico?: string }[] = [
+          { f: "", testo: tr("home.menuAll"), ico: ICO_TUTTE },
+          { f: "sold", testo: tr("home.menuSold") },
+          { f: "hidden", testo: tr("home.menuHidden") },
+        ];
+        box.innerHTML = voci.map((v) =>
+          `<button type="button" class="rh-filter${v.ico ? " tutte" : ""}${v.f === menuFiltro ? " is-on" : ""}"` +
+          ` data-f="${escHtml(v.f)}"${v.ico ? ` aria-label="${escHtml(v.testo)}" title="${escHtml(v.testo)}"` : ""}>` +
+          `${v.ico ?? ""}<span class="et">${escHtml(v.testo)}</span></button>`).join("");
+      }
+
+      function disegnaMenu(): void {
+        disegnaMenuFiltri();
+        const lista = document.getElementById("j-menu-lista");
+        const tuttiFuori = piattiFuori(menuRighe);
+        // ⚠️ La pastiglia conta TUTTI i fuori, non quelli del filtro: e' il
+        // numero della colonna, e cambiarlo premendo un filtro la' sopra
+        // vorrebbe dire un numero di cui non ci si fida piu'.
+        pastigliaConta("j-menu-cnt", tuttiFuori.length);
+        if (!lista) return;
+        const viste = conStato(menuRighe, menuFiltro);
+        // Due vuoti diversi: «e' tutto online» e «nessuno di questi».
+        lista.innerHTML = viste.length
+          ? viste.map((r) => rigaMenu(r)).join("")
+          : `<p class="j-vuoto">${menuFiltro ? tr("home.nothingToShow") : tr("home.menuOnline")}</p>`;
+      }
+
+      document.getElementById("j-menu-filtri")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+        if (!b) return;
+        menuFiltro = (b.dataset.f ?? "") as StatoPiatto | "";
+        disegnaMenu();
+      });
+
+      /** Rimette in vendita un piatto esaurito.
+       *  ⚠️ LA STESSA CHIAMATA della pagina Menu (`PUT /api/admin/menu` con
+       *  `{ id, sold_out }`): un secondo modo di dire «non e' finito» sarebbe
+       *  un secondo posto in cui ricordarsi le regole della sede. */
+      document.getElementById("j-menu-lista")?.addEventListener("change", async (ev) => {
+        const el = (ev.target as HTMLElement).closest<HTMLInputElement>("input[data-menu-id]");
+        if (!el) return;
+        const id = el.dataset.menuId ?? "";
+        const finito = el.checked;
+        el.disabled = true;
+        try {
+          const res = await fetch("/api/admin/menu", {
+            method: "PUT",
+            headers: await authFresh({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ id, sold_out: finito }),
+          });
+          if (!res.ok) throw new Error();
+          const r = menuRighe.find((x) => String(x.id ?? "") === id);
+          if (r) r.sold_out = finito;
+          // Il piatto esce dall'elenco: non e' piu' fuori. La pastiglia e i
+          // numeri si rifanno con lui.
+          disegnaMenu();
+        } catch {
+          // ⚠️ L'interruttore torna com'era: lasciarlo girato direbbe che il
+          // piatto e' tornato in vendita mentre il sito lo mostra barrato.
+          el.checked = !finito;
+          el.disabled = false;
+          toast(tr("us.editErr"), true);
+        }
+      });
+
       /** I tavoli di una prenotazione, COL LORO NOME. `tables` porta gli id, e
        *  un id non dice niente a chi lavora: in sala il tavolo si chiama «3».
        *  Senza piano sala (mappa vuota) non si scrive niente — meglio tacere
@@ -1964,6 +2999,69 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudiStMenu(); });
 
+      // ============================================================
+      // LA PASTIGLIA DEL CONTEGGIO — «3 aujourd'hui», e il locale chiuso
+      // ------------------------------------------------------------
+      // ⚠️ IL COLORE DICE SE C'E' DA LAVORARE: neutra a zero (un numero, non
+      // uno stato), VERDE da uno in su, ROSSA quando il locale oggi non apre —
+      // e allora al posto del numero c'e' «Fermé aujourd'hui», perche' «0
+      // aujourd'hui» su una giornata di chiusura si legge come «nessuno ha
+      // prenotato», che e' un'altra cosa e fa venire voglia di controllare.
+      //
+      // ⚠️ CHI DECIDE SE E' CHIUSO e' la colonna «Aujourd'hui», con
+      // `statoGiorno()`: una seconda lettura degli orari qui vorrebbe dire due
+      // colonne accanto che possono dire il contrario. Ma quel blocco gira
+      // DOPO prenotazioni e ordini, quindi la pastiglia si disegna due volte:
+      // prima col numero, poi — se la giornata e' chiusa — col rosso. Lo
+      // stesso che fa la colonna dei giorni speciali con le feste.
+      // ============================================================
+      /** Oggi il locale e' chiuso? `null` = ancora non si sa (configurazione
+       *  non arrivata).
+       *  ⚠️ Non confondere con `giornoChiuso(iso)`, poco piu' su: quella
+       *  risponde per un giorno QUALSIASI e la usa il calendario; questa e' lo
+       *  stato di OGGI, deciso una volta sola dalla colonna «Aujourd'hui». */
+      let oggiChiuso: boolean | null = null;
+      const contaPastiglia = new Map<string, number>();
+
+      function pastigliaGiorno(id: string, n: number): void {
+        contaPastiglia.set(id, n);
+        disegnaPastiglia(id);
+      }
+
+      function disegnaPastiglia(id: string): void {
+        const el = document.getElementById(id);
+        const n = contaPastiglia.get(id);
+        if (!el || n === undefined) return;
+        if (oggiChiuso) {
+          el.textContent = tr("home.closedToday");
+          el.className = "j-pil ko";
+          return;
+        }
+        el.textContent = tr("home.nToday").replace("{n}", String(n));
+        // Verde = c'e' qualcosa; neutra = non c'e' niente, e non e' un guasto.
+        el.className = n > 0 ? "j-pil" : "j-pil n";
+      }
+
+      /**
+       * LA PASTIGLIA DI UNA COLONNA: un numero e basta (note da fare, decisioni
+       * sui giorni speciali, piatti fuori, foto libere).
+       *
+       * ⚠️ Stesso colore delle altre due: VERDE da uno in su, neutra a zero.
+       * Era il contrario di quello che si vedeva — `.j-pil` da solo E' gia'
+       * verde, e due colonne portavano una classe `att` che nel foglio di
+       * stile non esisteva: sembravano scelte, erano verdi per caso.
+       *
+       * ⚠️ A ZERO la pastiglia SPARISCE (`.j-pil:empty`, in CSS): «0» accanto
+       * a un titolo e' un posto occupato per dire che non c'e' niente, e la
+       * colonna qui sotto lo dice gia' con la sua frase.
+       */
+      function pastigliaConta(id: string, n: number): void {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = n > 0 ? String(n) : "";
+        el.className = n > 0 ? "j-pil" : "j-pil n";
+      }
+
       /** Un blocco a tre piani: etichetta (gia' nel markup), numero, descrizione. */
       function numero(id: string, valore: string, sotto: string): void {
         const v = document.getElementById(id);
@@ -2235,8 +3333,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // ⚠️ E conta quelle MOSTRATE: con un filtro acceso, un numero nel
           // titolo piu' grande delle note qui sotto e' un numero che chi
           // guarda deve spiegarsi da solo.
-          const pil = document.getElementById("j-note-cnt");
-          if (pil) pil.textContent = mostrate.length ? String(noteDaFare(mostrate).length) : "";
+          // ⚠️ Conta le note DA FARE, non tutte: una lavagnetta con trenta
+          // note spuntate direbbe «30» a chi non ha niente da leggere. E a
+          // zero sparisce, invece di dire «0».
+          pastigliaConta("j-note-cnt", noteDaFare(mostrate).length);
           if (mostrate.length === 0) {
             // Due vuoti diversi: «non ce ne sono» e «nessuna ha questa
             // etichetta». Il primo dice di premere +, il secondo sarebbe un
@@ -2900,12 +4000,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         if (jourEl) jourEl.style.display = "";
 
         // Organiser: solo su schermi larghi (su mobile le tuiles sono impilate)
+        // ⚠️ E solo se c'e' almeno un'ISOLA da organizzare. Da quando tutto e'
+        // salito nella fascia la griglia e' vuota, e tre bottoni che aprono
+        // una finestra vuota sono tre bottoni che fanno perdere tempo.
+        const isole = cardsEl?.querySelectorAll(".tile[data-tile]").length ?? 0;
         const fabOrg = document.getElementById("organiser-btn");
         const petit = stretto();
-        if (fabOrg && !petit) fabOrg.style.display = "flex";
+        if (fabOrg && !petit && isole) fabOrg.style.display = "flex";
         // Sur mobile : pas de réorganisation, mais on garde le choix des tuiles
         const fabTui = document.getElementById("organiser-tuiles");
-        if (fabTui && petit) fabTui.style.display = "flex";
+        if (fabTui && petit && isole) fabTui.style.display = "flex";
         posizionaIsole();
 
         // ---- Allineamento isole (SOLO home): ingranaggio Admin subito a sinistra
@@ -2928,26 +4032,39 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
         avviaNote(headers);
 
-        // ---------- Photos récentes (bibliothèque, ultime 8) ----------
+        // ---------- Visibilité: Search Console, 28 giorni ----------
+        // ⚠️ Fuori dal giro degli altri dati: la risposta passa da Google e
+        // puo' metterci qualche secondo. Attaccata al resto, tutta la fascia
+        // avrebbe aspettato lei.
+        void caricaVis(visPeriodo);
+
+        // ---------- Recettes: i soldi del mese ----------
+        // ⚠️ Anche questa per conto suo: e' una lettura di tutti gli ordini
+        // del periodo, e il resto della fascia non deve aspettarla.
+        void caricaRec(recPeriodo);
+
+        // ---------- Photos: la bibliotheque, intera ----------
+        // ⚠️ INTERA e non «le ultime otto»: il tetto era il modo di far stare
+        // la libreria in una tile, e nascondeva proprio le foto vecchie — che
+        // sono quelle che nessuno usa piu'. La colonna le mostra tutte e
+        // scorre dentro, come le altre.
         (async () => {
-          const phGrid = document.getElementById("ph-grid") as HTMLElement;
+          const lista = document.getElementById("j-foto-lista");
           try {
             const res = await fetch("/api/admin/images", { headers });
             if (!res.ok) throw new Error();
-            const images = (((await res.json()) as { images: { url: string; name: string }[] }).images) ?? [];
-            if (!images.length) {
-              phGrid.innerHTML = `<div class="ph-empty">${tr("home.noImages")}</div>`;
-              return;
-            }
-            phGrid.innerHTML = images
-              .slice(0, 8)
-              .map(
-                (i) =>
-                  `<a class="ph-cell" href="/admin/assets" title="${escHtml(i.name)}"><img src="${escHtml(i.url)}" alt="" loading="lazy" /></a>`
-              )
-              .join("");
+            fotoTutte = (((await res.json()) as { images?: FotoRow[] }).images) ?? [];
+            const col = document.getElementById("j-foto");
+            if (col) col.style.display = "";
+            const nums = document.getElementById("j-foto-nums");
+            if (nums) nums.style.display = "";
+            disegnaFoto();
           } catch {
-            phGrid.innerHTML = `<div class="ph-empty">${tr("home.imagesUnavailable")}</div>`;
+            // ⚠️ La colonna resta spenta, e non mezza vuota con una frase
+            // d'errore: quando lo Storage non risponde non c'e' niente da
+            // dire che aiuti, e tre riquadri a trattino sembrerebbero una
+            // libreria vuota.
+            if (lista) lista.innerHTML = `<div class="ph-grid"><div class="ph-empty">${tr("home.imagesUnavailable")}</div></div>`;
           }
         })();
 
@@ -3196,15 +4313,17 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         function disegnaSpxFiltri(): void {
           const box = document.getElementById("j-spx-filtri");
           if (!box) return;
-          const tipi = filtriUtili(spxRighe);
-          // ⚠️ Un filtro solo non e' un filtro: con le sole chiusure, «Toutes»
-          // e «Fermetures» danno la stessa colonna.
-          box.style.display = tipi.length > 1 ? "" : "none";
-          if (spxFiltro && !tipi.includes(spxFiltro)) spxFiltro = "";
-          if (tipi.length < 2) return;
+          // ⚠️ I QUATTRO SONO SEMPRE QUI, anche quando uno non ha righe: la
+          // riga dei comandi non deve cambiare forma da sola (`TIPI_FILTRO`,
+          // in `giorniSpecialiRegole.ts`). Una colonna vuota lo dice con la
+          // sua frase, che e' una risposta vera.
+          box.style.display = "";
           const nome: Record<TipoRiga, string> = {
             closed: tr("home.spxClosures"),
-            open: tr("home.spxHoursTag"),
+            // «Aperture»: sono le aperture eccezionali decise qui. La
+            // pastiglia della riga resta «Horaires», che e' cosa cambia quel
+            // giorno — un'altra domanda.
+            open: tr("home.spxOpenings"),
             fete: tr("home.spxFetes"),
           };
           const chip = (val: string, testo: string, ico = ""): string =>
@@ -3212,7 +4331,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             ` data-f="${escHtml(val)}"${ico ? ` aria-label="${escHtml(testo)}" title="${escHtml(testo)}"` : ""}>` +
             `${ico}<span class="et">${escHtml(testo)}</span></button>`;
           box.innerHTML = chip("", tr("home.notesAll"), ICO_TUTTE) +
-            tipi.map((t) => chip(t, nome[t])).join("");
+            TIPI_FILTRO.map((t) => chip(t, nome[t])).join("");
         }
 
         function disegnaSpx(chiusi: Set<string>, noto: boolean): void {
@@ -3221,16 +4340,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           if (!col || !lista) return;
           col.style.display = "";
           const viste = spxFiltro ? spxRighe.filter((r) => r.tipo === spxFiltro) : spxRighe;
+          // ⚠️ Due vuoti diversi, come nella colonna delle note: «non ce n'e'»
+          // e «nessuna di queste». Col filtro acceso, «nessun giorno speciale»
+          // sarebbe falso — i giorni ci sono, e' il filtro che li nasconde.
           lista.innerHTML = viste.length
             ? viste.map((r) => rigaSpx(r, chiusi, noto)).join("")
-            : `<p class="j-vuoto">${tr("home.noSpecialDays")}</p>`;
+            : `<p class="j-vuoto">${spxFiltro ? tr("home.nothingToShow") : tr("home.noSpecialDays")}</p>`;
           disegnaSpxFiltri();
           const c = conti(spxRighe);
-          const pil = document.getElementById("j-spx-cnt");
           // ⚠️ La pastiglia conta le DECISIONI, non le righe: le feste sono
           // contorno, e un «12» fatto di feste direbbe che c'e' da lavorare
           // dove non c'e' niente da fare.
-          if (pil) pil.textContent = c.chiusure + c.orari ? String(c.chiusure + c.orari) : "";
+          pastigliaConta("j-spx-cnt", c.chiusure + c.orari);
           numero("j-spx-ferm", String(c.chiusure),
             c.giorniChiusi ? tr("home.spxDays").replace("{n}", String(c.giorniChiusi)) : "");
           numero("j-spx-ore", String(c.orari), "");
@@ -3657,8 +4778,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
             const box = document.getElementById("j-ord");
             if (box) box.style.display = "";
-            const cnt = document.getElementById("j-ord-cnt");
-            if (cnt) cnt.textContent = tr("home.nToday").replace("{n}", String(ordOggi.length));
+            pastigliaGiorno("j-ord-cnt", ordOggi.length);
 
             // ⚠️ La lista e' quello che RESTA DA FARE (`daServire`, in
             // `ordiniConti.ts`): un ordine ritirato esce. Il conteggio in alto
@@ -3714,8 +4834,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
             const box = document.getElementById("j-resa");
             if (box) box.style.display = "";
-            const cnt = document.getElementById("j-resa-cnt");
-            if (cnt) cnt.textContent = tr("home.nToday").replace("{n}", String(tutte.length));
+            pastigliaGiorno("j-resa-cnt", tutte.length);
 
             // ⚠️ Le righe restano in memoria: cambiando uno stato dalla
             // pastiglia si ridisegna la colonna senza richiedere di nuovo la
@@ -3802,6 +4921,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // cioe' «Non disponibile» col vestito di «Fermé»: un locale aperto
             // con un'API lenta si vedeva chiuso sulla propria Accueil.
             const stato = statoGiorno(cfg);
+            // ⚠️ «ignoto» NON e' «chiuso»: con la configurazione non arrivata
+            // le altre due pastiglie restano col loro numero, invece di dire
+            // che il locale e' chiuso quando nessuno lo sa.
+            oggiChiuso = stato === "ignoto" ? null : stato === "chiuso";
+            disegnaPastiglia("j-resa-cnt");
+            disegnaPastiglia("j-ord-cnt");
             if (pil) {
               pil.textContent = stato === "ignoto" ? tr("home.unavail")
                 : stato === "aperto" ? tr("home.tagOpen") : tr("home.tagClosed");
@@ -4066,39 +5191,25 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }
 
 
-          // ---------- Menu ----------
+          // ---------- Menu : cosa non si puo' vendere adesso ----------
           if (resMenu.ok && resCats.ok) {
-            const rows = ((await resMenu.json()).items as MenuRow[]) ?? [];
+            menuRighe = ((await resMenu.json()).items as MenuRow[]) ?? [];
             const cats = ((await resCats.json()).categories as Cat[]) ?? [];
             const kindByCat = new Map(cats.map((c) => [c.name, c.kind]));
-            let food = 0, drink = 0;
-            for (const r of rows) {
-              if (kindByCat.get(r.category) === "drink") drink++;
-              else food++;
-            }
-            (document.getElementById("menu-food") as HTMLElement).textContent = String(food);
-            (document.getElementById("menu-drink") as HTMLElement).textContent = String(drink);
-
-            // Non un numero ma i NOMI: il ristoratore deve sapere QUALE piatto
-            // e' fuori, altrimenti deve aprire il menu per scoprirlo.
-            // Prima gli esauriti (sono ancora sul sito, il cliente li vede),
-            // poi i nascosti. «Nascosto» vince su «esaurito»: se il piatto non
-            // e' online, dire che e' esaurito non aggiunge niente.
-            const indispoEl = document.getElementById("menu-indispo") as HTMLElement;
-            const fuori = rows
-              .filter((r) => !r.available || r.sold_out)
-              .sort((x, y) => Number(!!y.available && !!y.sold_out) - Number(!!x.available && !!x.sold_out));
-            const MAXI = 4;
-            const escM = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            indispoEl.innerHTML = !fuori.length
-              ? `<div class="spx-empty">${tr("home.allVisible")}</div>`
-              : fuori.slice(0, MAXI).map((r) => {
-                  const b = !r.available
-                    ? `<span class="spx-b hid">${tr("print.hidden")}</span>`
-                    : `<span class="spx-b closed">${tr("menu.soldOut")}</span>`;
-                  return `<div class="spx-row">${b}<span class="spx-nome">${escM(r.name)}</span></div>`;
-                }).join("") +
-                (fuori.length > MAXI ? `<div class="spx-more">+ ${fuori.length - MAXI} ${tr("home.more")}…</div>` : "");
+            const c = contiMenu(menuRighe, (nome) => kindByCat.get(nome));
+            numero("j-menu-food", String(c.piatti),
+              c.catPiatti ? tr("home.menuCats").replace("{n}", String(c.catPiatti)) : "");
+            numero("j-menu-drink", String(c.bevande),
+              c.catBevande ? tr("home.menuCats").replace("{n}", String(c.catBevande)) : "");
+            // ⚠️ Un trattino e non «0»: zero piatti senza foto e' una buona
+            // notizia, e in corallo grande sembrerebbe un allarme.
+            numero("j-menu-nofoto", c.senzaFoto ? String(c.senzaFoto) : "—",
+              c.totale ? tr("home.menuOfN").replace("{n}", String(c.totale)) : "");
+            const box = document.getElementById("j-menu");
+            if (box) box.style.display = "";
+            const nums = document.getElementById("j-menu-nums");
+            if (nums) nums.style.display = "";
+            disegnaMenu();
           }
         } catch {
           /* i tile degradano in silenzio; la pagina resta usabile */
@@ -4132,15 +5243,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnTuiles = document.getElementById("organiser-tuiles") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number; hidden?: boolean };
-        const KEYS = ["menu", "visibilite", "assets"];
+        const KEYS = ["visibilite"];
         // ⚠️ `orders`, `reservations`, `google`, `settings` (gli orari),
-        // `cuisine` (préparation e chiusura online) e `notes` non sono piu' qui: il
+        // `cuisine` (préparation e chiusura online), `notes`, `menu` e `assets` non sono piu' qui: il
         // loro contenuto e' salito nella fascia della giornata, che e' FISSA. Una gerarchia che si puo' trascinare torna
         // a essere una griglia di riquadri uguali, cioe' il difetto da cui
         // siamo partiti.
         const DEFAULT_LAYOUT: Item[] = [
-          { key: "menu", w: 1 }, { key: "visibilite", w: 1 },
-          { key: "assets", w: 2 },
+          { key: "visibilite", w: 2 },
         ];
 
         let editing = false;
@@ -4557,52 +5667,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               if (per) per.style.display = "";
             }
           } catch { /* i numeri non sono arrivati: la nota e gli avis restano */ }
-        })();
-
-        // --- Tile Visibilité (Search Console) ---
-        (async () => {
-          const tile = document.getElementById("tile-visi") as HTMLElement | null;
-          if (!tile) return;
-          try {
-            const res = await fetch("/api/admin/search-console", { headers });
-            if (!res.ok) return;
-            const v = (await res.json()) as {
-              configured: boolean; clicks: number; impressions: number;
-              deltaClicks: number | null;
-              top: { query: string; clicks: number; impressions: number }[];
-            };
-            if (!v.configured) return; // niente propriété → tile nascosta
-            tile.style.display = "";
-            const nf = new Intl.NumberFormat(LOC);
-            const cEl = document.getElementById("visi-clicks");
-            if (cEl) cEl.textContent = nf.format(v.clicks);
-            const iEl = document.getElementById("visi-imp");
-            if (iEl) iEl.textContent = nf.format(v.impressions);
-            const dEl = document.getElementById("visi-delta");
-            if (dEl) {
-              if (v.deltaClicks === null || v.deltaClicks === 0) {
-                dEl.textContent = "";
-              } else {
-                const up = v.deltaClicks > 0;
-                dEl.textContent = (up ? "▲ " : "▼ ") + Math.abs(v.deltaClicks) + "%";
-                dEl.classList.add(up ? "up" : "down");
-              }
-            }
-            const ul = document.getElementById("visi-list");
-            const box = document.getElementById("visi-queries") as HTMLElement | null;
-            if (ul) {
-              if (!v.top.length) {
-                if (box) box.style.display = "none";
-              } else {
-                ul.innerHTML = v.top
-                  .map((q) => {
-                    const t = q.query.replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c] as string));
-                    return `<li><span class="vq-t">${t}</span><span class="vq-n">${nf.format(q.clicks)}</span></li>`;
-                  })
-                  .join("");
-              }
-            }
-          } catch { /* rete assente : tile reste cachée */ }
         })();
 
         // Carica il layout salvato (o default)

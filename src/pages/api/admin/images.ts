@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { SITE_IMAGE_KEYS, SITE_IMAGE_SLOTS } from "../../../config/siteImageSlots";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
@@ -39,7 +40,7 @@ function json(body: unknown, status = 200): Response {
  *  I tag Menu/Marketing derivano dall'USO, non dal bucket: un'immagine
  *  usata da un piatto E da un pop-up ha entrambi i tag; una mai usata
  *  non ha alcuna correlazione ("Libre"). */
-type Uso = { label: string; kind: "menu" | "marketing" };
+type Uso = { label: string; kind: "menu" | "marketing" | "site" };
 
 async function mappaUsi(): Promise<Map<string, Uso[]>> {
   const usi = new Map<string, Uso[]>();
@@ -54,16 +55,34 @@ async function mappaUsi(): Promise<Map<string, Uso[]>> {
   // questa foto», e la risposta deve comprendere gli altri punti. Filtrando,
   // un'immagine usata da Jourdan risulterebbe «Libre» guardando da Stockel,
   // e la si cancellerebbe.
-  const [piatti, pops, eventi] = await Promise.all([
+  const [piatti, pops, eventi, sito] = await Promise.all([
     supabaseAdmin.from("menu_items").select("name, image_url").not("image_url", "is", null),
     supabaseAdmin.from("popups").select("title, title_en, image_url").not("image_url", "is", null),
     supabaseAdmin.from("agenda_events").select("title, image_url").not("image_url", "is", null),
+    /* ⚠️ IL SITO PUBBLICO MANCAVA, ed e' il guasto peggiore di questa mappa.
+       Le foto degli slot del sito (hero, galleria, bandone) si scelgono dalla
+       bibliotheque e l'URL finisce in `app_config`: nessuno le leggeva, quindi
+       risultavano «Libres» — e la pagina Assets lascia cancellare le libere.
+       Si poteva cancellare la foto grande della pagina d'accueil, dalla
+       bibliotheque, e il sito restava col buco. Nessun errore, nessun avviso:
+       la si ritrovava guardando il sito. */
+    supabaseAdmin.from("app_config").select("key, value").in("key", SITE_IMAGE_KEYS),
   ]);
   for (const p of piatti.data ?? []) aggiungi(p.image_url, { label: `Plat : ${p.name}`, kind: "menu" });
   for (const p of pops.data ?? [])
     aggiungi(p.image_url, { label: `Pop-up : ${p.title || p.title_en || "sans titre"}`, kind: "marketing" });
   for (const e of eventi.data ?? [])
     aggiungi((e as { image_url?: string | null }).image_url ?? null, { label: `Événement : ${(e as { title?: string }).title ?? ""}`, kind: "marketing" });
+  // Il nome dello slot, leggibile: «Site : Accueil — Galerie Photo 3». E' cio'
+  // che si legge prima di cancellare, e un `site_gallery_3` non direbbe dove
+  // andare a rimetterla.
+  const nomeSlot = new Map(SITE_IMAGE_SLOTS.map((x) => [x.key, `${x.page} — ${x.group} ${x.label}`.trim()]));
+  for (const r of (sito.data ?? []) as { key?: unknown; value?: unknown }[]) {
+    const k = String(r?.key ?? "");
+    const url = String(r?.value ?? "").trim();
+    if (!url) continue;
+    aggiungi(url, { label: `Site : ${nomeSlot.get(k) ?? k}`, kind: "site" });
+  }
   return usi;
 }
 

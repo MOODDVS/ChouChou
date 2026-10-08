@@ -867,6 +867,7 @@ const varianti = boot.features.includes("variants");
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { etichettaFormati, formatiFiniti } from "../../lib/admin/menuRegole";
       import { euroDa } from "../../lib/soldi";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
@@ -987,12 +988,12 @@ const varianti = boot.features.includes("variants");
         // sembrava a posto: nessun badge, l'interruttore Esaurito della riga
         // spento (e' del piatto intero), e l'unico modo di accorgersene era
         // aprire il modale. Qui si dice QUALE formato e' finito.
-        const finiti = (it.variants ?? []).filter((v) => v.sold_out === true);
-        if (!finiti.length) return pallino;
-        const nome = (v: { label_i18n?: Record<string, string>; key: string }) =>
-          v.label_i18n?.[PUB.def] || Object.values(v.label_i18n ?? {})[0] || v.key;
-        const testo = finiti.length === 1 ? nome(finiti[0]) : `${nome(finiti[0])} +${finiti.length - 1}`;
-        const titolo = finiti.map(nome).join(", ");
+        // ⚠️ La regola sta in `menuRegole.ts`: la colonna «Menu» della Accueil
+        // disegna la stessa pastiglia, e due copie si dividono alla prima
+        // modifica — una direbbe «40 cm +1» e l'altra «2 formati».
+        const testo = etichettaFormati(it, PUB.def);
+        if (!testo) return pallino;
+        const titolo = formatiFiniti(it, PUB.def).join(", ");
         return `${pallino}<span class="i-soldout" title="${esc(tr("menu.soldOut"))} : ${esc(titolo)}">⛔ ${esc(testo)}</span>`;
       }
       /** Pastiglia «solo qui»: il piatto e' di QUESTO punto e non del gruppo.

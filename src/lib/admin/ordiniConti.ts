@@ -73,6 +73,32 @@ export function entrato(o: RigaOrdine): number {
   return Math.max(0, num(o?.total_cents) - num(o?.refunded_cents) - num(o?.supplement_due_cents));
 }
 
+/**
+ * I SOLDI TORNATI INDIETRO per un ordine.
+ *
+ * ⚠️ Esiste perche' `entrato()` li sottrae e poi li DIMENTICA: il totale
+ * resta giusto, ma di quanto sia stato rimborsato non resta traccia da nessuna
+ * parte: una serata con mille euro incassati e trecento resi si legge uguale a
+ * una da settecento senza un rimborso, e sono due serate diverse.
+ *
+ * Mai sotto zero e mai piu' del totale: una riga ritoccata a mano puo' portare
+ * un rimborso piu' grande di quel che e' stato pagato, e un rimborso che
+ * supera l'incasso farebbe una percentuale sopra il cento.
+ */
+export function rimborsato(o: RigaOrdine): number {
+  return Math.min(Math.max(0, num(o?.total_cents)), Math.max(0, num(o?.refunded_cents)));
+}
+
+/** Gli ordini che hanno reso dei soldi: quelli, e non quante volte. */
+export function conRimborso<T extends RigaOrdine>(ordini: T[] | null | undefined): T[] {
+  return righeIncassate(ordini).filter((o) => rimborsato(o) > 0);
+}
+
+/** I soldi resi nel periodo: la somma, sulle stesse righe dell'incasso. */
+export function rimborsi(ordini: RigaOrdine[] | null | undefined): number {
+  return righeIncassate(ordini).reduce((s, o) => s + rimborsato(o), 0);
+}
+
 /** Le righe che portano denaro: `paid` e `done`. */
 export function righeIncassate<T extends RigaOrdine>(ordini: T[] | null | undefined): T[] {
   return (ordini ?? []).filter((o) => INCASSATI.includes(String(o?.status ?? "")));

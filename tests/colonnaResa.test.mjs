@@ -189,3 +189,21 @@ test("guardia · «HH:MM → minuti» sta in un posto solo", () => {
   // Accueil, con lo stesso corpo e due nomi.
   assert.ok(!/function minutiDi\(/.test(HOME), "niente seconda copia di minutiDa nella Accueil");
 });
+
+/* ---------- la pastiglia del conteggio, in testa alla colonna ---------- */
+
+test("guardia · la pastiglia e' verde da uno in su, rossa a locale chiuso", () => {
+  /* ⚠️ «0 aujourd'hui» su una giornata di chiusura si legge come «nessuno ha
+     prenotato», che e' un'altra cosa e fa venire voglia di controllare. A
+     locale chiuso la pastiglia dice «Fermé aujourd'hui», in rosso.
+     ⚠️ E chi decide se e' chiuso e' la colonna «Aujourd'hui» (`statoGiorno`):
+     una seconda lettura degli orari vorrebbe dire due colonne accanto che
+     possono dire il contrario. */
+  assert.ok(/function pastigliaGiorno\(/.test(HOME), "una regola sola per le due colonne");
+  assert.ok(/pastigliaGiorno\("j-resa-cnt"/.test(HOME) && /pastigliaGiorno\("j-ord-cnt"/.test(HOME),
+    "prenotazioni e ordini la usano");
+  assert.ok(/oggiChiuso = stato === "ignoto" \? null : stato === "chiuso"/.test(HOME),
+    "lo stato arriva da `statoGiorno`, e «ignoto» non e' «chiuso»");
+  assert.ok(/el\.className = n > 0 \? "j-pil" : "j-pil n"/.test(HOME), "verde da uno in su");
+  assert.ok(/\.j-pil\.ko \{ background: #ed1c24/.test(HOME), "e il rosso delle chiusure");
+});

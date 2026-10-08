@@ -707,6 +707,54 @@ const DIZIONARIO: Dizionario = {
   "home.closed":      { fr: "Fermée", en: "Closed", it: "Chiusa", nl: "Gesloten", es: "Cerrada" },
   "home.open":        { fr: "Ouverte", en: "Open", it: "Aperta", nl: "Open", es: "Abierta" },
   "home.allVisible":  { fr: "Aucun — tout est visible", en: "None — everything is visible", it: "Nessuno — tutto è visibile", nl: "Geen — alles is zichtbaar", es: "Ninguno — todo es visible" },
+  /* La colonna «Menu» della Accueil: mostra solo cio' che oggi e' FUORI. */
+  "home.menuAll":      { fr: "Tous", en: "All", it: "Tutti", nl: "Alle", es: "Todos" },
+  "home.menuSold":     { fr: "Épuisés", en: "Sold out", it: "Esauriti", nl: "Uitverkocht", es: "Agotados" },
+  "home.menuHidden":   { fr: "Masqués", en: "Hidden", it: "Nascosti", nl: "Verborgen", es: "Ocultos" },
+  "home.menuOnline":   { fr: "Toute la carte est en ligne", en: "The whole menu is online", it: "Tutto il menu è online", nl: "De hele kaart staat online", es: "Toda la carta está en línea" },
+  "home.menuNoPhoto":  { fr: "Sans photo", en: "No photo", it: "Senza foto", nl: "Zonder foto", es: "Sin foto" },
+  "home.menuOfN":      { fr: "sur {n}", en: "of {n}", it: "su {n}", nl: "van {n}", es: "de {n}" },
+  "home.menuCats":     { fr: "{n} catégories", en: "{n} categories", it: "{n} categorie", nl: "{n} categorieën", es: "{n} categorías" },
+  "home.menuPhotoNone": { fr: "Pas de photo", en: "No photo", it: "Nessuna foto", nl: "Geen foto", es: "Sin foto" },
+  /* La colonna «Photos» della Accueil. ⚠️ «Libre» e' la parola che la pagina
+     Assets usa gia' per una foto che non mostra nessuno (`as.free`): due nomi
+     per la stessa cosa sarebbero due cose. */
+  "home.phAll":        { fr: "Photos", en: "Photos", it: "Foto", nl: "Foto's", es: "Fotos" },
+  "home.phBtn":        { fr: "+ Image", en: "+ Image", it: "+ Immagine", nl: "+ Afbeelding", es: "+ Imagen" },
+  /* La colonna «Recettes»: i soldi del periodo. ⚠️ Lo scontrino medio, «{n}
+     commandes» e il titolo «Commandes» NON hanno chiavi loro: sono gia'
+     `home.basket`, `home.nOrders` e `nav.orders`. Due chiavi per la stessa
+     parola diventano due traduzioni diverse nella stessa fascia. */
+  "home.recettes":     { fr: "Recettes", en: "Revenue", it: "Incassi", nl: "Inkomsten", es: "Ingresos" },
+  "home.recIn":        { fr: "Encaissé", en: "Collected", it: "Incassato", nl: "Geïnd", es: "Cobrado" },
+  "home.recOut":       { fr: "Remboursé", en: "Refunded", it: "Rimborsato", nl: "Terugbetaald", es: "Reembolsado" },
+  "home.recRefunded":  { fr: "remboursés", en: "refunded", it: "rimborsati", nl: "terugbetaald", es: "reembolsados" },
+  "home.recTop":       { fr: "Articles les plus commandés", en: "Most ordered items", it: "Articoli più ordinati", nl: "Meest bestelde artikelen", es: "Artículos más pedidos" },
+  "home.recNone":      { fr: "Aucune vente sur la période", en: "No sales in this period", it: "Nessuna vendita nel periodo", nl: "Geen verkoop in deze periode", es: "Sin ventas en el periodo" },
+  /* Di che passo sono le barre: il server lo dice con `series_kind`, e la
+     colonna lo scrive sotto il grafico — una barra che vale un mese e una che
+     vale un'ora si leggono in due modi diversi. */
+  "home.recStep.hour":    { fr: "par heure", en: "per hour", it: "per ora", nl: "per uur", es: "por hora" },
+  "home.recStep.weekday": { fr: "par jour de la semaine", en: "per weekday", it: "per giorno della settimana", nl: "per weekdag", es: "por día de la semana" },
+  "home.recStep.day":     { fr: "par jour", en: "per day", it: "per giorno", nl: "per dag", es: "por día" },
+  "home.recStep.month":   { fr: "par mois", en: "per month", it: "per mese", nl: "per maand", es: "por mes" },
+  "home.recStep.quarter": { fr: "par trimestre", en: "per quarter", it: "per trimestre", nl: "per kwartaal", es: "por trimestre" },
+  /* La colonna «Visibilité»: clic, impressioni e posizione da Search Console. */
+  "home.visQuery":     { fr: "Requête", en: "Query", it: "Ricerca", nl: "Zoekopdracht", es: "Búsqueda" },
+  "home.visClicks":    { fr: "Clics", en: "Clicks", it: "Clic", nl: "Kliks", es: "Clics" },
+  "home.visPos":       { fr: "Position", en: "Position", it: "Posizione", nl: "Positie", es: "Posición" },
+  "home.visDays":      { fr: "{n} j", en: "{n} d", it: "{n} g", nl: "{n} d", es: "{n} d" },
+  "home.visNoData":    { fr: "Google n'a pas encore de données pour ce site", en: "Google has no data for this site yet", it: "Google non ha ancora dati per questo sito", nl: "Google heeft nog geen gegevens voor deze site", es: "Google aún no tiene datos de este sitio" },
+  "home.visSpots":     { fr: "{n} places", en: "{n} spots", it: "{n} posti", nl: "{n} plaatsen", es: "{n} puestos" },
+  /* Il piede del grafico: una barra e' un giorno o una settimana (a 90 giorni
+     si raggruppa), e fin dove arrivano i dati — Google ha circa tre giorni di
+     ritardo, quindi l'ultima barra non e' oggi. */
+  "home.visPerDay":    { fr: "par jour", en: "per day", it: "per giorno", nl: "per dag", es: "por día" },
+  "home.visPerWeek":   { fr: "par semaine", en: "per week", it: "per settimana", nl: "per week", es: "por semana" },
+  "home.visUpTo":      { fr: "jusqu'au {d}", en: "through {d}", it: "fino al {d}", nl: "tot {d}", es: "hasta el {d}" },
+  "home.phWeek":       { fr: "{n} cette semaine", en: "{n} this week", it: "{n} questa settimana", nl: "{n} deze week", es: "{n} esta semana" },
+  "home.phSpace":      { fr: "Espace", en: "Space", it: "Spazio", nl: "Ruimte", es: "Espacio" },
+  "home.phEach":       { fr: "{n} l'une", en: "{n} each", it: "{n} l'una", nl: "{n} per stuk", es: "{n} cada una" },
   "home.noSpecialDays": { fr: "Aucun jour spécial à venir", en: "No upcoming special days", it: "Nessun giorno speciale in arrivo", nl: "Geen speciale dagen op komst", es: "Sin días especiales próximos" },
   "home.noCountry":   { fr: "Choisis le pays dans Réglages → Général pour voir les jours fériés", en: "Pick the country in Settings → General to see public holidays", it: "Scegli il paese in Impostazioni → Generale per vedere le festività", nl: "Kies het land in Instellingen → Algemeen om de feestdagen te zien", es: "Elige el país en Ajustes → General para ver los festivos" },
   "home.photos":      { fr: "Photos", en: "Photos", it: "Foto", nl: "Foto's", es: "Fotos" },
@@ -817,6 +865,10 @@ const DIZIONARIO: Dizionario = {
   "home.spxFetes":     { fr: "Fêtes", en: "Holidays", it: "Feste", nl: "Feestdagen", es: "Fiestas" },
   "home.spxHoursTag":  { fr: "Horaires", en: "Hours", it: "Orari", nl: "Uren", es: "Horarios" },
   "home.spxClosures":  { fr: "Fermetures", en: "Closures", it: "Chiusure", nl: "Sluitingen", es: "Cierres" },
+  /* ⚠️ Il FILTRO si chiama «Ouvertures», la pastiglia della riga «Horaires»:
+     il filtro sceglie delle righe (le aperture eccezionali), la pastiglia dice
+     cosa cambia in quel giorno (gli orari). Due domande diverse. */
+  "home.spxOpenings":  { fr: "Ouvertures", en: "Openings", it: "Aperture", nl: "Openingen", es: "Aperturas" },
   "home.spxNext":      { fr: "Prochaine", en: "Next", it: "Prossima", nl: "Volgende", es: "Próxima" },
   "home.spxToday":     { fr: "aujourd’hui", en: "today", it: "oggi", nl: "vandaag", es: "hoy" },
   "home.spxDays":      { fr: "{n} jours", en: "{n} days", it: "{n} giorni", nl: "{n} dagen", es: "{n} días" },

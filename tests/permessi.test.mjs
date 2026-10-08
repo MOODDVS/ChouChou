@@ -322,16 +322,36 @@ test("il contesto dei permessi si costruisce in UN posto solo", () => {
   assert.match(PERMESSI, /export async function contestoDaToken\(/);
 });
 
-test("le statistiche non si chiedono affatto", () => {
-  // Prima la home le chiedeva tre volte a ogni caricamento, anche a chi non
-  // ha la pagina: tre 403 in console, e l'aria di qualcosa di rotto. Si era
-  // risolto mandando al client l'elenco delle sue pagine per non chiedere.
-  // Poi la tile del fatturato e' sparita dalla Accueil, e la domanda giusta
-  // e' diventata un'altra: il modo piu' sicuro di non chiedere male e' non
-  // chiedere. Il fatturato si guarda in /admin/stats.
-  assert.ok(!/api\/admin\/stats/.test(HOME_PAGINA), "la Accueil e' tornata a chiedere le statistiche");
-  // E l'SSR non manda piu' l'elenco delle pagine: non lo legge piu' nessuno,
-  // e un dato che nessuno legge e' un dato che nessuno aggiorna.
+test("le statistiche si chiedono SOLO da chi puo' vederle", () => {
+  // LA STORIA, perche' questa prova ha gia' cambiato forma due volte.
+  // Prima la home chiedeva le statistiche tre volte a ogni caricamento, anche
+  // a chi non ha la pagina: tre 403 in console e l'aria di qualcosa di rotto.
+  // Si era risolto mandando al client l'elenco delle sue pagine. Poi la tile
+  // del fatturato e' sparita dalla Accueil e la regola e' diventata la piu'
+  // semplice possibile: NON chiedere affatto.
+  // Dall'08/10/2026 la Accueil ha di nuovo una colonna del fatturato
+  // («Recettes»), quindi chiede — e la regola torna a essere quella vera, che
+  // non e' «non chiedere» ma CHIEDERE SOLO SE SI PUO'. Le tre righe qui sotto
+  // sono i tre pezzi che lo garantiscono: toglierne uno riapre la porta.
+  //
+  // 1. Il server decide, col contesto dei permessi che usa il middleware.
+  assert.match(HOME_PAGINA, /puoVederePagina\("stats", ctx\)/,
+    "la Accueil non chiede piu' al server se chi guarda puo' vedere il fatturato");
+  assert.match(HOME_PAGINA, /<Giornata recettes=\{vedeRecettes\} \/>/,
+    "la fascia non riceve piu' la decisione: la colonna del fatturato si disegna a tutti");
+  // 2. Il client non chiede se la colonna non c'e'. Senza questa riga la
+  //    colonna sparisce dallo schermo ma il `fetch` parte lo stesso.
+  assert.match(HOME_PAGINA, /if \(!document\.getElementById\("j-rec"\)\) return;[\s\S]{0,400}?api\/admin\/stats/,
+    "il fetch delle statistiche non e' piu' protetto dalla presenza della colonna");
+  // 3. Nessun ALTRO punto della Accueil chiede le statistiche: una seconda
+  //    chiamata, fuori da quella funzione, non avrebbe nessuna di queste due
+  //    protezioni.
+  // ⚠️ Si contano le CHIAMATE, non le volte che l'indirizzo compare: i
+  // commenti qui intorno lo nominano apposta, ed e' giusto che lo facciano.
+  assert.equal((HOME_PAGINA.match(/fetch\([`"']\/api\/admin\/stats/g) ?? []).length, 1,
+    "la Accueil chiede le statistiche da piu' di un posto: solo quello dentro `caricaRec` e' protetto");
+  // E l'SSR non manda l'elenco delle pagine: non lo legge nessuno, e un dato
+  // che nessuno legge e' un dato che nessuno aggiorna.
   assert.ok(!/pagine:/.test(HOME_DATA), "l'SSR manda ancora `pagine`, che ormai non serve a nessuno");
 });
 

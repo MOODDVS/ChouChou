@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import {
-  fondi, conti, filtriUtili, giorniTra, piuGiorni,
+  fondi, conti, TIPI_FILTRO, quante, giorniTra, piuGiorni,
 } from "../src/lib/admin/giorniSpecialiRegole.ts";
 import { attivoNelGiornoSpeciale } from "../src/lib/admin/giornataRegole.ts";
 
@@ -128,12 +128,25 @@ test("la prossima chiusura e' la prossima in ordine di data, non la prima della 
   assert.equal(c2.chiusuraInCorso, false);
 });
 
-test("i filtri esistono solo per quello che c'e' davvero", () => {
-  // Un filtro «Fermetures» su una colonna senza chiusure da' sempre una
-  // colonna vuota: un bottone che non si puo' usare bene.
-  assert.deepEqual(filtriUtili(righe([VIGILIA], [])), ["open"]);
-  assert.deepEqual(filtriUtili(righe([NATALE, VIGILIA], FESTE)), ["closed", "open", "fete"]);
-  assert.deepEqual(filtriUtili([]), []);
+test("i filtri sono sempre i tre, e dividono decisioni e calendario", () => {
+  /* ⚠️ CAMBIATO il 08/10/2026, su richiesta. Prima comparivano solo i filtri
+     che avevano righe: la riga dei comandi cambiava forma da sola — le
+     aperture sparivano quando non ce n'erano — e chi aveva imparato dov'era
+     il bottone lo ritrovava altrove. Tre posti fermi si imparano una volta. */
+  assert.deepEqual([...TIPI_FILTRO], ["closed", "open", "fete"]);
+
+  // ⚠️ Chiusure e aperture sono le DECISIONI (le righe scritte da qualcuno);
+  // le feste sono il calendario. Una festa in cui il locale resta chiuso non
+  // entra fra le chiusure: non l'ha decisa nessuno, e la sua pastiglia dice
+  // gia' cosa succede quel giorno.
+  const r = righe([NATALE, VIGILIA], FESTE);
+  assert.equal(quante(r, "closed"), 1, "solo le chiusure speciali");
+  assert.equal(quante(r, "open"), 1, "solo le aperture speciali");
+  assert.ok(quante(r, "fete") > 0);
+  // Un filtro senza righe esiste lo stesso: la colonna risponde «niente da
+  // mostrare», che e' una risposta vera.
+  assert.equal(quante(righe([VIGILIA], []), "closed"), 0);
+  assert.equal(quante([], "fete"), 0);
 });
 
 test("l'aritmetica dei giorni non ha fusi da sbagliare", () => {

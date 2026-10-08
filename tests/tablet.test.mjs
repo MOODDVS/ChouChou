@@ -60,8 +60,18 @@ test("sull'iPad orizzontale le sezioni diventano un bancone che si tira di lato"
   // e nessuno l'ha deciso.
   assert.equal((home.match(/repeat\(3, minmax\(0, 1fr\)\)/g) ?? []).length, 1,
     "le colonne della giornata sono scritte in piu' di un posto");
-  assert.equal((home.match(/--j-col-h: calc\(/g) ?? []).length, 1,
+  assert.equal((home.match(/--j-col-piena:/g) ?? []).length, 1,
     "l'altezza delle colonne e' calcolata in piu' di un posto");
+
+  // ⚠️ QUI L'ALTEZZA SI RIACCENDE, e non e' un dettaglio del tablet: fra 1024
+  // e 1100 valgono DUE media query, e quella stretta (le sezioni impilate)
+  // spegne l'altezza con `auto`. Nessuna la contraddiceva, quindi su un iPad
+  // mini in orizzontale le colonne del bancone crescevano col loro contenuto
+  // e sbordavano sotto la barra — mentre sul desktop tutto sembrava a posto.
+  assert.match(blocco, /--j-col-h:\s*var\(--j-col-piena\)/,
+    "la fascia iPad non riaccende l'altezza delle colonne: a 1024-1100 vince l'`auto` della fascia stretta e il bancone sborda");
+  assert.doesNotMatch(blocco, /--j-col-h:\s*(calc|max)\(/,
+    "la fascia iPad si ricopia la formula dell'altezza invece di riusarla: al primo cambio resta indietro");
 });
 
 test("le etichette della barra non scendono sotto il leggibile", () => {

@@ -243,6 +243,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           <button class="tab is-active" data-b="">{t("as.all")}<span class="n" id="n-all"></span></button>
           <button class="tab" data-b="menu">{t("nav.menu")}<span class="n" id="n-menu"></span></button>
           <button class="tab" data-b="marketing">{t("nav.marketing")}<span class="n" id="n-pop"></span></button>
+          {/* Le foto montate negli slot del sito pubblico: prima erano «Libres». */}
+          <button class="tab" data-b="site">{t("as.site")}<span class="n" id="n-site"></span></button>
           <button class="tab" data-b="libre">{t("as.free")}<span class="n" id="n-lib"></span></button>
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
@@ -293,6 +295,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { peso as pesoDa } from "../../lib/admin/fotoRegole";
+      import { caricaFoto } from "../../lib/admin/caricaFoto";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -312,7 +316,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         size: number;
         created_at: string;
         used_by: string[];
-        tags: ("menu" | "marketing")[];
+        /* ⚠️ «site» dal 08/10/2026: le foto degli slot del sito pubblico
+           risultavano LIBRES — nessuno leggeva `app_config` — e la bibliotheque
+           le lasciava cancellare, lasciando il buco sulla pagina d'accueil. */
+        tags: ("menu" | "marketing" | "site")[];
       };
 
       const ICO_TRASH =
@@ -332,11 +339,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       }
-      function peso(bytes: number): string {
-        if (!bytes) return "";
-        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} ${tr("as.kb")}`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} ${tr("as.mb")}`;
-      }
+      /** I byte scritti: la riga sta in `fotoRegole.ts`, con i conti della
+       *  colonna «Photos» della Accueil — stessa soglia, stesso
+       *  arrotondamento, un posto solo. */
+      const peso = (bytes: number): string => pesoDa(bytes, tr("as.kb"), tr("as.mb"));
       function dataFr(iso: string): string {
         if (!iso) return "";
         const d = new Date(iso);
@@ -359,7 +365,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       function cardHTML(i: Img): string {
         const usata = i.used_by.length > 0;
         const tagsB = i.tags.length
-          ? i.tags.map((t) => `<span class="tag tag-b">${t === "menu" ? tr("nav.menu") : tr("nav.marketing")}</span>`).join("")
+          ? i.tags.map((t) => `<span class="tag tag-b">${
+              t === "menu" ? tr("nav.menu") : t === "site" ? tr("as.site") : tr("nav.marketing")}</span>`).join("")
           : `<span class="tag tag-l">${tr("as.freeSg")}</span>`;
         const tagU = usata
           ? `<span class="tag tag-u" title="${esc(i.used_by.join(", "))}">${tr("as.used")}</span>`
@@ -397,6 +404,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         nAll.textContent = String(imgs.length);
         nMenu.textContent = String(imgs.filter((i) => i.tags.includes("menu")).length);
         nPop.textContent = String(imgs.filter((i) => i.tags.includes("marketing")).length);
+        (document.getElementById("n-site") as HTMLSpanElement).textContent = String(
+          imgs.filter((i) => i.tags.includes("site")).length
+        );
         (document.getElementById("n-lib") as HTMLSpanElement).textContent = String(
           imgs.filter((i) => !i.tags.length).length
         );
@@ -405,7 +415,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           ? imgs
           : filtro === "libre"
             ? imgs.filter((i) => !i.tags.length)
-            : imgs.filter((i) => i.tags.includes(filtro as "menu" | "marketing"));
+            : imgs.filter((i) => i.tags.includes(filtro as "menu" | "marketing" | "site"));
         if (!vis.length) {
           gridEl.style.display = "none";
           stateEl.style.display = "";
@@ -721,31 +731,25 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           if (!file) return;
           addBtn.disabled = true;
           addBtn.classList.add("is-loading");
-          try {
-            const foto = await comprimiFoto(file);
-            if (foto.size > 4 * 1024 * 1024) throw new Error(tr("as.tooBig4"));
-            const b64 = await new Promise<string>((resolve, reject) => {
-              const r = new FileReader();
-              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-              r.onerror = () => reject(new Error(tr("as.fileUnreadable")));
-              r.readAsDataURL(foto);
-            });
-            const res = await fetch("/api/admin/upload", {
-              method: "POST",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups" }),
-            });
-            const j = await res.json();
-            if (!res.ok) throw new Error(j.error ?? tr("as.uploadFailed"));
+          // ⚠️ IL GESTO sta in `caricaFoto.ts`: comprime, controlla il peso
+          // prima di spedire, spedisce. La colonna «Photos» della Accueil fa
+          // la stessa cosa, e due copie di questa sequenza vogliono dire due
+          // elenchi di controlli che un giorno non coincidono piu'.
+          const esito = await caricaFoto(file, { headers });
+          if (esito.ok) {
             toast(`${tr("as.imgAdded")} ✓`);
             await carica();
-          } catch (err) {
-            toast(err instanceof Error ? err.message : tr("as.uploadFailed"), true);
-          } finally {
-            addBtn.disabled = false;
-            addBtn.classList.remove("is-loading");
-            addFile.value = "";
+          } else {
+            toast(
+              esito.motivo === "grande" ? tr("as.tooBig4")
+                : esito.motivo === "illeggibile" ? tr("as.fileUnreadable")
+                  : (esito.dettaglio || tr("as.uploadFailed")),
+              true,
+            );
           }
+          addBtn.disabled = false;
+          addBtn.classList.remove("is-loading");
+          addFile.value = "";
         });
 
         // ---------- Ajout d'un document (PDF) ----------

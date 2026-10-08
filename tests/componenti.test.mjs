@@ -122,6 +122,28 @@ test("un cestino solo, in tutta la Accueil", () => {
   const HOME = readFileSync("src/pages/admin/index.astro", "utf8");
   const bottoni = [...HOME.matchAll(/<button[^>]*>\$\{TRASH_ICON\}<\/button>/g)].map((m) => m[0]);
   assert.ok(bottoni.length >= 3, `trovati solo ${bottoni.length} cestini: la lettura non funziona piu'`);
-  const fuori = bottoni.filter((b) => !/class="[^"]*\bibtn ibtn-danger\b/.test(b));
+  // ⚠️ `ibtn` e `ibtn-danger`, non per forza attaccate: fra le due ci puo'
+  // stare una TAGLIA (`ibtn-sm`, il cestino sull'angolo di una miniatura).
+  // Cambiare la misura di un componente condiviso e' permesso; ridipingerlo no.
+  const fuori = bottoni.filter((b) => !/class="[^"]*\bibtn\b[^"]*\bibtn-danger\b/.test(b));
   assert.deepEqual(fuori, [], "questi cestini non sono il bottone condiviso:\n  " + fuori.join("\n  "));
+});
+
+test("le pastiglie dei conteggi: una regola per tutte le colonne", () => {
+  /* ⚠️ `.j-pil` da solo E' GIA' VERDE, e due colonne portavano una classe
+     `att` che nel foglio di stile non esisteva: sembrava una scelta, erano
+     verdi per caso. Adesso il colore lo mette una funzione sola — verde da uno
+     in su, neutra a zero — e a zero la pastiglia sparisce (`.j-pil:empty`),
+     perche' «0» accanto a un titolo e' un posto occupato per dire che non c'e'
+     niente. */
+  const HOME = readFileSync("src/pages/admin/index.astro", "utf8");
+  const GIORNATA = readFileSync("src/components/admin/home/Giornata.astro", "utf8");
+  assert.doesNotMatch(GIORNATA, /j-pil att/, "nessuna classe `att` che il CSS non conosce");
+  // A zero non si nasconde a mano: lo fa il CSS, e vale anche per la colonna
+  // che qualcuno aggiungera' domani.
+  assert.match(HOME, /\.j-pil:empty \{ display: none; \}/, "la pastiglia vuota sparisce da CSS");
+  assert.doesNotMatch(HOME, /cnt"\)[^;]*\.style\.display/, "nessun conteggio nascosto a mano");
+  for (const id of ["j-note-cnt", "j-spx-cnt", "j-menu-cnt", "j-foto-cnt"]) {
+    assert.match(HOME, new RegExp(`pastigliaConta\\("${id}"`), `${id} passa dalla regola condivisa`);
+  }
 });

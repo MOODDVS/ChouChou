@@ -21,6 +21,7 @@ import { readFileSync } from "node:fs";
 import {
   entrato, incassato, righeIncassate, panierMedio, restaDaIncassare,
   daServire, fatti, statoOrdine, piattiVeri, notaCliente,
+  rimborsato, rimborsi, conRimborso,
 } from "../src/lib/admin/ordiniConti.ts";
 import { euroDa } from "../src/lib/soldi.ts";
 
@@ -186,4 +187,30 @@ test("guardia · la riga della nota si salta in un posto solo", () => {
     assert.ok(/piattiVeri\(/.test(src), `${nome} usa piattiVeri`);
     assert.ok(!/!== "note" && Number\(i\?\.qty/.test(src), `${nome} non riscrive il filtro`);
   }
+});
+
+test("i soldi RESI si contano, non solo si sottraggono", () => {
+  // ⚠️ `entrato()` toglie il rimborso e poi lo dimentica: il totale resta
+  // giusto, ma quanto sia tornato indietro non lo dice nessuno. Una serata da
+  // 1000 € con 300 € resi si leggeva uguale a una da 700 € senza un rimborso,
+  // e sono due serate diverse: la prima ha avuto tre clienti scontenti.
+  const righe = [
+    { status: "paid", total_cents: 6000, refunded_cents: 6000 },   // reso tutto
+    { status: "done", total_cents: 4000, refunded_cents: 1000 },   // reso in parte
+    { status: "paid", total_cents: 2500 },                          // niente
+    { status: "cancelled", total_cents: 9000, refunded_cents: 9000 }, // mai incassato
+  ];
+  assert.equal(rimborsi(righe), 7000, "i resi del periodo");
+  assert.equal(conRimborso(righe).length, 2, "sono DUE ordini, non tre: l'annullato non era un incasso");
+  // ⚠️ L'annullato non entra ne' nell'incasso ne' nei resi: sono le STESSE
+  // righe (`paid`/`done`), altrimenti si confrontano due insiemi diversi e la
+  // percentuale di reso puo' passare il cento.
+  assert.equal(incassato(righe), 0 + 3000 + 2500, "l'incasso guarda le stesse righe");
+  assert.ok(rimborsi(righe) <= righe.reduce((s, o) => s + (o.status === "cancelled" ? 0 : o.total_cents), 0));
+  // Un rimborso piu' grande del totale (riga ritoccata a mano) non inventa
+  // soldi resi che non sono mai stati incassati.
+  assert.equal(rimborsato({ status: "paid", total_cents: 1000, refunded_cents: 5000 }), 1000);
+  assert.equal(rimborsato({ status: "paid", total_cents: 1000, refunded_cents: -5000 }), 0);
+  assert.equal(rimborsato({ status: "paid", total_cents: 1000 }), 0);
+  assert.equal(rimborsi(null), 0);
 });
