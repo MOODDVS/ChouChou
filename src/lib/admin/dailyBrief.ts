@@ -7,6 +7,7 @@ import type { AdminLang } from "../../i18n/admin";
 import { caricaToday } from "./caricaToday";
 import { copertiDelGiorno, righeDelGiorno } from "./resaConti";
 import { incassato } from "./ordiniConti";
+import { perLaMail, inRitardo } from "./noteRegole";
 import { elencoSedi, leggi, leggiConfig, scriviConfig, sede, SEDE_UNICA, type Ambito } from "./sede";
 import { fusoDi } from "../fuso";
 import { temaEmail, type TemaEmail } from "../temaBrand";
@@ -101,7 +102,7 @@ type BTxt = {
   fermeAuj: string; reouverture: (q: string, h: string) => string;
   motAujourdhui: string; motDemain: string; dansNGiorni: (n: number, d: string) => string;
   couvertsReserves: string; resaConfirmees: (n: number) => string;
-  notesEquipe: string; tags: Record<string, string>;
+  notesEquipe: string; tags: Record<string, string>; enRetard: string;
   aVenir: string; evento: (nome: string, quando: string) => string;
   ouvrirAdmin: string; footer: (ora: string) => string; subject: (d: string) => string;
 };
@@ -117,7 +118,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     fermeAuj: "Fermé aujourd'hui", reouverture: (q, h) => `Réouverture ${q} à ${h}.`,
     motAujourdhui: "aujourd'hui", motDemain: "demain", dansNGiorni: (n, d) => `dans ${n} jours (${d})`,
     couvertsReserves: "Couverts réservés", resaConfirmees: (n) => `${n} réservation${n > 1 ? "s" : ""} confirmée${n > 1 ? "s" : ""}`,
-    notesEquipe: "✏️ Notes de l'équipe", tags: { important: "IMPORTANT", recurrent: "RÉCURRENT", fournisseur: "FOURNISSEUR" },
+    notesEquipe: "✏️ Notes de l'équipe", tags: { important: "IMPORTANT", recurrent: "RÉCURRENT", fournisseur: "FOURNISSEUR" }, enRetard: "EN RETARD",
     aVenir: "📅 À VENIR", evento: (n, q) => `${n} ${q} — pensez au menu spécial et à l'équipe en salle.`,
     ouvrirAdmin: "Ouvrir l'admin", footer: (o) => `Récap automatique quotidien (${o}) — désactivable dans Admin → Notifications.`,
     subject: (d) => `Votre journée — ${d}`,
@@ -133,7 +134,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     fermeAuj: "Closed today", reouverture: (q, h) => `Reopening ${q} at ${h}.`,
     motAujourdhui: "today", motDemain: "tomorrow", dansNGiorni: (n, d) => `in ${n} days (${d})`,
     couvertsReserves: "Booked guests", resaConfirmees: (n) => `${n} confirmed reservation${n > 1 ? "s" : ""}`,
-    notesEquipe: "✏️ Team notes", tags: { important: "IMPORTANT", recurrent: "RECURRING", fournisseur: "SUPPLIER" },
+    notesEquipe: "✏️ Team notes", tags: { important: "IMPORTANT", recurrent: "RECURRING", fournisseur: "SUPPLIER" }, enRetard: "OVERDUE",
     aVenir: "📅 COMING UP", evento: (n, q) => `${n} ${q} — think about the special menu and the floor team.`,
     ouvrirAdmin: "Open the admin", footer: (o) => `Automatic daily recap (${o}) — can be turned off in Admin → Notifications.`,
     subject: (d) => `Your day — ${d}`,
@@ -149,7 +150,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     fermeAuj: "Chiuso oggi", reouverture: (q, h) => `Riapertura ${q} alle ${h}.`,
     motAujourdhui: "oggi", motDemain: "domani", dansNGiorni: (n, d) => `tra ${n} giorni (${d})`,
     couvertsReserves: "Coperti prenotati", resaConfirmees: (n) => `${n} prenotazion${n > 1 ? "i" : "e"} confermat${n > 1 ? "e" : "a"}`,
-    notesEquipe: "✏️ Note del team", tags: { important: "IMPORTANTE", recurrent: "RICORRENTE", fournisseur: "FORNITORE" },
+    notesEquipe: "✏️ Note del team", tags: { important: "IMPORTANTE", recurrent: "RICORRENTE", fournisseur: "FORNITORE" }, enRetard: "IN RITARDO",
     aVenir: "📅 IN ARRIVO", evento: (n, q) => `${n} ${q} — pensa al menu speciale e alla squadra in sala.`,
     ouvrirAdmin: "Apri l'admin", footer: (o) => `Riepilogo automatico quotidiano (${o}) — disattivabile in Admin → Notifiche.`,
     subject: (d) => `La tua giornata — ${d}`,
@@ -165,7 +166,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     fermeAuj: "Vandaag gesloten", reouverture: (q, h) => `Heropening ${q} om ${h}.`,
     motAujourdhui: "vandaag", motDemain: "morgen", dansNGiorni: (n, d) => `over ${n} dagen (${d})`,
     couvertsReserves: "Gereserveerde gasten", resaConfirmees: (n) => `${n} bevestigde reservering${n > 1 ? "en" : ""}`,
-    notesEquipe: "✏️ Notities van het team", tags: { important: "BELANGRIJK", recurrent: "TERUGKEREND", fournisseur: "LEVERANCIER" },
+    notesEquipe: "✏️ Notities van het team", tags: { important: "BELANGRIJK", recurrent: "TERUGKEREND", fournisseur: "LEVERANCIER" }, enRetard: "TE LAAT",
     aVenir: "📅 BINNENKORT", evento: (n, q) => `${n} ${q} — denk aan het speciale menu en aan het zaalteam.`,
     ouvrirAdmin: "Open de admin", footer: (o) => `Automatisch dagoverzicht (${o}) — uit te schakelen in Admin → Meldingen.`,
     subject: (d) => `Jouw dag — ${d}`,
@@ -181,7 +182,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     fermeAuj: "Cerrado hoy", reouverture: (q, h) => `Reapertura ${q} a las ${h}.`,
     motAujourdhui: "hoy", motDemain: "mañana", dansNGiorni: (n, d) => `dentro de ${n} días (${d})`,
     couvertsReserves: "Comensales reservados", resaConfirmees: (n) => `${n} reserva${n > 1 ? "s" : ""} confirmada${n > 1 ? "s" : ""}`,
-    notesEquipe: "✏️ Notas del equipo", tags: { important: "IMPORTANTE", recurrent: "RECURRENTE", fournisseur: "PROVEEDOR" },
+    notesEquipe: "✏️ Notas del equipo", tags: { important: "IMPORTANTE", recurrent: "RECURRENTE", fournisseur: "PROVEEDOR" }, enRetard: "ATRASADA",
     aVenir: "📅 PRÓXIMAMENTE", evento: (n, q) => `${n} ${q} — piensa en el menú especial y en el equipo de sala.`,
     ouvrirAdmin: "Abrir el admin", footer: (o) => `Resumen automático diario (${o}) — se puede desactivar en Admin → Notificaciones.`,
     subject: (d) => `Tu jornada — ${d}`,
@@ -250,12 +251,18 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
     // gruppo. Quindi «nuovi clienti» qui e' un numero del gruppo, uguale nei
     // tre recap. E' voluto: dividerlo vorrebbe dire inventare tre rubriche.
     leggi("clients", ambito, "id").gte("created_at", daIeri).lte("created_at", aIeri),
-    leggi("admin_notes", ambito, "content, tags, done")
+    // ⚠️ `due_at` E QUARANTA RIGHE, non sei. Qui si chiedevano «le ultime sei
+    // note aperte», dalla piu' NUOVA: le note in ritardo sono per definizione
+    // le piu' vecchie, quindi erano esattamente quelle che non comparivano
+    // mai. Questa mail e' l'unico momento della giornata in cui il ristoratore
+    // guarda la lavagnetta prima di aprire il pannello. Le sei da scrivere le
+    // scegli `perLaMail` qui sotto, fra quelle aperte.
+    leggi("admin_notes", ambito, "content, tags, done, due_at, created_at")
       .eq("done", false)
       .order("created_at", { ascending: false })
-      .limit(6)
+      .limit(40)
       .then((r) =>
-        r.error && String(r.error.message ?? "").includes("tags")
+        r.error
           ? leggi("admin_notes", ambito, "content, done")
               .eq("done", false)
               .order("created_at", { ascending: false })
@@ -334,7 +341,12 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
     .filter((r) => (r.people ?? 0) >= 6)
     .sort((a, b) => String(a.heure).localeCompare(String(b.heure)));
 
-  const note = (notesRes.data ?? []) as { content: string; tags?: unknown }[];
+  // Le sei che contano: prima le scadute (dalla piu' vecchia), poi quelle con
+  // una scadenza davanti, poi le altre dalla piu' recente.
+  const note = perLaMail(
+    (notesRes.data ?? []) as { content: string; tags?: unknown; due_at?: string | null; created_at?: string | null }[],
+    Date.now(),
+  );
 
   // Prossimo evento (entro 60 giorni)
   const anno = Number(oggiISO.slice(0, 4));
@@ -455,7 +467,13 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
             .filter(Boolean)
             .map((t) => ` <strong style="font-size:10px;letter-spacing:1px;color:${tema.muted};">[${t}]</strong>`)
             .join("");
-          return `• ${esc(n.content)}${tags}`;
+          // ⚠️ Il ritardo si DICE: una nota scaduta in mezzo alle altre, con
+          // lo stesso aspetto delle altre, e' una riga che si legge e si
+          // scorre. Stessa forma delle etichette, perche' e' la stessa riga.
+          const ritardo = inRitardo(n, Date.now())
+            ? ` <strong style="font-size:10px;letter-spacing:1px;color:${tema.accent};">[${esc(B.enRetard)}]</strong>`
+            : "";
+          return `• ${esc(n.content)}${ritardo}${tags}`;
         })
         .join("<br/>")}</p></td></tr></table></td></tr>`
     : "";

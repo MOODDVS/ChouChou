@@ -23,7 +23,13 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 /** I componenti con una FORMA: quelli che si riconoscono a colpo d'occhio. */
-const COMPONENTI = ["btn", "ibtn", "fld", "rh-filter", "rh-filters", "m-tab", "m-tabs", "md-btn", "switch", "track"];
+const COMPONENTI = [
+  "btn", "ibtn", "fld", "rh-filter", "rh-filters", "m-tab", "m-tabs", "md-btn", "switch", "track",
+  // La pastiglia «aperto / chiuso» (`styles/stati.css`): era scritta con gli
+  // stessi colori e due misure diverse nella colonna della Accueil e
+  // nell'elenco dei Réglages.
+  "spx-b",
+];
 /** Le proprieta' che sono il suo aspetto, non la sua posizione. */
 const VESTITO = [
   "background", "background-color", "color", "border", "border-color",

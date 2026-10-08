@@ -221,7 +221,18 @@ export function attivoNelGiornoSpeciale(
   lista: string[] | null | undefined,
 ): boolean {
   if (lista === null || lista === undefined) return true;
-  return lista.includes(`${key}|${da}-${a}`) || lista.includes(key);
+  const voci = lista.map((t) => String(t ?? ""));
+  if (voci.includes(`${key}|${da}-${a}`) || voci.includes(key)) return true;
+  /* ⚠️ IL GETTONE PORTA L'ORARIO DI QUANDO E' STATO SCRITTO, e gli orari dei
+     servizi si cambiano. Spostando la sera dalle 19:00 alle 18:30, ogni
+     apertura eccezionale salvata prima restava `soir|19:00-23:00` e non
+     combaciava piu' con niente: il giorno restava «aperto» con ZERO servizi —
+     la scatola della Accueil vuota, i filtri della pagina vuoti, e il sito che
+     intanto prendeva prenotazioni. Nessun errore da nessuna parte, e il colpevole
+     era un orario cambiato tre mesi prima.
+     La CHIAVE e' l'identita' del servizio; l'orario nel gettone e' il suo
+     ritratto di allora, e serve a scriverlo in chiaro nella riga. */
+  return voci.some((t) => t.split("|")[0] === key);
 }
 
 /**

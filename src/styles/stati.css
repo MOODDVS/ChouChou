@@ -47,3 +47,40 @@
 .st-menu button.is-cur { color: var(--c-accent); }
 
 .st-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ============================================================
+   LA PASTIGLIA «APERTO / CHIUSO» — una sola per il pannello.
+
+   La usano la colonna «Jours spéciaux» della Accueil, l'elenco dei
+   giorni speciali nei Réglages e la fascia del menu (un piatto fuori
+   dal sito). Stava scritta DUE volte con gli stessi colori e due
+   misure diverse — dentro `admin/index.astro` e dentro
+   `SpecialDaysForm.astro` — cioe' la stessa pastiglia che si leggeva
+   piu' piccola a seconda della pagina. E il giorno che si cambia il
+   verde, si cambia in un posto e si dimentica l'altro.
+
+   ⚠️ I colori NON sono `--c-ok` e `--c-hover`: aperto e chiuso qui
+   sono uno STATO da leggere, non un esito d'azione, e vanno letti su
+   un fondo tenue — un verde pieno in una colonna di dodici righe
+   diventa una fila di lampadine.
+   ============================================================ */
+
+.spx-b {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
+.spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+/* Grigia: una festa che nessuno ha ancora deciso, o un piatto fuori dal
+   sito. Rossa (.closed) = chiuso, o esaurito ma ancora a menu. */
+.spx-b.hid,
+.spx-b.fete { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
+/* Piena: «oggi». E' l'unica riga della colonna che parla del momento in
+   cui qualcuno la sta guardando. */
+.spx-b.now { background: var(--c-accent); color: var(--c-bg); }

@@ -779,12 +779,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* --- Pastiglie aperto/chiuso: colonna Jours spéciaux, tile Menu, Visibilité --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
       .spx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; row-gap: 0.15rem; font-size: 0.92rem; min-width: 0; }
-      .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
-      .spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
-      .spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
-      /* Grigia: il piatto e' fuori dal sito. Rossa (.closed) = esaurito ma
-         ancora a menu — stessa famiglia di pastiglie dei giorni speciali. */
-      .spx-b.hid { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
+      /* `.spx-b` (aperto / chiuso / festa / oggi) sta in `styles/stati.css`:
+         la stessa pastiglia la disegna anche l'elenco dei giorni speciali nei
+         Réglages, e scritta qui era piu' grande di la'. */
       .spx-nome { color: var(--c-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 6rem; min-width: 0; }
       .spx-more { color: var(--c-muted); font-size: 0.8rem; }
       .spx-empty { color: var(--c-muted); font-size: 0.9rem; padding: 0.4rem 0; }
@@ -832,8 +829,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         min-width: 0; margin-top: 3px; }
       .j-spx-dur { font-family: var(--font-title); font-size: 0.95rem; color: var(--c-text); }
       .j-spx-gg { color: var(--c-muted); font-size: 0.78rem; text-transform: capitalize; }
-      .spx-b.fete { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
-      .spx-b.now { background: var(--c-accent); color: var(--c-bg); }
 
 
       /* Guscio, titolo e × : classi .md-* in src/styles/modal.css. */
@@ -1406,6 +1401,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         piattiVeri,
       } from "../../lib/admin/ordiniConti";
       import { euroDa } from "../../lib/soldi";
+      import {
+        tagDi, inRitardo, etichette, conEtichetta, filtroValido,
+        contoDelMese, chiLeFa, attesaPiuVecchia, daFare as noteDaFare,
+      } from "../../lib/admin/noteRegole";
       import {
         fasce, statoGiorno, oreAperte, grafico, altezza, picco, quanto, oraDi,
         serviziDelGiorno, type Serie,
@@ -2039,10 +2038,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          * classe.
          */
         const tagPills = (n: Note): string => {
-          const t = Array.isArray(n.tags) ? n.tags.map((x) => String(x)).filter(Boolean) : [];
+          const t = tagDi(n);
           const quando = testoScadenza(n);
           const ripete = testoRicorrenza(n);
-          const tardi = inRitardo(n);
+          const inRit = tardi(n);
 
           /** Una pastiglia, con il suo dettaglio attaccato se ce l'ha.
            *  ⚠️ Il dettaglio sta accanto alla SUA etichetta, non su una riga
@@ -2054,7 +2053,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            *  dell'admin non ce n'e' una che scrive da destra. */
           const uno = (x: string) => {
             const info = x === "important" ? quando : x === "recurrent" ? ripete : "";
-            const rosso = x === "important" && tardi ? " late" : "";
+            const rosso = x === "important" && inRit ? " late" : "";
             return `<span class="note-tagx"><span class="note-tag ${TAG_LABEL[x] ? "t-" + x : "t-libero"}">${escHtml(TAG_LABEL[x] ?? x)}</span>` +
               (info ? `<span class="note-fr">→</span><b class="note-info${rosso}">${escHtml(info)}</b>` : "") +
               `</span>`;
@@ -2087,7 +2086,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // il loro segno davanti — altrimenti una scadenza ci sarebbe e non
           // si vedrebbe.
           if (quando && !t.includes("important")) {
-            pezzi.push(`<span class="note-tagx">${ICO_SVEGLIA}<b class="note-info${tardi ? " late" : ""}">${escHtml(quando)}</b></span>`);
+            pezzi.push(`<span class="note-tagx">${ICO_SVEGLIA}<b class="note-info${inRit ? " late" : ""}">${escHtml(quando)}</b></span>`);
           }
           if (ripete && !t.includes("recurrent")) {
             pezzi.push(`<span class="note-tagx">${ICO_RIPETI}<b class="note-info">${escHtml(ripete)}</b></span>`);
@@ -2097,32 +2096,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           //  dettaglio, e in coda scadenza o ricorrenza rimaste orfane)
         };
 
-        /** Le etichette presenti nelle note, nell'ordine in cui compaiono. */
-        function etichette(): string[] {
-          const visti = new Map<string, string>();
-          for (const n of notes) {
-            for (const t of Array.isArray(n.tags) ? n.tags : []) {
-              const x = String(t).trim();
-              if (x && !visti.has(x.toLowerCase())) visti.set(x.toLowerCase(), x);
-            }
-          }
-          return [...visti.values()];
-        }
-
         /** La riga dei filtri. ⚠️ Non c'e' se non c'e' niente da filtrare: una
          *  riga con la sola pastiglia «Toutes» e' un comando che non comanda,
          *  e ruba due centimetri alla colonna in cima. */
         function disegnaFiltri(): void {
           const box = document.getElementById("j-note-filtri");
           if (!box) return;
-          const tag = etichette();
+          const tag = etichette(notes);
           box.style.display = tag.length ? "" : "none";
           if (!tag.length) { filtro = ""; return; }
           // ⚠️ Se l'ultima nota con l'etichetta filtrata se ne va — spuntata,
           // cancellata — il filtro resterebbe acceso su una parola che non
           // esiste piu', e la colonna direbbe «niente da mostrare» senza che
-          // si capisca perche'.
-          if (filtro && !tag.some((x) => x.toLowerCase() === filtro.toLowerCase())) filtro = "";
+          // si capisca perche'. (`filtroValido`, in `noteRegole.ts`.)
+          filtro = filtroValido(notes, filtro);
           // ⚠️ `aria-label` e `title` sulla pastiglia con l'icona: su tablet e
           // telefono la parola e' nascosta, e un bottone fatto di un disegno
           // solo non ha piu' un nome — per chi legge con la voce diventa
@@ -2150,10 +2137,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          * accorgersene.
          * La scadenza si vede: lo dice «en retard» in rosso, non la posizione.
          */
-        const visibili = (): Note[] =>
-          filtro
-            ? notes.filter((n) => (Array.isArray(n.tags) ? n.tags : []).some((t) => String(t).toLowerCase() === filtro.toLowerCase()))
-            : notes;
+        const visibili = (): Note[] => conEtichetta(notes, filtro);
 
         /**
          * IL PIEDE DELLA COLONNA: quante ne sono state chiuse, e da quanto
@@ -2172,17 +2156,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         function renderStat(): void {
           const box = document.getElementById("j-note-stat");
           if (box) {
-            if (!notes.length) box.textContent = "";
-            else {
-              const aperte = notes.filter((n) => !n.done);
-              let riga = "";
-              if (aperte.length) {
-                const piuVecchia = aperte.reduce((a, b) => (a.created_at < b.created_at ? a : b));
-                const giorni = Math.floor((Date.now() - new Date(piuVecchia.created_at).getTime()) / 86400000);
-                if (giorni >= 1) riga = tr("home.notesOldest").replace("{n}", String(giorni));
-              }
-              box.textContent = riga;
-            }
+            // ⚠️ GIORNI DI CALENDARIO nel fuso del locale, non fette di
+            // ventiquattro ore: con la sottrazione dei millisecondi una nota
+            // scritta ieri alle 23 diceva «0 giorni» fino alle 23 di oggi,
+            // cioe' per tutta la giornata in cui qualcuno doveva
+            // accorgersene. La regola sta in `noteRegole.ts`.
+            const giorni = notes.length
+              ? attesaPiuVecchia(notes, dayKeyBrussels(new Date().toISOString()), dayKeyBrussels)
+              : null;
+            box.textContent = giorni === null ? "" : tr("home.notesOldest").replace("{n}", String(giorni));
           }
 
           const nums = document.getElementById("j-note-nums");
@@ -2199,41 +2181,43 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const f = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE, year: "numeric", month: "2-digit" });
             return `${f.format(new Date())}-01`;
           })();
-          const delMese = notes.filter((n) => String(n.created_at) >= inizioMese);
-          const fatte = delMese.filter((n) => n.done).length;
+          // ⚠️ IL CONFRONTO ERA A META'. Il primo del mese si calcolava nel
+          // fuso del locale e poi si confrontava col `created_at` grezzo, che
+          // e' un istante UTC: una nota scritta il primo ottobre all'una di
+          // notte a Bruxelles e' `2026-09-30T23:00:00Z`, sta prima di
+          // «2026-10-01» per lettere, e cadeva nel mese sbagliato. Adesso
+          // tutte e due le parti del confronto sono chiavi-giorno dello
+          // stesso fuso.
+          const mese = contoDelMese(notes, inizioMese, dayKeyBrussels);
           // `numero()`: lo stesso aiutante dei riquadri delle altre colonne —
           // scrive la cifra e la riga sotto in un colpo, e sa gia' che la
           // seconda si chiama come la prima con «-d».
-          numero("j-note-mese", `${fatte}/${delMese.length}`, tr("home.notesDoneShort"));
+          numero("j-note-mese", `${mese.fatte}/${mese.totali}`, tr("home.notesDoneShort"));
 
           // CHI LE FA: si conta `done_by`, non `author`.
           // ⚠️ `done_by` esiste dalla #79 e si riempie da quando qualcuno
           // spunta: finche' non c'e' niente la casella lo DICE invece di
           // mostrare una classifica vuota, che si leggerebbe come «nessuno
           // fa niente».
-          const conta = new Map<string, number>();
-          for (const n of delMese) {
-            const chi = String(n.done_by ?? "").trim();
-            if (n.done && chi) conta.set(chi, (conta.get(chi) ?? 0) + 1);
-          }
-          const top = [...conta.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+          const top = chiLeFa(notes, inizioMese, dayKeyBrussels);
           const ol = document.getElementById("j-note-top");
           if (ol) {
             ol.innerHTML = top.length
-              ? top.map(([chi, q]) => `<li><span class="n">${escHtml(chi)}</span><span class="q">${q}</span></li>`).join("")
+              ? top.map((x) => `<li><span class="n">${escHtml(x.chi)}</span><span class="q">${x.quante}</span></li>`).join("")
               : `<li class="vuoto">${escHtml(tr("home.notesTopNone"))}</li>`;
           }
         }
 
         /** ⚠️ «In ritardo» si dice solo per le note DA FARE: su una gia'
-         *  spuntata sarebbe un rimprovero per un lavoro finito. */
-        const inRitardo = (n: Note): boolean =>
-          !!n.due_at && !n.done && new Date(n.due_at).getTime() < Date.now();
+         *  spuntata sarebbe un rimprovero per un lavoro finito. La regola sta
+         *  in `noteRegole.ts`, con quella della mail del mattino — che prima
+         *  non sapeva affatto cosa fosse una nota in ritardo. */
+        const tardi = (n: Note): boolean => inRitardo(n, Date.now());
 
         /** «11 Oct, 12:00» — e «· en retard» quando e' passata. */
         function testoScadenza(n: Note): string {
           if (!n.due_at) return "";
-          return noteDate(n.due_at) + (inRitardo(n) ? ` · ${tr("home.noteLate")}` : "");
+          return noteDate(n.due_at) + (tardi(n) ? ` · ${tr("home.noteLate")}` : "");
         }
 
         /** «ogni lunedi' alle 09:00» — la frase la compone `descrivi()`, la
@@ -2252,7 +2236,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // titolo piu' grande delle note qui sotto e' un numero che chi
           // guarda deve spiegarsi da solo.
           const pil = document.getElementById("j-note-cnt");
-          if (pil) pil.textContent = mostrate.length ? String(mostrate.filter((n) => !n.done).length) : "";
+          if (pil) pil.textContent = mostrate.length ? String(noteDaFare(mostrate).length) : "";
           if (mostrate.length === 0) {
             // Due vuoti diversi: «non ce ne sono» e «nessuna ha questa
             // etichetta». Il primo dice di premere +, il secondo sarebbe un
@@ -2297,7 +2281,29 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               headers: { ...headers, "Content-Type": "application/json" },
               body: JSON.stringify({ id, done: nuovo }),
             });
-            if (res.ok) { n.done = nuovo; render(); }
+            if (res.ok) {
+              /* ⚠️ IL GUASTO. Qui si scriveva `n.done = nuovo` e si buttava
+                 via la risposta. Ma una nota RICORRENTE non si chiude: il
+                 server la riapre con la scadenza del giro dopo (vedi
+                 `api/admin/notes.ts`). Lo schermo la mostrava spuntata e
+                 barrata, il conto del mese la contava fatta, la scadenza
+                 restava quella vecchia — rossa — e al primo ricaricamento
+                 tutto cambiava da solo sotto gli occhi di chi guardava.
+                 La riga che vale e' quella che torna dal server: porta `done`
+                 vero, la scadenza nuova, e `done_by` (cosi' la classifica di
+                 chi le chiude si aggiorna subito invece che al prossimo
+                 ricaricamento). */
+              try {
+                const j = (await res.json()) as { note?: Partial<Note> };
+                if (j?.note) Object.assign(n, j.note);
+                else n.done = nuovo;
+              } catch {
+                // Risposta illeggibile: si tiene il gesto, che il server ha
+                // comunque accettato (`res.ok`).
+                n.done = nuovo;
+              }
+              render();
+            }
             else { msgEl.textContent = await erroreDa(res, tr("home.editFailed")); }
           } catch { msgEl.textContent = tr("common.netErr"); }
         }
@@ -3228,9 +3234,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           numero("j-spx-ferm", String(c.chiusure),
             c.giorniChiusi ? tr("home.spxDays").replace("{n}", String(c.giorniChiusi)) : "");
           numero("j-spx-ore", String(c.orari), "");
+          // ⚠️ «Prossima» e' quella NON ANCORA cominciata (vedi `conti`). Se
+          // una chiusura e' in corso adesso non si perde: la riga sotto lo
+          // dice, invece di lasciare un trattino muto accanto a un locale
+          // chiuso oggi.
           numero("j-spx-next",
             c.prossimaChiusura ? spxFmt(c.prossimaChiusura, { day: "numeric", month: "short" }) : "—",
-            c.prossimaChiusura ? spxFmt(c.prossimaChiusura, { weekday: "short" }) : "");
+            c.prossimaChiusura
+              ? spxFmt(c.prossimaChiusura, { weekday: "short" })
+              : c.chiusuraInCorso ? tr("home.spxToday") : "");
           const nums = document.getElementById("j-spx-nums");
           if (nums) nums.style.display = "";
         }

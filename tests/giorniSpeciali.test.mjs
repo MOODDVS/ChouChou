@@ -13,6 +13,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import {
   fondi, conti, filtriUtili, giorniTra, piuGiorni,
 } from "../src/lib/admin/giorniSpecialiRegole.ts";
+import { attivoNelGiornoSpeciale } from "../src/lib/admin/giornataRegole.ts";
 
 const OGGI = "2026-10-07";
 const FINO = piuGiorni(OGGI, 90);
@@ -112,12 +113,19 @@ test("i numeri del piede contano le DECISIONI, non le feste", () => {
 });
 
 test("la prossima chiusura e' la prossima in ordine di data, non la prima della lista", () => {
-  // In cima c'e' oggi, che non e' «la prossima».
+  /* ⚠️ QUESTA PROVA DICEVA UNA COSA E NE CONTROLLAVA UN'ALTRA. Il commento
+     scriveva «in cima c'e' oggi, che non e' la prossima» — e poi pretendeva
+     proprio OGGI. Cosi' il piede della colonna annunciava «Prossima: 7 ott»
+     per una chiusura in corso da stamattina: una data passata sotto
+     un'etichetta che dice futuro. La prova sbagliata teneva in piedi il
+     guasto, ed e' il modo piu' difficile di accorgersene. */
   const oggiChiuso = { id: "o", type: "closed", date_from: OGGI, date_to: OGGI };
   const c = conti(righe([oggiChiuso, NATALE], []));
-  assert.equal(c.prossimaChiusura, OGGI);
+  assert.equal(c.prossimaChiusura, "2026-12-25", "quella di oggi non e' la prossima");
+  assert.equal(c.chiusuraInCorso, true, "ma non si perde: la colonna la dice sotto");
   const c2 = conti(righe([NATALE, FERIE], []));
   assert.equal(c2.prossimaChiusura, "2026-11-02");
+  assert.equal(c2.chiusuraInCorso, false);
 });
 
 test("i filtri esistono solo per quello che c'e' davvero", () => {
@@ -190,4 +198,90 @@ test("quando non si sa se il locale e' aperto, la riga non lo inventa", () => {
   // c'e': una verde messa per ripiego direbbe «aperto» un giorno di chiusura.
   assert.match(HOME, /const stato = !r\.deciso && noto/,
     "la pastiglia «aperto / chiuso» si stampa anche senza aver verificato il giorno");
+});
+
+
+/* ---------------------------------------------------------------
+   L'AUDIT DELLA COLONNA (08/10/2026)
+   --------------------------------------------------------------- */
+
+test("il piede conta i giorni DENTRO la finestra, non la durata intera", () => {
+  // Chiusura di tre settimane cominciata una settimana fa: davanti ne restano
+  // quattordici, e sotto il numero c'e' scritto «90 giorni». Prima contava
+  // tutti e ventuno.
+  const righe = fondi({
+    speciali: [{ id: "a", type: "closed", date_from: "2026-10-01", date_to: "2026-10-21", note: "Travaux" }],
+    feste: [], oggi: "2026-10-08", fino: "2026-10-31",
+  });
+  assert.equal(righe[0].giorni, 21, "la RIGA dice la durata vera della chiusura");
+  assert.equal(righe[0].giorniInFinestra, 14, "il PIEDE conta da oggi alla fine");
+  assert.equal(conti(righe).giorniChiusi, 14);
+  // E una chiusura che sborda oltre l'ultimo giorno mostrato si taglia li':
+  // quei giorni nella colonna non ci sono.
+  const oltre = fondi({
+    speciali: [{ id: "b", type: "closed", date_from: "2026-10-20", date_to: "2026-12-31" }],
+    feste: [], oggi: "2026-10-08", fino: "2026-10-31",
+  });
+  assert.equal(oltre[0].giorniInFinestra, 12);
+});
+
+test("«prossima chiusura» vuol dire non ancora cominciata", () => {
+  const righe = fondi({
+    speciali: [
+      { id: "a", type: "closed", date_from: "2026-10-07", date_to: "2026-10-09" },
+      { id: "b", type: "closed", date_from: "2026-12-24", date_to: "2026-12-26" },
+    ],
+    feste: [], oggi: "2026-10-08", fino: "2026-12-31",
+  });
+  const c = conti(righe);
+  // ⚠️ Prima si prendeva la prima data in ordine: «prossima chiusura: 7 ott»,
+  // cioe' ieri, sotto un'etichetta che dice futuro.
+  assert.equal(c.prossimaChiusura, "2026-12-24");
+  assert.equal(c.chiusuraInCorso, true, "quella di oggi non si perde: la colonna lo dice sotto");
+  const sola = conti(fondi({
+    speciali: [{ id: "a", type: "closed", date_from: "2026-10-07", date_to: "2026-10-09" }],
+    feste: [], oggi: "2026-10-08", fino: "2026-12-31",
+  }));
+  assert.equal(sola.prossimaChiusura, null);
+  assert.equal(sola.chiusuraInCorso, true);
+});
+
+test("un servizio resta attivo anche se gli orari sono cambiati dopo", () => {
+  // Il gettone salvato porta l'orario di allora: `soir|19:00-23:00`. Spostata
+  // la sera alle 18:30, il confronto esatto non combaciava piu' e il giorno
+  // restava «aperto» con ZERO servizi — mentre il sito prendeva prenotazioni.
+  assert.ok(attivoNelGiornoSpeciale("soir", "18:30", "23:00", ["soir|19:00-23:00"]));
+  assert.ok(attivoNelGiornoSpeciale("soir", "19:00", "23:00", ["soir|19:00-23:00"]), "l'orario giusto combacia");
+  assert.ok(attivoNelGiornoSpeciale("soir", "18:30", "23:00", ["soir"]), "le righe vecchie portano la sola chiave");
+  // ⚠️ Ma un servizio che NON e' nella lista resta chiuso: il ripiego vale
+  // sulla chiave, non su tutto.
+  assert.ok(!attivoNelGiornoSpeciale("midi", "12:00", "14:00", ["soir|19:00-23:00"]));
+  // Lista nulla = il giorno speciale apre tutto.
+  assert.ok(attivoNelGiornoSpeciale("midi", "12:00", "14:00", null));
+  // Lista vuota = nessun servizio (solo ordini).
+  assert.ok(!attivoNelGiornoSpeciale("midi", "12:00", "14:00", []));
+});
+
+const FORM = readFileSync(new URL("../src/components/admin/SpecialDaysForm.astro", import.meta.url), "utf8");
+const IMPATTO = readFileSync(new URL("../src/pages/api/admin/special-days-impact.ts", import.meta.url), "utf8");
+
+test("guardia · chiudere un giorno dice anche degli ordini e delle richieste", () => {
+  /* ⚠️ Una chiusura chiudeva il sito ai NUOVI ordini e avvisava delle
+     prenotazioni confermate — e taceva su quelli GIA' PAGATI per quel giorno:
+     il cliente arriva, pagamento fatto, porta chiusa. E sulle richieste in
+     attesa, a cui nessuno avrebbe mai piu' risposto «si'». */
+  assert.ok(/leggi\("orders"/.test(IMPATTO), "l'impatto legge gli ordini del giorno");
+  assert.ok(/\["confirmed", "pending"\]/.test(IMPATTO), "e le richieste in attesa");
+  assert.ok(/impactOrders/.test(FORM) && /impactPending/.test(FORM), "il modale le dice");
+  // ⚠️ Ma NON le annulla: far uscire dei soldi e' un gesto che si firma nella
+  // pagina Commandes, dove si vede l'importo.
+  assert.ok(!/aggiorna\("orders"/.test(IMPATTO), "nessun ordine annullato da qui");
+});
+
+test("guardia · il modale dell'impatto e' fatto coi componenti del pannello", () => {
+  // Era l'ultimo modale del motore disegnato dentro un `style="..."`: fondo,
+  // bordo, raggio e tre bottoni scritti a mano.
+  assert.ok(/md-overlay/.test(FORM) && /md-back/.test(FORM), "il guscio e' `.md-overlay` col suo velo");
+  assert.ok(/md-btn md-btn-primary/.test(FORM), "i bottoni sono quelli dei modali");
+  assert.ok(!/position:fixed;inset:0/.test(FORM), "niente velo disegnato a mano");
 });

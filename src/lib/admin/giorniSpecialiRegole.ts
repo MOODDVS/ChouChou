@@ -17,11 +17,13 @@
  * giorno (`deciso: false`), e chi vuole decidere apre il modulo. Trattarla
  * come un allarme vorrebbe dire spingere a chiudere giorni di lavoro.
  *
- * ⚠️ NESSUN IMPORT, di proposito: `db.ts` lancia all'import senza le variabili
- * di Supabase e in vitest mancano — un file di prova che ci arrivi non parte e
+ * ⚠️ UN SOLO IMPORT, e puro: `db.ts` lancia all'import senza le variabili di
+ * Supabase e in vitest mancano — un file di prova che ci arrivi non parte e
  * vitest lo conta come «0 test». Le feste arrivano gia' calcolate da chi
  * chiama, che le ha gia' in mano per il calendario.
  */
+
+import { giorniPassati, piuGiorni } from "../giorni";
 
 export type TipoRiga = "closed" | "open" | "fete";
 
@@ -66,24 +68,40 @@ export interface RigaSpeciale {
   locale: boolean;
   /** Quanti giorni dura (1 per un giorno solo). */
   giorni: number;
+  /**
+   * I giorni di questa riga che cadono DENTRO la finestra mostrata
+   * (da oggi a `fino`), estremi compresi.
+   *
+   * ⚠️ Non e' `giorni`, e il piede della colonna vuole questo: una chiusura
+   * di tre settimane cominciata la settimana scorsa ne ha ancora quattordici
+   * davanti, e la riga «chiusure · 21 giorni» sotto l'etichetta «90 giorni»
+   * contava anche i sette giorni passati — e quelli di una chiusura che
+   * sborda oltre il novantesimo giorno, che nella colonna non ci sono.
+   * Sulla RIGA resta `giorni`, che e' la durata vera di quella chiusura.
+   */
+  giorniInFinestra: number;
   id: string | null;
 }
 
 /** Giorni fra due date ISO, estremi compresi. Solo aritmetica: nessun fuso,
  *  perche' due date ISO non hanno un'ora da sbagliare. */
 export function giorniTra(da: string, a: string): number {
-  const x = Date.parse(da + "T12:00:00Z");
-  const y = Date.parse(a + "T12:00:00Z");
-  if (!Number.isFinite(x) || !Number.isFinite(y) || y < x) return 1;
-  return Math.round((y - x) / 86400000) + 1;
+  // ⚠️ `+ 1`, ed e' tutta la differenza con `giorniPassati`: una chiusura dal
+  // 3 al 5 dura TRE giorni, perche' il 3 e il 5 sono chiusi. Erano due
+  // funzioni con lo stesso corpo in due moduli, e quel `+ 1` era l'unica cosa
+  // che le distingueva — scritto una volta per sbaglio nella copia sbagliata,
+  // nessuno se ne accorgeva: «chiuso 2 giorni» invece di 3 e' una frase che
+  // non sembra un errore.
+  const g = giorniPassati(da, a);
+  return g < 0 ? 1 : g + 1;
 }
 
-/** La data di oggi piu' `n` giorni, in ISO. */
-export function piuGiorni(iso: string, n: number): string {
-  const t = Date.parse(iso + "T12:00:00Z");
-  if (!Number.isFinite(t)) return iso;
-  return new Date(t + n * 86400000).toISOString().slice(0, 10);
-}
+/* `piuGiorni` sta in `lib/giorni.ts` con l'altra aritmetica delle
+   chiavi-giorno. ⚠️ Si RIESPORTA il nome importato, e non con
+   `export { x } from "..."`: quella forma non lo porta dentro al modulo, e le
+   due funzioni qui sotto che la chiamano morivano con un `ReferenceError` —
+   ma solo nel ramo che la usa, cioe' un periodo di chiusura. */
+export { piuGiorni };
 
 const ora = (v: unknown): string => String(v ?? "").slice(0, 5);
 
@@ -140,6 +158,7 @@ export function fondi(opz: {
       oggi: da <= oggi && oggi <= a,
       locale: false,
       giorni: giorniTra(da, a),
+      giorniInFinestra: giorniTra(da < oggi ? oggi : da, a > fino ? fino : a),
       id: s?.id ? String(s.id) : null,
     });
   }
@@ -177,6 +196,7 @@ export function fondi(opz: {
       oggi: iso === oggi,
       locale: Boolean(f.locale),
       giorni: 1,
+      giorniInFinestra: 1,
       id: null,
     });
   }
@@ -201,15 +221,23 @@ export function conti(righe: RigaSpeciale[]): {
   giorniChiusi: number;
   orari: number;
   prossimaChiusura: string | null;
+  chiusuraInCorso: boolean;
 } {
   const chiuse = righe.filter((r) => r.deciso && r.tipo === "closed");
   return {
     chiusure: chiuse.length,
-    giorniChiusi: chiuse.reduce((n, r) => n + r.giorni, 0),
+    // ⚠️ I giorni DENTRO LA FINESTRA, non la durata intera delle chiusure:
+    // sotto c'e' scritto «90 giorni», e questo numero contava anche i giorni
+    // gia' passati di una chiusura in corso e quelli di una che sborda oltre
+    // il novantesimo. Un numero piu' grande della finestra che lo contiene.
+    giorniChiusi: chiuse.reduce((n, r) => n + r.giorniInFinestra, 0),
     orari: righe.filter((r) => r.deciso && r.tipo === "open").length,
-    // ⚠️ La prossima in ORDINE DI DATA, non la prima dell'elenco: in cima
-    // c'e' oggi, che non e' «la prossima».
-    prossimaChiusura: chiuse.map((r) => r.iso).sort()[0] ?? null,
+    // ⚠️ «Prossima» vuol dire NON ANCORA COMINCIATA. Si prendeva la prima
+    // data in ordine, e una chiusura in corso da ieri si leggeva «prossima
+    // chiusura: ieri» — una data passata, sotto un'etichetta che dice futuro.
+    // Quella in corso sta gia' in cima all'elenco, con la sua pastiglia.
+    prossimaChiusura: chiuse.filter((r) => !r.oggi).map((r) => r.iso).sort()[0] ?? null,
+    chiusuraInCorso: chiuse.some((r) => r.oggi),
   };
 }
 
