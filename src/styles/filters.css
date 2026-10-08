@@ -12,7 +12,18 @@
 }
 .rh-filters::-webkit-scrollbar { display: none; }
 
-.rh-filter {
+/* ⚠️ `.m-tab` E' LA STESSA PASTIGLIA, e per la stessa ragione: un gruppo di
+   scelte in cui una sola e' accesa, con la stessa classe `is-on`. Era
+   dichiarata TRE volte — Accueil, Menu, Agenda — con tre fondi diversi
+   (`--c-input`, `--c-card`, un `color-mix` sul testo) e tre bordi diversi:
+   gli stessi tab cambiavano aspetto passando da un modale all'altro, senza
+   che nessuno l'avesse deciso. Un nome, una faccia.
+   Il CONTENITORE porta solo la disposizione: i margini restano della pagina,
+   come per `.rh-filters`. */
+.m-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.rh-filter,
+.m-tab {
   flex-shrink: 0;
   background: var(--c-card);
   border: 1px solid var(--c-line);
@@ -25,8 +36,10 @@
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.rh-filter:hover { color: var(--c-text); border-color: var(--c-accent); }
-.rh-filter.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+.rh-filter:hover,
+.m-tab:hover { color: var(--c-text); border-color: var(--c-accent); }
+.rh-filter.is-on,
+.m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
 
 /* Separatore dentro la riga di filtri: serve quando nella stessa riga
    convivono DUE dimensioni (il periodo e la sede, in Statistiche) e senza

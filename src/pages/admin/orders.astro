@@ -1092,6 +1092,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       import { collegaLogout } from "../../lib/admin/logout";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      /* ⚠️ I conti dei soldi NON si riscrivono qui: la colonna della Accueil,
+         le statistiche e la mail del mattino contano la stessa giornata, e
+         quando le copie della regola sono divergute un ordine rimborsato
+         restava un incasso su tutti e quattro gli schermi. */
+      import {
+        incassato, righeIncassate, restaDaIncassare, daServire, fatti,
+        piattiVeri, notaCliente,
+      } from "../../lib/admin/ordiniConti";
+      import { euroDa } from "../../lib/soldi";
       import { leggiVariantiDb, etichettaVariante, prezzoEffettivo } from "../../lib/pricing";
       import { metodoCambiabile, METODI_CASSA_SCELTA } from "../../lib/ordiniRegole";
 
@@ -1137,9 +1146,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       function esc(s: unknown): string {
         return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
-      function euro(cents: number): string {
-        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
-      }
+      /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
+       *  pannello. Era la stessa funzione in cinque pagine. */
+      const euro = (cents: number): string => euroDa(cents, LOC);
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       // Chiave-giorno (YYYY-MM-DD) di un istante ISO, nel fuso del ristorante.
@@ -1225,8 +1234,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       const labelDiffRefund = (d: number) =>
         `<span class="db-lab">${tr("ord.refundDiff")}</span><span class="db-val">· ${euro(d)}</span>`;
       function cardHTML(o: Order): string {
-        const note = o.items.find((i) => i.id === "note");
-        const piatti = o.items.filter((i) => i.id !== "note");
+        // ⚠️ La riga finta della nota, e le righe a quantita' zero, le salta
+        // `ordiniConti.ts`: era un filtro scritto a mano in nove posti, e in
+        // uno (la colonna della Accueil) mancava.
+        const notaCli = notaCliente(o.items);
+        const piatti = piattiVeri(o.items);
 
         // Email e telefono: la riga compare solo se il dato c'e'. Un ordine
         // creato a mano puo' avere solo il telefono.
@@ -1269,7 +1281,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           })
           .join("");
 
-        const noteHTML = note?.notes ? `<div class="order-note">📝 ${esc(note.notes)}</div>` : "";
+        const noteHTML = notaCli ? `<div class="order-note">📝 ${esc(notaCli)}</div>` : "";
 
         // Etichetta di stato (solo per le card spente)
         let tag = "";
@@ -1692,15 +1704,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             .filter((o) => dayKeyBrussels(o.pickup_time) === key)
             .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
 
-          // I pending MANUALI (link di pagamento inviato) stanno tra gli attivi
-          const attivi = ordOggi.filter((o) => o.status === "paid" || o.status === "pending");
-          const spenti = ordOggi.filter((o) => o.status === "done" || o.status === "cancelled");
+          // I pending MANUALI (link di pagamento inviato) stanno tra gli attivi.
+          // ⚠️ I due elenchi sono l'uno il complemento dell'altro
+          // (`ordiniConti.ts`): scritti a mano come due filtri gemelli, una
+          // card con uno stato fuori da entrambi non si vedeva ne' sopra ne'
+          // sotto.
+          const attivi = daServire(ordOggi);
+          const spenti = fatti(ordOggi);
 
-          // Conteggio e totale: solo il denaro INCASSATO (paid + done);
-          // i pending si contano a parte ("en attente")
-          const incassati = ordOggi.filter((o) => o.status === "paid" || o.status === "done");
-          const pendenti = ordOggi.filter((o) => o.status === "pending").length;
-          const tot = incassati.reduce((s, o) => s + o.total_cents, 0);
+          // Conteggio e totale: solo il denaro INCASSATO (paid + done, meno i
+          // rimborsi e i supplementi mai pagati); quello che deve ancora
+          // entrare si conta a parte.
+          const incassati = righeIncassate(ordOggi);
+          const pendenti = restaDaIncassare(ordOggi).righe;
+          const tot = incassato(ordOggi);
           const parti: string[] = [];
           if (incassati.length)
             parti.push(`${incassati.length} ${incassati.length === 1 ? tr("ord.commandeSg") : tr("home.ordersWord")}` + ` · ${euro(tot)}`);

@@ -6,6 +6,7 @@ import {
   type GruppoStampa, type RigaOrdine,
 } from "./stampaRegole";
 import { mandaStampa, stampaConfigurata } from "./bizprint";
+import { piattiVeri } from "./admin/ordiniConti";
 import { indirizzoPubblico } from "./indirizzoPubblico";
 
 /**
@@ -92,8 +93,7 @@ export async function dividiPerStampante(
     }
   }
 
-  const piatti = items
-    .filter((i) => String(i?.id ?? "") !== "note" && Number(i?.qty ?? 0) > 0)
+  const piatti = piattiVeri(items)
     .map((i) => ({
       qty: Math.max(1, Math.floor(Number(i.qty) || 1)),
       nome: String(i.base_name ?? i.name ?? "").trim(),

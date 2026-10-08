@@ -1,4 +1,5 @@
 import { leggi, aggiorna, type Ambito } from "./sede";
+import { copertiDelGiorno } from "./resaConti";
 import { appConfigIn } from "../appConfigCache";
 import { postiDalPlan } from "../planSalle";
 import { capienzaDelleZone, zoneDaConfig } from "../salaRegole";
@@ -183,9 +184,12 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
     }
   } catch { /* mai bloccante */ }
 
-  const couverts = (data ?? [])
-    .filter((r) => r.status === "confirmed" || r.status === "seated")
-    .reduce((s, r) => s + (r.people ?? 0), 0);
+  // ⚠️ `copertiDelGiorno`, non «confirmed + seated» scritto qui: l'auto-Fini
+  // qui sopra ha appena girato a `done` i tavoli della sera, e quel conto
+  // CALAVA mentre la serata andava avanti — zero a mezzanotte per un servizio
+  // pieno, e zero per sempre su un giorno passato. Il numero sullo schermo che
+  // resta aperto tutta la sera e' questo.
+  const couverts = copertiDelGiorno(data ?? []);
 
   // Chiusure di servizio e di section del giorno (tabelle assenti = nessuna)
   // + jour spécial "ouvert" (scavalca i giorni di applicazione dei services)

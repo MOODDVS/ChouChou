@@ -16,6 +16,7 @@
  */
 
 import { inCassa } from "./ordiniRegole";
+import { piattiVeri, notaCliente } from "./admin/ordiniConti";
 
 /** Chiavi di STAMPA, per sede. Un gruppo puo' avere la stampante in un punto
  *  e non nell'altro, e il punto senza stampante non deve vedere errori. */
@@ -306,15 +307,16 @@ export interface RigaOrdine {
  */
 export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
   const items = Array.isArray(o.items) ? o.items : [];
-  const nota = items.find((i) => String(i?.id ?? "") === "note");
+
   return {
     numero: String(o.id ?? "").replace(/-/g, "").slice(-4).toUpperCase(),
     ora,
     cliente: String(o.customer_name ?? "").trim(),
     telefono: String(o.customer_phone ?? "").trim() || null,
-    note: String(nota?.notes ?? "").trim() || null,
-    piatti: items
-      .filter((i) => String(i?.id ?? "") !== "note" && Number(i?.qty ?? 0) > 0)
+    // La nota del cliente sta in una riga finta di `items`: la trova
+    // `ordiniConti.ts`, come per la card della pagina Commandes.
+    note: notaCliente(items),
+    piatti: piattiVeri(items)
       .map((i) => ({
         qty: Math.max(1, Math.floor(Number(i.qty) || 1)),
         // `base_name` c'e' solo sugli ordini dal 10/09/2026; `name` c'e'

@@ -7,7 +7,6 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Giornata from "../../components/admin/home/Giornata.astro";
-import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 import Modal from "../../components/admin/Modal.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
@@ -296,25 +295,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* Lo stato della risposta: si vede solo quando lo sappiamo davvero,
          cioe' quando le recensioni arrivano dal Business Profile. Scriverlo
          sempre direbbe «senza risposta» anche a chi ha gia' risposto. */
-      .j-rep { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
-        padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; flex: none; }
+      /* La pastiglia «Risposto / Senza risposta» ha la FORMA delle altre
+         della fascia (`.spx-b`): qui restano i colori, che sono suoi. Era la
+         quarta pastiglia della pagina con la sua misura e il suo raggio. */
       .j-rep.si { color: var(--c-ok); border: 1px solid color-mix(in srgb, var(--c-ok) 55%, transparent); }
       .j-rep.no { color: var(--c-hover); border: 1px solid color-mix(in srgb, var(--c-accent) 55%, transparent); }
       .j-qf { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
-      /* «Répondre» in fondo alla riga di chi ha scritto.
-         ⚠️ PIENO, e non un contorno: il contorno e' il vestito delle
-         pastiglie di STATO qui accanto («sans réponse», «répondu»), che si
-         leggono e basta. Un'azione vestita da stato invita a leggerla, non a
-         premerla. Il pieno e' lo stesso di `.md-btn-primary` — fondo
-         `--c-accent`, testo `--c-bg` — l'unico modo che il pannello ha di
-         dire «questo e' IL bottone».
-         `flex: none`: e' l'ultimo di una riga che contiene un nome lungo
-         quanto vuole, e senza si lascerebbe schiacciare. */
-      .j-rbtn { margin-left: auto; flex: none; font-size: 0.7rem; font-weight: 800;
-        text-transform: uppercase; letter-spacing: .06em;
-        color: var(--c-bg); background: var(--c-accent); border: 1px solid var(--c-accent);
-        padding: 0.4rem 0.9rem; border-radius: 999px; cursor: pointer; white-space: nowrap; }
-      .j-rbtn:hover { filter: brightness(1.08); }
+      /* «Répondre» in fondo alla riga di chi ha scritto: il bottone pieno del
+         pannello (`.btn.btn-sm.btn-primary`).
+         ⚠️ PIENO, e non un contorno: il contorno e' il vestito delle pastiglie
+         di STATO qui accanto («sans réponse», «répondu»), che si leggono e
+         basta. Un'azione vestita da stato invita a leggerla, non a premerla.
+         Qui resta solo il posto: e' l'ultimo di una riga con dentro un nome
+         lungo quanto vuole, e senza `flex: none` si lascerebbe schiacciare. */
+      .j-rbtn { margin-left: auto; flex: none; }
       /* --- il modale della risposta --- */
       /* Dentro al modale l'intestazione non ha bisogno dello stacco che ha
          nella colonna: e' la prima cosa della finestra. */
@@ -332,14 +326,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-rep-hint { margin-top: 0.45rem; }
       .j-reply-msg { margin-right: auto; font-size: 0.78rem; color: var(--c-muted); }
       .j-arrows { display: flex; gap: 0.35rem; }
-      /* ⚠️ Fondo SCURO, non trasparente. Trasparente voleva dire «il colore di
-         sotto», e sotto c'e' la card: un cerchio del colore della card su una
-         card e' un filo sottile e basta. Il fondo della pagina e' piu' scuro
-         della card — gli stessi due colori che il pannello usa gia' — e il
-         bottone si stacca senza inventare una tinta nuova. */
-      .j-arrows button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--c-line);
-        background: var(--c-bg); color: var(--c-text); font-size: 0.7rem; cursor: pointer; line-height: 1; }
-      .j-arrows button:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      /* Le frecce sono `.ibtn.ibtn-sm`: il tondo del pannello in taglia
+         piccola. ⚠️ Erano riscritte da zero — misura, raggio, bordo, fondo — e
+         il fondo era `--c-bg` «per staccarsi dalla card»: la stessa ragione
+         per cui `.ibtn` usa `--c-card` sul fondo della pagina. Due regole
+         opposte nate dallo stesso ragionamento, in due punti diversi. */
       .j-dots { display: flex; gap: 0.35rem; }
       /* Stessa ragione delle frecce: il pallino spento e' un buco scuro nella
          card, non un pallino del colore del filo che ci si confondeva. */
@@ -375,15 +366,26 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          larghezza scritta a mano: la nota e' lunga diversa in cinque lingue,
          e «Laatste 30 dagen» avrebbe scavalcato un filo tagliato su misura
          per il francese. */
-      .j-google .j-per { display: flex; align-items: center; gap: 0.75rem;
-        margin-top: 0; padding-top: 0; }
+      /* ⚠️ DUE COLONNE, UNA REGOLA. La colonna dei giorni speciali vuole lo
+         stesso piede: la nota sulla linea e i numeri sotto senza un secondo
+         filo. Scrivendola una seconda volta per `.j-spx`, il giorno che
+         qualcuno ritocca il colore del filo ne resterebbe indietro uno — e
+         sarebbero due fili diversi nella stessa fascia. */
+      .j-google .j-per, .j-spx .j-per { display: flex; align-items: center; gap: 0.75rem; }
+      .j-google .j-per { margin-top: 0; padding-top: 0; }
+      /* ⚠️ `auto` e non un margine scritto: la nota e i numeri sono una cosa
+         sola e scendono insieme in fondo alla colonna, come la fila delle
+         altre due. E' la nota a portare lo spazio vuoto, perche' e' lei che
+         viene prima: dandolo ai numeri, il filo sarebbe rimasto appeso a
+         mezza colonna con l'elenco. */
+      .j-spx .j-per { margin-top: auto; }
       /* ⚠️ Il vuoto che restava NON era della nota: era il margine sotto la
          scatola, lo stesso che stacca la giornata da Google. Sotto Google pero'
          non c'e' un'altra scatola, c'e' la sua didascalia — e una didascalia
          sta attaccata a cio' che spiega. Limarlo dalla nota non bastava:
          la nota partiva gia' da zero. */
       .j-g-blocco { margin-bottom: 0.55rem; }
-      .j-google .j-per::after { content: ""; flex: 1; height: 1px; background: rgba(36, 74, 82, .65); }
+      .j-google .j-per::after, .j-spx .j-per::after { content: ""; flex: 1; height: 1px; background: rgba(36, 74, 82, .65); }
       /* ⚠️ E la linea sparisce da SOTTO: era il `border-top` dei numeri, ed e'
          salita nella nota. Lasciandola, sarebbero stati due fili a un
          centimetro l'uno dall'altro.
@@ -393,7 +395,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          i numeri sono di GOOGLE, non il conteggio di una colonna: stanno
          attaccati al blocco che li spiega. Le due file a destra restano
          incolonnate fra loro — e' quella la coppia che si confronta. */
-      .j-google .j-nums { border-top: none; padding-top: 0; margin-top: 0.55rem; }
+      .j-google .j-nums, .j-spx .j-nums { border-top: none; padding-top: 0; margin-top: 0.55rem; }
       .j-nums > div { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
         padding: 0.7rem 0.85rem 0.8rem; box-shadow: 0 2px 8px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
         container-type: inline-size; }
@@ -402,6 +404,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-nums .v { display: block; white-space: nowrap; font-family: var(--font-title); font-size: min(1.45rem, 17cqw); margin-top: 0.3rem; }
       .j-nums .v.att { color: var(--c-hover); }
       .j-nums .d { font-size: 0.68rem; color: var(--c-muted); margin-top: 0.2rem; }
+      /* ⚠️ LA TERZA RIGA TIENE IL POSTO ANCHE DA VUOTA. I riquadri hanno tre
+         piani — etichetta, numero, didascalia — ma la didascalia non ce
+         l'hanno sempre: dove nessuno dei tre ce l'ha (i giorni speciali), la
+         fila veniva su piu' bassa di quelle delle altre colonne, e in fondo
+         alla fascia tre file che si leggono in orizzontale erano sfalsate.
+         Dentro UNA colonna non si vedeva: la griglia allunga i riquadri al
+         piu' alto, quindi bastava che uno avesse la didascalia perche' gli
+         altri due lo seguissero. Si vedeva solo confrontando le colonne, cioe'
+         guardando la fascia intera — che e' esattamente come la si guarda. */
+      .j-nums .d:empty::before { content: "\00a0"; }
       .j-nums .d.up { color: var(--c-ok); font-weight: 700; }
       .j-nums .d.giu { color: var(--c-hover); font-weight: 700; }
       /* ⚠️ Il riquadro «chi le fa» occupa DUE caselle: dentro non c'e' una
@@ -457,6 +469,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-orari { font-size: 1.2rem; font-weight: 700;
         display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; }
       .j-orari .f { white-space: nowrap; }
+      /* «Riapertura domani 17:00»: si legge DOPO «Fermé», quindi non ne ha la
+         taglia. ⚠️ Non va a capo da sola in mezzo a una data: o sta sulla riga
+         degli orari o passa sotto intera. */
+      .j-riapre { font-size: 0.8rem; font-weight: 400; color: var(--c-muted); white-space: nowrap; }
       /* Un orologio solo per tutti i servizi: due disegni uguali in fila su
          una riga di sette parole sono un disegno di troppo. */
       /* ⚠️ Cresce con l'orario che accompagna: un orologio di 16 px accanto a
@@ -670,6 +686,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-badge.enc { background: #5d5555; color: #fff; }
       .j-badge.pay { background: #2e9e6b; color: #fff; }
       .j-badge.done { border: 1px solid #fff; color: #fff; }
+      /* «Fini ?» — la domanda dell'orologio: la stessa veste di `.b-fini`
+         nella pagina Réservations, perche' e' la stessa domanda.
+         ⚠️ Senza il battito che ha di la'. Nella pagina ce n'e' una alla
+         volta in mezzo a venti righe ferme; qui le righe sono poche e tutte
+         della sera: tre pastiglie che pulsano insieme in un terzo di schermo
+         non chiamano l'attenzione, la consumano. */
+      .j-badge.fin { background: color-mix(in srgb, var(--c-accent) 15%, transparent);
+        border: 1px solid var(--c-accent); color: var(--c-accent); }
       /* Quella delle prenotazioni si clicca: lo dice il cursore, e si accende
          al passaggio come ogni altro comando del pannello. */
       .j-badge.j-st { cursor: pointer; }
@@ -752,7 +776,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .ph-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
       .ph-empty { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; }
 
-      /* --- Tile Jours spéciaux --- */
+      /* --- Pastiglie aperto/chiuso: colonna Jours spéciaux, tile Menu, Visibilité --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
       .spx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; row-gap: 0.15rem; font-size: 0.92rem; min-width: 0; }
       .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
@@ -762,109 +786,98 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          ancora a menu — stessa famiglia di pastiglie dei giorni speciali. */
       .spx-b.hid { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
       .spx-nome { color: var(--c-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 6rem; min-width: 0; }
-      .spx-date { font-weight: 800; color: var(--c-text); white-space: nowrap; }
-      /* Se accanto alle date non ci sta, va SOTTO a tutta larghezza invece di
-         ridursi a «vaca…»: cosi' la nota si legge davvero. */
-      .spx-note { color: var(--c-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 11rem; min-width: 0; }
       .spx-more { color: var(--c-muted); font-size: 0.8rem; }
       .spx-empty { color: var(--c-muted); font-size: 0.9rem; padding: 0.4rem 0; }
-      .spx-evts { display: flex; flex-direction: column; gap: 0.55rem; }
-      .spx-ev { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
       .ev-cal { width: 50px; flex: 0 0 auto; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 8px; display: flex; flex-direction: column; align-items: center; padding: 0.3rem 0 0.28rem; line-height: 1; }
       .ev-cal b { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-text); }
       .ev-cal i { font-style: normal; font-size: 0.56rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); margin-top: 3px; }
       .ev-nome { display: block; font-weight: 700; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ev-gg { display: block; color: var(--c-muted); font-size: 0.76rem; text-transform: capitalize; }
-      .ev-nome .spx-b { font-size: 0.56rem; padding: 0.1rem 0.45rem; vertical-align: 2px; margin-left: 0.25rem; }
 
-      /* --- Bottone + della tile Jours speciaux + modale Evenements locaux --- */
-      .spx-add {
-        position: absolute; top: 1.15rem; right: 1.25rem; z-index: 2;
-        width: 34px; height: 34px; border-radius: 50%;
-        background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
-        font-size: 1.5rem; line-height: 1; cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, calc(0.3 * var(--sh, 0.15)));
-        transition: border-color 0.15s, background 0.15s, transform 0.15s;
-      }
-      .spx-add:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
-      /* Jours spéciaux : stacca la linea "Événements à venir" dalle chiusure */
-      .tile[data-tile="special"] .tile-next { margin-top: 0.75rem; }
-      .ev-nome.ev-loc { color: var(--c-accent); }
+      /* ===================== COLONNA JOURS SPÉCIAUX =====================
+         ⚠️ Le righe sono `.j-li`, le stesse di prenotazioni e ordini: una cosa
+         che si prende una alla volta ha un blocco, e questo e' il blocco del
+         pannello. Niente scatola nuova per la stessa idea. */
+      /* ⚠️ TRATTEGGIATO = NESSUNO L'HA DECISO. Una festa senza giorno speciale
+         non e' un dato scritto da qualcuno: e' una data che sta sul calendario.
+         Lo stesso filo di «Rien à afficher» — un posto apparecchiato, non un
+         fatto.
+         ⚠️ Il FONDO pero' e' quello di tutte le righe (`--c-card`, come le
+         prenotazioni e gli ordini): senza, in una colonna di blocchi pieni
+         quelli trasparenti si leggevano come buchi — e la differenza fra «da
+         decidere» e «non c'e' niente» e' proprio quella che la colonna deve
+         dire. Resta il filo, che e' il segno giusto: cambia il BORDO, non la
+         presenza. */
+      .j-spx-li.aperta { border-style: dashed; }
+      /* Oggi: bordo corallo, come la pastiglia piena qui dentro. Un giorno
+         speciale che e' OGGI non e' un promemoria, e' il turno di stasera. */
+      .j-spx-li.oggi { border-color: var(--c-accent); }
+      .j-spx-l1 { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; min-width: 0; }
+      /* Il calendarietto di un PERIODO: due date, una sopra l'altra.
+         ⚠️ La freccia in mezzo non e' decorazione: due numeri incolonnati
+         senza niente fra loro si leggono come due giorni staccati, ed e'
+         l'opposto — e' un intervallo, e dentro c'e' chiuso tutto. */
+      .ev-cal.due { padding: 0.4rem 0 0.35rem; }
+      .ev-cal.due em { font-style: normal; font-size: 0.72rem; line-height: 1;
+        color: var(--c-muted); margin: 0.1rem 0; }
+      /* Il cestino in alto a destra, come nelle note: la riga puo' essere
+         alta due piani o cinque (un periodo col calendarietto doppio), e
+         centrato scendeva con lei — lo stesso comando finiva ogni volta a
+         un'altezza diversa, e si cerca con gli occhi invece di trovarlo dove
+         sta sempre. */
+      .j-spx-li .j-spx-del { align-self: flex-start; margin-left: auto; }
+      .j-spx-l1:empty { display: none; }
+      .j-spx-l1 .ev-nome { font-size: 0.95rem; }
+      /* La riga di sotto: la misura e le pastiglie, sulla stessa linea. */
+      .j-spx-l2 { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;
+        min-width: 0; margin-top: 3px; }
+      .j-spx-dur { font-family: var(--font-title); font-size: 0.95rem; color: var(--c-text); }
+      .j-spx-gg { color: var(--c-muted); font-size: 0.78rem; text-transform: capitalize; }
+      .spx-b.fete { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
+      .spx-b.now { background: var(--c-accent); color: var(--c-bg); }
+
 
       /* Guscio, titolo e × : classi .md-* in src/styles/modal.css. */
-      /* Tab del modale (stesso stile dei tab del menu) */
-      .m-tabs { display: flex; gap: 0.5rem; margin: 0.9rem 0 1rem; flex-wrap: wrap; }
-      /* Il modale ora ha il fondo --c-bg (prima era --c-card): --c-input e
-         --c-line ci si confondevano dentro. Il bordo e il fondo si ricavano
-         dal COLORE DEL TESTO mescolato al fondo, cosi restano staccati su
-         qualunque tema del cliente — chiaro, scuro o quello che sceglie. */
-      .m-tab { background: color-mix(in srgb, var(--c-text) 9%, var(--c-bg)); border: 1px solid color-mix(in srgb, var(--c-text) 30%, var(--c-bg)); color: var(--c-text); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
-      .m-tab:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      .evm-pane .evm-lab:first-of-type { margin-top: 0.6rem; }
-      /* `.spf` (form Giorni speciali, condiviso) e' tarato per stare sul
-         --c-card della pagina Réglages. Qui vive dentro il modale, che ha il
-         fondo --c-bg: i suoi campi e interruttori ci si confonderebbero.
-         Si rialzano SOLO qui, con la stessa regola dei tab: colore del testo
-         mescolato al fondo, cosi vale su qualunque tema del cliente. */
-      #evt-overlay .spf input[type="text"],
-      #evt-overlay .spf input[type="time"],
-      #evt-overlay .spf .sp-type button:not(.is-active) {
-        background: color-mix(in srgb, var(--c-text) 9%, var(--c-bg));
-        border-color: color-mix(in srgb, var(--c-text) 30%, var(--c-bg));
-      }
-      /* `:not(.is-active)` NON e' un dettaglio: il selettore con l'id pesa
-         piu di `.spf .sp-type button.is-active`, quindi senza l'esclusione
-         il bottone selezionato perdeva il corallo. */
-      #evt-overlay .spf .sp-type button:not(.is-active) { color: var(--c-text); }
-      /* L'interruttore dei servizi non ha bisogno di ritocchi qui: il
-         componente condiviso si ricava gia il fondo da --c-bg. */
-      #evt-overlay .spf .sp-item,
-      #evt-overlay .spf .sp-add { border-color: color-mix(in srgb, var(--c-text) 22%, var(--c-bg)); }
+      /* Tab del modale: la pastiglia condivisa (`styles/filters.css`). Qui
+         resta solo il margine, che e' di questa pagina. */
+      .m-tabs { margin: 0.9rem 0 1rem; }
+      .evm-pane .f-label:first-of-type { margin-top: 0.6rem; }
+      /* ⚠️ Qui c'erano quattro regole `#evt-overlay .spf …` che ridipingevano
+         campi e pastiglie del form perche' il modale ha un fondo diverso da
+         Réglages. Con un ID davanti: battevano qualunque regola condivisa, per
+         sempre. Il form adesso ricava i suoi bordi dal colore del TESTO e i
+         campi sono quelli di `field.css`, che su un fondo valgono quanto
+         sull'altro — e non c'e' piu' niente da correggere da fuori. */
       .evm-sub { color: var(--c-muted); font-size: 0.85rem; line-height: 1.55; margin-bottom: 0.4rem; }
-      .evm-lab { display: block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); margin: 1rem 0 0.35rem; }
-      .evm-in {
-        width: 100%; background: color-mix(in srgb, var(--c-text) 9%, var(--c-bg));
-        border: 1px solid color-mix(in srgb, var(--c-text) 30%, var(--c-bg)); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.65rem 0.75rem; border-radius: 8px;
-      }
-      .evm-in:focus { outline: none; border-color: var(--c-accent); }
-      .evm-in[readonly] { cursor: pointer; }
+      /* L'etichetta e' `.f-label` e il campo e' quello di `field.css` (dentro
+         un modale non serve nemmeno la classe). Qui resta lo spazio fra una
+         domanda e l'altra, che e' di questo modale. */
+      .evm-pane .f-label { margin: 1rem 0 0.35rem; }
+      #evt-date { cursor: pointer; }
       .evm-check { display: flex; align-items: center; gap: 0.55rem; margin: 1.1rem 0 1.3rem; font-size: 0.9rem; cursor: pointer; }
       .evm-check input { accent-color: var(--c-accent); width: 16px; height: 16px; cursor: pointer; }
-      .evm-add {
-        width: 100%; background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
-        font-family: var(--font-body); font-weight: 800; font-size: 0.95rem; padding: 0.75rem; border-radius: 8px; cursor: pointer;
-        transition: background 0.15s, border-color 0.15s;
-      }
-      .evm-add:hover { background: var(--c-hover); border-color: var(--c-hover); }
       .evm-list { margin-top: 1.3rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 260px; overflow-y: auto; }
       .evm-vide { color: var(--c-muted); font-size: 0.85rem; }
       /* Fondo PIENO, non un rettangolo col bordo: la riga e' un blocco, e il
          bordo in piu' faceva sembrare ogni evento un campo da compilare. */
+      /* La riga di un evento e' la STESSA CARD della colonna (`.j-li`): fondo
+         `--c-card`, filo `--c-line`, 12px di raggio. Qui c'era un terzo grigio
+         inventato (`color-mix` sul testo al 15%) e dieci pixel di raggio: lo
+         stesso evento, visto nella colonna e nel modale, era due oggetti
+         diversi — e sono a un clic di distanza l'uno dall'altro. */
       .evm-row {
         display: flex; align-items: center; gap: 0.7rem;
-        background: color-mix(in srgb, var(--c-text) 15%, var(--c-bg));
-        border: 0; border-radius: 10px;
+        background: var(--c-card);
+        border: 1px solid var(--c-line); border-radius: 12px;
         padding: 0.6rem 0.65rem 0.6rem 0.8rem; font-size: 0.88rem;
       }
       .evm-row .d { color: var(--c-accent); font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
       .evm-row .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .evm-row .y { color: var(--c-muted); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
-      /* Cestino a due tocchi: stesso gesto delle note e del menu — il primo
-         tocco arma «Cancellare ?», il secondo cancella. */
-      .evm-del {
-        height: 30px; min-width: 30px; flex: 0 0 auto; border-radius: 999px;
-        display: inline-flex; align-items: center; justify-content: center; padding: 0;
-        background: transparent; border: 1px solid color-mix(in srgb, var(--c-text) 30%, var(--c-bg));
-        color: var(--c-muted); cursor: pointer; font-size: 0.72rem;
-        transition: border-color 0.15s, color 0.15s, background 0.15s;
-      }
-      .evm-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .evm-del:hover { border-color: #ed1c24; color: var(--c-text); }
-      .evm-del:hover { border-color: #ed1c24; color: var(--c-text); }
-      .evm-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; padding: 0 0.7rem; font-weight: 700; }
+      /* Il cestino e' `.ibtn.ibtn-danger`, con la sua guardia a due tocchi:
+         il primo arma «Eliminare?», il secondo cancella.
+         ⚠️ Qui era il TERZO scritto a mano nella stessa pagina (`.note-del`
+         nelle note, `.evm-del` qui, e quello condiviso nei giorni speciali) —
+         tre cestini con tre bordi e tre rossi diversi per lo stesso gesto. */
 
 
       /* --- Tile Menu --- */
@@ -913,13 +926,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* L'elenco arriva piu' vicino alla linea dei numeri: sotto non c'e' una
          seconda lista da staccare, c'e' il piede della colonna. */
       .j-notes .j-lista { margin-bottom: 0.9rem; }
-      /* Il «+» PIENO di corallo: e' l'unica azione della colonna, e il
-         contorno e' il vestito dei bottoni che aspettano di essere scoperti.
-         ⚠️ Lo stesso accostamento del «Répondre» e dei bottoni di conferma —
-         fondo `--c-accent`, segno `--c-bg` — e non un corallo scelto qui. */
-      .j-notes .ibtn { background: var(--c-accent); border-color: var(--c-accent);
-        color: var(--c-bg); font-size: 1.4rem; line-height: 1; }
-      .j-notes .ibtn:hover { filter: brightness(1.08); color: var(--c-bg); border-color: var(--c-accent); }
       /* OGNI NOTA E' UN BLOCCO SUO, in corallo. Una lavagnetta non e' un
          elenco: sono bigliettini, e due bigliettini separati da un filo sono
          due righe di una lista. Il blocco dice che si possono prendere,
@@ -1119,18 +1125,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          usa gia' per dire «questo e' andato storto». */
       .note-info.late { color: #7a1f12; }
       /* Il cestino a fondo bigliettino: e' l'azione, e le azioni stanno dove
-         finisce la riga. ⚠️ Piu' piccolo del cerchio della spunta: spuntare e'
-         il gesto di ogni giorno, buttare via e' quello che si fa una volta. */
-      .np-item .note-del { margin-left: auto; align-self: flex-start; height: 26px; min-width: 26px; }
-      .np-item .note-del svg { width: 13px; height: 13px; }
+         finisce la riga. Il bottone e' `.ibtn.ibtn-danger`, quello di tutto il
+         pannello — qui resta solo DOVE sta.
+         ⚠️ Era scritto a mano (`.note-del`: 30px, bordo e colore ricavati da
+         `--c-bg` perche' il bigliettino e' corallo) e si e' portato dietro
+         anche la sua guardia a due tocchi. Tre cestini diversi in tre colonne
+         della stessa fascia: `.note-del`, `.evm-del` e quello condiviso.
+         `.note-del` resta come AGGANCIO del clic, senza piu' una faccia. */
+      .np-item .note-del { margin-left: auto; align-self: flex-start; }
       .note-check { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--c-brown); background: transparent; cursor: pointer; margin-top: 0.1rem; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
       .note-check:hover { background: color-mix(in srgb, var(--c-bg) 12%, transparent); }
       .np-item.done .note-check { background: var(--c-brown); border-color: var(--c-brown); }
       .note-check svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-      .note-del { flex-shrink: 0; height: 30px; min-width: 30px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c-bg) 30%, transparent); background: transparent; color: color-mix(in srgb, var(--c-bg) 70%, transparent); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-      .note-del:hover { border-color: #9a1b12; color: #9a1b12; background: rgba(154, 27, 18, 0.08); }
-      .note-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .note-del.confirm { padding: 0 0.7rem; font-size: 0.72rem; color: #fff; background: #a3320f; border-color: #a3320f; }
 
       /* ---- Organiser : FAB flottante in basso a sinistra (come les chiusure Réservations) ---- */
       /* Saluto sopra le tile (SOLO mobile): la parola ruota ogni 5s. */
@@ -1206,7 +1212,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         <div class="state" id="state">{t("sup.loading")}</div>
         <Giornata />
         <div class="cards" id="cards" style="display:none">
-          <TileJoursSpeciaux />
           <TileMenu />
           <TileSearchConsole />
           <TilePhotos />
@@ -1241,18 +1246,31 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       </div>
       <div class="evm-pane" data-p="ev">
         <p class="evm-sub">{t("home.localEventsIntro")}</p>
-        <label class="evm-lab" for="evt-nom">{t("home.name")}</label>
-        <input id="evt-nom" class="evm-in" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
-        <label class="evm-lab" for="evt-date">{t("home.date")}</label>
-        <input id="evt-date" class="evm-in" readonly placeholder={t("home.chooseDate")} />
+        <label class="f-label" for="evt-nom">{t("home.name")}</label>
+        <input id="evt-nom" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
+        <label class="f-label" for="evt-date">{t("home.date")}</label>
+        <input id="evt-date" readonly placeholder={t("home.chooseDate")} />
         <label class="evm-check"><input type="checkbox" id="evt-yearly" />{t("home.yearly")}</label>
-        <button type="button" class="evm-add" id="evt-add">{t("common.add")}</button>
         <div class="evm-list" id="evt-list"></div>
       </div>
       <div class="evm-pane" data-p="cl" hidden>
         <p class="evm-sub">{t("home.closureIntro")}</p>
-        <SpecialDaysForm />
+        <SpecialDaysForm azioneFuori />
       </div>
+      {/* ⚠️ IL PIEDE, come in ogni altro modale del pannello: «Annulla» e la
+          conferma, in basso a destra. L'«Aggiungi» stava dentro il corpo, a
+          tutta larghezza e con una grafica sua — in mezzo al modulo sembrava
+          un altro campo, e sopra all'elenco degli eventi sembrava che
+          aggiungesse quello.
+          ⚠️ UNA conferma per linguetta, non una sola che indovina: le due
+          linguette salvano cose diverse (un promemoria, una chiusura vera).
+          Un bottone unico avrebbe dovuto chiedersi su quale pannello si trova,
+          e il giorno che se lo chiede male si crea la cosa sbagliata. */}
+      <Fragment slot="foot">
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary evm-ok" data-p="ev" id="evt-add">{t("common.add")}</button>
+        <button type="button" class="md-btn md-btn-primary evm-ok" data-p="cl" id="evt-add-cl" hidden>{t("common.add")}</button>
+      </Fragment>
     </Modal>
 
     {/* ⚠️ UN MODALE PER SCRIVERE UNA NOTA, e basta.
@@ -1377,6 +1395,25 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { iniziali, coloreDi } from "../../lib/admin/avatarRegole";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { festivita, ricorrenze } from "../../lib/festivitaRegole";
+      import {
+        statoDi, voceStatoDi, HOLD_RIPIEGO, type ServizioHold, type StatoMostrato,
+      } from "../../lib/admin/resaStato";
+      import {
+        copertiDelGiorno, daConfermare, daFare, riempimento,
+      } from "../../lib/admin/resaConti";
+      import {
+        incassato, panierMedio, restaDaIncassare, righeIncassate, daServire, statoOrdine,
+        piattiVeri,
+      } from "../../lib/admin/ordiniConti";
+      import { euroDa } from "../../lib/soldi";
+      import {
+        fasce, statoGiorno, oreAperte, grafico, altezza, picco, quanto, oraDi,
+        serviziDelGiorno, type Serie,
+      } from "../../lib/admin/giornataRegole";
+      import {
+        fondi, conti, filtriUtili, piuGiorni,
+        type Festa, type RigaSpeciale, type TipoRiga,
+      } from "../../lib/admin/giorniSpecialiRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -1398,9 +1435,28 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       }
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
-      type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string; payment_method?: string | null };
+      /* ⚠️ `refunded_cents` e `supplement_due_cents` sono nella risposta
+         dell'API da sempre (migrazioni #41 e #50) e nessuno li dichiarava: i
+         soldi rimborsati restavano nell'incasso della giornata e i supplementi
+         non pagati ci entravano. Un dato che arriva e non si legge e' il
+         guasto piu' silenzioso che ci sia. */
+      type Order = {
+        id?: string;
+        pickup_time: string;
+        customer_name: string;
+        items: Item[];
+        total_cents: number;
+        status: string;
+        payment_method?: string | null;
+        refunded_cents?: number | null;
+        supplement_due_cents?: number | null;
+      };
       type ResaRow = {
-        id?: string; heure: string; first_name?: string; last_name?: string; people: number; status: string;
+        /* ⚠️ `date`, `service_key` e `extra_minutes` non sono decorazione: sono
+           cio' che serve a sapere se la prenotazione e' IN CORSO. Mancavano, e
+           la pastiglia stampava `status` cosi' com'era. */
+        id?: string; date?: string; heure: string; service_key?: string | null; extra_minutes?: number | null;
+        first_name?: string; last_name?: string; people: number; status: string;
         zone?: string | null; phone?: string | null; email?: string | null; notes?: string | null;
         high_chair?: boolean; quiet?: boolean; business?: boolean; company?: string | null;
         birthday?: boolean; special_event?: boolean; tables?: unknown[] | null;
@@ -1488,9 +1544,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const g = String(d.getDate()).padStart(2, "0");
         return `${y}-${m}-${g}`;
       }
-      function euro(cents: number): string {
-        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
-      }
+      /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
+       *  pannello. Era la stessa funzione in cinque pagine. */
+      const euro = (cents: number): string => euroDa(cents, LOC);
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       function oraDa(iso: string): string {
@@ -1519,14 +1575,33 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       // ⚠️ Sola lettura: niente bottoni. Si clicca la riga e si apre la
       // pagina che sa fare quel mestiere.
       // ============================================================
+      /** ⚠️ `piattiVeri`: dentro `items` c'e' anche la riga finta della nota
+       *  del cliente (`id: "note"`, `qty: 0`), e questa riga era l'unica del
+       *  motore che non la saltava — l'elenco dei piatti cominciava con
+       *  «0× NOTE CLIENT». */
       function piattiDi(items: Item[]): string {
-        const voci = (items ?? []).map((i) => `${i.qty}× ${i.name}`);
+        const voci = piattiVeri(items).map((i) => `${i.qty}× ${i.name}`);
         return voci.length > 3 ? voci.slice(0, 3).join(" · ") + " …" : voci.join(" · ");
       }
+      /** ⚠️ IL GUASTO. L'ultima riga era un ripiego: OGNI stato che non fosse
+       *  `done` o `pending` diventava «Payée» — un ordine annullato, o con uno
+       *  stato nuovo, si leggeva «pagato». La stessa regola della pastiglia
+       *  delle prenotazioni: stato ignoto, parola grezza.
+       *
+       *  ⚠️ E due `pending` molto diversi: uno aspetta che il cliente paghi un
+       *  link, l'altro si incassa al banco al ritiro. Dire «À encaisser» per
+       *  il primo manda qualcuno ad aspettare al banco dei soldi che devono
+       *  arrivare da Internet. */
       function badgeOrdine(o: Order): string {
-        if (o.status === "done") return `<span class="j-badge done">${tr("ord.terminee")}</span>`;
-        if (o.status === "pending") return `<span class="j-badge enc">${tr("ord.toCollect")}</span>`;
-        return `<span class="j-badge pay">${tr("ord.paid")}</span>`;
+        const st = statoOrdine(o.status);
+        if (st === "done") return `<span class="j-badge done">${tr("ord.terminee")}</span>`;
+        if (st === "paid") return `<span class="j-badge pay">${tr("ord.paid")}</span>`;
+        if (st === "pending") {
+          const banco = String(o.payment_method ?? "") === "onsite";
+          return `<span class="j-badge enc">${banco ? tr("ord.toCollect") : tr("ord.awaitingShort")}</span>`;
+        }
+        if (st === "cancelled") return `<span class="j-badge done">${tr("ord.annulee")}</span>`;
+        return `<span class="j-badge done">${escHtml(String(o.status ?? ""))}</span>`;
       }
       function rigaOrdine(o: Order): string {
         return `<a class="j-li" href="/admin/orders">` +
@@ -1549,11 +1624,68 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       ];
       /** ⚠️ Un BOTTONE, non un'etichetta: si clicca e si cambia stato senza
        *  cambiare pagina. `data-st-id` e' la prenotazione a cui appartiene. */
-      function badgeResa(st: string, id?: string): string {
-        const v = STATI_RESA.find((x) => x.st === st);
-        const cls = v?.cls ?? (st === "noshow" ? "gr" : "ok");
-        const label = v?.label ?? (st === "noshow" ? tr("res.stNoshow") : tr("res.stConfirmed"));
-        return `<button type="button" class="j-badge ${cls} j-st" data-st-id="${escHtml(String(id ?? ""))}">${label}</button>`;
+      /** L'ora del RISTORANTE, non del browser: il pannello si apre anche da
+       *  casa o in viaggio, e «adesso», per una prenotazione, e' l'ora della
+       *  sala. */
+      function adessoResa(): { oggi: string; minuti: number } {
+        const ora = new Date();
+        const [h, m] = new Intl.DateTimeFormat("en-GB", {
+          timeZone: TZ_LOCALE, hour: "2-digit", minute: "2-digit", hour12: false,
+        }).format(ora).split(":");
+        return {
+          oggi: new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(ora),
+          minuti: Number(h) * 60 + Number(m),
+        };
+      }
+      /** La durata dei tavoli, dalla configurazione del giorno. Senza, si
+       *  userebbe il ripiego di 90 minuti per tutti — cioe' un «Fini ?» in
+       *  anticipo in un servizio da due ore. */
+      let resaServizi: ServizioHold[] = [];
+      let resaHold = HOLD_RIPIEGO;
+      /** Le parole delle pastiglie, compresa la domanda dell'orologio.
+       *  ⚠️ Non sta dentro `STATI_RESA` perche' quello e' il MENU: «Fini ?» non
+       *  e' uno stato che si possa scegliere, e in mezzo agli altri sarebbe un
+       *  bottone che scrive nel database una parola che non esiste. */
+      const PAROLE_STATO: Record<StatoMostrato, { cls: string; label: string }> = {
+        pending: { cls: "pd", label: tr("res.stPending") },
+        confirmed: { cls: "ok", label: tr("res.stConfirmed") },
+        seated: { cls: "bl", label: tr("res.stSeated") },
+        fini: { cls: "fin", label: tr("res.finiQ") },
+        done: { cls: "gr", label: tr("res.stDone") },
+        noshow: { cls: "gr", label: tr("res.stNoshow") },
+        cancelled: { cls: "gr", label: tr("res.stCancelled") },
+      };
+      /** ⚠️ Un BOTTONE, non un'etichetta: si clicca e si cambia stato senza
+       *  cambiare pagina. `data-st-id` e' la prenotazione a cui appartiene.
+       *
+       *  ⚠️ IL GUASTO (07/10/2026, visto su Educazione Napoletana). Qui si
+       *  stampava `status` cosi' com'era: una confermata il cui tavolo e' in
+       *  corso diceva «Confirmée» sulla Accueil e «En cours» nella pagina
+       *  Réservations. Non erano due dati — era la stessa riga letta da due
+       *  codici che non la pensavano uguale, e quello sbagliato stava sullo
+       *  schermo che resta aperto tutta la sera. La regola adesso e' una sola
+       *  e sta in `resaStato.ts`.
+       *
+       *  ⚠️ Uno stato IGNOTO stampa la sua parola grezza. Prima ricadeva su
+       *  «Confirmée»: un'etichetta inventata e' peggio di una brutta — una
+       *  annullata letta «confermata» e' un tavolo tenuto per nessuno. */
+      function badgeResa(r: ResaRow): string {
+        const ora = adessoResa();
+        const sm = statoDi(
+          {
+            // Senza data, e' la riga di oggi: la colonna non ne carica altre.
+            date: String(r.date ?? ora.oggi),
+            heure: String(r.heure ?? ""),
+            status: r.status,
+            service_key: r.service_key ?? null,
+            extra_minutes: r.extra_minutes ?? null,
+          },
+          ora, resaServizi, resaHold,
+        );
+        const v = sm ? PAROLE_STATO[sm] : undefined;
+        const cls = v?.cls ?? "gr";
+        const label = v?.label ?? String(r.status ?? "");
+        return `<button type="button" class="j-badge ${cls} j-st" data-st-id="${escHtml(String(r.id ?? ""))}">${escHtml(label)}</button>`;
       }
       /** I tavoli di una prenotazione, COL LORO NOME. `tables` porta gli id, e
        *  un id non dice niente a chi lavora: in sala il tavolo si chiama «3».
@@ -1604,7 +1736,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           `<span class="h">${ora}</span>` +
           `<span class="tx"><span class="j-nome">${escHtml(nome)}</span>` +
           `<small>${doveHtml}</small>${notaHtml}</span>` +
-          `<span class="j-dx-col">${badgeResa(String(r.status ?? ""), String(r.id ?? ""))}${occ ? `<span class="j-tags">${occ}</span>` : ""}</span>` +
+          `<span class="j-dx-col">${badgeResa(r)}${occ ? `<span class="j-tags">${occ}</span>` : ""}</span>` +
           `</a>`;
       }
       // ============================================================
@@ -1615,7 +1747,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       // compresi, senza chiedere di nuovo la giornata al server.
       // ============================================================
       let reseOggi: ResaRow[] = [];
-      let resaCouv = 0;
+      /* ⚠️ I COPERTI NON SI TENGONO: si ricontano da `reseOggi` a ogni disegno.
+         Erano un numero arrivato col caricamento e messo da parte, e cambiare
+         uno stato dalla pastiglia ridisegnava la colonna lasciando il numero
+         di prima: si metteva a tavola un tavolo di sei e i coperti non si
+         muovevano. */
       let resaCapienza = 0;
       // Gli ordini di oggi, gia' filtrati: li disegna la colonna di destra e
       // li riconta l'affluenza. Richiederli una seconda volta vorrebbe dire
@@ -1638,8 +1774,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       function disegnaResa(): void {
         // Un tavolo finito, o che non si e' presentato, non e' piu' lavoro:
-        // esce dalla lista e resta nei numeri.
-        const attese = reseOggi.filter((r) => r.status !== "done" && r.status !== "noshow" && r.status !== "cancelled");
+        // esce dalla lista e resta nei numeri (`daFare`, in `resaConti.ts`).
+        const attese = daFare(reseOggi);
         const lista = document.getElementById("j-resa-lista") as HTMLElement | null;
         if (lista) {
           lista.innerHTML = attese.length
@@ -1650,13 +1786,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             ? attese.map((r) => rigaResa(r)).join("")
             : `<p class="j-vuoto">${tr("home.nothingToShow")}</p>`;
         }
-        const daConf = reseOggi.filter((r) => r.status === "pending").length;
-        // ⚠️ Senza capienza niente percentuale: una percentuale calcolata su
-        // zero posti e' un numero inventato, e sembra vero.
-        numero("j-resa-couv", String(resaCouv),
+        // ⚠️ I tre numeri vengono da `resaConti.ts`, lo stesso modulo della
+        // pagina Réservations e dei coperti della risposta: «coperti» voleva
+        // dire tre cose diverse in tre posti, e la sera le tre dicevano tre
+        // numeri per la stessa giornata.
+        const coperti = copertiDelGiorno(reseOggi);
+        const pieno = riempimento(coperti, resaCapienza);
+        numero("j-resa-couv", String(coperti),
           resaCapienza ? tr("home.onPlaces").replace("{n}", String(resaCapienza)) : "");
-        numero("j-resa-rempl", resaCapienza ? Math.round((resaCouv / resaCapienza) * 100) + " %" : "—", "");
-        numero("j-resa-conf", String(daConf), "");
+        // ⚠️ `null` = senza capienza, e si scrive un trattino: una percentuale
+        // calcolata su zero posti e' un numero inventato, e sembra vero.
+        numero("j-resa-rempl", pieno === null ? "—" : pieno + " %", "");
+        numero("j-resa-conf", String(daConfermare(reseOggi)), "");
       }
 
 
@@ -1674,13 +1815,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       // veloce per chiudere un servizio credendo di aprirlo.
       // ============================================================
       type SvOggi = { key: string; label: string; da: string; a: string };
-      /** «HH:MM» → minuti dalla mezzanotte. `-1` se non si legge: una fascia
-       *  senza orario finisce in testa, dove si vede che manca qualcosa,
-       *  invece di sparire in fondo. */
-      function minutiDi(h: string): number {
-        const m = String(h ?? "").match(/^(\d{1,2}):(\d{2})/);
-        return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
-      }
       let servOggi: SvOggi[] = [];
       let servData = "";
       const servChiusi = new Map<string, string>();
@@ -1788,9 +1922,24 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       function apriStMenu(anchor: HTMLElement, id: string): void {
         const r = reseOggi.find((x) => String(x.id ?? "") === id);
         stMenuId = id;
+        // ⚠️ La voce segnata e' quella che dice la PASTIGLIA, non il `status`
+        // grezzo: una confermata il cui tavolo e' in corso mostra «En cours»,
+        // e il menu segnava «Confirmée». Chi lo apriva per metterla a tavola
+        // vedeva che era gia' fatto, e chiudeva senza toccare niente. La
+        // regola sta in `resaStato.ts`, insieme a quella della pastiglia.
+        const voce = r ? voceStatoDi(
+          {
+            date: String(r.date ?? adessoResa().oggi),
+            heure: String(r.heure ?? ""),
+            status: r.status,
+            service_key: r.service_key ?? null,
+            extra_minutes: r.extra_minutes ?? null,
+          },
+          adessoResa(), resaServizi, resaHold,
+        ) : "";
         stMenu.innerHTML = STATI_RESA.map(
           (v) =>
-            `<button type="button" data-st="${v.st}" class="${r && r.status === v.st ? "is-cur" : ""}">` +
+            `<button type="button" data-st="${v.st}" class="${voce === v.st ? "is-cur" : ""}">` +
             `<span class="st-dot" style="background:${v.colore}"></span>${v.label}</button>`
         ).join("");
         stMenu.style.display = "block";
@@ -1831,14 +1980,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         return new Date(iso).toLocaleString(LOC, {
           timeZone: TZ_LOCALE, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
         });
-      }
-      function fasce(cfg: NonNullable<Config>): string[] {
-        // Il DB salva time con i secondi ("11:00:00") -> mostra solo HH:MM
-        const hhmm = (t: string) => t.slice(0, 5);
-        const b: string[] = [];
-        if (cfg.lunch_active && cfg.lunch_open && cfg.lunch_close) b.push(`${hhmm(cfg.lunch_open)} – ${hhmm(cfg.lunch_close)}`);
-        if (cfg.dinner_active && cfg.dinner_open && cfg.dinner_close) b.push(`${hhmm(cfg.dinner_open)} – ${hhmm(cfg.dinner_close)}`);
-        return b;
       }
 
       // ---------- Notes: i bigliettini nella colonna + il modale «nuova nota» ----------
@@ -2133,7 +2274,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                   <span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
                   <div class="note-meta">${n.author ? `<b>${escHtml(n.author)}</b> · ` : ""}${noteDate(n.created_at)}</div>
                 </div>
-                ${puoCancellare ? `<button class="note-del" type="button" title="${tr("common.delete")}">${TRASH_ICON}</button>` : ""}
+                ${puoCancellare ? `<button class="ibtn ibtn-danger note-del" type="button" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button>` : ""}
               </div>`
             )
             .join("");
@@ -2822,81 +2963,386 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             }
           } catch { /* niente eventi locali */ }
         }
-        async function renderEventi(): Promise<void> {
-          const box = document.getElementById("spx-evts") as HTMLElement | null;
-          if (!box) return;
+        /* ============================================================
+           JOURS SPÉCIAUX — una colonna, una linea del tempo
+           ------------------------------------------------------------
+           ⚠️ Qui c'erano DUE disegni per lo stesso giorno: la tile elencava i
+           giorni speciali del ristoratore, e in un riquadro sotto le prossime
+           feste del calendario. Natale compariva due volte — una come chiusura
+           sua, una come festa — e niente diceva che erano la stessa riga; una
+           delle due poteva dire «fermé» mentre l'altra diceva ancora «ouvert».
+           Adesso le due fonti si fondono per data in `fondi()`
+           (`giorniSpecialiRegole.ts`, provato a parte) e qui resta il disegno.
 
-          // Feste legali PRIMA, ricorrenze dopo: se cadono lo stesso giorno
-          // (in Germania la festa del papa' E' l'Ascensione) vince la festa
-          // legale e la riga resta una sola.
-          const eventiAnno = (anno: number): [string, string][] => {
-            const visti = new Set<string>();
-            const out: [string, string][] = [];
-            for (const f of [...festivita(paeseEventi, anno), ...ricorrenze(paeseEventi, anno)]) {
-              if (visti.has(f.data)) continue;
-              visti.add(f.data);
-              out.push([f.data, f.nome[LANG] ?? f.nome.fr]);
+           ⚠️ UNA FESTA NON CHIUDE NIENTE — lo dice `festivitaRegole.ts` e vale
+           anche qui: una pizzeria lavora il 1° maggio. Una festa senza giorno
+           speciale non e' un allarme: e' una riga che dice cosa fara' il sito
+           quel giorno, e la decisione resta a chi apre il ristorante.
+           ============================================================ */
+        type SpxDay = {
+          id?: string; type: string; date_from: string; date_to: string;
+          note?: string | null;
+          lunch_open?: string | null; lunch_close?: string | null;
+          dinner_open?: string | null; dinner_close?: string | null;
+          services?: string[] | null;
+        };
+        let spxDays: SpxDay[] = [];
+        let spxRighe: RigaSpeciale[] = [];
+        let spxFiltro: TipoRiga | "" = "";
+
+        /** Le date chiuse, giorno per giorno: il calendario le segna.
+         *  ⚠️ Una chiusura e' un INTERVALLO (`date_from` → `date_to`): due
+         *  settimane di ferie sono una riga sola, e segnando solo il primo
+         *  giorno il calendario direbbe aperto per tredici giorni di chiusura.
+         *  Si aprono tutti, con un tetto perche' una data scritta storta non
+         *  mandi il browser a contare fino al 3000. */
+        function segnaChiusure(days: SpxDay[]): void {
+          chiusiSpeciali.clear();
+          for (const sp of days) {
+            if (sp.type !== "closed") continue;
+            const d = new Date(String(sp.date_from) + "T12:00:00");
+            const fine = new Date(String(sp.date_to || sp.date_from) + "T12:00:00");
+            if (Number.isNaN(d.getTime()) || Number.isNaN(fine.getTime())) continue;
+            for (let i = 0; d <= fine && i < 400; i++, d.setDate(d.getDate() + 1)) {
+              chiusiSpeciali.add(dayKey(d));
             }
-            return out;
-          };
-          const oggiBx = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(new Date());
-          const anno = Number(oggiBx.slice(0, 4));
-          // Feste del paese + eventi LOCALI (terzo campo = locale, reso in oro)
-          const tutti: [string, string, boolean][] = [...eventiAnno(anno), ...eventiAnno(anno + 1)].map(
-            ([d, n]) => [d, n, false] as [string, string, boolean]
-          );
+          }
+        }
+
+        const spxFmt = (iso: string, opz: Intl.DateTimeFormatOptions): string =>
+          new Date(iso + "T12:00:00").toLocaleDateString(LOC, opz);
+
+        /** Le feste del paese e gli eventi del locale, in una lista sola.
+         *  ⚠️ Le legali PRIMA delle ricorrenze: il giorno che cadono insieme
+         *  (in Germania la festa del papa' E' l'Ascensione) `fondi()` tiene la
+         *  prima, e quella che pesa e' la festa legale. */
+        function spxFeste(oggi: string, fino: string): Festa[] {
+          const out: Festa[] = [];
+          const anno = Number(oggi.slice(0, 4));
+          for (const a of [anno, anno + 1]) {
+            for (const f of [...festivita(paeseEventi, a), ...ricorrenze(paeseEventi, a)]) {
+              out.push({ iso: f.data, nome: f.nome[LANG] ?? f.nome.fr });
+            }
+          }
           for (const ev of eventiLocali) {
             if (ev.yearly) {
               const mmdd = ev.date.slice(5);
-              tutti.push([`${anno}-${mmdd}`, ev.label, true], [`${anno + 1}-${mmdd}`, ev.label, true]);
+              out.push({ iso: `${anno}-${mmdd}`, nome: ev.label, locale: true });
+              out.push({ iso: `${anno + 1}-${mmdd}`, nome: ev.label, locale: true });
             } else {
-              tutti.push([ev.date, ev.label, true]);
+              out.push({ iso: ev.date, nome: ev.label, locale: true });
             }
           }
-          const futuri = tutti
-            .filter(([d]) => d >= oggiBx)
-            .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-            .slice(0, 3);
+          return out.filter((f) => f.iso >= oggi && f.iso <= fino);
+        }
 
-          // Aperto/chiuso quel giorno: month API pubblica (orari settimanali +
-          // jours spéciaux, stessa fonte del widget). Errore → nessun tag.
+        /** Cosa fara' il sito nei giorni NON decisi: aperto o chiuso comunque.
+         *
+         *  ⚠️ La stessa fonte del widget (`/api/reservation?month=`, orari
+         *  settimanali + giorni speciali), non una regola riscritta qui: un
+         *  pannello che si calcola gli orari per conto suo finisce per dire
+         *  «ouvert» un giorno in cui il cliente trova chiuso.
+         *
+         *  ⚠️ `noto: false` quando la richiesta non risponde, e allora la riga
+         *  NON scrive niente. Ripiegare su «ouvert» vorrebbe dire inventare la
+         *  risposta piu' rassicurante proprio quando non la sappiamo.
+         *
+         *  Tre mesi al massimo: e' una riga di informazione, e non vale tre
+         *  richieste in piu' per le feste di luglio. */
+        async function spxChiusi(righe: RigaSpeciale[]): Promise<{ chiusi: Set<string>; noto: boolean }> {
           const chiusi = new Set<string>();
-          let tagOk = false;
+          const mesi = [...new Set(righe.filter((r) => !r.deciso).map((r) => r.iso.slice(0, 7)))].slice(0, 3);
+          if (!mesi.length) return { chiusi, noto: true };
           try {
-            const mesi = [...new Set(futuri.map(([d]) => d.slice(0, 7)))];
-            // ⚠️ `/api/reservation` e' PUBBLICA, e da sola risponderebbe per la
-            // sede del sito — cioe' sempre la prima. Qui si sta guardando la
-            // sede selezionata nell'header, e glielo si dice.
             const risp = await Promise.all(
               mesi.map((m) => fetch("/api/reservation?month=" + m, { headers: hSede() }).then((r) => r.json())),
             );
-            for (const rr of risp) for (const d of rr.closed ?? []) chiusi.add(d);
-            tagOk = true;
-          } catch { /* niente tag */ }
-
-          const escEv = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-          // Senza paese non ci sono feste — restano solo gli eventi del locale.
-          // Se non c'e' nemmeno quelli la tile resterebbe muta e sembrerebbe
-          // rotta invece che da configurare, quindi lo si dice.
-          if (!futuri.length) {
-            box.innerHTML = paeseEventi ? "" : `<div class="spx-empty">${tr("home.noCountry")}</div>`;
-            return;
+            for (const rr of risp) for (const d of rr.closed ?? []) chiusi.add(String(d));
+            return { chiusi, noto: true };
+          } catch {
+            return { chiusi, noto: false };
           }
-          box.innerHTML = futuri
-            .map(([d, nome, loc]) => {
-              const dt = new Date(d + "T12:00:00");
-              const mese = dt.toLocaleDateString(LOC, { month: "short" }).replace(".", "");
-              const gg = dt.toLocaleDateString(LOC, { weekday: "long" });
-              const tag = tagOk
-                ? (chiusi.has(d) ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`)
-                : "";
-              return `<div class="spx-ev"><span class="ev-cal"><b>${Number(d.slice(8, 10))}</b><i>${mese}</i></span><span class="ev-txt"><span class="ev-nome${loc ? " ev-loc" : ""}">${escEv(nome)}${tag ? " " + tag : ""}</span><span class="ev-gg">${gg}</span></span></div>`;
+        }
+
+        /** Un giorno sul calendarietto: numero grande, mese piccolo. */
+        const spxGiorno = (iso: string): string =>
+          `<b>${Number(iso.slice(8, 10))}</b><i>${escHtml(spxFmt(iso, { month: "short" }).replace(".", ""))}</i>`;
+
+        function rigaSpx(r: RigaSpeciale, chiusi: Set<string>, noto: boolean): string {
+          /* ⚠️ UN PERIODO HA DUE DATE, e la seconda non e' un dettaglio da
+             riga di servizio: «chiuso dal 19 al 25» e' la cosa che si guarda.
+             Stava scritta in mezzo alla frase sotto («lunedì · fino al 25 ott
+             · 7 giorni»), cioe' nel posto in cui si legge per ultimo. Sale sul
+             calendarietto, sotto la data d'inizio: due numeri grandi, e la
+             freccia dice che e' un intervallo e non due giorni staccati. */
+          const cal = r.fine
+            ? `<span class="ev-cal due">${spxGiorno(r.iso)}<em>↓</em>${spxGiorno(r.fine)}</span>`
+            : `<span class="ev-cal">${spxGiorno(r.iso)}</span>`;
+          const badge =
+            r.tipo === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>`
+              : r.tipo === "open" ? `<span class="spx-b open">${tr("home.spxHoursTag")}</span>`
+                : `<span class="spx-b fete">${tr("home.spxFete")}</span>`;
+          /* ⚠️ IL MOTIVO E' IL NOME DELLA RIGA. «Vacanze Autunno» dice piu' di
+             «CHIUSO» ripetuto dieci volte, ed e' la parola che si cerca quando
+             si scorre la colonna. Stava in fondo, in corsivo, al posto delle
+             note dei clienti.
+             Se la riga ha ANCHE una festa, il nome resta quello della festa e
+             il motivo torna sotto: sono due cose diverse — come si chiama quel
+             giorno, e perche' si chiude. */
+          const nome = r.titolo || r.nota || "";
+          /* ⚠️ Il nome in BIANCO, anche quando l'evento e' suo. Era in corallo
+             per farlo ritrovare fra venti feste di calendario — ma adesso
+             quell'evento ha il cestino, che le feste non hanno: chi e' suo si
+             vede dal fatto che si puo' buttare via. Due segni per la stessa
+             cosa, e il corallo era quello che costava il colore del titolo. */
+          const titolo = nome ? `<span class="ev-nome">${escHtml(nome)}</span>` : "";
+          const ore = [r.pranzo, r.cena]
+            .filter((f): f is [string, string] => Array.isArray(f))
+            .map((f) => `${f[0]} – ${f[1]}`)
+            .join("  ·  ");
+          /* LA MISURA DELLA RIGA: una sola, scelta per importanza.
+             Un periodo dura («7 giorni»), un giorno aperto ha degli orari
+             («11:00 – 23:30»), tutto il resto ha il suo giorno della settimana.
+             Rispondono alla stessa domanda — «quanto» — e stavano su tre righe
+             diverse, due in bianco grande e una in grigio piccolo: la stessa
+             colonna si leggeva in tre modi.
+             ⚠️ Il giorno della settimana NON va sui periodi: «lunedì» e' il
+             giorno d'inizio, e accanto a due date fa credere che si chiuda di
+             lunedi'. Ne' sui giorni con gli orari: la data sta gia' nel
+             calendarietto, e la riga serve a dire a che ora si apre.
+             ⚠️ In BIANCO quando e' un numero (giorni, ore), in grigio quando e'
+             solo il giorno: il numero e' cio' che si legge, il giorno e' il
+             contorno di una data che sta li' accanto. */
+          const misura = r.fine
+            ? `<span class="j-spx-dur">${escHtml(tr("home.spxDays").replace("{n}", String(r.giorni)))}</span>`
+            : ore
+              ? `<span class="j-spx-dur">${escHtml(ore)}</span>`
+              : `<span class="j-spx-gg">${escHtml(spxFmt(r.iso, { weekday: "long" }))}</span>`;
+          /* Cosa succede quel giorno, sulla riga della festa: APERTO o CHIUSO,
+             la stessa pastiglia verde e rossa dei giorni decisi.
+             ⚠️ Solo se la risposta ce l'abbiamo DAVVERO (`noto`): quando l'API
+             pubblica non risponde non si scrive niente. Una pastiglia verde
+             messa per ripiego direbbe «aperto» un giorno di chiusura, ed e'
+             l'unica riga della colonna che qualcuno potrebbe leggere di corsa
+             senza aprire niente.
+             ⚠️ E solo sulle feste NON decise: su una chiusura vera la pastiglia
+             c'e' gia' ed e' quella di sinistra — due pastiglie che dicono la
+             stessa cosa sono una che si contraddira'. */
+          const stato = !r.deciso && noto
+            ? (chiusi.has(r.iso)
+                ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>`
+                : `<span class="spx-b open">${tr("home.tagOpen")}</span>`)
+            : "";
+          // La nota scende qui solo se non e' gia' il nome della riga.
+          const nota = r.nota && r.nota !== nome
+            ? `<span class="j-nota">${ICO_NOTA}<span>${escHtml(r.nota)}</span></span>`
+            : "";
+          /* ⚠️ UN SERVIZIO E' «chiave|orario», non una chiave. Nel database un
+             giorno «aperto» salva `soir|17:00-22:30`, e stampando il valore
+             cosi' com'e' la riga diceva «SOIR|17:00-22:30» — il nome del
+             servizio in una lingua che non e' nessuna, e l'orario attaccato
+             con una barra. Si spezza come fa il modulo che l'ha scritto. */
+          const serv = (r.servizi ?? [])
+            .map((tok) => {
+              const [k, h] = String(tok).split("|");
+              const nome = nomeServizio(k, LANG);
+              return `<span class="j-tag">${escHtml(h ? `${nome} ${h.replace("-", "–")}` : nome)}</span>`;
             })
             .join("");
+          /* Il cestino c'e' su cio' che QUALCUNO HA SCRITTO: le chiusure, le
+             aperture eccezionali e gli eventi del locale. Non sulle feste del
+             calendario — tornerebbero l'anno prossimo comunque, e un cestino
+             che non cancella niente e' peggio di nessun cestino.
+             ⚠️ `data-sid` porta l'id del giorno speciale; vuoto vuol dire che
+             la riga e' un evento locale, che vive in un'altra lista e si
+             cancella in un altro modo. Senza, il cestino avrebbe dovuto
+             indovinare da che parte andare.
+             ⚠️ `.ibtn.ibtn-danger`: il cestino del pannello, con la sua guardia
+             a due tocchi. Era riscritto in otto pagine con otto nomi; questa
+             non fa la nona. */
+          const cancellabile = r.locale || (r.deciso && Boolean(r.id));
+          const cestino = cancellabile
+            ? `<button type="button" class="ibtn ibtn-danger j-spx-del" data-sid="${escHtml(r.id ?? "")}" title="${escHtml(tr("common.delete"))}" aria-label="${escHtml(tr("common.delete"))}">${TRASH_ICON}</button>`
+            : "";
+          // ⚠️ La riga INTERA e' il link al modulo, con la sua data dentro
+          // (`?spx=`): la cosa che si vuole fare guardando questa colonna e'
+          // cambiare quel giorno, e un bersaglio piccolo in una colonna che si
+          // guarda col dito e' un bersaglio che si sbaglia.
+          return `<a class="j-li j-spx-li${r.deciso ? "" : " aperta"}${r.oggi ? " oggi" : ""}` +
+            `" data-iso="${r.iso}" data-nome="${escHtml(r.titolo)}"` +
+            ` href="/admin/settings?tab=horaire&spx=${encodeURIComponent(r.iso)}">` +
+            cal +
+            `<span class="tx">` +
+            /* ⚠️ SOPRA IL NOME, SOTTO COS'E'. Il nome («Vacanze Autunno»,
+               «Halloween») e' quello che si cerca scorrendo la colonna, e con
+               due pastiglie davanti si leggeva per terzo. Le pastiglie
+               scendono accanto alla misura, dove rispondono alla domanda che
+               viene dopo: quanto dura, e che cosa succede quel giorno.
+               Senza nome la riga comincia direttamente da li': una riga vuota
+               in cima sarebbe un buco che sembra un pezzo non caricato. */
+            `<span class="j-spx-l1">${r.oggi ? `<span class="spx-b now">${tr("home.spxToday")}</span>` : ""}${titolo}</span>` +
+            `<span class="j-spx-l2">${misura}${badge}${stato}</span>` +
+            nota +
+            (serv ? `<span class="j-tags">${serv}</span>` : "") +
+            `</span>${cestino}</a>`;
         }
-        void caricaEventiLocali().then(renderEventi);
 
-        // ---------- Modale Evenements locaux (bottone + della tile) ----------
+        function disegnaSpxFiltri(): void {
+          const box = document.getElementById("j-spx-filtri");
+          if (!box) return;
+          const tipi = filtriUtili(spxRighe);
+          // ⚠️ Un filtro solo non e' un filtro: con le sole chiusure, «Toutes»
+          // e «Fermetures» danno la stessa colonna.
+          box.style.display = tipi.length > 1 ? "" : "none";
+          if (spxFiltro && !tipi.includes(spxFiltro)) spxFiltro = "";
+          if (tipi.length < 2) return;
+          const nome: Record<TipoRiga, string> = {
+            closed: tr("home.spxClosures"),
+            open: tr("home.spxHoursTag"),
+            fete: tr("home.spxFetes"),
+          };
+          const chip = (val: string, testo: string, ico = ""): string =>
+            `<button type="button" class="rh-filter${ico ? " tutte" : ""}${val === spxFiltro ? " is-on" : ""}"` +
+            ` data-f="${escHtml(val)}"${ico ? ` aria-label="${escHtml(testo)}" title="${escHtml(testo)}"` : ""}>` +
+            `${ico}<span class="et">${escHtml(testo)}</span></button>`;
+          box.innerHTML = chip("", tr("home.notesAll"), ICO_TUTTE) +
+            tipi.map((t) => chip(t, nome[t])).join("");
+        }
+
+        function disegnaSpx(chiusi: Set<string>, noto: boolean): void {
+          const col = document.getElementById("j-spx");
+          const lista = document.getElementById("j-spx-lista");
+          if (!col || !lista) return;
+          col.style.display = "";
+          const viste = spxFiltro ? spxRighe.filter((r) => r.tipo === spxFiltro) : spxRighe;
+          lista.innerHTML = viste.length
+            ? viste.map((r) => rigaSpx(r, chiusi, noto)).join("")
+            : `<p class="j-vuoto">${tr("home.noSpecialDays")}</p>`;
+          disegnaSpxFiltri();
+          const c = conti(spxRighe);
+          const pil = document.getElementById("j-spx-cnt");
+          // ⚠️ La pastiglia conta le DECISIONI, non le righe: le feste sono
+          // contorno, e un «12» fatto di feste direbbe che c'e' da lavorare
+          // dove non c'e' niente da fare.
+          if (pil) pil.textContent = c.chiusure + c.orari ? String(c.chiusure + c.orari) : "";
+          numero("j-spx-ferm", String(c.chiusure),
+            c.giorniChiusi ? tr("home.spxDays").replace("{n}", String(c.giorniChiusi)) : "");
+          numero("j-spx-ore", String(c.orari), "");
+          numero("j-spx-next",
+            c.prossimaChiusura ? spxFmt(c.prossimaChiusura, { day: "numeric", month: "short" }) : "—",
+            c.prossimaChiusura ? spxFmt(c.prossimaChiusura, { weekday: "short" }) : "");
+          const nums = document.getElementById("j-spx-nums");
+          if (nums) nums.style.display = "";
+        }
+
+        /** ⚠️ Il nome resta `renderEventi` perche' lo chiama il modale degli
+         *  eventi locali dopo ogni aggiunta e cancellazione: li' vuol dire «le
+         *  date sono cambiate, ridisegna», ed e' esattamente questo. */
+        async function renderEventi(): Promise<void> {
+          const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(new Date());
+          const fino = piuGiorni(oggi, 90);
+          spxRighe = fondi({ speciali: spxDays, feste: spxFeste(oggi, fino), oggi, fino });
+          // ⚠️ Si disegna DUE volte, e non e' uno spreco: la colonna compare
+          // subito con cio' che sappiamo (le date, le chiusure, gli orari), e
+          // la riga «ouvert / fermé» delle feste arriva quando risponde l'API
+          // pubblica. Aspettando la rete, mezza fascia resterebbe vuota per
+          // una frase di contorno.
+          disegnaSpx(new Set<string>(), false);
+          const { chiusi, noto } = await spxChiusi(spxRighe);
+          if (noto) disegnaSpx(chiusi, noto);
+        }
+
+        /** Cliccare una riga apre il modale di QUESTA pagina, sulla linguetta
+         *  delle chiusure e con la data gia' dentro.
+         *
+         *  ⚠️ L'indirizzo nella riga resta vero e porta a Réglages → Horaires:
+         *  serve a chi apre in una scheda nuova (⌘-clic, rotellina) e a chi
+         *  legge la pagina senza JavaScript. Un `href="#"` avrebbe tolto tutte
+         *  e due le cose per far funzionare un clic che funziona lo stesso. */
+        /** L'evento del locale che questa riga mostra, dentro `eventiLocali`.
+         *
+         *  ⚠️ Non basta la data: un evento «ogni anno» e' scritto UNA volta e
+         *  la colonna lo disegna in due anni diversi, quindi la riga del 2027
+         *  ha una data che nella lista non esiste. Si confronta il giorno e il
+         *  mese, e il nome. `-1` = non e' suo, e allora non si cancella niente:
+         *  meglio un cestino che non fa nulla di una riga cancellata a caso. */
+        function indiceEventoLocale(iso: string, nome: string): number {
+          return eventiLocali.findIndex((ev) =>
+            ev.label === nome && (ev.yearly ? ev.date.slice(5) === iso.slice(5) : ev.date === iso));
+        }
+
+        document.getElementById("j-spx-lista")?.addEventListener("click", (ev) => {
+          const m = ev as MouseEvent;
+          if (m.metaKey || m.ctrlKey || m.shiftKey || m.button !== 0) return;
+          const a = (ev.target as HTMLElement).closest(".j-spx-li") as HTMLElement | null;
+          if (!a) return;
+
+          // ⚠️ Il cestino sta DENTRO il link: senza fermare l'evento, il primo
+          // tocco aprirebbe anche il modale — e il secondo lo troverebbe
+          // davanti, cioe' la cancellazione non si potrebbe confermare.
+          const del = (ev.target as HTMLElement).closest(".j-spx-del") as HTMLButtonElement | null;
+          if (del) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            // Primo tocco: la pastiglia si allarga e chiede. Si disarma da
+            // sola dopo tre secondi, come gli altri cestini del pannello.
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = tr("home.deleteQ");
+              window.setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = TRASH_ICON; }, 3000);
+              return;
+            }
+            // Un giorno speciale lo cancella il form (che possiede l'elenco e
+            // sa rileggerlo); un evento locale lo cancella il modale, che
+            // possiede la sua lista. La colonna dice solo QUALE riga.
+            const sid = del.dataset.sid ?? "";
+            if (sid) {
+              document.dispatchEvent(new CustomEvent("spf:cancella", { detail: { id: sid } }));
+              return;
+            }
+            const i = indiceEventoLocale(a.dataset.iso ?? "", a.dataset.nome ?? "");
+            if (i >= 0) document.dispatchEvent(new CustomEvent("evt:cancella", { detail: { i } }));
+            return;
+          }
+
+          ev.preventDefault();
+          document.dispatchEvent(new CustomEvent("spx:apri", { detail: { iso: a.dataset.iso ?? "" } }));
+        });
+
+        document.getElementById("j-spx-filtri")?.addEventListener("click", (ev) => {
+          const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+          if (!b) return;
+          spxFiltro = (b.dataset.f ?? "") as TipoRiga | "";
+          void renderEventi();
+        });
+
+        /** Il form dei giorni speciali (nel modale di questa pagina e in
+         *  Réglages) rilancia `spf:loaded` dopo ogni aggiunta o cancellazione:
+         *  la colonna si ridisegna con QUEI dati, senza un secondo fetch e
+         *  senza ricaricare la pagina. */
+        document.addEventListener("spf:loaded", (e) => {
+          const d = (e as CustomEvent<{ days?: SpxDay[] }>).detail?.days;
+          if (!Array.isArray(d)) return;
+          spxDays = d;
+          segnaChiusure(spxDays);
+          void renderEventi();
+        });
+
+        void (async () => {
+          await caricaEventiLocali();
+          try {
+            const res = await fetch("/api/admin/special-days", { headers });
+            if (res.ok) spxDays = ((await res.json()) as { days?: SpxDay[] }).days ?? [];
+          } catch { /* la colonna mostrera' le feste e basta */ }
+          // ⚠️ PRIMA del disegno: le chiusure si segnano anche quando la lista
+          // e' vuota o la colonna non c'e' — un calendario senza puntini su un
+          // locale che chiude due settimane.
+          segnaChiusure(spxDays);
+          void renderEventi();
+        })();
+
+
+        // ---------- Modale Evenements locaux (il bottone in fondo alla colonna) ----------
         (() => {
           const evtOverlay = document.getElementById("evt-overlay") as HTMLDivElement | null;
           const evtBtn = document.getElementById("spx-add") as HTMLButtonElement | null;
@@ -2918,7 +3364,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             evtList.innerHTML = eventiLocali.length
               ? eventiLocali
                   .map((ev, i) =>
-                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="evm-del" data-i="${i}" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button></div>`
+                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="ibtn ibtn-danger evm-del" data-i="${i}" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button></div>`
                   )
                   .join("")
               : `<div class="evm-vide">${tr("home.noLocalEvents")}</div>`;
@@ -2943,9 +3389,53 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const p = b.dataset.p;
             evtTabs.querySelectorAll<HTMLElement>(".m-tab").forEach((x) => x.classList.toggle("is-on", x.dataset.p === p));
             evtOverlay.querySelectorAll<HTMLElement>(".evm-pane").forEach((x) => { x.hidden = x.dataset.p !== p; });
+            // ⚠️ Anche il piede: senza, si vedrebbe «Aggiungi» dell'altra
+            // linguetta — cioe' un bottone che crea la cosa che non si sta
+            // guardando.
+            evtOverlay.querySelectorAll<HTMLElement>(".evm-ok").forEach((x) => { x.hidden = x.dataset.p !== p; });
+          });
+
+          /** La colonna chiede di cancellare un evento locale.
+           *  ⚠️ La cancellazione vive QUI, dove sta il resto della vita di
+           *  `eventiLocali` (il salvataggio, il rinfresco dell'elenco, il
+           *  ripiego quando il server dice di no): due posti che salvano la
+           *  stessa lista diventano due liste il giorno che uno dei due
+           *  sbaglia. La colonna dice COSA, non COME. */
+          document.addEventListener("evt:cancella", async (e) => {
+            const i = Number((e as CustomEvent<{ i?: number }>).detail?.i ?? -1);
+            if (!Number.isInteger(i) || i < 0 || i >= eventiLocali.length) return;
+            eventiLocali.splice(i, 1);
+            if (await salvaEvt()) {
+              renderListaEvt();
+            } else {
+              // Il server ha detto di no: si rilegge la verita' invece di
+              // tenere a schermo una cancellazione che non c'e' stata.
+              await caricaEventiLocali();
+              renderListaEvt();
+              toast(tr("us.editErr"), true);
+            }
+            void renderEventi();
+          });
+
+          document.getElementById("evt-add-cl")?.addEventListener("click", () => {
+            document.dispatchEvent(new CustomEvent("spf:aggiungi"));
           });
 
           const apriEvt = () => { renderListaEvt(); evtOverlay.hidden = false; };
+          /** La colonna «Jours spéciaux» apre QUESTO modale: il modulo delle
+           *  chiusure e' la sua seconda linguetta, ed e' gia' in pagina.
+           *  Mandare in Réglages per una cosa che si fa qui vorrebbe dire far
+           *  perdere il posto in cui si era — e tornare indietro a mano.
+           *  ⚠️ Un evento e non una funzione esportata: i due pezzi stanno in
+           *  due chiusure diverse di questo stesso script, e il modale si
+           *  monta DOPO la colonna. */
+          document.addEventListener("spx:apri", (e) => {
+            const iso = String((e as CustomEvent<{ iso?: string }>).detail?.iso ?? "");
+            apriEvt();
+            if (!iso) return;
+            evtTabs?.querySelector<HTMLElement>('.m-tab[data-p="cl"]')?.click();
+            document.dispatchEvent(new CustomEvent("spf:data", { detail: { iso } }));
+          });
           const chiudiEvt = () => { evtOverlay.hidden = true; dpChiudi(); };
           evtBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); apriEvt(); });
           // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
@@ -3097,80 +3587,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           document.addEventListener("keydown", (e) => { if (e.key === "Escape") dpChiudi(); });
         })();
 
-        // ---------- Jours spéciaux (fetch autonomo, fuori dal batch SSR) ----------
-        // La stessa lista vive in due posti: qui nella tile e nel form dentro
-        // la modale. Il form rilancia `spf:loaded` dopo ogni aggiunta o
-        // cancellazione, quindi la tile si ridisegna con QUEI dati — niente
-        // secondo fetch e niente ricarica della pagina.
-        (() => {
-          const wrap = document.getElementById("spx-list") as HTMLDivElement | null;
-          if (!wrap) return;
-          type SpxDay = { type: string; date_from: string; date_to: string; note?: string | null };
-          const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
-          const escSpx = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-          const MAX = 4;
-
-          /** Le date chiuse, giorno per giorno: il calendario le segna.
-           *  ⚠️ Una chiusura e' un INTERVALLO (`date_from` → `date_to`): due
-           *  settimane di ferie sono una riga sola, e segnando solo il primo
-           *  giorno il calendario direbbe aperto per tredici giorni di
-           *  chiusura. Si aprono tutti, con un tetto perche' una data scritta
-           *  storta non mandi il browser a contare fino al 3000. */
-          function segnaChiusure(days: SpxDay[]): void {
-            chiusiSpeciali.clear();
-            for (const sp of days) {
-              if (sp.type !== "closed") continue;
-              const d = new Date(String(sp.date_from) + "T12:00:00");
-              const fine = new Date(String(sp.date_to || sp.date_from) + "T12:00:00");
-              if (Number.isNaN(d.getTime()) || Number.isNaN(fine.getTime())) continue;
-              for (let i = 0; d <= fine && i < 400; i++, d.setDate(d.getDate() + 1)) {
-                chiusiSpeciali.add(dayKey(d));
-              }
-            }
-          }
-
-          function renderSpx(days: SpxDay[]): void {
-            // ⚠️ PRIMA del disegno: qui sotto si esce presto quando la lista e'
-            // vuota o il contenitore non c'e', e le chiusure non verrebbero
-            // mai segnate — un calendario senza puntini su un locale che
-            // chiude il lunedi'.
-            segnaChiusure(days);
-            if (!wrap) return;
-            if (!days.length) {
-              wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
-              return;
-            }
-            // SOLO i giorni speciali del ristoratore. Le feste del calendario
-            // stanno gia' in «Prossimi eventi» qui sotto (eventiAnno), con la
-            // loro grafica: ripeterle qui era una doppia riga per lo stesso
-            // fatto, e rubava i posti alle chiusure vere.
-            const righe = days.map((sp) => {
-              const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
-              const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
-              const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
-              return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
-            });
-            wrap.innerHTML =
-              righe.slice(0, MAX).join("") +
-              (righe.length > MAX ? `<div class="spx-more">+ ${righe.length - MAX} ${tr("home.more")}…</div>` : "");
-          }
-
-          document.addEventListener("spf:loaded", (e) => {
-            const d = (e as CustomEvent<{ days?: SpxDay[] }>).detail?.days;
-            if (Array.isArray(d)) renderSpx(d);
-          });
-
-          void (async () => {
-            try {
-              const res = await fetch("/api/admin/special-days", { headers });
-              if (!res.ok) throw new Error();
-              renderSpx((((await res.json()) as { days: SpxDay[] }).days) ?? []);
-            } catch {
-              wrap.innerHTML = `<div class="spx-empty">${tr("home.unavail")}</div>`;
-            }
-          })();
-        })();
-
         try {
           // SSR (Fase 2): 5 isole pre-caricate dal server (ssr-home). Se
           // presenti, i tile principali appaiono all'istante senza fetch; le
@@ -3232,30 +3648,42 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const cnt = document.getElementById("j-ord-cnt");
             if (cnt) cnt.textContent = tr("home.nToday").replace("{n}", String(ordOggi.length));
 
-            // ⚠️ La lista e' quello che RESTA DA FARE: un ordine ritirato esce.
-            // Il conteggio in alto invece li conta tutti, perche' e' il numero
-            // della giornata — ed e' lo stesso da cui vengono i soldi qui sotto.
-            const daFare = ordOggi.filter((o) => o.status !== "done");
+            // ⚠️ La lista e' quello che RESTA DA FARE (`daServire`, in
+            // `ordiniConti.ts`): un ordine ritirato esce. Il conteggio in alto
+            // invece li conta tutti, perche' e' il numero della giornata — ed
+            // e' lo stesso da cui vengono i soldi qui sotto.
+            const restano = daServire(ordOggi);
             const lista = document.getElementById("j-ord-lista") as HTMLElement | null;
             if (lista) {
-              lista.innerHTML = daFare.length
+              lista.innerHTML = restano.length
                 // Come per le prenotazioni: l'elenco e' intero, e scorre dentro
                 // il suo riquadro.
-                ? daFare.map((o) => rigaOrdine(o)).join("")
+                ? restano.map((o) => rigaOrdine(o)).join("")
                 : `<p class="j-vuoto">${tr("home.nothingToShow")}</p>`;
             }
 
-            // ⚠️ «Incassato» sono i soldi ENTRATI: i `pending` al banco non ci
-            // sono dentro, e dire il contrario sarebbe scrivere un incasso che
-            // non e' entrato. Stanno nel terzo numero, che e' un promemoria.
-            const pagati = ordOggi.filter((o) => o.status === "paid" || o.status === "done");
-            const daIncassare = ordOggi.filter((o) => o.status === "pending");
-            const tot = pagati.reduce((acc, o) => acc + o.total_cents, 0);
-            const totDa = daIncassare.reduce((acc, o) => acc + o.total_cents, 0);
+            // ⚠️ I tre numeri vengono da `ordiniConti.ts`, lo stesso modulo
+            // della pagina Commandes, delle statistiche e della mail del
+            // mattino. «Incassato» sono i soldi ENTRATI: senza i rimborsi
+            // (usciti) e senza i supplementi dovuti (mai entrati), e senza i
+            // `pending`, che stanno nel terzo numero.
+            const pagati = righeIncassate(ordOggi);
+            const tot = incassato(ordOggi);
+            const medio = panierMedio(ordOggi);
+            const resta = restaDaIncassare(ordOggi);
             numero("j-ord-enc", euro(tot), tr("home.nOrders").replace("{n}", String(pagati.length)));
-            numero("j-ord-pan", pagati.length ? euro(Math.round(tot / pagati.length)) : "—", "");
-            numero("j-ord-aenc", totDa ? euro(totDa) : "—",
-              totDa ? tr("home.atCounter").replace("{n}", String(daIncassare.length)) : "");
+            // ⚠️ Un trattino e non «0,00 €»: un carrello medio a zero sembra un
+            // dato — vuol dire «si e' venduto a prezzo zero» — mentre la verita'
+            // e' che non si e' ancora venduto niente.
+            numero("j-ord-pan", medio === null ? "—" : euro(medio), "");
+            numero("j-ord-aenc", resta.importo ? euro(resta.importo) : "—",
+              // ⚠️ «Au comptoir» solo se li si incassa davvero al banco: con un
+              // link di pagamento in mezzo la frase manderebbe qualcuno ad
+              // aspettare al banco soldi che devono arrivare da Internet.
+              !resta.righe ? ""
+                : resta.linkPagamento
+                  ? `${resta.righe} ${tr("ord.pending")}`
+                  : tr("home.atCounter").replace("{n}", String(resta.banco)));
           }
 
           // ---------- Réservations : la colonna di mezzo ----------
@@ -3264,9 +3692,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const tutte = ((jr.reservations ?? []) as ResaRow[])
               .filter((r) => r.status !== "cancelled")
               .sort((a, b) => (String(a.heure) < String(b.heure) ? -1 : 1));
-            const couv = Number(jr.couverts ?? 0);
             const capienza = Number(jr.config?.capacity ?? 0);
             tavoliNomi = (jr.tables_map ?? {}) as Record<string, string>;
+            // ⚠️ La durata dei tavoli serve alla PASTIGLIA, non ai numeri: e'
+            // lei che dice quando una confermata diventa «Fini ?». Arriva con
+            // la giornata, quindi non costa una richiesta in piu'.
+            resaServizi = ((jr.config?.services ?? []) as ServizioHold[]).filter((x) => x && x.key);
+            resaHold = Number(jr.hold_minutes) || HOLD_RIPIEGO;
 
             const box = document.getElementById("j-resa");
             if (box) box.style.display = "";
@@ -3277,47 +3709,40 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // pastiglia si ridisegna la colonna senza richiedere di nuovo la
             // giornata — e i numeri sotto si rifanno con lei.
             reseOggi = tutte;
-            resaCouv = couv;
             resaCapienza = capienza;
             disegnaResa();
 
             // ---- I servizi di oggi ----
-            // ⚠️ `days` vuoto = tutti i giorni, come nella pagina
-            // Réservations. Un servizio del sabato elencato di martedi' con
-            // un interruttore che non chiude niente e' peggio di non averlo.
+            // ⚠️ `serviziDelGiorno` e' LA regola, la stessa della pagina
+            // Réservations: giorni della settimana, giorno speciale «aperto»
+            // che li scavalca, ordine di orario. Qui si filtrava solo per
+            // `days`: un lunedi' di chiusura aperto per un'occasione mostrava
+            // la scatola dei servizi VUOTA mentre il sito prendeva
+            // prenotazioni — e dentro quella scatola c'e' l'interruttore per
+            // chiudere un servizio. Niente scatola, niente comando, nessun
+            // errore da nessuna parte.
             const dow = new Date(oggiKey + "T12:00:00").getDay();
             servData = oggiKey;
-            servOggi = ((jr.config?.services ?? []) as { key: string; from?: string; to?: string; days?: number[] }[])
-              .filter((sv) => sv && sv.key && sv.from && sv.to)
-              .filter((sv) => !Array.isArray(sv.days) || sv.days.length === 0 || sv.days.includes(dow))
-              .map((sv) => ({
-                key: String(sv.key),
-                label: nomeServizio(String(sv.key), LANG),
-                da: String(sv.from).slice(0, 5),
-                a: String(sv.to).slice(0, 5),
-              }))
-              // ⚠️ IN ORDINE DI OREARIO, e non nell'ordine in cui stanno nella
-              // configurazione. Li' l'ordine e' quello in cui il ristoratore
-              // ha creato le fasce — «Dinner» prima di «Lunch» se ha
-              // cominciato dalla sera — e la giornata non si legge cosi'. Chi
-              // guarda da sinistra a destra legge una giornata che va
-              // all'indietro, e per sapere quale interruttore e' il pranzo
-              // deve leggere l'orario invece del nome.
-              // In MINUTI e non per lettere: «9:00» e «12:00» ordinati come
-              // testo mettono le nove dopo mezzogiorno, e una fascia scritta
-              // senza lo zero davanti basta a mandare tutto a rovescio.
-              .sort((x, y) => minutiDi(x.da) - minutiDi(y.da));
+            servOggi = serviziDelGiorno(jr.config?.services, {
+              dow,
+              speciale: Boolean(jr.special_open),
+              serviziSpeciali: (jr.special_services ?? null) as string[] | null,
+            }).map((sv) => ({
+              key: String(sv.key),
+              label: nomeServizio(String(sv.key), LANG),
+              da: String(sv.from).slice(0, 5),
+              a: String(sv.to).slice(0, 5),
+            }));
             // I giorni della settimana in cui non apre nessun servizio: il
-            // calendario li segna. ⚠️ `days` vuoto vuol dire «tutti i giorni»,
-            // come nella riga qui sopra: letto come «nessuno», un locale con
-            // un servizio solo e senza giorni scelti risulterebbe chiuso
-            // sempre, e il calendario sarebbe tutto puntini.
+            // calendario li segna. ⚠️ Lo CHIEDE a `serviziDelGiorno`, la stessa
+            // regola della scatola qui sopra: scritta a mano era la terza copia
+            // di «days vuoto = tutti i giorni», e un calendario che segna
+            // aperto un giorno in cui la scatola dei servizi e' vuota manda in
+            // sala qualcuno a cercare un interruttore che non c'e'.
             chiusiSettimana.clear();
-            {
-              const sv = (jr.config?.services ?? []) as { days?: number[] }[];
-              for (let d = 0; d <= 6; d++) {
-                const apre = sv.some((x) => !Array.isArray(x.days) || x.days.length === 0 || x.days.includes(d));
-                if (!apre) chiusiSettimana.add(((d + 6) % 7) + 1);
+            for (let d = 0; d <= 6; d++) {
+              if (!serviziDelGiorno(jr.config?.services, { dow: d }).length) {
+                chiusiSettimana.add(((d + 6) % 7) + 1);
               }
             }
             servChiusi.clear();
@@ -3335,6 +3760,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // senza che nessuno le conti. Il conto non e' stato spostato: non
           // serve piu'.
 
+          /** «oggi», «domani», oppure il giorno della settimana.
+           *  ⚠️ Nessuna parola nuova da tradurre: oltre domani si scrive il
+           *  nome del giorno, che la lingua ce l'ha gia'. «fra 9 giorni» e'
+           *  un conto che chi legge rifa' per capire QUANDO. */
+          const quandoRiapre = (fra: number): string => {
+            if (fra <= 0) return tr("home.today");
+            if (fra === 1) return tr("home.tomorrow");
+            const d = new Date(oggiKey + "T12:00:00");
+            d.setDate(d.getDate() + fra);
+            return d.toLocaleDateString(LOC, { weekday: "long" });
+          };
+
           // ---------- La giornata: orari, riapertura, affluenza ----------
           // ⚠️ Gli orari stavano in una tile, che adesso non c'e' piu'. Non e'
           // una tile spostata: e' la stessa cosa detta in UN posto solo. Due
@@ -3343,18 +3780,21 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           type Today = { config: Config; orders_closed?: boolean; closes_at?: string | null; reopen?: { in_days: number; heure: string } | null };
           const jt: Today | null = resToday.ok ? ((await resToday.json()) as Today) : null;
           const cfg = jt?.config ?? null;
-          const bande = cfg ? fasce(cfg) : [];
+          const bande = fasce(cfg);
           {
             const pil = document.getElementById("j-stato");
             const righeOre = document.getElementById("j-orari");
-            const aperto = bande.length > 0;
+            // ⚠️ TRE stati, non due: «ignoto» non e' «chiuso». Il primo dice
+            // che la configurazione non e' arrivata, il secondo che oggi non
+            // si apre — e li' c'era una pastiglia CORALLE anche per il primo,
+            // cioe' «Non disponibile» col vestito di «Fermé»: un locale aperto
+            // con un'API lenta si vedeva chiuso sulla propria Accueil.
+            const stato = statoGiorno(cfg);
             if (pil) {
-              // ⚠️ «Non disponibile» non e' «chiuso»: la prima dice che la
-              // configurazione non si e' letta, la seconda che oggi non si
-              // apre. Confonderle manda a cercare un guasto dove non c'e', o
-              // fa credere chiuso un giorno di servizio.
-              pil.textContent = !cfg ? tr("home.unavail") : aperto ? tr("home.tagOpen") : tr("home.tagClosed");
-              pil.classList.toggle("off", !aperto);
+              pil.textContent = stato === "ignoto" ? tr("home.unavail")
+                : stato === "aperto" ? tr("home.tagOpen") : tr("home.tagClosed");
+              pil.classList.toggle("off", stato === "chiuso");
+              pil.classList.toggle("n", stato === "ignoto");
             }
             if (righeOre) {
               // ⚠️ Niente «Réouverture aujourd'hui à 17:00» accanto a
@@ -3364,10 +3804,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               // I servizi sono UNO ACCANTO ALL'ALTRO, ognuno in un pezzo suo
               // che non va a capo: «12:00 – 14:30» spezzato dopo il trattino
               // diventa due orari che non esistono.
+              //
+              // ⚠️ QUANDO SI RIAPRE, invece, si scrive — e solo da chiusi.
+              // Il server lo calcola a ogni caricamento della Accueil
+              // (`caricaToday` cerca fino a tre settimane avanti) e non lo
+              // leggeva nessuno: un conto fatto ogni volta per niente, e
+              // intanto la colonna di un lunedi' di chiusura diceva «Fermé»
+              // senza dire fino a quando.
+              const riapre = stato === "chiuso" && jt?.reopen
+                ? `<span class="j-riapre">${escHtml(`${tr("home.reopen")} ${quandoRiapre(jt.reopen.in_days)} ${jt.reopen.heure}`)}</span>`
+                : "";
               righeOre.innerHTML = CLOCK + (
-                !cfg ? escHtml("—")
-                : aperto ? bande.map((f) => `<span class="f">${escHtml(f)}</span>`).join("")
-                : escHtml(tr("home.closedToday"))
+                stato === "ignoto" ? escHtml("—")
+                : stato === "aperto" ? bande.map((f) => `<span class="f">${escHtml(f)}</span>`).join("")
+                : `<span class="f">${escHtml(tr("home.closedToday"))}</span>${riapre}`
               );
             }
             // ⚠️ Si accende la PASTIGLIA, non un blocco: adesso stato e orari
@@ -3414,15 +3864,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               };
               if (vedeCov) {
                 for (const r of reseOggi) {
-                  // ⚠️ Non `slice(0, 2)`: su "9:30" darebbe "9:" e quindi NaN,
-                  // e quella prenotazione sparirebbe dal grafico senza che
-                  // niente lo dica. Le ore di una cifra esistono (il pranzo).
-                  metti(oggiCov, Number(String(r.heure ?? "").match(/^(\d{1,2})/)?.[1] ?? NaN), Number(r.people) || 0);
+                  metti(oggiCov, oraDi(r.heure), Number(r.people) || 0);
                 }
               }
               if (vedeOrd) {
+                // ⚠️ Il formattatore si costruisce UNA volta, fuori dal giro:
+                // dentro, una serata da duecento ordini ne costruiva duecento.
+                const q = new Intl.DateTimeFormat("en-GB", { timeZone: TZ_LOCALE, hour: "2-digit", hourCycle: "h23" });
                 for (const o of ordiniOggi) {
-                  const q = new Intl.DateTimeFormat("en-GB", { timeZone: TZ_LOCALE, hour: "2-digit", hourCycle: "h23" });
                   metti(oggiOrd, Number(q.format(new Date(o.pickup_time))), 1);
                 }
               }
@@ -3430,68 +3879,37 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               // Le quattro serie, nell'ordine in cui si disegnano: ogni «oggi»
               // accanto al SUO «di solito», perche' il confronto che conta e'
               // quello — non coperti contro ordini, che non si confrontano.
-              const serie: { ore: Record<string, number> | Record<number, number>; classe: string }[] = [];
+              const serie: Serie[] = [];
               if (vedeCov) serie.push({ ore: oggiCov, classe: "cov oggi" }, { ore: aff.covers ?? {}, classe: "cov" });
               if (vedeOrd) serie.push({ ore: oggiOrd, classe: "ord oggi" }, { ore: aff.orders ?? {}, classe: "ord" });
-              const quanto = (s: { ore: Record<string, number> | Record<number, number> }, h: number) =>
-                Number((s.ore as Record<string, number>)[String(h)] ?? 0);
 
-              // La finestra: le ore in cui si apre oggi, piu' quelle che hanno
-              // un numero. ⚠️ Le seconde servono: una prenotazione fuori
-              // orario esiste, e un grafico che la taglia via fa sparire
-              // proprio il caso che varrebbe la pena di guardare.
-              const aperte = new Set<number>();
-              const apri = (on: boolean | undefined, da: string | null | undefined, a: string | null | undefined) => {
-                if (!on || !da || !a) return;
-                const h0 = Number(da.slice(0, 2));
-                const h1 = Number(a.slice(0, 2));
-                const m1 = Number(a.slice(3, 5));
-                for (let h = h0; h <= (m1 > 0 ? h1 : h1 - 1); h++) if (h >= 0 && h <= 23) aperte.add(h);
-              };
-              apri(cfg?.lunch_active, cfg?.lunch_open, cfg?.lunch_close);
-              apri(cfg?.dinner_active, cfg?.dinner_open, cfg?.dinner_close);
-              const conNumeri: number[] = [];
-              for (const s2 of serie) for (const k of Object.keys(s2.ore)) if (Number.isFinite(Number(k))) conNumeri.push(Number(k));
-              const tutte = [...aperte, ...conNumeri];
-              const max = Math.max(0, ...tutte.map((h) => Math.max(...serie.map((s2) => quanto(s2, h)), 0)));
+              // La finestra, il soffitto e le linee: `giornataRegole.ts`, dove
+              // si provano senza un browser. Qui resta il disegno.
+              const g = grafico(serie, oreAperte(cfg));
 
               const hm = document.getElementById("j-hm");
               const plot = document.getElementById("j-hm-plot");
               const assi = document.getElementById("j-hm-x");
-              if (hm && plot && assi && serie.length && tutte.length && max > 0) {
-                const da = Math.min(...tutte);
-                const a = Math.max(...tutte);
-                // ⚠️ Il soffitto e' il massimo ARROTONDATO IN SU all'intero:
-                // le barre si misurano su un numero tondo, e il numero tondo
-                // si puo' scrivere accanto alla linea. Misurate sul massimo
-                // esatto, la riga in cima direbbe «7,3» — un'etichetta che
-                // nessuno legge e che cambia ogni giorno.
-                const cima = Math.max(1, Math.ceil(max));
-                // 96 e non 100: la barra piu' alta non deve toccare il
-                // soffitto del grafico.
-                const alt = (v: number) => Math.round((v / cima) * 96);
+              if (hm && plot && assi && g) {
+                const { da, cima, meta } = g;
                 // LE LINEE: il pavimento, la meta' e il soffitto. Senza, una
                 // barra e' alta rispetto a niente — si vede che una sera e'
                 // piu' piena di un'altra, non QUANTO.
-                // ⚠️ Le altezze vengono dalla STESSA `alt()` delle barre: una
-                // linea disegnata al 50% e una barra calcolata su `cima`
-                // sarebbero due righelli diversi sullo stesso grafico, e il
-                // secondo direbbe una cosa falsa.
-                // Il mezzo si scrive solo se e' un numero intero: «3,5
-                // coperti» non e' una quantita' che qualcuno conta.
-                const meta = cima / 2;
+                // ⚠️ Le altezze vengono dalla STESSA `altezza()` delle barre:
+                // una linea disegnata al 50% e una barra calcolata su `cima`
+                // sarebbero due righelli diversi sullo stesso grafico.
                 const griglia =
                   `<div class="j-grid" aria-hidden="true">` +
                   `<i class="base"></i>` +
-                  `<i style="bottom:${alt(meta)}%">` + (Number.isInteger(meta) ? `<b>${meta}</b>` : "") + `</i>` +
-                  `<i style="bottom:${alt(cima)}%"><b>${cima}</b></i>` +
+                  `<i style="bottom:${altezza(meta, cima)}%">` + (g.metaScritta ? `<b>${meta}</b>` : "") + `</i>` +
+                  `<i style="bottom:${altezza(cima, cima)}%"><b>${cima}</b></i>` +
                   `</div>`;
                 const barre: string[] = [];
                 const etichette: string[] = [];
-                for (let h = da; h <= a; h++) {
+                for (const h of g.ore) {
                   barre.push(
                     `<div class="j-hb">` +
-                      serie.map((s2) => `<span class="${s2.classe}" style="height:${alt(quanto(s2, h))}%"></span>`).join("") +
+                      serie.map((s2) => `<span class="${s2.classe}" style="height:${altezza(quanto(s2, h), cima)}%"></span>`).join("") +
                     `</div>`
                   );
                   // Un'etichetta ogni due ore: dodici numeri in fila sotto una
@@ -3518,13 +3936,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 // portare via sono un'altra cosa e hanno la loro barra.
                 const pic = document.getElementById("j-hm-pic");
                 if (pic) {
-                  const base = vedeCov ? oggiCov : oggiOrd;
-                  let migliore = -1;
-                  let piu = 0;
-                  for (const [h, v] of Object.entries(base)) {
-                    if (Number(v) > piu) { piu = Number(v); migliore = Number(h); }
-                  }
-                  pic.textContent = migliore >= 0 ? tr("home.peakAt").replace("{h}", migliore + "h") : "";
+                  const h = picco(vedeCov ? oggiCov : oggiOrd);
+                  pic.textContent = h === null ? "" : tr("home.peakAt").replace("{h}", h + "h");
                 }
 
                 // Su quante settimane e' fatta la media. Una media su tre
@@ -3539,7 +3952,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 hm.style.display = "";
               }
             }
-          } catch { /* rete assente: la fascia resta senza grafico */ }
+          } catch (e) {
+            // ⚠️ Si SCRIVE prima di inghiottire. Qui dentro non c'e' solo la
+            // rete: c'e' anche il codice che disegna, e un errore suo faceva
+            // sparire il grafico senza lasciare traccia da nessuna parte —
+            // nessun errore a schermo, nessuna riga in console, solo un
+            // blocco con gli orari e basta.
+            console.error("[affluenza]", String((e as Error)?.message ?? e));
+          }
 
 
           // ---------- Commandes: préparation e chiusura online ----------
@@ -3679,10 +4099,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { iniziali, coloreDi } from "../../lib/admin/avatarRegole";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { stelle, linkRecensioni, variazione } from "../../lib/admin/googleRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+      /** Il fuso del RISTORANTE, come nell'altro script di questa pagina.
+       *  ⚠️ Una recensione scritta alle 23:40 a Bruxelles, letta da un telefono
+       *  rimasto su un altro fuso, portava la data del giorno dopo: la stessa
+       *  recensione con due date, una qui e una nella pagina Google. */
+      const TZ = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
+      const dataAvis = (a: { quand?: string; quand_iso?: string }): string =>
+        a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString(LOC, { timeZone: TZ }) : "");
 
       (async () => {
         const cards = document.getElementById("cards") as HTMLElement;
@@ -3692,15 +4120,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnTuiles = document.getElementById("organiser-tuiles") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number; hidden?: boolean };
-        const KEYS = ["special", "menu", "visibilite", "assets"];
+        const KEYS = ["menu", "visibilite", "assets"];
         // ⚠️ `orders`, `reservations`, `google`, `settings` (gli orari),
         // `cuisine` (préparation e chiusura online) e `notes` non sono piu' qui: il
         // loro contenuto e' salito nella fascia della giornata, che e' FISSA. Una gerarchia che si puo' trascinare torna
         // a essere una griglia di riquadri uguali, cioe' il difetto da cui
         // siamo partiti.
         const DEFAULT_LAYOUT: Item[] = [
-          { key: "special", w: 1 }, { key: "menu", w: 1 },
-          { key: "visibilite", w: 1 },
+          { key: "menu", w: 1 }, { key: "visibilite", w: 1 },
           { key: "assets", w: 2 },
         ];
 
@@ -3864,7 +4291,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!g.configured || g.rating == null) { soloOrari(); return; }
             box.style.display = "";
 
-            const stelle = (n: number) => "★".repeat(Math.round(n)) + "☆".repeat(Math.max(0, 5 - Math.round(n)));
             const nota = Number(g.rating);
             const rEl = document.getElementById("j-g-rating");
             if (rEl) rEl.textContent = nota.toFixed(1).replace(".", ",");
@@ -3896,7 +4322,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const maps = document.getElementById("j-g-maps") as HTMLAnchorElement | null;
             // La scheda come ripiego: se un giorno l'elenco non arriva, meglio
             // la scheda di un link che non porta da nessuna parte.
-            if (maps) maps.href = g.reviews_url || g.maps_url || "#";
+            // ⚠️ E senza nemmeno la scheda il link SPARISCE, invece di restare
+            // con `href="#"`: un link che si clicca e non fa niente si prova
+            // una volta, e da li' in poi non si clicca piu' nemmeno quando
+            // funziona.
+            if (maps) {
+              const u = linkRecensioni(g);
+              if (u) { maps.href = u; maps.style.display = ""; }
+              else maps.style.display = "none";
+            }
 
             // ---- carosello ----
             const avis = (g.avis ?? []).filter((a) => a.texte);
@@ -3958,7 +4392,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 if (qEl) qEl.textContent = `« ${a.texte} »`;
                 if (wEl) wEl.textContent = a.auteur || "";
                 if (asEl) asEl.textContent = stelle(Number(a.note) || 0);
-                if (dtEl) dtEl.textContent = a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString(LOC) : "");
+                if (dtEl) dtEl.textContent = dataAvis(a);
                 if (dots) dots.innerHTML = avis.map((_, k) => `<i class="${k === idx ? "on" : ""}"></i>`).join("");
                 // ⚠️ `referrerpolicy`: le foto dei profili Google rispondono
                 // 403 se arriva il referrer del nostro dominio, e al posto del
@@ -4011,7 +4445,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 // dietro la finestra e' il modo di rispondere a quella sbagliata.
                 if (mWho) mWho.textContent = a.auteur || "";
                 if (mStars) mStars.textContent = stelle(Number(a.note) || 0);
-                if (mWhen) mWhen.textContent = a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString(LOC) : "");
+                if (mWhen) mWhen.textContent = dataAvis(a);
                 if (mQuote) mQuote.textContent = `« ${a.texte} »`;
                 if (mAv) disegnaAvatar(a.auteur || "", a.foto, mAv);
                 if (mOv) mOv.hidden = false;
@@ -4081,26 +4515,24 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const jp = (await rp.json()) as { serie?: { metric: string; punti: { date: string; value: number }[] }[] };
             const serie = jp.serie ?? [];
             if (!serie.length) return;
-            const somma = (punti: { date: string; value: number }[], da: number, a: number) =>
-              punti.slice(da, a).reduce((acc, x) => acc + (Number(x.value) || 0), 0);
             const mostraPerf = (metric: string, idValore: string) => {
-              const p = (serie.find((x) => x.metric === metric)?.punti ?? [])
-                .slice()
-                .sort((a, b) => (a.date < b.date ? -1 : 1));
-              if (!p.length) return false;
-              const ultimi = somma(p, Math.max(0, p.length - 30), p.length);
-              const prima = somma(p, Math.max(0, p.length - 60), Math.max(0, p.length - 30));
+              // ⚠️ IL CONFRONTO LO FA `googleRegole.variazione`, che pretende
+              // DUE periodi interi. Qui si sommavano «gli ultimi 30 punti» e
+              // «i 30 prima», qualunque cosa fosse arrivata: con 40 giorni di
+              // storia il secondo periodo erano 10 giorni, e il pannello
+              // scriveva «+180 %» confrontando un mese con una settimana e
+              // mezza — un numero inventato con l'aria di un numero vero.
+              const v = variazione(serie.find((x) => x.metric === metric)?.punti);
+              if (!v) return false;
               const el = document.getElementById(idValore);
-              if (el) el.textContent = String(ultimi);
+              if (el) el.textContent = String(v.ultimi);
               const d = document.getElementById(idValore + "-d");
               if (d) {
-                // Senza un periodo precedente da confrontare non si inventa
-                // una variazione: si lascia vuoto.
-                if (prima > 0) {
-                  const diff = Math.round(((ultimi - prima) / prima) * 100);
-                  d.textContent = (diff > 0 ? "+" : "") + diff + " %";
-                  d.className = "d" + (diff >= 0 ? " up" : " giu");
-                } else d.textContent = "";
+                if (v.diff === null) { d.textContent = ""; d.className = "d"; }
+                else {
+                  d.textContent = (v.diff > 0 ? "+" : "") + v.diff + " %";
+                  d.className = "d" + (v.diff >= 0 ? " up" : " giu");
+                }
               }
               return true;
             };

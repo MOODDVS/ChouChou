@@ -700,6 +700,7 @@ const t = adminT(lang);
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { creaDatepicker } from "../../lib/admin/datepicker";
       import { preparaFotoGoogle, GOOGLE_LATO_MIN } from "../../lib/admin/imageCompress";
+      import { stellePiene } from "../../lib/admin/googleRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -722,9 +723,15 @@ const t = adminT(lang);
       function esc(s: string): string {
         return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       }
+      /** ⚠️ QUANTE stelle lo dice `googleRegole.stellePiene`, qui c'e' solo il
+       *  disegno (le spente sono un `<span>`, non un carattere diverso).
+       *  Contava da sola e TRONCAVA: 4,7 era quattro stelle qui e cinque nella
+       *  colonna della Accueil — lo stesso locale, due giudizi a due clic di
+       *  distanza. */
       function stelle(n: number): string {
+        const piene = stellePiene(n);
         let out = "";
-        for (let i = 1; i <= 5; i++) out += i <= n ? "★" : '<span class="off">★</span>';
+        for (let i = 1; i <= 5; i++) out += i <= piene ? "★" : '<span class="off">★</span>';
         return out;
       }
       function dataFmt(iso: string | null): string {

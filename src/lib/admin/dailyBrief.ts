@@ -5,6 +5,8 @@ import { nomeServizio } from "../reservationI18n";
 import { adminLang } from "./adminLang";
 import type { AdminLang } from "../../i18n/admin";
 import { caricaToday } from "./caricaToday";
+import { copertiDelGiorno, righeDelGiorno } from "./resaConti";
+import { incassato } from "./ordiniConti";
 import { elencoSedi, leggi, leggiConfig, scriviConfig, sede, SEDE_UNICA, type Ambito } from "./sede";
 import { fusoDi } from "../fuso";
 import { temaEmail, type TemaEmail } from "../temaBrand";
@@ -237,7 +239,7 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
   const aIeri = ieri.endOf("day").toUTC().toISO() ?? "";
 
   const [ordIeriRes, resaIeriRes, clientiIeriRes, notesRes, today] = await Promise.all([
-    leggi("orders", ambito, "total_cents, items")
+    leggi("orders", ambito, "status, total_cents, refunded_cents, supplement_due_cents, items")
       .in("status", ["paid", "done"])
       .gte("pickup_time", daIeri)
       .lte("pickup_time", aIeri),
@@ -263,8 +265,28 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
     caricaToday(ambito),
   ]);
 
-  const ordIeri = (ordIeriRes.data ?? []) as { total_cents: number | null; items: unknown }[];
-  const incassoIeri = ordIeri.reduce((t, o) => t + (o.total_cents ?? 0), 0);
+  // ⚠️ Se le migrazioni dei rimborsi (#41/#50) non sono passate su questa base
+  // dati, il `select` fallisce in blocco: senza questo ripiego la mail
+  // annuncerebbe «0 commandes» per una serata piena, e nessuno lo saprebbe
+  // mai. Si riprova coi campi di prima — un incasso senza rimborsi e' un
+  // numero discutibile, zero ordini e' una bugia.
+  let ordIeriDati = ordIeriRes.data;
+  if (ordIeriRes.error) {
+    const rip = await leggi("orders", ambito, "status, total_cents, items")
+      .in("status", ["paid", "done"])
+      .gte("pickup_time", daIeri)
+      .lte("pickup_time", aIeri);
+    ordIeriDati = rip.data;
+  }
+  const ordIeri = (ordIeriDati ?? []) as {
+    status?: string | null; total_cents: number | null;
+    refunded_cents?: number | null; supplement_due_cents?: number | null; items: unknown;
+  }[];
+  // ⚠️ `incassato` dal modulo: questa riga sommava `total_cents`, e la mail del
+  // mattino annunciava come incasso di ieri anche i soldi rimborsati la sera
+  // prima — l'unico numero della giornata che il ristoratore legge a colazione,
+  // prima di aprire il pannello.
+  const incassoIeri = incassato(ordIeri);
   const piatti = new Map<string, number>();
   for (const o of ordIeri) {
     for (const it of Array.isArray(o.items) ? (o.items as { name?: unknown; qty?: unknown }[]) : []) {
@@ -276,8 +298,14 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
 
   type Resa = { status: string | null; people: number | null; heure: string | null; first_name: string | null; last_name: string | null };
   const resaIeri = (resaIeriRes.data ?? []) as Resa[];
-  const servite = resaIeri.filter((r) => r.status === "done");
-  const couvertsIeri = servite.reduce((t, r) => t + (r.people ?? 0), 0);
+  // ⚠️ `righeDelGiorno` (confirmed + seated + done), non il solo `done`: i
+  // tavoli si chiudono da soli quando QUALCUNO apre la giornata nel pannello
+  // (l'auto-Fini di `caricaResaGiorno`). Una serata piena di cui nessuno ha
+  // riaperto la pagina resta «confirmed» nel database, e questa mail scriveva
+  // «0 coperti serviti» per un servizio al completo. Il modulo e' lo stesso
+  // dei numeri sullo schermo: `resaConti.ts`.
+  const servite = righeDelGiorno(resaIeri);
+  const couvertsIeri = copertiDelGiorno(resaIeri);
   const noshowIeri = resaIeri.filter((r) => r.status === "noshow");
   const annullateIeri = resaIeri.filter((r) => r.status === "cancelled").length;
   const nuoviClienti = (clientiIeriRes.data ?? []).length;

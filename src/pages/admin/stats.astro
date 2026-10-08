@@ -404,6 +404,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { collegaLogout } from "../../lib/admin/logout";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { euroDa } from "../../lib/soldi";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -434,9 +435,9 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
-      function euro(cents: number): string {
-        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
-      }
+      /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
+       *  pannello. Era la stessa funzione in cinque pagine. */
+      const euro = (cents: number): string => euroDa(cents, LOC);
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;

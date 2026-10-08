@@ -73,6 +73,32 @@ textarea.fld {
   width: 100%;
 }
 
+/* ============================================================
+   CAMPI ORA — l'orologio del selettore, dovunque sia il campo.
+   ------------------------------------------------------------
+   ⚠️ L'icona nativa di `input[type=time]` e' NERA e non si eredita: su un
+   tema scuro sparisce dentro il campo. Era disegnata dentro il form dei
+   giorni speciali, cioe' solo li': ogni altro campo ora del pannello aveva
+   un orologio invisibile, e il prossimo se lo sarebbe riscritto.
+   `currentColor` dietro una maschera: cosi' l'icona prende il colore del
+   testo del campo, qualunque tema abbia il cliente.
+   ============================================================ */
+input[type="time"].fld,
+.md-overlay .md-box input[type="time"] {
+  --ico-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15 14'/%3E%3C/svg%3E");
+}
+input[type="time"].fld::-webkit-calendar-picker-indicator,
+.md-overlay .md-box input[type="time"]::-webkit-calendar-picker-indicator {
+  background: currentColor;
+  opacity: 0.75;
+  cursor: pointer;
+  -webkit-mask: var(--ico-clock) center / contain no-repeat;
+  mask: var(--ico-clock) center / contain no-repeat;
+  transition: opacity 0.15s;
+}
+input[type="time"].fld:hover::-webkit-calendar-picker-indicator,
+.md-overlay .md-box input[type="time"]:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+
 .md-overlay .md-box :is(input, textarea, select):focus,
 .fld:focus {
   outline: none;

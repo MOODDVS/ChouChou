@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../db";
 import { fusoDi } from "../fuso";
 import { adminLang } from "./adminLang";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
+import { entrato, piattiVeri } from "./ordiniConti";
 
 // Calcolo delle statistiche: UNA sola implementazione.
 //
@@ -21,6 +22,15 @@ export type Periodo = "day" | "week" | "month" | "ytd" | "all";
 interface RigaOrdine {
   pickup_time: string;
   total_cents: number;
+  /* ⚠️ I DUE CAMPI DEI SOLDI CHE MANCAVANO. Il fatturato sommava
+     `total_cents`: un ordine rimborsato restava nel giro d'affari per sempre
+     (e la pagina Commandes, intanto, mostrava «↩ Remboursé» su quella stessa
+     card), e una modifica al rialzo non ancora pagata ci entrava come se il
+     cliente avesse saldato. Sono facoltativi perche' una base dati che non ha
+     ancora le migrazioni #41/#50 non li manda: senza, si torna al conto di
+     prima invece di spegnere la pagina. */
+  refunded_cents?: number | null;
+  supplement_due_cents?: number | null;
   items: { id: string; name: string; qty: number; price_cents: number }[];
 }
 
@@ -46,14 +56,28 @@ async function ordiniPagati(daISO: string | null, ambito: Ambito): Promise<RigaO
   // `location_id` si chiede SOLO nell'aggregato: e' l'unico caso in cui serve,
   // ed e' anche l'unico in cui la colonna esiste di sicuro (l'aggregato si
   // ottiene solo a multi-sede acceso, che presuppone la migrazione #73).
-  const CAMPI = "pickup_time, total_cents, items" + (ambito.modo === "tutte" ? ", location_id" : "");
+  const SOLDI = "pickup_time, total_cents, refunded_cents, supplement_due_cents, items";
+  const BASE = "pickup_time, total_cents, items";
+  const sede = ambito.modo === "tutte" ? ", location_id" : "";
+  // ⚠️ Se le migrazioni dei rimborsi non sono passate, il `select` fallisce in
+  // blocco e la pagina resterebbe bianca: si riprova una volta coi campi di
+  // prima. Meglio un fatturato senza rimborsi che nessun fatturato — e la
+  // differenza si vede, mentre una pagina vuota si chiude e basta.
+  let campi = SOLDI + sede;
   for (let da = 0; ; da += PAGINA) {
-    let q = leggi("orders", ambito, CAMPI)
-      .in("status", ["paid", "done"])
-      .order("pickup_time", { ascending: true })
-      .range(da, da + PAGINA - 1);
-    if (daISO) q = q.gte("pickup_time", daISO);
-    const { data, error } = await q;
+    const chiedi = () => {
+      let q = leggi("orders", ambito, campi)
+        .in("status", ["paid", "done"])
+        .order("pickup_time", { ascending: true })
+        .range(da, da + PAGINA - 1);
+      if (daISO) q = q.gte("pickup_time", daISO);
+      return q;
+    };
+    let { data, error } = await chiedi();
+    if (error && campi !== BASE + sede) {
+      campi = BASE + sede;
+      ({ data, error } = await chiedi());
+    }
     if (error) return null;
     tutti.push(...((data ?? []) as RigaOrdine[]));
     if (!data || data.length < PAGINA) break;
@@ -193,11 +217,13 @@ export async function calcolaStats(p: Periodo, ambito: Ambito) {
   const piatti = new Map<string, { qty: number; cents: number }>();
 
   for (const o of ordini) {
-    revenue += o.total_cents;
+    // ⚠️ `entrato` e non `total_cents`: i soldi usciti per un rimborso non
+    // sono fatturato, e un supplemento mai pagato non e' ancora entrato. La
+    // regola sta in `ordiniConti.ts`, con quella della colonna e della pagina.
+    revenue += entrato(o);
     const h = DateTime.fromISO(o.pickup_time).setZone(fuso).hour;
     if (h >= 0 && h < 24) perOra[h]++;
-    for (const it of o.items ?? []) {
-      if (!it || it.qty <= 0 || it.id === "note") continue;
+    for (const it of piattiVeri(o.items)) {
       const cur = piatti.get(it.name) ?? { qty: 0, cents: 0 };
       cur.qty += it.qty;
       cur.cents += it.price_cents * it.qty;

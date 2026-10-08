@@ -116,3 +116,13 @@ button.switch:disabled .track { opacity: 0.5; cursor: not-allowed; }
 
 /* Taglia piccola, dove la riga e' fitta (liste, servizi). */
 .switch.switch-sm { --sw-w: 40px; --sw-h: 22px; --sw-k: 16px; }
+
+/* ============================================================
+   `.sw-sold` — l'interruttore «esaurito».
+   ------------------------------------------------------------
+   Acceso e' ROSSO, non corallo: dice che un piatto e' finito, e un acceso
+   uguale a tutti gli altri si legge come «attivo», cioe' il contrario.
+   ⚠️ Vive qui e non dentro la pagina Menu: chi ha un interruttore con un
+   significato suo lo trova qui con gli altri, invece di ridipingerne uno.
+   ============================================================ */
+.switch.sw-sold input:checked + .track { background: #c0453b; }

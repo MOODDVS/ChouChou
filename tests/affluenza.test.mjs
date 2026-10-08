@@ -121,9 +121,15 @@ test("una serie spenta non esiste, e il grafico con lei", () => {
   assert.match(home, /const vedeOrd = conta\.has\("orders"\)/);
   assert.match(home, /if \(vedeCov\) serie\.push/, "la serie dei coperti si disegna comunque");
   assert.match(home, /if \(vedeOrd\) serie\.push/, "la serie degli ordini si disegna comunque");
-  // Nessuna serie, nessun grafico: `serie.length` nella guardia e' quello che
-  // spegne la striscia quando sono chiuse tutte e due.
-  assert.match(home, /if \(hm && plot && assi && serie\.length/, "con zero serie il grafico si disegna lo stesso");
+  // Nessuna serie, nessun grafico. ⚠️ La guardia non e' piu' un `serie.length`
+  // scritto nella pagina: la decisione sta in `giornataRegole.grafico()`, che
+  // rende `null` quando non c'e' niente da disegnare — ed e' provata con dei
+  // dati veri in `colonnaOggi.test.mjs` invece che leggendo una riga di
+  // codice. Qui resta la cucitura: la pagina disegna SOLO se il modulo ha
+  // detto di si'.
+  assert.match(home, /const g = grafico\(serie, oreAperte\(cfg\)\)/,
+    "la pagina non chiede piu' al modulo se c'e' un grafico da fare");
+  assert.match(home, /if \(hm && plot && assi && g\)/, "con zero serie il grafico si disegna lo stesso");
 
   const lib = readFileSync("src/lib/admin/affluenza.ts", "utf8");
   assert.match(lib, /if \(!quali\.length\) return \{ covers: \{\}, orders: \{\}, settimane: 0, fonti: \[\] \}/,

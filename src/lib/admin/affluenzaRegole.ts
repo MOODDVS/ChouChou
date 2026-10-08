@@ -27,13 +27,13 @@ export function giorniPrecedenti(oggiISO: string, n = SETTIMANE): string[] {
   return out;
 }
 
-/** L'ora di una prenotazione: "20:00:00" → 20. `-1` se non si legge. */
-export function oraDi(heure: unknown): number {
-  const m = String(heure ?? "").match(/^(\d{1,2})(?::|$)/);
-  if (!m) return -1;
-  const h = Number(m[1]);
-  return h >= 0 && h <= 23 ? h : -1;
-}
+/** L'ora di una prenotazione: "20:00:00" → 20. `-1` se non si legge.
+ *  ⚠️ Scritta in `giornataRegole.ts`, che non importa niente: la stessa
+ *  funzione serve al BROWSER (le barre della colonna «Aujourd'hui») e questo
+ *  file importa luxon — importarlo di la' avrebbe portato il pacchetto delle
+ *  date dentro la Accueil per una riga di aritmetica. Chi disegna le barre e
+ *  chi calcola le medie devono leggere l'ora allo stesso modo. */
+export { oraDi } from "./giornataRegole";
 
 /**
  * Da «quanto, in che giorno, a che ora» alle medie per ora, serie per serie.
