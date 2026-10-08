@@ -280,7 +280,7 @@ test("nessuno filtra i buoni per il punto di vendita", () => {
 const sqlNudo = (t) => t.split("\n").map((r) => r.replace(/--.*$/, "")).join("\n");
 
 test("la migrazione aggiunge il punto di vendita ai buoni", () => {
-  const sql = sqlNudo(readFileSync("supabase/locations.sql", "utf8"));
+  const sql = sqlNudo(readFileSync("supabase/073_locations.sql", "utf8"));
   assert.match(sql, /alter table public\.gift_cards[\s\S]{0,120}sold_at_location/);
 });
 
@@ -289,7 +289,7 @@ test("i buoni NON sono fra le tabelle a cui si assegna lo storico", () => {
   // `gift_cards` finisse in quell'elenco, ogni buono del gruppo diventerebbe
   // di un punto solo — e con i buoni sarebbe irreversibile: il cliente si
   // vedrebbe rifiutare un codice valido.
-  const sql = sqlNudo(readFileSync("supabase/locations.sql", "utf8"));
+  const sql = sqlNudo(readFileSync("supabase/073_locations.sql", "utf8"));
   const elenco = sql.slice(sql.indexOf("function public.tabelle_di_sede"));
   const corpo = elenco.slice(0, elenco.indexOf("$$;"));
   assert.ok(!/'gift_cards'/.test(corpo), "gift_cards non e' una tabella di sede");

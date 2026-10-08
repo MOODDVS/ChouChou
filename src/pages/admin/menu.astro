@@ -241,7 +241,6 @@ const varianti = boot.features.includes("variants");
       /* L'interruttore e' il componente condiviso (src/styles/switch.css):
          qui resta solo quello che e' davvero di questa pagina. */
       .i-switches { display: inline-flex; align-items: center; gap: 1.15rem; }
-      .switch.sw-sold input:checked + .track { background: #c0453b; }
       /* Nelle righe della lista l'etichetta sta SOTTO e minuscola: e' un'altra
          cosa dal `.sw-wrap` condiviso (in riga), percio' ha un nome suo. */
       .i-sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
@@ -292,7 +291,6 @@ const varianti = boot.features.includes("variants");
       #sec-overlay .md-foot { flex-direction: column; align-items: stretch; gap: 0.6rem; }
       .sec-save-row { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.6rem; }
       .sec-dirty { margin-right: auto; color: var(--c-accent); font-size: 0.82rem; font-weight: 700; }
-      .sec-dirty[hidden] { display: none; }
       .sec-save-row .md-btn:first-of-type { margin-left: auto; }
       .sec-dirty:not([hidden]) ~ .md-btn:first-of-type { margin-left: 0; }
       .sec-hint { display: block; margin-bottom: 0.9rem; line-height: 1.5; }
@@ -321,13 +319,11 @@ const varianti = boot.features.includes("variants");
       /* Modale piatto a 2 colonne + tab */
       .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
       @media (max-width: 760px), (orientation: portrait) and (max-width: 1024px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
-      .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+      .m-tabs { margin-bottom: 1rem; }
       /* Fondo e bordo da `--c-card` + color-mix, non da `--c-input`/`--c-line`:
          quei due token su certi temi si confondono col fondo e la pastiglia
          resta senza contorno. Stessa scelta di switch/field/button. */
-      .m-tab { background: var(--c-card); border: 1px solid color-mix(in srgb, var(--c-text) 20%, var(--c-bg)); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
-      .m-tab:hover { color: var(--c-text); }
-      .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* La pastiglia e' quella condivisa (`styles/filters.css`). */
 
       .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       /* Specializzazione locale sopra `.f-field` di field.css: qui i campi
@@ -871,6 +867,8 @@ const varianti = boot.features.includes("variants");
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { etichettaFormati, formatiFiniti } from "../../lib/admin/menuRegole";
+      import { euroDa } from "../../lib/soldi";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -933,9 +931,9 @@ const varianti = boot.features.includes("variants");
         if (it.discount_type === "fixed") return Math.min(it.price_cents, it.discount_value);
         return Math.max(0, Math.round(it.price_cents * (1 - Math.min(it.discount_value, 100) / 100)));
       }
-      function euro(cents: number): string {
-        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
-      }
+      /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
+       *  pannello. Era la stessa funzione in cinque pagine. */
+      const euro = (cents: number): string => euroDa(cents, LOC);
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
       let toastTimer: number | undefined;
@@ -990,12 +988,12 @@ const varianti = boot.features.includes("variants");
         // sembrava a posto: nessun badge, l'interruttore Esaurito della riga
         // spento (e' del piatto intero), e l'unico modo di accorgersene era
         // aprire il modale. Qui si dice QUALE formato e' finito.
-        const finiti = (it.variants ?? []).filter((v) => v.sold_out === true);
-        if (!finiti.length) return pallino;
-        const nome = (v: { label_i18n?: Record<string, string>; key: string }) =>
-          v.label_i18n?.[PUB.def] || Object.values(v.label_i18n ?? {})[0] || v.key;
-        const testo = finiti.length === 1 ? nome(finiti[0]) : `${nome(finiti[0])} +${finiti.length - 1}`;
-        const titolo = finiti.map(nome).join(", ");
+        // ⚠️ La regola sta in `menuRegole.ts`: la colonna «Menu» della Accueil
+        // disegna la stessa pastiglia, e due copie si dividono alla prima
+        // modifica — una direbbe «40 cm +1» e l'altra «2 formati».
+        const testo = etichettaFormati(it, PUB.def);
+        if (!testo) return pallino;
+        const titolo = formatiFiniti(it, PUB.def).join(", ");
         return `${pallino}<span class="i-soldout" title="${esc(tr("menu.soldOut"))} : ${esc(titolo)}">⛔ ${esc(testo)}</span>`;
       }
       /** Pastiglia «solo qui»: il piatto e' di QUESTO punto e non del gruppo.

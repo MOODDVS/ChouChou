@@ -215,3 +215,95 @@ test("tutto il super admin e' riservato al super admin", () => {
       `${f}: non controlla piu' che sia il super admin`);
   }
 });
+
+test("cio' che non si disfa chiede conferma, e lo chiede in un modo solo", () => {
+  // ⚠️ Il tasto della password cambiava la chiave d'accesso di un utente al
+  // PRIMO tocco: un dito sulla riga sbagliata e qualcuno resta fuori
+  // dall'admin, senza nemmeno sapere perche'. Il cestino accanto — che fa
+  // una cosa altrettanto grave — chiedeva conferma da sempre.
+  //
+  // Le guardie erano due, scritte due volte con due timer: quella degli
+  // utenti e quella delle sedi. Adesso e' una, e la usano in tre.
+  const sup = PAGINA;
+
+  assert.match(sup, /function confermato\(/, "la guardia comune non c'e' piu'");
+  for (const vecchia of ["usDelPending", "locCestino", "locDisarma"]) {
+    assert.doesNotMatch(sup, new RegExp(vecchia), `${vecchia}: e' tornata una guardia scritta a parte`);
+  }
+
+  // I tre bersagli: cancellare un utente, cancellare una sede, rifare una
+  // password. Le chiavi sono diverse, se no armare l'uno armerebbe l'altro.
+  for (const chiave of ["del:", "pass:", "sede:"]) {
+    assert.match(
+      sup,
+      new RegExp(`confermato\\([^)]*"${chiave}"`),
+      `manca la guardia per «${chiave}»`,
+    );
+  }
+
+  // E il secondo tocco passa dall'attesa: due click rapidi non devono
+  // diventare due reset di password.
+  const i = sup.indexOf('if (!confermato(pass,');
+  assert.ok(i > 0, "il tasto della password non passa dalla guardia");
+  assert.match(sup.slice(i, i + 200), /conAttesa\(pass/, "il reset della password non e' protetto dal doppio click");
+
+  // La password in chiaro non resta sullo schermo per tutto il servizio.
+  assert.match(sup, /function mostraPassword\(/, "la password mostrata non ha piu' chi la cancella");
+  assert.match(sup, /usMsgTimer = window\.setTimeout/, "la password mostrata non sparisce piu' da sola");
+});
+
+test("ogni bottone che fa rete mostra l'attesa, e la mostra allo stesso modo", () => {
+  // C'erano TRE modi di impedire il doppio click: `conAttesa` con la rotella,
+  // un `disabled` scritto a mano, e niente. Il salva di Impression era del
+  // terzo tipo: due click mandavano due PUT. E un bottone soltanto spento non
+  // dice che sta lavorando — su rete lenta sembra che il click non sia
+  // passato, e si riclicca.
+  const bottoni = [
+    "gConnect", "gDisconnect", "gUnicaPick", "gPick",
+    "nlSave", "scSave", "scTest", "usAdd", "itgPrintSave",
+    "placeTest", "locSave", "saveBtn",
+  ];
+  for (const b of bottoni) {
+    assert.match(
+      PAGINA,
+      new RegExp(`conAttesa\\(${b}[,)]`),
+      `${b}: non passa da conAttesa — o due click fanno due chiamate, o l'attesa non si vede`,
+    );
+  }
+  // L'unico `disabled` rimasto per un'attesa e' quello del select della
+  // lingua, che bottone non e'.
+  const aMano = [...PAGINA.matchAll(/(\w+)\.disabled = true/g)].map((m) => m[1]);
+  assert.deepEqual(aMano, ["langSel"], `attesa gestita a mano fuori da conAttesa: ${aMano.join(", ")}`);
+});
+
+test("il testo dentro l'HTML si protegge in un posto solo", () => {
+  // Erano QUATTRO funzioni nella stessa pagina (escG, escP, esc, esc) con TRE
+  // implementazioni, e una dimenticava l'apostrofo. Nel resto del progetto le
+  // copie sono una quarantina: le pagine si convertono quando le si tocca.
+  assert.doesNotMatch(
+    PAGINA,
+    /(function|const)\s+esc\w*\s*[=(]/,
+    "una funzione di escape e' tornata dentro la pagina: il posto e' src/lib/esc.ts",
+  );
+  assert.match(PAGINA, /import \{ esc \} from "\.\.\/\.\.\/lib\/esc"/);
+
+  const lib = readFileSync("src/lib/esc.ts", "utf8");
+  for (const c of ["&", "<", ">", '"', "'"]) {
+    assert.ok(lib.includes(`"${c}":`) || lib.includes(`'${c}':`), `${c} non viene piu' protetto`);
+  }
+});
+
+test("una pagina, una sola verita' sul token", () => {
+  // Il blocco del catalogo stampati teneva un token SUO, letto una volta al
+  // caricamento: il salvataggio di un'ora dopo mandava quello. Due verita'
+  // sullo stesso token nella stessa pagina, e una delle due vecchia.
+  assert.doesNotMatch(PAGINA, /let token = /, "un blocco si tiene di nuovo una copia del token");
+  assert.doesNotMatch(PAGINA, /Bearer \$\{token\}/, "c'e' di nuovo un header costruito da una copia");
+  assert.match(PAGINA, /await authFresh\(\)/, "il catalogo non chiede piu' la sessione al momento dell'uso");
+
+  // La funzione comune non puo' tenersi niente: se memorizzasse, avrebbe lo
+  // stesso difetto di quello che sostituisce.
+  const lib = readFileSync("src/lib/admin/auth.ts", "utf8");
+  assert.match(lib, /await supabaseBrowser\.auth\.getSession\(\)/);
+  assert.doesNotMatch(lib, /^let /m, "authFresh si tiene uno stato: e' esattamente cio' che doveva togliere");
+});

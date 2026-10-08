@@ -25,7 +25,7 @@ dal motore).
 - [ ] Database → Extensions: attiva **`pg_cron`** e **`pg_net`**.
 - [ ] Disattiva «Automatically expose new tables» (i GRANT li fanno le migrazioni).
 - [ ] SQL Editor → lancia **TUTTE le migrazioni di `MIGRATIONS.md` in ordine**
-      (idempotenti). Include la #51 `lunch_hide_by_course.sql`.
+      (idempotenti). Include la #51 `051_lunch_hide_by_course.sql`.
 - [ ] **Dopo le migrazioni**: `notify pgrst, 'reload schema';` nel SQL Editor.
       PostgREST tiene in cache la struttura del database: finché non la
       rilegge, una tabella appena creata risponde `PGRST205 Could not find
@@ -41,7 +41,7 @@ Tabella `locations` vuota vuol dire nessun filtro, cioe' il comportamento di
 sempre. La sede si crea il giorno che ne arriva una seconda, non «per sicurezza».
 
 Con piu' punti (piu' societa', un sito solo):
-- [ ] `supabase/locations.sql` e' fra le migrazioni: assicurati che sia passata.
+- [ ] `supabase/073_locations.sql` e' fra le migrazioni: assicurati che sia passata.
 - [ ] `/admin/super` → **Sedi**: creane una per punto (nome, slug, indirizzo,
       societa', IVA, fuso). L'ordine qui e' quello del selettore nell'header.
 - [ ] **Stripe per sede**: ogni societa' incassa sul SUO conto. La chiave si

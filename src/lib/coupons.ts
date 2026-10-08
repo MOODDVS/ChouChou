@@ -11,7 +11,7 @@ import type { Ambito } from "./admin/sedeRegole";
 
 export type Lang = "fr" | "en" | "it" | "nl" | "es";
 
-// Riga della tabella `coupons` (vedi supabase/coupons.sql).
+// Riga della tabella `coupons` (vedi supabase/014_coupons.sql).
 export interface CouponRow {
   id: string;
   code: string;

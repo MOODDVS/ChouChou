@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../db";
 import { fusoDi } from "../fuso";
 import { adminLang } from "./adminLang";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
+import { entrato, rimborsato, piattiVeri } from "./ordiniConti";
 
 // Calcolo delle statistiche: UNA sola implementazione.
 //
@@ -21,12 +22,45 @@ export type Periodo = "day" | "week" | "month" | "ytd" | "all";
 interface RigaOrdine {
   pickup_time: string;
   total_cents: number;
+  /* ⚠️ I DUE CAMPI DEI SOLDI CHE MANCAVANO. Il fatturato sommava
+     `total_cents`: un ordine rimborsato restava nel giro d'affari per sempre
+     (e la pagina Commandes, intanto, mostrava «↩ Remboursé» su quella stessa
+     card), e una modifica al rialzo non ancora pagata ci entrava come se il
+     cliente avesse saldato. Sono facoltativi perche' una base dati che non ha
+     ancora le migrazioni #41/#50 non li manda: senza, si torna al conto di
+     prima invece di spegnere la pagina. */
+  refunded_cents?: number | null;
+  supplement_due_cents?: number | null;
   items: { id: string; name: string; qty: number; price_cents: number }[];
 }
 
 interface Bucket {
   label: string;
   count: number;
+  /* ⚠️ I SOLDI, oltre al numero di ordini. Il grafico delle statistiche
+     conta le righe, e va benissimo per «quando si lavora»; la colonna delle
+     recettes chiede un'altra domanda — «quando ENTRANO i soldi» — e le due
+     non si somigliano: una sera da tre ordini grossi e una da sette piccoli
+     fanno due barre opposte a seconda di cosa si conta. Stesso giro di
+     lettura, due campi in piu', nessun secondo conto. */
+  cents: number;
+  refund_cents: number;
+}
+
+/** Un intervallo vuoto. ⚠️ Una funzione e non un oggetto condiviso: scritto
+ *  una volta e riusato, tutti gli intervalli sarebbero LO STESSO oggetto. */
+const vuoto = (): Omit<Bucket, "label"> => ({ count: 0, cents: 0, refund_cents: 0 });
+
+/** Mette un ordine nel suo intervallo: il numero, l'incasso e il reso in un
+ *  colpo solo. ⚠️ Il conto dei soldi sta QUI e in nessuno dei cinque rami di
+ *  `serieDi`: erano cinque `conta[i]++` identici, e cinque posti in cui
+ *  scordarsi i soldi. */
+function metti(dentro: Omit<Bucket, "label">[], i: number, o: RigaOrdine): void {
+  const b = dentro[i];
+  if (!b) return;
+  b.count++;
+  b.cents += entrato(o);
+  b.refund_cents += rimborsato(o);
 }
 
 function inizioPeriodo(p: Periodo, fuso: string): string | null {
@@ -40,25 +74,70 @@ function inizioPeriodo(p: Periodo, fuso: string): string | null {
   }
 }
 
-async function ordiniPagati(daISO: string | null, ambito: Ambito): Promise<RigaOrdine[] | null> {
+async function ordiniPagati(daISO: string | null, ambito: Ambito, aISO?: string | null): Promise<RigaOrdine[] | null> {
   const PAGINA = 1000;
   const tutti: RigaOrdine[] = [];
   // `location_id` si chiede SOLO nell'aggregato: e' l'unico caso in cui serve,
   // ed e' anche l'unico in cui la colonna esiste di sicuro (l'aggregato si
   // ottiene solo a multi-sede acceso, che presuppone la migrazione #73).
-  const CAMPI = "pickup_time, total_cents, items" + (ambito.modo === "tutte" ? ", location_id" : "");
+  const SOLDI = "pickup_time, total_cents, refunded_cents, supplement_due_cents, items";
+  const BASE = "pickup_time, total_cents, items";
+  const sede = ambito.modo === "tutte" ? ", location_id" : "";
+  // ⚠️ Se le migrazioni dei rimborsi non sono passate, il `select` fallisce in
+  // blocco e la pagina resterebbe bianca: si riprova una volta coi campi di
+  // prima. Meglio un fatturato senza rimborsi che nessun fatturato — e la
+  // differenza si vede, mentre una pagina vuota si chiude e basta.
+  let campi = SOLDI + sede;
   for (let da = 0; ; da += PAGINA) {
-    let q = leggi("orders", ambito, CAMPI)
-      .in("status", ["paid", "done"])
-      .order("pickup_time", { ascending: true })
-      .range(da, da + PAGINA - 1);
-    if (daISO) q = q.gte("pickup_time", daISO);
-    const { data, error } = await q;
+    const chiedi = () => {
+      let q = leggi("orders", ambito, campi)
+        .in("status", ["paid", "done"])
+        .order("pickup_time", { ascending: true })
+        .range(da, da + PAGINA - 1);
+      if (daISO) q = q.gte("pickup_time", daISO);
+      // Il limite alto serve solo al periodo PRECEDENTE: questo periodo
+      // arriva fino a ora, e un `lt` su «adesso» escluderebbe gli ordini di
+      // stasera gia' pagati — che sono incasso di oggi.
+      if (aISO) q = q.lt("pickup_time", aISO);
+      return q;
+    };
+    let { data, error } = await chiedi();
+    if (error && campi !== BASE + sede) {
+      campi = BASE + sede;
+      ({ data, error } = await chiedi());
+    }
     if (error) return null;
     tutti.push(...((data ?? []) as RigaOrdine[]));
     if (!data || data.length < PAGINA) break;
   }
   return tutti;
+}
+
+/**
+ * IL PERIODO PRECEDENTE, per dire se si sta salendo o scendendo.
+ *
+ * ⚠️ NON il periodo precedente INTERO: la stessa fetta di tempo gia'
+ * passata. Alle tre del pomeriggio «oggi» sono quindici ore e «ieri»
+ * ventiquattro: confrontarli dice ogni santo giorno che si sta crollando, fino
+ * a sera. E' lo stesso difetto della percentuale su una finestra parziale che
+ * abbiamo gia' chiuso una volta — qui si taglia il periodo di prima alla
+ * stessa durata, dal suo inizio.
+ *
+ * `all` non ha un «prima»: niente confronto, e chi disegna non scrive niente
+ * (una freccia messa per ripiego e' una buona notizia inventata).
+ */
+const UNITA = { day: "days", week: "weeks", month: "months", ytd: "years" } as const;
+function finestraPrecedente(p: Periodo, fuso: string): { da: string; a: string } | null {
+  const iso = inizioPeriodo(p, fuso);
+  if (p === "all" || !iso) return null;
+  const ora = DateTime.now().setZone(fuso);
+  const inizio = DateTime.fromISO(iso, { zone: fuso });
+  const da = inizio.minus({ [UNITA[p]]: 1 });
+  // ⚠️ Mai oltre l'inizio di questo periodo: un mese di 31 giorni confrontato
+  // con febbraio sborderebbe nei giorni di questo mese, cioe' si conterebbero
+  // due volte.
+  const a = DateTime.min(da.plus(ora.diff(inizio)), inizio);
+  return { da: da.toISO() as string, a: a.toISO() as string };
 }
 
 async function fasciaApertura(): Promise<{ minH: number; maxH: number }> {
@@ -120,44 +199,46 @@ async function serieDi(
 
   if (p === "day") {
     const { minH, maxH } = await fasciaApertura();
-    const conta = new Array(24).fill(0) as number[];
-    for (const o of ordini) conta[dt(o).hour]++;
+    const conta = Array.from({ length: 24 }, vuoto);
+    for (const o of ordini) metti(conta, dt(o).hour, o);
     const series: Bucket[] = [];
-    for (let h = minH; h < maxH; h++) series.push({ label: `${h}h`, count: conta[h] });
+    for (let h = minH; h < maxH; h++) series.push({ label: `${h}h`, ...conta[h] });
     return { kind: "hour", series };
   }
 
   if (p === "week") {
-    const conta = new Array(7).fill(0) as number[];
-    for (const o of ordini) conta[dt(o).weekday - 1]++; // luxon: 1=lun
-    return { kind: "weekday", series: nomiGiorni(loc).map((g, i) => ({ label: g, count: conta[i] })) };
+    const conta = Array.from({ length: 7 }, vuoto);
+    for (const o of ordini) metti(conta, dt(o).weekday - 1, o); // luxon: 1=lun
+    return { kind: "weekday", series: nomiGiorni(loc).map((g, i) => ({ label: g, ...conta[i] })) };
   }
 
   if (p === "month") {
     const giorni = ora.daysInMonth ?? 31;
-    const conta = new Array(giorni + 1).fill(0) as number[];
-    for (const o of ordini) conta[dt(o).day]++;
+    const conta = Array.from({ length: giorni + 1 }, vuoto);
+    for (const o of ordini) metti(conta, dt(o).day, o);
     const series: Bucket[] = [];
-    for (let d = 1; d <= giorni; d++) series.push({ label: String(d), count: conta[d] });
+    for (let d = 1; d <= giorni; d++) series.push({ label: String(d), ...conta[d] });
     return { kind: "day", series };
   }
 
   if (p === "ytd") {
-    const conta = new Array(13).fill(0) as number[];
-    for (const o of ordini) conta[dt(o).month]++;
+    const conta = Array.from({ length: 13 }, vuoto);
+    for (const o of ordini) metti(conta, dt(o).month, o);
     const series: Bucket[] = [];
     const mesi = nomiMesi(loc);
-    for (let m = 1; m <= ora.month; m++) series.push({ label: mesi[m - 1], count: conta[m] });
+    for (let m = 1; m <= ora.month; m++) series.push({ label: mesi[m - 1], ...conta[m] });
     return { kind: "month", series };
   }
 
   // all: trimestri dal primo ordine a oggi
   if (ordini.length === 0) return { kind: "quarter", series: [] };
   const primo = dt(ordini[0]);
-  const conta = new Map<string, number>();
+  const conta = new Map<string, Omit<Bucket, "label">>();
   for (const o of ordini) {
     const d = dt(o);
-    conta.set(`${d.year}-${d.quarter}`, (conta.get(`${d.year}-${d.quarter}`) ?? 0) + 1);
+    const k = `${d.year}-${d.quarter}`;
+    if (!conta.has(k)) conta.set(k, vuoto());
+    metti([conta.get(k) as Omit<Bucket, "label">], 0, o);
   }
   const series: Bucket[] = [];
   let cur = primo.startOf("quarter");
@@ -165,7 +246,7 @@ async function serieDi(
   while (cur <= fine) {
     series.push({
       label: `${trim}${cur.quarter} ${String(cur.year).slice(2)}`,
-      count: conta.get(`${cur.year}-${cur.quarter}`) ?? 0,
+      ...(conta.get(`${cur.year}-${cur.quarter}`) ?? vuoto()),
     });
     cur = cur.plus({ quarters: 1 });
   }
@@ -189,15 +270,25 @@ export async function calcolaStats(p: Periodo, ambito: Ambito) {
   if (ordini === null) return null;
 
   let revenue = 0;
+  // ⚠️ I RESI, contati e non solo sottratti: `entrato()` li toglie e li
+  // dimentica, e mille euro con trecento di rimborsi si leggevano come
+  // settecento puliti. Sono due serate diverse.
+  let resi = 0;
+  let ordiniResi = 0;
   const perOra = new Array(24).fill(0) as number[];
   const piatti = new Map<string, { qty: number; cents: number }>();
 
   for (const o of ordini) {
-    revenue += o.total_cents;
+    const reso = rimborsato(o);
+    resi += reso;
+    if (reso > 0) ordiniResi++;
+    // ⚠️ `entrato` e non `total_cents`: i soldi usciti per un rimborso non
+    // sono fatturato, e un supplemento mai pagato non e' ancora entrato. La
+    // regola sta in `ordiniConti.ts`, con quella della colonna e della pagina.
+    revenue += entrato(o);
     const h = DateTime.fromISO(o.pickup_time).setZone(fuso).hour;
     if (h >= 0 && h < 24) perOra[h]++;
-    for (const it of o.items ?? []) {
-      if (!it || it.qty <= 0 || it.id === "note") continue;
+    for (const it of piattiVeri(o.items)) {
       const cur = piatti.get(it.name) ?? { qty: 0, cents: 0 };
       cur.qty += it.qty;
       cur.cents += it.price_cents * it.qty;
@@ -219,11 +310,27 @@ export async function calcolaStats(p: Periodo, ambito: Ambito) {
   const lang = await adminLang();
   const { kind, series } = await serieDi(p, ordini, ADMIN_LOCALE[lang] ?? "fr-BE", adminT(lang)("stats.quarterShort"), fuso);
 
+  // Il periodo di prima: una lettura in piu', solo per sapere se si sale o si
+  // scende. `null` quando non c'e' un prima (`all`) o quando la lettura
+  // fallisce: meglio nessun confronto che un confronto con zero, che si
+  // leggerebbe come «raddoppiato».
+  const finestra = finestraPrecedente(p, fuso);
+  const prima = finestra ? await ordiniPagati(finestra.da, ambito, finestra.a) : null;
+
   return {
     ...(ambito.modo === "tutte" ? { perSede: await ripartisciPerSede(ordini) } : {}),
     period: p,
     orders: ordini.length,
     revenue_cents: revenue,
+    refunded_cents: resi,
+    refunded_orders: ordiniResi,
+    prev: prima
+      ? {
+          orders: prima.length,
+          revenue_cents: prima.reduce((t, o) => t + entrato(o), 0),
+          refunded_cents: prima.reduce((t, o) => t + rimborsato(o), 0),
+        }
+      : null,
     avg_cents: ordini.length ? Math.round(revenue / ordini.length) : 0,
     peak_hour: peakHour,
     peak_count: peakCount,

@@ -1,0 +1,86 @@
+/* ============================================================
+   MENU DEGLI STATI — uno solo per tutta l'applicazione.
+
+   La pastiglia di una prenotazione si clicca e apre questo menu:
+   nella pagina Réservations e, dal 06/10/2026, anche nella fascia
+   della Accueil. Era scritto dentro `reservations.astro`; due
+   copie dello stesso menu vogliono dire che un giorno una delle
+   due ha uno stato in meno, e nessuno se ne accorge finche' non
+   serve proprio quello.
+
+   ⚠️ `position: fixed`: il menu si appende al `body` e si
+   posiziona sulle coordinate della pastiglia. Dentro la riga
+   verrebbe tagliato dal primo contenitore che nasconde cio' che
+   esce — e in un elenco ce n'e' sempre uno.
+   ============================================================ */
+
+.st-menu {
+  position: fixed;
+  z-index: 460;
+  min-width: 150px;
+  display: none;
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15)));
+  padding: 0.35rem;
+}
+
+.st-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--c-text);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+}
+
+.st-menu button:hover { background: var(--c-line); }
+
+/* Lo stato in cui la prenotazione si trova ADESSO: si vede quale
+   si sta per cambiare, e si evita di riscegliere lo stesso. */
+.st-menu button.is-cur { color: var(--c-accent); }
+
+.st-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+/* ============================================================
+   LA PASTIGLIA «APERTO / CHIUSO» — una sola per il pannello.
+
+   La usano la colonna «Jours spéciaux» della Accueil, l'elenco dei
+   giorni speciali nei Réglages e la fascia del menu (un piatto fuori
+   dal sito). Stava scritta DUE volte con gli stessi colori e due
+   misure diverse — dentro `admin/index.astro` e dentro
+   `SpecialDaysForm.astro` — cioe' la stessa pastiglia che si leggeva
+   piu' piccola a seconda della pagina. E il giorno che si cambia il
+   verde, si cambia in un posto e si dimentica l'altro.
+
+   ⚠️ I colori NON sono `--c-ok` e `--c-hover`: aperto e chiuso qui
+   sono uno STATO da leggere, non un esito d'azione, e vanno letti su
+   un fondo tenue — un verde pieno in una colonna di dodici righe
+   diventa una fila di lampadine.
+   ============================================================ */
+
+.spx-b {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
+.spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+/* Grigia: una festa che nessuno ha ancora deciso, o un piatto fuori dal
+   sito. Rossa (.closed) = chiuso, o esaurito ma ancora a menu. */
+.spx-b.hid,
+.spx-b.fete { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
+/* Piena: «oggi». E' l'unica riga della colonna che parla del momento in
+   cui qualcuno la sta guardando. */
+.spx-b.now { background: var(--c-accent); color: var(--c-bg); }

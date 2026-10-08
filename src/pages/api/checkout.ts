@@ -329,7 +329,7 @@ export const POST: APIRoute = async ({ request }) => {
   const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
 
   // Le colonne coupon_* si scrivono SOLO se un coupon è stato applicato: così
-  // gli ordini normali funzionano anche se la migration coupons.sql non è
+  // gli ordini normali funzionano anche se la migration 014_coupons.sql non è
   // ancora stata lanciata su Supabase.
   const datiOrdine: Record<string, unknown> = {
     // ⚠️ `pending` ANCHE per l'ordine in cassa, e non e' un limbo: quell'ordine

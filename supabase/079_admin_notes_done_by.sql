@@ -1,0 +1,19 @@
+-- ============================================================
+-- #79 — `done_by` sulle note admin: CHI ha spuntato una nota.
+--
+-- `author` dice chi l'ha SCRITTA, ed e' un'altra domanda. In una lavagnetta
+-- di squadra chi scrive «chiamare il fornitore» e chi lo chiama non sono la
+-- stessa persona quasi mai: contare gli autori e chiamarlo «chi fa le cose»
+-- sarebbe una classifica plausibile e sbagliata — il tipo di numero che
+-- nessuno va a verificare perche' sembra giusto.
+--
+-- ⚠️ Si riempie solo da adesso: le note gia' spuntate restano a NULL. Chi le
+-- ha chiuse non e' scritto da nessuna parte e non si puo' indovinare.
+--
+-- Si azzera alla riapertura, come `done_at` (#78): una nota rimessa fra
+-- quelle da fare non e' piu' stata fatta da nessuno.
+--
+-- Il NOME, non l'id: la riga deve restare leggibile anche dopo che quella
+-- persona ha lasciato il locale e il suo account non c'e' piu'.
+-- ============================================================
+alter table public.admin_notes add column if not exists done_by text;

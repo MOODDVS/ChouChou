@@ -80,3 +80,41 @@ export function acceso(valore: unknown, chiave: string): boolean {
   if (v !== "1" && v !== "0") return RIPIEGO_ORDINI[chiave] === "1";
   return v === "1";
 }
+
+/* ───────── Come sono entrati i soldi ─────────
+ *
+ * ⚠️ La domanda non e' «l'ordine e' pagato?» ma «chi ha preso i soldi?».
+ * Se li ha presi una persona al banco, non c'e' nessun incasso Stripe da
+ * toccare: niente link per il supplemento dopo una modifica, niente rimborso
+ * online, e l'email di annullo deve dire «passa in cassa», non «ti
+ * rimborsiamo».
+ *
+ * `onsite` sta QUI insieme a `cash` e `card`: e' l'ordine preso dal sito e
+ * pagato al ritiro. Finche' non lo si incassa resta `pending`; una volta
+ * incassato e' denaro di cassa come gli altri due. Prima mancava da questa
+ * lista, e un ordine incassato in contanti e poi modificato al rialzo mandava
+ * al cliente un link Stripe per pagare la differenza di una cena gia' saldata.
+ *
+ * I metodi che NON sono qui — `link` e l'ordine del sito pagato con la carta,
+ * che non scrive nessun metodo — sono passati da Stripe. */
+export const METODI_IN_CASSA = ["cash", "card", "onsite"];
+
+/** I soldi li ha presi (o li prendera') una persona al banco? */
+export function inCassa(metodo: unknown): boolean {
+  return METODI_IN_CASSA.includes(String(metodo ?? ""));
+}
+
+/** I due modi di incassare al banco: gli unici che lo staff puo' scegliere
+ *  a mano su un ordine che esiste gia'. `link` non c'e' — mandare un link di
+ *  pagamento e' un altro gesto, e `onsite` nemmeno: e' lo stato di partenza,
+ *  non una scelta. */
+export const METODI_CASSA_SCELTA = ["cash", "card"];
+
+/** Si puo' cambiare il metodo di questo ordine?
+ *
+ * ⚠️ No su un ordine passato da Stripe: il metodo e' la prova di dove sono i
+ * soldi. Cambiarlo in «contanti» farebbe sparire dal pannello il rimborso di
+ * un incasso che esiste davvero sul conto. */
+export function metodoCambiabile(metodo: unknown): boolean {
+  return inCassa(metodo);
+}

@@ -86,7 +86,6 @@
   flex-direction: column;
   gap: 0.15rem;
 }
-.ah-sede-menu[hidden] { display: none; }
 
 .ah-sede-voce {
   display: flex;

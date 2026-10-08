@@ -2,8 +2,7 @@ import { DateTime } from "luxon";
 import { caricaResaGiorno } from "./caricaResaGiorno";
 import { caricaToday } from "./caricaToday";
 import { leggi, type Ambito } from "./sede";
-import { pagineConsentite } from "./permessiRegole";
-import { puo, type ContestoPermessi } from "./permessi";
+import { mostra, type ContestoPermessi } from "./permessi";
 import { fusoDi } from "../fuso";
 
 // Pre-carica lato server (SSR, Fase 2) le 5 isole principali della Accueil,
@@ -50,6 +49,51 @@ async function caricaMenuHome(ambito: Ambito): Promise<{ data: unknown[] | null 
 }
 const ORDERS_SELECT =
   "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at";
+// `payment_method` arriva con la migrazione #50. Su un cliente che non l'ha
+// ancora lanciata il select fallirebbe INTERO e la home resterebbe senza
+// ordini: si prova con, si ripiega senza.
+const ORDERS_SELECT_PM = ORDERS_SELECT + ", payment_method";
+
+/**
+ * GLI ORDINI DELLA HOME — gli stessi che manda `/api/admin/orders`.
+ *
+ * ⚠️ Prima qui c'era un `in("status", [paid, done, cancelled])` e basta: gli
+ * ordini DA INCASSARE al banco (`pending` + `payment_method = onsite`) non
+ * entravano. Sono ordini veri, che la cucina sta preparando, e la Accueil
+ * pre-renderizzata ne mostrava meno di quelli che la stessa pagina mostrava un
+ * istante dopo, quando il client richiamava l'API. Due verita' sullo stesso
+ * giorno, e quella giusta arrivava seconda.
+ *
+ * ⚠️ Due query separate e non un `or`: se la colonna `payment_method` manca,
+ * a fallire e' solo la seconda — e gli ordini pagati continuano ad arrivare.
+ */
+async function caricaOrdiniHome(ambito: Ambito, soglia: string | null) {
+  const base = (campi: string) =>
+    leggi("orders", ambito, campi)
+      .in("status", ["paid", "done", "cancelled"])
+      .gte("pickup_time", soglia ?? "")
+      .order("pickup_time", { ascending: true });
+
+  const conPm = await base(ORDERS_SELECT_PM);
+  if (conPm.error) {
+    // niente `payment_method` in questo database: nessun ordine «da incassare»
+    // da distinguere, e la lista resta quella di prima.
+    const semplice = await base(ORDERS_SELECT);
+    return { data: (semplice.data ?? []) as Record<string, unknown>[] };
+  }
+
+  const daIncassare = await leggi("orders", ambito, ORDERS_SELECT_PM)
+    .eq("status", "pending")
+    .eq("payment_method", "onsite")
+    .gte("pickup_time", soglia ?? "")
+    .order("pickup_time", { ascending: true });
+
+  const tutti = [
+    ...((conPm.data ?? []) as Record<string, unknown>[]),
+    ...((daIncassare.data ?? []) as Record<string, unknown>[]),
+  ].sort((a, b) => String(a.pickup_time ?? "").localeCompare(String(b.pickup_time ?? "")));
+  return { data: tutti };
+}
 
 export async function caricaHomeData(ambito: Ambito, ctx: ContestoPermessi) {
   const oggi = DateTime.now().setZone(await fusoDi(ambito));
@@ -61,34 +105,34 @@ export async function caricaHomeData(ambito: Ambito, ctx: ContestoPermessi) {
   // interrogare il database per righe che butta via — e la prossima persona
   // che tocca questa funzione non avrebbe modo di accorgersi che quel `.data`
   // non doveva uscire di qui.
-  const vedeOrdini = puo(ctx, "orders");
-  const vedeResa = puo(ctx, "reservations");
-  const vedeMenu = puo(ctx, "menu");
+  // ⚠️ `mostra`, non `puo`. `puo` e' il permesso: al super risponde sempre si',
+  // e deve farlo — altrimenti non potrebbe riaprire cio' che ha chiuso. Qui la
+  // domanda e' se la cosa esiste in questo locale: spento «Commandes» in Pages
+  // visibles, gli ordini non ci sono, e la Accueil non ne mostra niente a
+  // nessuno. L'interruttore del super e' il comando, non un filtro per gli altri.
+  const mostraOrdini = mostra(ctx, "orders");
+  const mostraResa = mostra(ctx, "reservations");
+  const mostraMenu = mostra(ctx, "menu");
 
   const [ordersRes, resa, todayCfg, menuRes, catsRes, itemsCount] = await Promise.all([
-    vedeOrdini
-      ? leggi("orders", ambito, ORDERS_SELECT)
-          .in("status", ["paid", "done", "cancelled"])
-          .gte("pickup_time", soglia)
-          .order("pickup_time", { ascending: true })
-      : null,
-    vedeResa ? caricaResaGiorno(oggiKey, ambito) : null,
+    mostraOrdini ? caricaOrdiniHome(ambito, soglia) : null,
+    mostraResa ? caricaResaGiorno(oggiKey, ambito) : null,
     // `today` non ha pagina: e' lo stato della cucina, e la home ne ha
     // bisogno sempre (vedi PAGINA_APERTA in permessiRegole).
     caricaToday(ambito),
-    vedeMenu ? caricaMenuHome(ambito) : null,
+    mostraMenu ? caricaMenuHome(ambito) : null,
     // ⚠️ `leggi` anche qui, non `supabaseAdmin.from`. Le sezioni del menu
     // sono del MARCHIO, quindi il filtro non c'e' e il risultato e' identico:
     // il punto e' che si vede a colpo d'occhio che la decisione e' stata
     // presa, invece di dover andare a controllare la classificazione. Una
     // lettura nuda accanto a cinque filtrate sembra una dimenticanza, e un
     // giorno qualcuno la "sistema" nel verso sbagliato.
-    vedeMenu
+    mostraMenu
       ? leggi("menu_categories", ambito, "id, name, sort_order, kind")
           .order("sort_order", { ascending: true })
           .order("name", { ascending: true })
       : null,
-    vedeMenu ? leggi("menu_items", ambito, "category") : null,
+    mostraMenu ? leggi("menu_items", ambito, "category") : null,
   ]);
 
   // Categorie con conteggio piatti (come /api/admin/categories)
@@ -102,13 +146,9 @@ export async function caricaHomeData(ambito: Ambito, ctx: ContestoPermessi) {
   }));
 
   return {
-    ...(vedeOrdini ? { orders: { orders: ordersRes?.data ?? [] } } : {}),
-    ...(vedeResa ? { resa } : {}),
+    ...(mostraOrdini ? { orders: { orders: ordersRes?.data ?? [] } } : {}),
+    ...(mostraResa ? { resa } : {}),
     today: todayCfg,
-    ...(vedeMenu ? { menu: { items: menuRes?.data ?? [] }, categories: { categories } } : {}),
-    // Le pagine di chi guarda: servono al client per non chiedere le
-    // statistiche quando riceverebbe tre 403. Non e' un segreto — sono i
-    // permessi di chi sta leggendo la pagina.
-    pagine: pagineConsentite(ctx),
+    ...(mostraMenu ? { menu: { items: menuRes?.data ?? [] }, categories: { categories } } : {}),
   };
 }

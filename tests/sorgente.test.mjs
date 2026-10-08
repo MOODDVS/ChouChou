@@ -20,9 +20,9 @@ import {
 
 test("l'elenco del codice combacia con il check del database", () => {
   // Il vincolo vero e' l'ULTIMO lanciato: la #74 rifa' quello della #21.
-  const sql = readFileSync(new URL("../supabase/reservations_source_canali.sql", import.meta.url), "utf8");
+  const sql = readFileSync(new URL("../supabase/074_reservations_source_canali.sql", import.meta.url), "utf8");
   const m = sql.match(/check\s*\(\s*source\s+in\s*\(([^)]+)\)/i);
-  assert.ok(m, "il check su `source` non e' piu' riconoscibile in reservations_source_canali.sql");
+  assert.ok(m, "il check su `source` non e' piu' riconoscibile in 074_reservations_source_canali.sql");
   const nelSql = m[1].split(",").map((s) => s.trim().replace(/^'|'$/g, "")).sort();
   assert.deepEqual([...SORGENTI].sort(), nelSql,
     "SORGENTI e il check SQL divergono: un valore in piu' qui fa fallire l'insert");

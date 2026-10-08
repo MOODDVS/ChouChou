@@ -73,6 +73,10 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   admin_docs_meta: "sede",      // tre societa', tre set di contratti
   gift_card_redemptions: "sede", // la carta e' del marchio, l'uso registra DOVE
   print_orders: "sede",         // ha un indirizzo di consegna e una fattura
+  // La coda dei ticket di cucina. ⚠️ Della SEDE, come gli ordini che la
+  // riempiono: la comanda esce dalla stampante del punto che prepara, e
+  // un ticket che si vede da un altro punto e' una pizza fatta due volte.
+  print_tickets: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
@@ -435,6 +439,16 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // --- DELLA SEDE ---------------------------------------------------
   // Scheda «Général»: tre societa' vuol dire tre ragioni sociali, tre IVA,
   // tre indirizzi, tre insegne. La scelta sta nella SCHEDA, non nel campo.
+  // La stampante dei ticket e il suo interruttore. DELLA SEDE: la comanda
+  // esce dalla stampante del punto che prepara. ⚠️ `app_config` resta il
+  // ripiego, ed e' quello che usano i clienti a sede unica — dove
+  // `location_config` non esiste proprio.
+  print_printer_id: "sede",
+  print_auto: "sede",
+  // Le destinazioni (nome + categorie + stampante). DELLA SEDE: due punti
+  // possono essere organizzati in modo diverso, e uno con una stampante sola
+  // non deve ereditare i reparti dell'altro.
+  print_destinazioni: "sede",
   company_name: "sede",
   company_street: "sede",
   company_zip: "sede",

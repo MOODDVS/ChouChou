@@ -358,19 +358,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .r-badge:hover { filter: brightness(1.25); }
       /* Menu degli stati (dal badge) */
-      .st-menu {
-        position: fixed; z-index: 460; min-width: 150px; display: none;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.35rem;
-      }
-      .st-menu button {
-        display: flex; align-items: center; gap: 0.5rem; width: 100%;
-        background: none; border: none; color: var(--c-text); cursor: pointer;
-        font-family: var(--font-body); font-size: 0.85rem; padding: 0.5rem 0.6rem; text-align: left;
-      }
-      .st-menu button:hover { background: var(--c-line); }
-      .st-menu button.is-cur { color: var(--c-accent); }
-      .st-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+      /* `.st-menu` e `.st-dot` stanno in styles/stati.css: li usa anche la Accueil. */
       .r-badge.ok { background: rgba(46, 158, 107, 0.18); border: 1px solid #2e9e6b; color: #6fd0a3; }
       .r-badge.ko { background: rgba(237, 28, 36, 0.15); border: 1px solid #ed1c24; color: #ff8a8f; }
       .r-badge.ns { background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid var(--c-accent); color: var(--c-accent); }
@@ -1199,6 +1187,18 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { SERVIZI_WIDGET, nomeServizio, LINGUE_WIDGET } from "../../lib/reservationI18n";
+      /* ⚠️ La fase dell'orologio e lo stato da mostrare NON si riscrivono qui:
+         la colonna della Accueil disegna le stesse prenotazioni, e quando le
+         due copie della regola sono divergute la stessa riga diceva «En cours»
+         in questa pagina e «Confirmée» sulla Accueil (07/10/2026). */
+      import {
+        fase as faseDi, holdDi as holdDiLib, holdR as holdRLib, minutiDa,
+        statoMostrato, voceStato, type Fase,
+      } from "../../lib/admin/resaStato";
+      import {
+        copertiDelGiorno, righeDelGiorno, daConfermare, daFare, fatte,
+      } from "../../lib/admin/resaConti";
+      import { serviziDelGiorno, attivoNelGiornoSpeciale } from "../../lib/admin/giornataRegole";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -1378,14 +1378,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       let chiusureOggi: { service_key: string; reason: string }[] = [];
       let spOpenOggi = false; // jour spécial "ouvert" del giorno mostrato
       let spServiziOggi: string[] | null = null; // lista servizi del giorno speciale (null = tutti)
-      /** Service attivo in un jour spécial "ouvert" con lista (token "key|from-to" o key). */
-      function svAttivoSpRaw(key: string, from: string, to: string, lista: string[] | null): boolean {
-        if (lista === null) return true;
-        return lista.includes(`${key}|${from}-${to}`) || lista.includes(key);
-      }
+      /** Service attivo in un jour spécial "ouvert", per i servizi che qui
+       *  girano in MINUTI (`nmServizi`). ⚠️ La regola — i token
+       *  «chiave|dalle-alle» — sta in `giornataRegole.ts`, con quella della
+       *  colonna sulla Accueil: era scritta qui e la colonna non la
+       *  conosceva. */
       function svAttivoSp(sv: { key: string; da: number; a: number }, lista: string[] | null): boolean {
         const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-        return svAttivoSpRaw(sv.key, hh(sv.da), hh(sv.a), lista);
+        return attivoNelGiornoSpeciale(sv.key, hh(sv.da), hh(sv.a), lista);
       }
       let chiusureZoneOggi: { zone: string; reason: string }[] = [];
       const RAGIONE_FR: Record<string, string> = { full: tr("res.full"), closed: tr("res.closedExcept"), permanent: tr("res.untilReopen") };
@@ -1427,10 +1427,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       };
       let headers: Record<string, string> = {};
 
-      function minutiDa(hhmm: string): number {
-        const m = /^(\d{1,2}):(\d{2})/.exec(hhmm);
-        return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
-      }
       function minutiOra(): number {
         const [h, m] = new Intl.DateTimeFormat("en-GB", {
           timeZone: fusoOrario,
@@ -1444,24 +1440,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       /** Durée d'occupation della prenotazione: dal suo service (fallback globale). */
       function holdDi(serviceKey: string | null): number {
-        const sv = nmCfg.services?.find((x) => x.key === serviceKey);
-        const n = Math.floor(Number(sv?.hold));
-        return Number.isFinite(n) && n >= 15 && n <= 360 ? n : holdMinutes;
+        return holdDiLib(serviceKey, nmCfg.services, holdMinutes);
       }
-      /** Fase temporale di una CONFERMATA: future | encours | passe */
-      // Finestra reale del tavolo per QUESTA prenotazione: durée del service + estensione.
+      /** Finestra reale del tavolo per QUESTA prenotazione: durée del service + estensione. */
       function holdR(x: { service_key: string | null; extra_minutes?: number | null }): number {
-        return holdDi(x.service_key) + (Number(x.extra_minutes) || 0);
+        return holdRLib(x, nmCfg.services, holdMinutes);
       }
-      function fase(r: Resa): "future" | "encours" | "passe" {
-        const oggi = isoOggi();
-        if (r.date > oggi) return "future";
-        if (r.date < oggi) return "passe";
-        const adesso = minutiOra();
-        const inizio = minutiDa(r.heure);
-        if (adesso >= inizio + holdR(r)) return "passe";
-        if (adesso >= inizio) return "encours";
-        return "future";
+      /** Fase temporale: future | encours | passe. La regola sta in
+       *  `resaStato.ts`; qui si passa soltanto l'ora della SALA. */
+      function fase(r: Resa): Fase {
+        return faseDi(r, { oggi: isoOggi(), minuti: minutiOra() }, nmCfg.services, holdMinutes);
       }
 
       const stateEl = document.getElementById("state") as HTMLDivElement;
@@ -1478,23 +1466,27 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       });
       const statsEl = document.getElementById("d-stats") as HTMLDivElement;
 
+      /** Le parole e i colori di ogni stato MOSTRATO. «Fini ?» ha un bottone
+       *  suo: e' una domanda, non uno stato scritto nel database. */
+      const VESTE_STATO: Record<string, { cls: string; label: string }> = {
+        pending: { cls: "pd", label: tr("res.stPending") },
+        confirmed: { cls: "ok", label: tr("res.stConfirmed") },
+        seated: { cls: "bl", label: tr("res.stSeated") },
+        done: { cls: "gr", label: tr("res.stDone") },
+        noshow: { cls: "ns", label: tr("res.stNoshow") },
+        cancelled: { cls: "ko", label: tr("res.stCancelled") },
+      };
       function badge(r: Resa): string {
-        // Sempre cliccabile: apre il menu con tutti gli stati
-        if (r.status === "pending") return `<button class="r-badge pd" data-act="status">${tr("res.stPending")}</button>`;
-        if (r.status === "cancelled") return `<button class="r-badge ko" data-act="status">${tr("res.stCancelled")}</button>`;
-        if (r.status === "noshow") return `<button class="r-badge ns" data-act="status">${tr("res.stNoshow")}</button>`;
-        if (r.status === "done") return `<button class="r-badge gr" data-act="status">${tr("res.stDone")}</button>`;
-        if (r.status === "seated") {
-          // Arrivée (impostata a MANO): resta blu qualunque sia l'ora,
-          // l'automatismo non la tocca; a fine durée propone "Fini ?"
-          if (fase(r) === "passe") return `<button class="b-fini" data-act="status">${tr("res.finiQ")}</button>`;
-          return `<button class="r-badge bl" data-act="status">${tr("res.stSeated")}</button>`;
-        }
-        // Confermata: lo stato segue l'orologio
-        const f = fase(r);
-        if (f === "encours") return `<button class="r-badge bl" data-act="status">${tr("res.stSeated")}</button>`;
-        if (f === "passe") return `<button class="b-fini" data-act="status">${tr("res.finiQ")}</button>`;
-        return `<button class="r-badge ok" data-act="status">${tr("res.stConfirmed")}</button>`;
+        // Sempre cliccabile: apre il menu con tutti gli stati.
+        // ⚠️ Chi decide cosa c'e' scritto e' `resaStato.ts`, lo stesso file
+        // della colonna sulla Accueil: l'arrivo messo a mano resta «En cours»
+        // qualunque sia l'ora, una confermata segue l'orologio, e a finestra
+        // passata diventa la domanda «Fini ?».
+        const sm = statoMostrato(r.status, fase(r));
+        if (sm === "fini") return `<button class="b-fini" data-act="status">${tr("res.finiQ")}</button>`;
+        // Stato ignoto: la sua parola grezza, non una inventata.
+        const v = sm ? VESTE_STATO[sm] : undefined;
+        return `<button class="r-badge ${v?.cls ?? "gr"}" data-act="status">${v?.label ?? esc(String(r.status ?? ""))}</button>`;
       }
 
       function tagsOpzioni(r: Resa): string {
@@ -1586,13 +1578,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // Solo i servizi che si applicano al giorno visualizzato (days),
         // con override "jour spécial ouvert" (come nel modale).
         const dow = new Date(giorno + "T12:00:00").getDay();
-        const servizi = (nmCfg.services ?? [])
-          .filter((sv) => SERVIZI_WIDGET[sv.key])
-          .filter((sv) =>
-            spOpenOggi
-              ? svAttivoSpRaw(sv.key, String(sv.from ?? ""), String(sv.to ?? ""), spServiziOggi)
-              : !sv.days || sv.days.length === 0 || sv.days.includes(dow)
-          );
+        const servizi = serviziDelGiorno(
+          (nmCfg.services ?? []).filter((sv) => SERVIZI_WIDGET[sv.key]),
+          { dow, speciale: spOpenOggi, serviziSpeciali: spServiziOggi },
+        );
         if (servizi.length < 2) {
           box.innerHTML = "";
           filtroServ = "";
@@ -1651,9 +1640,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           labelEl.textContent = labelGiorno(giorno);
           labelEl.classList.toggle("is-today", giorno === isoOggi());
           (document.getElementById("d-today") as HTMLElement).classList.toggle("is-now", giorno === isoOggi());
-          const attive = filtrate.filter((r) => r.status === "confirmed" || r.status === "seated");
-          const couverts = attive.reduce((s, r) => s + r.people, 0);
-          const attesa = filtrate.filter((r) => r.status === "pending").length;
+          // ⚠️ `resaConti.ts`, come la colonna della Accueil: «confirmed +
+          // seated» scritto qui faceva CALARE i coperti durante la serata
+          // (l'auto-Fini gira i tavoli a `done`) e ne diceva zero su ogni
+          // giorno passato.
+          const attive = righeDelGiorno(filtrate);
+          const couverts = copertiDelGiorno(filtrate);
+          const attesa = daConfermare(filtrate);
           statsEl.innerHTML = filtrate.length
             ? `<b>${couverts}</b> <span class="stx-full">${tr("res.covers")}</span><span class="stx-short">${tr("res.coversShort")}</span> · ${attive.length} <span class="stx-full">${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}</span><span class="stx-short">${tr("res.resaShort")}</span>${attesa ? `<span class="stx-wait"> · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}</span>` : ""}`
             : "";
@@ -1675,12 +1668,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               : a.heure > b.heure
                 ? 1
                 : 0;
-        const inCorso = filtrate
-          .filter((r) => r.status === "confirmed" || r.status === "seated" || r.status === "pending")
-          .sort(perOra);
-        const chiuse = filtrate
-          .filter((r) => r.status !== "confirmed" && r.status !== "seated" && r.status !== "pending")
-          .sort(perOra);
+        // ⚠️ I due elenchi sono l'uno il complemento dell'altro, e la regola
+        // e' una sola (`resaConti.ts`): scritti a mano come due filtri gemelli,
+        // uno stato che non fosse in nessuna delle due liste faceva sparire la
+        // riga da entrambe, senza un errore.
+        const inCorso = daFare(filtrate).sort(perOra);
+        const chiuse = fatte(filtrate).sort(perOra);
         rowsEl.innerHTML =
           inCorso.map(riga).join("") +
           (chiuse.length
@@ -1946,9 +1939,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // Stato "visualizzato" = quello derivato dall'orologio (come card e modale):
         // confermata a orario passato → Finito; confermata all'ora → In corso.
         function statoVisuale(r: Resa): string {
-          if ((r.status === "confirmed" || r.status === "seated") && fase(r) === "passe") return "done";
-          if (r.status === "confirmed" && fase(r) === "encours") return "seated";
-          return r.status;
+          // ⚠️ La regola («fini» → «done», ignoto → parola grezza) sta in
+          // `resaStato.ts`: la colonna della Accueil deve segnare la stessa
+          // voce nel suo menu, e la riscriveva a modo suo.
+          return voceStato(r.status, fase(r));
         }
         function apriStMenu(anchor: HTMLElement, id: string) {
           const r = trovaResa(id);
@@ -2708,8 +2702,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             `${r.first_name} ${r.last_name}`.trim() || tr("res.reservation");
 
           // Badge di stato (stessi colori del menu stati; confirmed passata l'ora = En cours)
-          const finestraPassata = (r.status === "confirmed" || r.status === "seated") && fase(r) === "passe";
-          const stKey = finestraPassata ? "done" : (r.status === "confirmed" && fase(r) === "encours" ? "seated" : r.status);
+          const stKey = statoVisuale(r);
           const st = STATI_MENU.find((x) => x.st === stKey) ?? STATI_MENU.find((x) => x.st === r.status);
           // Il canale di prenotazione (walk-in / telefono / sito) sta a sinistra
           // della pillola dello stato, come sola icona bianca: la parola era
@@ -2721,7 +2714,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             : "";
           const stHtml =
             srcHtml + (st ? `<span class="dt-badge" style="background:${st.colore}">${st.label}</span>` : "");
-          const enCours = (r.status === "seated" || r.status === "confirmed") && fase(r) === "encours";
+          // ⚠️ La stessa regola della pastiglia (`statoVisuale`), non una
+          // terza copia: qui diceva «non in corso» per un cliente arrivato in
+          // anticipo che la pastiglia accanto dava gia' «En cours».
+          const enCours = stKey === "seated";
 
           // Riga di testa, su due livelli: sopra QUANDO e per QUANTI, sotto
           // DOVE. Il servizio non c'e': lo dice gia' l'ora, e ripeterlo rubava
@@ -2814,7 +2810,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             tick();
             dtTimerInt = window.setInterval(tick, 1000);
             timerBox.style.display = "";
-          } else if (r.status === "done" || finestraPassata) {
+          // ⚠️ `stKey` e' lo stato MOSTRATO (`statoVisuale`): a finestra passata
+          // vale gia' «done», ed e' lo stesso conto della pastiglia. Qui c'era
+          // un `finestraPassata` calcolato a parte — la terza copia della
+          // stessa regola nella stessa pagina.
+          } else if (stKey === "done") {
             // Fini: stesso blocco, durata REGISTRATA (table_minutes) al posto del live
             const lab = document.getElementById("dt-tlab") as HTMLElement;
             const clockEl = document.getElementById("dt-clock") as HTMLElement;
@@ -3276,9 +3276,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             reseVista = lista;
             if (v === "semaine") renderSemaine(lista, da);
             else renderMois(lista, da);
-            const attive = lista.filter((r) => r.status === "confirmed" || r.status === "seated");
-            const couverts = attive.reduce((t, r) => t + r.people, 0);
-            const attesa = lista.filter((r) => r.status === "pending").length;
+            const attive = righeDelGiorno(lista);
+            const couverts = copertiDelGiorno(lista);
+            const attesa = daConfermare(lista);
             (document.getElementById("d-stats") as HTMLElement).innerHTML =
               `<b>${couverts}</b> <span class="stx-full">${tr("res.covers")}</span><span class="stx-short">${tr("res.coversShort")}</span> · ${attive.length} <span class="stx-full">${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}</span><span class="stx-short">${tr("res.resaShort")}</span>${attesa ? `<span class="stx-wait"> · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}</span>` : ""}`;
           } catch {
@@ -4621,6 +4621,29 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             mSave.disabled = false;
           }
         });
+        // ---- Arrivo da un'altra pagina su UNA prenotazione ----
+        // La Accueil manda qui con `?resa=<id>`: si apre la sua scheda, cosi'
+        // chi ha cliccato quel nome non deve ritrovarlo in un elenco di venti.
+        //
+        // ⚠️ STA IN FONDO, e non accanto al primo `carica()`. `apriDettagli`
+        // legge `dtOverlay` e compagnia, che sono `const` dichiarate piu'
+        // sotto: chiamata prima, non da' un errore di compilazione ma un
+        // ReferenceError a pagina aperta — e con un `try` intorno non lo dice
+        // nemmeno. Qui tutto esiste gia'.
+        //
+        // L'indirizzo si ripulisce subito: ricaricare la pagina, o tornarci col
+        // tasto indietro, non deve riaprire un modale appena chiuso.
+        {
+          let chiesta = "";
+          try { chiesta = new URLSearchParams(window.location.search).get("resa") ?? ""; } catch { chiesta = ""; }
+          if (chiesta && trovaResa(chiesta)) {
+            apriDettagli(chiesta);
+            const u = new URL(window.location.href);
+            u.searchParams.delete("resa");
+            window.history.replaceState({}, "", u.toString());
+          }
+        }
+
       })();
     </script>
   </body>

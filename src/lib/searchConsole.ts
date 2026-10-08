@@ -44,6 +44,21 @@ export function searchConsolePronto(): boolean {
   return serviceAccount() !== null;
 }
 
+/**
+ * Una proprietà Search Console è scritta in uno di due modi soli:
+ * «sc-domain:esempio.be» (proprietà dominio) o un indirizzo https completo.
+ *
+ * ⚠️ La regola sta QUI e non dentro le due rotte che la usavano: salvare e
+ * provare devono accettare esattamente le stesse cose, altrimenti si arriva
+ * al caso peggiore — la prova dice di sì e il salvataggio rifiuta, o il
+ * contrario.
+ */
+export function sitoValido(sito: string): boolean {
+  const s = String(sito ?? "").trim();
+  if (!s || s.length > 300) return false;
+  return /^sc-domain:[a-z0-9.-]+$/i.test(s) || /^https:\/\//i.test(s);
+}
+
 const b64url = (b: Buffer | string) =>
   (Buffer.isBuffer(b) ? b : Buffer.from(b)).toString("base64url");
 

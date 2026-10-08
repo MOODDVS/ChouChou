@@ -46,6 +46,37 @@ test("ogni riga di MIGRATIONS.md punta a un file che esiste", () => {
   assert.deepEqual(fantasmi, [], "MIGRATIONS.md elenca file che non ci sono");
 });
 
+test("il NOME del file comincia col suo numero, a tre cifre", () => {
+  // ⚠️ Due cifre bastavano fino alla #99, ma non e' per quello: `ls` mette in
+  // fila 1, 10, 11, 2 — l'ordine sbagliato proprio nel file che serve a
+  // sapere l'ordine. Tre cifre lo tengono giusto fino alla #999.
+  const sbagliati = [];
+  for (const { n, file } of elencoMigrazioni()) {
+    const atteso = `${String(n).padStart(3, "0")}_`;
+    if (!file.startsWith(atteso)) sbagliati.push(`${file} (dovrebbe cominciare con ${atteso})`);
+  }
+  assert.deepEqual(sbagliati, [],
+    `questi file non portano il proprio numero nel nome:\n  ${sbagliati.join("\n  ")}`);
+});
+
+test("ogni file .sql porta il SUO numero scritto dentro", () => {
+  // ⚠️ Il numero di una migrazione vive in MIGRATIONS.md, cioe' FUORI dal
+  // file. Finche' le due cose non si toccano va tutto bene; il guaio arriva
+  // quando qualcuno dice «lancia la #78» e chi deve lanciarla ha davanti una
+  // cartella di settantotto nomi senza un numero. Si apre il .md, si cerca, e
+  // nel frattempo si sbaglia file — una migrazione lanciata al posto di
+  // un'altra non si disfa.
+  // Scritto in testa al file, il numero viaggia con lui: nella cartella, nel
+  // messaggio su WhatsApp, incollato nell'editor SQL di Supabase.
+  const senza = [];
+  for (const { n, file } of elencoMigrazioni()) {
+    const testa = readFileSync(join(CARTELLA, file), "utf8").split("\n").slice(0, 8).join("\n");
+    if (!new RegExp(`^--\\s*#${n}\\b`, "m").test(testa)) senza.push(`${file} (dovrebbe dire #${n})`);
+  }
+  assert.deepEqual(senza, [],
+    `queste migrazioni non dicono il proprio numero nelle prime righe:\n  ${senza.join("\n  ")}`);
+});
+
 test("i numeri sono progressivi e senza buchi ne' doppioni", () => {
   const n = elencoMigrazioni().map((m) => m.n);
   assert.ok(n.length > 0, "la tabella di MIGRATIONS.md non e' piu' leggibile");
@@ -104,7 +135,7 @@ test("nessun seed porta l'email di un cliente vero", () => {
       }
     }
   }
-  // ⚠️ Il caso vero: `app_config.sql` seminava kitchen_email =
+  // ⚠️ Il caso vero: `002_app_config.sql` seminava kitchen_email =
   // 'info@lamolisana.be'. Ogni installazione nuova mandava i ticket degli
   // ordini a La Molisana — e `app_config` BATTE la variabile d'ambiente,
   // quindi KITCHEN_EMAIL dell'.env non salvava nessuno.
@@ -135,4 +166,56 @@ test("i seed di settings e app_config non sono UPSERT", () => {
       }
     }
   }
+});
+
+test("nessuna migrazione riscrive dati che qualcuno potrebbe aver cambiato", () => {
+  // ⚠️ IL PUNTO (05/10/2026). `TUTTO.sql` serve a installare un cliente nuovo,
+  // ma viene anche rilanciato su un database VIVO per rimettersi in pari
+  // quando non si ricorda piu' quali migrazioni sono state fatte — ed e' il
+  // caso normale con sei clienti. Le CREATE sono idempotenti per abitudine;
+  // gli UPDATE no, e un UPDATE che rigira riscrive scelte fatte dal
+  // ristoratore mesi dopo. Nessuno va a ricontrollare le sezioni del menu o i
+  // testi dei popup dopo aver lanciato uno script.
+  //
+  // La regola: ogni UPDATE di un seed dice da solo come si accorge di essere
+  // il secondo giro — `where <colonna> is null` (migra solo cio' che non lo
+  // e' ancora) oppure `not exists (...)` (qui non ha ancora deciso nessuno).
+  const files = sqlNellaCartella().filter((f) => f !== USCITA);
+  const colpevoli = [];
+  for (const f of files) {
+    const sql = readFileSync(join(CARTELLA, f), "utf8")
+      .replace(/--[^\n]*/g, "")                       // via i commenti: un esempio non e' un comando
+      .replace(/\$\$[\s\S]*?\$\$/g, "");              // via i corpi delle funzioni: girano quando li chiama qualcuno
+    for (const m of sql.matchAll(/\bupdate\s+(?:public\.)?(\w+)\s+set\b([\s\S]*?);/gi)) {
+      const corpo = m[2];
+      const protetto = /\bis null\b/i.test(corpo) || /\bnot exists\b/i.test(corpo) || /\bis distinct from\b/i.test(corpo);
+      if (!protetto) colpevoli.push(`${f} → update ${m[1]}`);
+    }
+  }
+  assert.deepEqual(colpevoli, [],
+    "un UPDATE di migrazione non dice come si accorge di essere il secondo giro: rilanciare il file riscriverebbe scelte del ristoratore");
+});
+
+test("ogni tabella nuova porta il suo GRANT al service_role", () => {
+  // ⚠️ IL GUASTO DEL 06/10/2026, trovato in sala da 450 Gradi con un ordine
+  // pagato davanti. In questi progetti Supabase «Automatically expose new
+  // tables» e' SPENTO: una tabella nasce senza privilegi per i ruoli
+  // dell'API, e il service_role — la chiave con cui scrive il server — non
+  // ci puo' nemmeno fare un insert.
+  //
+  // Il guasto non si vede da nessuna parte. `accodaTicket` inghiotte i suoi
+  // errori di proposito (un ticket mancato e' un fastidio, un ordine non
+  // registrato e' una perdita), quindi: la tabella c'e', la stampante
+  // risponde, la prova di stampa esce — e dell'ordine vero non arriva
+  // niente. L'unica riga che lo diceva stava nei log di Hostinger.
+  //
+  // `print_tickets` e `page_views` erano nate cosi'. Questa prova e' l'unico
+  // posto in cui una terza se ne accorge prima di un cliente.
+  const sql = readFileSync("supabase/TUTTO.sql", "utf8");
+  const tabelle = [...new Set([...sql.matchAll(/create table if not exists public\.([a-z_]+)/g)].map((m) => m[1]))];
+  assert.ok(tabelle.length > 20, "l'elenco delle tabelle non si legge piu': regex da rivedere");
+  const senza = tabelle.filter(
+    (t) => !new RegExp(`grant[^;]*on public\\.${t}\\b[^;]*to[^;]*service_role`, "is").test(sql),
+  );
+  assert.deepEqual(senza, [], `queste tabelle non danno i privilegi al service_role: il server non ci potra' scrivere, e non lo dira'\n  ${senza.join("\n  ")}`);
 });

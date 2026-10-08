@@ -3,7 +3,17 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `multi-sede` HEAD `9440083` (03/10/2026).
+**Motore — riferimento attuale:** `main` (06/10/2026, `c878877` — la giornata nella Accueil).
+
+> ⚠️ **Da dove si aggiornano i clienti: `engine/main`, e basta.** Il ramo `multi-sede`
+> ha fatto il suo lavoro — il multi-sede e' nel motore e tutti e sei i clienti ci sono
+> sopra — ed e' stato riportato su `main` il 04/10. Per un periodo la ricetta scritta
+> qui diceva `engine/main` mentre i merge veri si facevano da `multi-sede`: due verita'
+> diverse nello stesso documento, che e' il modo piu' rapido di aggiornare un cliente
+> dal ramo sbagliato senza accorgersene. Adesso ce n'e' una sola.
+
+> **La versione PRE multi-sede** resta raggiungibile per sempre dal tag
+> **`single-location`** (`cf58d40`, 13/09/2026): `git checkout single-location`.
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari col motore (HEAD attuale), migrazioni applicate.
@@ -15,18 +25,38 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟡 Parziale | Hostinger | 450gradi.be | en | merge 02/10/2026 | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. ⚠️ i 5 cron `pg_cron` non sono mai stati creati |
-| **La Molisana** | 🟡 Parziale | Hostinger (EU) | lamolisana.be (live) | fr/en | merge 02/10/2026 | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
-| **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be (live) | fr/en | merge 02/10/2026 | |
-| **L'huile sur le feu** | 🟡 Parziale | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | merge 02/10/2026 | |
-| **Educazione Napoletana** | 🟡 Parziale | Hostinger | educazionenapoletana.be | fr/en/it | merge 02/10/2026 | fix prenotazioni **deployato** (il venerdì funziona in produzione) |
-| **BROS** | 🟡 Parziale | Hostinger (da fare) | brospizza.be (da pubblicare) | fr/en/it | merge `0ff5089` — 03/10/2026 | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `c878877` — 06/10/2026** (la giornata; 0 conflitti, build verde) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ fino al 06/10 questa riga diceva `e3e863a`: non c'era mai arrivato (vedi il giro del 06/10) |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
+| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `07a89cf` — 07/10/2026** (la giornata; 0 conflitti, 688 prove verdi) | pagina di annullo anche in italiano. **Ticket di cucina suo** (`config/ticket.ts`, commit `e32521e`): «Forza Napoli!» sotto l'insegna, nota dell'ordine sopra i piatti, conto dei pezzi sulla riga di servizio. Stampante collegata e prova uscita il 07/10 |
+| **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
 
-🟡 **Perché parziali**: i cinque sono fermi al merge del 02/10 (fix
-prenotazioni) e manca loro il blocco del 03/10 — vincolo `onsite`, lingua del
-link di annullo, avviso in cucina sull'annullo del cliente. Verificato file per
-file, non a memoria. **BROS** quel blocco ce l'ha, ma è stato mergiato prima
-della sera: gli manca solo l'ultimo commit, la scala per iPad orizzontale.
+✅ **Tutti e sei allineati e deployati** (04/10/2026). **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
+
+⚠️ **Per chi prende la stampa servono tre cose, e due stanno fuori dal codice:**
+1. **`TUTTO.sql`** nel suo Supabase — porta la coda (#76) e il ticket per stampante (#77). Da oggi si puo' rilanciare su un database vivo senza riscrivere niente.
+2. **`PUBLIC_SITE_URL`** fra le variabili su Hostinger (`https://www.450gradi.be`, `https://educazionenapoletana.be`…): e' l'indirizzo che il tablet va ad aprire. Senza, la coda non accoda e lo scrive solo nei log.
+3. La stampante si sceglie nel **super**: **Sedi → matita → Impression** se il cliente ha piu' punti, **Intégrations → Impression** se ne ha uno solo.
+4. **L'interruttore della stampa automatica ACCESO.** ⚠️ La «prova di stampa» del pannello chiama `mandaStampa` diretto (`api/admin/printers.ts`): salta la coda **e** salta l'interruttore. Un ordine vero passa da `accodaTicket`, che si ferma secco se `print_auto` non e' `1` con la stampante scelta. Prova uscita + switch spento = la stampa «funziona» e in cucina non arriva mai niente, senza un errore da nessuna parte. **Dopo la prova, un ordine vero da un pezzo.**
+5. **Le chiavi senza virgolette.** Incollando `BIZPRINT_SECRET_KEY="abc"` nel pannello dell'hosting le virgolette restano dentro il valore: il servizio risponde `401`, che si legge come «stampante assente». Dal commit `5b912d6` il motore le spoglia da solo e il 401 dice le lunghezze delle due chiavi (assente = 0, virgolette = due caratteri di troppo, invertite = lunghezze scambiate).
+
+## ⚠️ Il giro del 04/10: 4 clienti su 6 rotti dall'AUTO-MERGE
+
+Nessun conflitto segnalato, in nessun caso. Git ha fuso due versioni entrambe
+valide e il difetto è nato dal loro incontro — che è precisamente ciò che un
+auto-merge non può vedere. **Uno l'ha preso un test, gli altri tre sono emersi
+guardando i file a mano.** I due punti da controllare a ogni merge:
+
+| File | Cosa succede | Visto su |
+|---|---|---|
+| `src/components/ReservationWidget.astro` | Il cliente ha già un blocco `@media (pointer: coarse)` (il suo datepicker). Il motore ne aggiunge un altro per i 16px dei campi. Git vede due blocchi che **cominciano uguale** e ne tiene uno solo: **i 16px spariscono** e su iPhone toccare un campo ingrandisce la pagina. | ChouChou, L'Huile |
+| `src/pages/order/cancel.astro` | La pagina del cliente ha i testi in 2 lingue e fa `lang = j.lang` secco. Dal 03/10 l'API risponde la lingua **vera** dell'ordine (fr/en/it/nl/es): `T["it"]` = `undefined` e **la pagina muore**. | 450 Gradi, Educazione Napoletana |
+
+**Come si risolve bene**: se la lingua è una di quelle del sito, si **aggiunge
+davvero** a `T` (fatto su EN e L'Huile); se no, si ripiega — e il ripiego si
+scrive `if (Object.hasOwn(T, j.lang))`, che non va aggiornato quando il sito
+aggiunge una lingua.
 
 Tutti e sei sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
 su cinque e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
@@ -94,7 +124,7 @@ importi da `src/layouts/`.
 
 Cinque clienti portati sul motore multi-sede in un giorno, con la ricetta in
 `MIGRAZIONE-MULTISEDE.md`. La migrazione di database è **una sola**, la #73
-`locations.sql`, dichiarata «solo schema, nessun effetto visibile»: si lancia
+`073_locations.sql`, dichiarata «solo schema, nessun effetto visibile»: si lancia
 `supabase/TUTTO.sql` intero, che è idempotente.
 
 Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
@@ -131,7 +161,7 @@ Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
 - **Agenda**: modale evento che non accavalla più le due colonne a una colonna.
 - **Documenti**: lingua scelta per documento (résiliation nella lingua del fornitore) → **migrazione #72**. Email «Commande Print» con il guscio delle altre.
 
-✅ **Migrazione #72 (`supabase/admin_docs_lang.sql`) lanciata su tutti e 4** l'08/09.
+✅ **Migrazione #72 (`supabase/072_admin_docs_lang.sql`) lanciata su tutti e 4** l'08/09.
 
 ---
 
@@ -140,6 +170,44 @@ Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
 **Tutti e 4 puliti, zero conflitti.** Porta: ordini (date future nel datepicker, nome+telefono obbligatori), checkout e coupon nelle 5 lingue, prefisso Stripe che legge `defaultLang` dal cliente, modale prenotazioni scrollabile con tavoli nella finestra persone−1/+2, colonne della home 4/3/2/1, switch push che dice perché è spento.
 
 ⚠️ **Trappola vista su La Molisana**: `git merge` è morto con `fatal: stash failed`. Causa: un `.git/index.lock` rimasto da un `git status` lanciato dalla VM Cowork (che nelle cartelle senza permesso di cancellazione crea il lock ma non riesce a toglierlo). Il merge non era nemmeno partito. Si risolve con `rm -f .git/index.lock`. **Da qui in avanti: niente comandi git nei repo dal lato Cowork** — si leggono i file, non l'indice.
+
+---
+
+## 🔄 Giro di merge del 06/10/2026 — motore `c878877`
+
+Cosa porta: la **fascia della giornata** nella Accueil (Google, prenotazioni,
+ordini in tre colonne), l'**affluenza oraria** su dati nostri, i **servizi di
+oggi con l'interruttore** e i bottoni 15/30/45 dentro le colonne, e
+l'interruttore «Pages visibles» del super che adesso comanda davvero cio' che
+si vede. Spariscono sei tile — Commandes, Réservations, Google, Horaires,
+Cuisine, Statistiques — il cui contenuto e' salito nella fascia.
+
+**Nessuna migrazione**: `supabase/` non e' stato toccato. L'API nuova
+(`/api/admin/affluence`) legge tabelle che esistono gia'.
+
+La home vecchia resta raggiungibile dal tag **`home-tiles`**.
+
+| Cliente | Stato | Conflitti |
+|---|---|---|
+| 450 Gradi | ✅ fatto | nessuno. Le sei tile cancellate erano identiche a quelle del motore, e `admin/index.astro` non era mai stato personalizzato: il file che cambia di piu' e' anche quello che nel cliente non esisteva in versione propria |
+| Educazione Napoletana | ⏳ da fare | — |
+| La Molisana | ⏳ da fare | — |
+| ChouChou | ⏳ da fare | ⚠️ widget molto personalizzato |
+| L'Huile | ⏳ da fare | — |
+| BROS | ⏳ da fare | — |
+
+⚠️ **450 Gradi NON era a `e3e863a`, come diceva questo file: era a `0850b01`.**
+Il suo merge del 05/10 e' delle 17:57, `e3e863a` e' stato committato alle
+18:36 — trentanove minuti dopo. Educazione Napoletana, mergiato alle 18:37,
+ce l'aveva davvero. Quindi per un giorno il registro ha dato per allineato un
+cliente a cui mancava l'ultimo pezzo della stampa (`src/lib/stampaConfig.ts`,
+la stampa per chi ha un locale solo).
+
+**Come non ripeterlo**: il commit si annota DOPO il push, non mentre si
+decide di fare il giro. E la riga che lo dice senza doverci credere e' quella
+che stampa `git fetch engine`:
+`0850b01..c878877  main -> engine/main` — a sinistra c'e' la base VERA del
+cliente. Se non e' il commit che il registro dichiara, il registro ha torto.
 
 ---
 
@@ -191,20 +259,28 @@ Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ri
 
 ---
 
-## ⚠️ Migrazioni — una pendente (03/10/2026)
-**#75 `orders_onsite_payment.sql` — da lanciare su tutti e sei.** Allarga il
-`check` di `orders.payment_method` a `'onsite'`. Finché non è lanciata, un
-ordine con pagamento al ritiro **non nasce**: il cliente riempie il carrello,
-preme «Ordina» e legge «Impossibile creare l'ordine». Nessuna riga, nessun
-avviso in cucina, nessun errore nei log. Idempotente, si può rilanciare.
-ℹ️ Urgente solo dove il pagamento al ritiro è accesso — oggi **BROS**.
+## ⚠️ Migrazioni — #75 lanciata solo su BROS (04/10/2026)
+**#75 `075_orders_onsite_payment.sql`** allarga il `check` di
+`orders.payment_method` a `'onsite'`. Lanciata su **BROS**, l'unico che incassa
+al ritiro. Sugli altri cinque **non è stata lanciata**: accettano pagamenti
+online, quindi oggi non serve.
+
+⚠️ **È una mina a tempo, non una scelta chiusa.** «Paga al ritiro» si accende
+dall'admin (Impostazioni → Ordini): il giorno in cui uno dei cinque la attiva,
+senza questa migrazione i suoi ordini **smettono di nascere** — carrello pieno,
+«Impossibile creare l'ordine», nessuna riga, nessun avviso in cucina, nessun
+errore nei log. Nessuno collegherà il guasto a un interruttore acceso settimane
+prima.
+
+La migrazione **allarga** soltanto i valori ammessi: su chi non usa il ritiro
+non cambia nulla, ed è idempotente. Lanciarla ovunque toglie la mina.
 
 ---
 
 ## ✅ Migrazioni — nessuna pendente (08/09/2026)
-**#72 `admin_docs_lang.sql`** (colonna `lang` su `admin_docs_meta`) **lanciata su tutti e quattro** l'08/09. Tutti i clienti sono a pari con le migrazioni del motore.
+**#72 `072_admin_docs_lang.sql`** (colonna `lang` su `admin_docs_meta`) **lanciata su tutti e quattro** l'08/09. Tutti i clienti sono a pari con le migrazioni del motore.
 
-**#71 `menu_variants.sql` lanciata su ChouChou, La Molisana e L'Huile.** Educazione Napoletana v2 aveva già #1→#71. Tutti e 4 i clienti sono a pari con le migrazioni del motore.
+**#71 `071_menu_variants.sql` lanciata su ChouChou, La Molisana e L'Huile.** Educazione Napoletana v2 aveva già #1→#71. Tutti e 4 i clienti sono a pari con le migrazioni del motore.
 
 **Chiavi VAPID: tutte e 4 a posto.** Mancavano su ChouChou (righe assenti nel `.env`) e su L'Huile (righe vuote) — generate il 07/09 con `npx web-push generate-vapid-keys`.
 ⚠️ `PUBLIC_VAPID_KEY` è una variabile `PUBLIC_*`: Astro la **incolla nel bundle al build**. Metterla su Hostinger e riavviare NON basta, serve il rebuild.
@@ -214,7 +290,7 @@ avviso in cucina, nessun errore nei log. Idempotente, si può rilanciare.
 ℹ️ **«Varianti» è una feature opzionale**: si accende cliente per cliente da Super admin → Impostazioni. Per ora la vuole **solo Educazione Napoletana**; gli altri non vedono nemmeno il tab.
 
 - **04/09** — #68 `print_orders`, #69 `reservations.extra_minutes`, #46 `gift_card_orders`: lanciate su tutti e 3.
-- **05/09** — #70 `gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.
+- **05/09** — #70 `070_gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.
 
 **Nessun cron nuovo.** Il merge del 05/09 porta anche: CSP `script-src` enforced su `/admin` (nonce per-richiesta), **guard di autenticazione lato server** sulle pagine `/admin` (niente più flash della nav prima del login), cache `app_config` 30s + `/api/admin/pages` da 6 query a 1, revisione di sicurezza (`esc()` con virgolette, `no-store` su admin/api-admin, limiti input form contatti) — **tutto senza migrazioni**.
 
@@ -233,6 +309,7 @@ avviso in cucina, nessun errore nei log. Idempotente, si può rilanciare.
 - **Migrazioni recuperate (01/09)**: il merge portava `db.ts` che seleziona `is_seasonal` → menu/order davano 500 finché la colonna mancava. Applicato lo script `MIGRAZIONI_DA_APPLICARE.sql` (**19 migrazioni**, tutte `if not exists`): menu (seasonal, sold_out, i18n, sotto-categorie, categorie i18n), lunch/formule (hide_items, hide_by_course, i18n, set_menus + draft/grant), ordini (manual_payment, modifica_diff), popup (i18n, position), agenda (events + i18n), google_reviews, clients_lang.
   - ⚠️ Attenzione: alcune migrazioni con `create policy` NON sono idempotenti e possono fermare lo script → applicare `google_reviews` da sola se la tabella manca ("Could not find table public.google_reviews in schema cache").
 - ⚠️ **Merge futuri**: NON sovrascrivere lo strato vetrina — tenere sempre `src/pages/index.astro`, `src/layouts/Layout.astro`, `src/config/client.ts`, `public/manifest.json`, `package.json` (nome/colori) lato La Molisana.
+- ⚠️ **`src/config/ticket.ts` e' del cliente, per tutti**: e' il disegno del ticket di cucina. Dal 06/10/2026 la rotta di stampa lo prende da li' e non da `lib/stampaRegole.ts`, cosi' un ristorante puo' avere il suo senza modificare il motore dentro il suo repo — che voleva dire un conflitto a ogni giro. Chi non lo tocca riceve il ripiego del motore, miglioramenti compresi.
 
 ## Comptoir ChouChou — 🟢 Allineato (01/09/2026)
 - **LIVE** su `comptoirchouchou.be`. Widget prenotazioni coi colori ChouChou (rosa #ed2289).

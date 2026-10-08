@@ -427,9 +427,9 @@ test("lo stato del punto comanda sulla carta del gruppo, anche per rimettere in 
      non lo segnala niente.
    ============================================================ */
 test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
-  const sql = readFileSync("supabase/locations.sql", "utf8");
+  const sql = readFileSync("supabase/073_locations.sql", "utf8");
   const m = /create or replace function public\.tabelle_di_sede\(\)[\s\S]*?select array\[([\s\S]*?)\]::text\[\]/.exec(sql);
-  assert.ok(m, "funzione `tabelle_di_sede()` non trovata in locations.sql");
+  assert.ok(m, "funzione `tabelle_di_sede()` non trovata in 073_locations.sql");
   // ⚠️ Via i commenti `--` PRIMA di cercare i nomi. Un commento in italiano
   // dentro l'elenco («non c'e' piu'») ha degli apostrofi, e questo lettore
   // ingenuo ci vedeva una stringa SQL: si ritrovava una tabella di nome «e».
@@ -438,9 +438,12 @@ test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
   const senzaCommenti = m[1].replace(/--[^\n]*/g, "");
   const nelSql = [...senzaCommenti.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
 
-  // Nate DOPO il multi-sede: `location_id` e' NOT NULL, non possono
-  // avere righe storiche orfane e non vanno nell'elenco.
-  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out"];
+  // Nate DOPO il multi-sede: non hanno righe storiche orfane da riattribuire,
+  // e nell'elenco del SQL non ci vanno. Per le prime quattro `location_id` e'
+  // NOT NULL; `print_tickets` ce l'ha nullable come gli ordini (un cliente a
+  // sede unica scrive NULL), ma e' nata il 04/10/2026, a multi-sede gia'
+  // fatto: quando quel SQL ha girato, la tabella non esisteva.
+  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out", "print_tickets"];
   const attese = di("sede").filter((t) => !SENZA_STORICO.includes(t)).sort();
 
   assert.deepEqual(nelSql, attese,
@@ -799,17 +802,29 @@ const HOME_MARCHIO = {
     "di un'altra sede perche' non si vedono. Vedi la nota in images.ts",
 };
 
+/* Una chiamata a un endpoint dell'admin, scritta fra virgolette O fra apici
+   inversi: `fetch("/api/...")` e `` fetch(`/api/...?x=${n}`) `` sono la stessa
+   cosa, e una prova che ne vede una sola lascia passare l'altra. */
+const FETCH_API = /fetch\(\s*["`](\/api\/[^"`?]+)/g;
+const FETCH_API_SEDE = /fetch\(\s*["`](\/api\/[^"`?]+)[^;]{0,300}?hSede\(\)/g;
+
 test("ogni tile della home legge la sede selezionata", () => {
   const home = readFileSync("src/pages/admin/index.astro", "utf8");
 
   // Gli endpoint chiamati dalla home. ⚠️ Sul testo CON le stringhe: e'
   // proprio la stringa dell'URL che si sta cercando.
-  const punti = [...new Set([...home.matchAll(/fetch\(\s*"(\/api\/[^"?]+)/g)].map((m) => m[1]))];
+  // ⚠️ VIRGOLETTE O APICI INVERSI. Cercando le sole virgolette doppie, una
+  // chiamata scritta con un modello (`` `/api/...?x=${n}` ``) era invisibile a
+  // questa prova: non «dichiarata del marchio», proprio NON VISTA — cioe' un
+  // endpoint che poteva leggere la sede sbagliata senza che niente lo dicesse.
+  // Ci siamo cascati l'08/10/2026 con `search-console`, e si e' visto solo
+  // perche' la sua riga nell'elenco e' sembrata morta.
+  const punti = [...new Set([...home.matchAll(FETCH_API)].map((m) => m[1]))];
   assert.ok(punti.length > 8, `trovati solo ${punti.length} endpoint: la ricerca non funziona`);
 
   // Chi riceve l'header `x-sede` in questa pagina: la home glielo dice.
   const conHeader = new Set();
-  for (const m of home.matchAll(/fetch\(\s*"(\/api\/[^"?]+)[^;]{0,300}?hSede\(\)/g)) {
+  for (const m of home.matchAll(FETCH_API_SEDE)) {
     conHeader.add(m[1]);
   }
 
@@ -835,7 +850,7 @@ test("ogni tile della home legge la sede selezionata", () => {
    qualcuno leggera' come se fosse ancora vera. */
 test("l'elenco «e' del marchio» della home non contiene voci morte", () => {
   const home = readFileSync("src/pages/admin/index.astro", "utf8");
-  const punti = new Set([...home.matchAll(/fetch\(\s*"(\/api\/[^"?]+)/g)].map((m) => m[1]));
+  const punti = new Set([...home.matchAll(FETCH_API)].map((m) => m[1]));
   const morte = Object.keys(HOME_MARCHIO).filter((p) => !punti.has(p));
   assert.deepEqual(morte.sort(), [], `eccezioni per endpoint che la home non chiama piu': ${morte.join(", ")}`);
   // E ognuna deve avere un motivo scritto, non una stringa vuota.
@@ -993,6 +1008,13 @@ const AMMESSI_AGGREGATO = {
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":
       "l'ordine si trova con il suo cancel_token, che e' un segreto: il token E' l'autorizzazione",
+    // ⚠️ Stessa forma dell'annullo: il servizio di stampa non sa fare login e
+    // non sa niente di sedi — ha solo l'indirizzo del ticket. Filtrando per
+    // sede, la stampa funzionerebbe per il primo punto e per gli altri non
+    // uscirebbe niente, senza nessun errore da nessuna parte. L'ORDINE pero'
+    // si rilegge nell'ambito della sua riga, non nell'aggregato.
+    "src/pages/api/print/[token].ts":
+      "il ticket si trova con il suo token, che e' un segreto: il token E' l'autorizzazione",
     // ⚠️ Le versioni radice e /en erano uscite dal motore il 16/09/2026 con le
     // altre pagine vetrina. Rinascono NEI CLIENTI (25/09/2026): il ritorno da
     // Stripe e' una pagina del sito pubblico, e ogni cliente ha la sua. Qui nel
@@ -1505,5 +1527,29 @@ test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
   assert.ok(
     co.indexOf("ambitoPubblicoChiesto(request)") < co.indexOf('appConfigEq("orders_closed"'),
     "in checkout.ts l'ambito si calcola dopo il controllo di chiusura: il controllo leggerebbe il marchio",
+  );
+});
+
+test("salvare una sede non puo' riuscire a meta' in silenzio", () => {
+  // Salvare una scheda manda CINQUE chiamate: campi, Place ID, link
+  // recensioni, stampante, segreti. Tre partivano senza che nessuno leggesse
+  // la risposta: se una falliva, il modale si chiudeva dicendo «salvato» e il
+  // dato non c'era. Con la chiave Stripe vuol dire pagamenti che non
+  // funzionano e nessun segno da nessuna parte.
+  //
+  // La regola: una sola porta, `patchSede`, e quella guarda sempre l'esito.
+  const src = readFileSync("src/pages/admin/super.astro", "utf8");
+
+  const fn = src.match(/async function patchSede[\s\S]*?\n        \}/);
+  assert.ok(fn, "patchSede non c'e' piu': le PATCH delle sedi tornerebbero sparse");
+  assert.ok(
+    /if \(!r\.ok\) throw new Error/.test(fn[0]),
+    "patchSede non lancia piu' su errore: chi la chiama andrebbe avanti come se fosse andata bene",
+  );
+
+  const aMano = (src.match(/method: "PATCH"/g) ?? []).length;
+  assert.equal(
+    aMano, 1,
+    "c'e' una PATCH sulle sedi scritta a mano fuori da patchSede: e' di nuovo una scrittura di cui nessuno controlla l'esito",
   );
 });

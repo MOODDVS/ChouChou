@@ -118,11 +118,13 @@ nel bundle del browser.
 
 ## Checklist nuovo cliente
 
-0. **Da quale ramo.** Finché `multi-sede` non è dentro `main`, un cliente
-   nuovo si clona da **`multi-sede`**: è lì che vive il motore con le sedi, e
-   un cliente clonato da `main` non le avrebbe. Il tag `single-location`
-   segna l'ultimo motore a sede unica, prima di tutto questo: è un archivio,
-   non un punto di partenza — non ha le correzioni venute dopo.
+0. **Da quale ramo: `main`, e basta.** Il multi-sede è dentro `main` dal
+   03/10/2026, il ramo `multi-sede` ha finito il suo lavoro ed è stato
+   chiuso: tenerlo vivo accanto a `main` voleva dire due verità su quale sia
+   il motore buono, e un giorno dimenticare di allinearle. Il tag
+   `single-location` segna l'ultimo motore a sede unica, prima di tutto
+   questo: è un archivio, non un punto di partenza — non ha le correzioni
+   venute dopo.
 
 1. **Clona** il repo engine e crea il repo del cliente. Poi **cancella i
    demo**, che sono vetrine di MOODD e non vanno installate da un cliente:
@@ -156,7 +158,7 @@ nel bundle del browser.
     più sopra: senza `/order-confirm` un pagamento riuscito finisce su un 404.
     Se il sito sta sotto un prefisso, va scritto in `public_site_base`.
 
-11. **Multi-sede (solo se ne ha più di uno)** — lancia `supabase/locations.sql`
+11. **Multi-sede (solo se ne ha più di uno)** — lancia `supabase/073_locations.sql`
     e crea le sedi da `/admin/super` → Sedi. ⚠️ Un cliente con UN punto solo
     **non deve creare nessuna sede**: tabella `locations` vuota vuol dire
     nessun filtro, cioè esattamente il comportamento di sempre. La sede si
@@ -1737,3 +1739,120 @@ indovina.
 ⚠️ **Attenzione alle regole `@media (pointer: coarse)` senza larghezza**: ce
 n'erano di pensate per il telefono (campi ora a 42px, perché lì tutto il resto
 è grande) che su iPad orizzontale restavano alte il doppio delle righe intorno.
+
+## La stampa dei ticket — chi chiama chi (04/10/2026)
+
+Il motore gira su un server, la stampante sta in una cucina a Bruxelles. Fra
+i due non c'e' nessuna strada diretta: l'indirizzo di quella stampante esiste
+solo dentro il Wi-Fi del locale, e nessun server al mondo lo raggiunge.
+
+**Quindi non siamo noi a parlare alla stampante. E' la stampante che chiama
+noi.** Ogni soluzione che funziona — BizPrint con l'app sul tablet, Star
+CloudPRNT, Epson Server Direct Print — fa questo e solo questo: qualcosa nel
+locale bussa ogni pochi secondi e chiede se c'e' qualcosa da stampare.
+
+Tre regole che ne discendono, e che non vanno riaperte a ogni cliente.
+
+**1. La destinazione e' UN pezzo solo.** «Dove mando il ticket» si decide in
+un posto: oggi BizPrint, domani una stampante autonoma, e per un cliente alla
+volta. Se la scelta si infilasse nel codice che compone il ticket, cambiare
+fornitore vorrebbe dire riaprire sei repository.
+
+**2. Il disegno del ticket vive nel CLIENTE, il meccanismo nel MOTORE.** Il
+motore sa quando stampare, tiene la coda, riprova e conferma; il cliente ha un
+file che, dato un ordine, restituisce le righe. Il cliente non vede mai un
+byte di stampante ne' il nome del fornitore. Vantaggio secondario non piccolo:
+un file che esiste solo nel cliente non va MAI in conflitto in un merge — ed
+e' esattamente da file presenti in tutti e due i posti che sono nati i quattro
+guasti da auto-merge del 03/10.
+
+**3. La station e' della SEDE, l'applicazione e' del CLIENTE.** Stessa forma
+dei conti Stripe. Il ticket parte verso la station scritta NELL'ORDINE, mai
+verso quella della sede selezionata nell'header: con tre punti, l'aggregato
+manderebbe la comanda alla cucina sbagliata. E' la stessa regola che
+`ambitoDiRiga()` gia' impone all'annullo.
+
+⚠️ **«Stampato» lo dice la stampante, non noi.** Lo stato passa per `sent`
+prima di `printed`, e diventa `printed` solo sulla conferma di ritorno. Senza
+quel passaggio non si distingue «uscito» da «la stampante era spenta»: o si
+perdono ticket segnati come fatti, o si ristampa e in cucina arrivano due
+comande, cioe' due pizze. La protezione dal doppione sta nell'INDICE UNICO del
+database (`print_tickets`, solo righe `auto`), non nel codice che inserisce:
+due richieste possono arrivare nello stesso istante.
+
+⚠️ **La stampante non riceve un DOCUMENTO, riceve dei COMANDI** (provato il
+05/10/2026, su carta). L'API di BizPrint vuole l'indirizzo di una pagina, e
+questo fa credere che basti scrivere il ticket in HTML. Non e' cosi': il
+servizio **passa il contenuto alla stampante senza toccarlo**, e una termica in
+**ESC/POS** stampa come testo tutto quello che le arriva. Mandato l'HTML, e'
+uscito il sorgente. Mandato un PDF, sono usciti i byte del PDF — un foglio
+intero. Il PNG sarebbe finito uguale.
+
+Quindi il ticket e' un **flusso ESC/POS**: `ESC @` per iniziare, `GS ! 0x11`
+per la doppia altezza e larghezza, `ESC E` per il grassetto, `GS B 1` per il
+bianco su nero (la fascia «DA INCASSARE» del disegno c'e' lo stesso), `GS V`
+per il taglio. Il disegno non si perde, cambia mezzo: non piu' CSS ma righe e
+comandi — ed e' la strada piu' leggera delle tre, perche' non serve nessun
+Chromium sul server per generare un'immagine o un PDF.
+
+Da qui due conseguenze pratiche:
+- **La misura e' la COLONNA, non il pixel.** Carta da 80 mm, font A: 48
+  colonne. Un nome di piatto piu' lungo va a capo, e dove va a capo si decide
+  contando caratteri. (Le misure in dot servono solo se un giorno si stampa un
+  logo, che e' un'immagine raster a parte.)
+- **Gli accenti si scrivono in UTF-8, e basta** — e ⚠️ **`ESC t` non va
+  mandato.** Provato su carta il 05/10: la riga in UTF-8 senza nessun `ESC t`
+  esce perfetta, accenti ed euro compresi. Quelle scritte a mano nelle tabelle
+  della stampante (cp437, cp850, cp858, cp1252) escono TUTTE sbagliate, perche'
+  quei byte non sono UTF-8 valido e vengono rovinati PRIMA della stampante:
+  l'app legge il file come testo, lo decodifica e converte lei verso la
+  testina. Avevo scritto il contrario in questa stessa pagina un'ora prima,
+  ragionando su come funziona una termica collegata a un cavo: ma qui in mezzo
+  c'e' un'app, e il ragionamento valeva per una catena diversa da questa.
+
+### Piu' stampanti: il REPARTO (deciso il 05/10/2026, da costruire)
+
+Un cliente vuole le pizze dal forno, le bibite dal bar, i freddi dai freddi.
+Il pezzo da introdurre **non e' «la stampante», e' il reparto**: ha un nome e
+una stampante, e le categorie del menu puntano al reparto, mai al numero della
+stampante. Il giorno che la stampante del bar si rompe si cambia **un numero
+in un posto solo**; se le categorie puntassero alla stampante si
+riassegnerebbero quaranta categorie, dimenticandone una — e per settimane le
+bibite uscirebbero in pizzeria.
+
+**La scelta vive sulla CATEGORIA**, cioe' dove il ristoratore mette gia' i
+piatti, non in una seconda tabella di regole da tenere allineata. Aggiungi
+«Dolci» e scegli li' dove esce. Un piatto nuovo eredita dalla sua categoria e
+non puo' restare orfano. (`kind` food/drink esiste gia' e non basta: antipasti
+e pizze sono tutti e due cibo.)
+
+⚠️ **L'indice unico della #76 va rifatto.** Oggi e' `(order_id, kind) where
+origin = 'auto'`: con una stampante sola e' giusto, con tre reparti **vieta
+esattamente quello che serve** — il secondo e il terzo ticket dello stesso
+ordine li rifiuta il database. Diventa `(order_id, reparto)`. Se lo si scopre
+in cucina invece che qui, lo si scopre perche' le bibite non escono mai.
+
+**Ogni ticket porta la testa intera e solo i suoi piatti**: ora di ritiro,
+numero e «DA INCASSARE» uguali su tutti, poi le sue righe. In fondo
+**`1/3 — altre 2 righe al bar`**: senza quel conteggio chi prepara non sa se
+l'ordine e' completo, e un ticket che sembra tutto l'ordine quando e' un terzo
+e' peggio di nessun ticket.
+
+**Il ticket «pass» con l'ordine intero** — per chi compone il sacchetto e
+incassa — e' un interruttore per sede: lo vuole chi ha un banco, non chi
+lavora in due.
+
+**Chi ha una stampante sola non configura niente.** Nessun reparto definito =
+un reparto solo, tutto li'. La configurazione si presenta a chi la cerca.
+
+**La stampante si sceglie da un elenco, non si copia a mano**: il pannello
+tira le stampanti dall'API, come `scripts/bizprint-lista.mjs`. Un numero
+copiato male e' un ticket che non esce, e nessuno che sappia perche'.
+
+⚠️ **Uno script che stampa una risposta di un'API maschera TUTTO, non le
+chiavi che conosce.** Il 04/10 `scripts/bizprint-lista.mjs` mascherava le due
+chiavi dell'applicazione — le uniche a cui avevo pensato — e ha stampato in
+chiaro le chiavi segrete delle due station, che stavano nella risposta. Sono
+finite in chat, e le station sono state rifatte da zero. La maschera si scrive
+sul NOME del campo (`secretKey`, `publicKey`, `key`, `token`), non sul valore
+che ti aspetti.

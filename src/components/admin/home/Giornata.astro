@@ -1,0 +1,714 @@
+---
+/**
+ * LA GIORNATA — la fascia in cima alla Accueil.
+ *
+ * ⚠️ NON E' UNA TILE, ed e' il punto di tutto il disegno. Le tile sono
+ * riquadri che pesano uguale: una griglia di riquadri uguali dice che il
+ * fatturato, le foto mancanti e il prossimo ritiro sono la stessa cosa, e chi
+ * apre la pagina deve cercare. Questa fascia sta direttamente sul fondo della
+ * pagina — niente bordo, niente ombra — perche' e' il CONTENUTO della Accueil.
+ * Le tile cominciano sotto, ed e' il loro riquadro a dire «qui c'e' un'altra
+ * cosa».
+ *
+ * Dentro, hanno un blocco solo le cose che si prendono una alla volta: una
+ * prenotazione, un ordine, un numero. Quello che si guarda e basta — la nota
+ * di Google, la recensione, gli orari, l'affluenza — resta nudo.
+ *
+ * TUTTO QUELLO CHE SI VEDE E' DI OGGI. Una riga di domani in mezzo a quelle di
+ * stasera si legge come se fosse adesso.
+ *
+ * Il markup e' vuoto: lo riempie lo script di `index.astro`, che ha gia' i
+ * dati (pre-caricati dal server o chiesti alle API). Le colonne si nascondono
+ * da sole quando la loro funzione e' spenta — una colonna vuota che dice
+ * «nessuna prenotazione» occuperebbe un terzo di schermo per non dire niente.
+ */
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+import Modal from "../Modal.astro";
+const lang = await adminLang();
+const t = adminT(lang);
+
+/**
+ * ⚠️ LA COLONNA DELLE RECETTES NON SI NASCONDE: NON ESISTE, per chi non puo'
+ * vedere il fatturato. E' l'unica colonna della fascia che legge un'API
+ * PERMESSA A POCHI (`/api/admin/stats`, legata alla pagina Statistiques): se
+ * si disegnasse per tutti e poi la si nascondesse, il suo codice chiederebbe
+ * lo stesso — tre 403 in console a ogni caricamento per chi non ha quella
+ * pagina, cioe' l'aria di un pannello rotto. Era gia' successo, e la risposta
+ * di allora fu «non chiedere affatto»; quella di oggi e' «chiedere solo se
+ * si puo'», e lo decide il server, dove i permessi sono veri.
+ * Chi riempie la fascia deve quindi dire se questa colonna ci va: la pagina
+ * lo sa gia' (ha il contesto dei permessi per l'SSR delle isole).
+ */
+interface Props {
+  /** La persona che guarda puo' vedere il fatturato (pagina Statistiques). */
+  recettes?: boolean;
+}
+const { recettes = false } = Astro.props as Props;
+
+// ⚠️ Le stesse icone delle pagine Réservations e Commandes: chi guarda
+// la Accueil deve ritrovare nella barra in basso il segno che ha appena
+// visto qui. Un'icona nuova per la stessa cosa e' una cosa nuova.
+const ICO_RESA = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>`;
+const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
+
+// Il calendario della colonna: lo STESSO telaio di Reservations — stessa
+// cornice, stessi due anelli, stessa riga sotto la testata — col giorno
+// segnato dentro invece della spunta. La colonna dice «aujourd'hui», cioe'
+// un GIORNO, e il giorno si disegna su un calendario.
+//
+// ⚠️ Qui c'era un orologio, identico a quello che sta davanti agli orari due
+// righe sotto: lo stesso segno due volte nella stessa colonna, una volta per
+// dire il giorno e una per dire l'ora. L'orologio resta dove serve, accanto
+// alle ore.
+// La matita della lavagnetta: la stessa che aveva la tile Notes. La tile
+// sparisce, il segno no — chi la cercava fra i riquadri la ritrova qui.
+const ICO_NOTE = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+
+// Il calendario con la stella: il segno dei giorni che non sono come gli altri.
+// ⚠️ La stessa cornice di ICO_RESA e ICO_OGGI — tre colonne che cominciano con
+// un calendario devono cominciare con lo STESSO calendario; cambia cio' che
+// c'e' dentro, ed e' quello a dire quale colonna e'.
+const ICO_SPX = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polygon points="12 12.4 13.15 14.9 15.8 15.25 13.9 17.05 14.4 19.6 12 18.35 9.6 19.6 10.1 17.05 8.2 15.25 10.85 14.9"/></svg>`;
+
+/* Il libro aperto: la stessa icona della voce «Menu» e della tile che questa
+   colonna sostituisce — chi la cercava fra le tile la ritrova qui. */
+/* Il quadro con la montagnina: la stessa icona della tile «Photos récentes»
+   che questa colonna sostituisce, e della pagina Assets. */
+/* Il grafico che sale: la stessa icona della tile «Visibilité» che questa
+   colonna sostituisce. */
+const ICO_VIS = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 5-7"/></svg>`;
+/* La moneta: la stessa icona della scheda «Finances» di Statistiques, dove la
+   freccia di questa colonna porta. */
+const ICO_REC = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15 9.5a3.5 3.5 0 1 0 0 5"/><line x1="7.5" y1="11" x2="12.5" y2="11"/><line x1="7.5" y1="13" x2="11.5" y2="13"/></svg>`;
+const ICO_FOTO = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>`;
+const ICO_MENU = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+const ICO_OGGI = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><rect x="7" y="13" width="4.5" height="4.5" rx="1"/></svg>`;
+---
+
+<section class="jour" id="jour" style="display:none">
+
+  {/* ---------- OGGI: com'e' il locale adesso ----------
+      ⚠️ Questa colonna si chiamava «Google», e non lo e' piu'. Da quando ci
+      sono entrati gli orari e l'affluenza, Google e' UNA delle cose che ci
+      stanno dentro — il voto — non il titolo di tutte. Il nome vecchio
+      prometteva una pagina della scheda e consegnava la giornata del locale.
+      Il marchio resta dov'e' il suo dato: accanto al voto. */}
+  <div class="j-col j-google" id="j-google" style="display:none">
+    {/* ⚠️ Stessa ossatura delle altre due colonne — `.j-hd-x`, il segno DENTRO
+        `.j-t`, il link in fondo riga — e non una variante che le somiglia. */}
+    <div class="j-hd" id="j-g-hd">
+      {/* ⚠️ La pastiglia sta DENTRO il titolo e gli orari sotto, dove le
+          altre due colonne mettono «7 aujourd'hui»: stessa ossatura, stessa
+          lettura. Aperto/chiuso e' una qualita' del titolo — non un'altra
+          cosa da cercare da un'altra parte.
+          La pastiglia resta spenta finche' la configurazione non e' arrivata:
+          «AUJOURD'HUI —» con una pastiglia vuota sembra un guasto. */}
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_OGGI} />{t("home.todayTitle")}<span class="j-pil" id="j-stato" style="display:none">—</span></span>
+      </span>
+      {/* ⚠️ La freccia e' un ELEMENTO, non un carattere dentro la frase:
+          dentro il testo non si puo' far reagire al passaggio del dito, e in
+          una lingua che scrive al contrario finirebbe dalla parte sbagliata. */}
+      {/* Il link della testata porta dove si CAMBIANO gli orari, perche' la
+          testata adesso dice gli orari: si legge «ouvert 17:00 – 22:30», e la
+          cosa che si vuole fare da li' e' correggerli. La scheda Google e' una
+          fonte diversa — il suo link e' sceso nel suo blocco.
+          `data-admin-page="settings"`: se il super spegne Reglages, il link
+          sparisce come la tile Jours speciaux che porta allo stesso posto. */}
+      <a class="j-link j-vedi" href="/admin/settings?tab=horaire" data-admin-page="settings">
+        <span>{t("home.editHours")}</span>
+        <span class="j-arr" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg>
+        </span>
+      </a>
+    </div>
+
+    {/* ⚠️ Due scatole, in quest'ordine: prima la GIORNATA (quando si apre,
+        quanta gente), poi GOOGLE (il giudizio di chi c'e' stato). La prima
+        riguarda le prossime sei ore, la seconda i mesi passati — e chi apre
+        la Accueil la mattina guarda la prima. */}
+
+    {/* ⚠️ IL CORPO CHE SCORRE. La colonna e' alta quanto lo schermo e non
+        quanto il suo contenuto: testata in cima, numeri in fondo, e in mezzo
+        la parte che scorre per conto suo. Senza questo involucro la colonna
+        si allungherebbe sotto la piega e per vedere i numeri si scorrerebbe
+        tutta la pagina — cioe' si perderebbero di vista le altre colonne. */}
+    <div class="j-corpo">
+
+    {/* ---------- IL BLOCCO DELLA GIORNATA ----------
+        Quando si apre e quanta gente viene: una domanda sola, un blocco
+        solo. E' un riquadro come quelli dei numeri qui accanto — stesso
+        fondo, stesso filo, stesso raggio — perche' e' la stessa cosa: un
+        dato della giornata chiuso in una scatola.
+
+        ⚠️ Il blocco NON e' il grafico. Il grafico sparisce quando ordini e
+        prenotazioni sono chiusi, gli orari no: dentro il grafico, un locale
+        senza prenotazioni ne' ordini avrebbe perso anche l'ora di apertura.
+        Il blocco e' il contenitore, il grafico una cosa che ci sta dentro.
+
+        ⚠️ `--c-bg` e' ridefinito QUI: le barre del «di solito» sono il loro
+        colore mescolato al FONDO, e qui dentro il fondo e' quello della
+        card, non quello della pagina. */}
+    <div class="j-box j-oggi-blocco">
+      <span class="j-orari" id="j-orari"></span>
+
+      {/* L'affluenza, ora per ora. QUATTRO barre per ora: i coperti e gli
+          ordini, ognuno col suo «di solito» (lo stesso giorno della settimana,
+          le settimane prima). Coperti e ordini non si sommano — quattro
+          persone a tavola e quattro ordini da portare via non sono la stessa
+          cosa — e il «di solito» accanto e' l'unica cosa che rende leggibile
+          una serata: sopra o sotto il solito.
+          ⚠️ Ogni serie sparisce con la sua funzione: spenti gli ordini
+          restano due barre, spente tutte e due il grafico non c'e'. */}
+      <div class="j-hm" id="j-hm" style="display:none">
+        <div class="j-hm-plot" id="j-hm-plot"></div>
+        <div class="j-hm-x" id="j-hm-x"></div>
+        {/* ⚠️ Si nominano i COLORI (coperti, ordini), non le quattro barre.
+            «Coperti oggi / coperti di solito / ordini oggi / ordini di solito»
+            sono quattro voci in una colonna stretta: piu' alte del grafico che
+            dovrebbero spiegare. Una riga dice che la tinta chiara e' il
+            solito, e vale per tutte e due le serie.
+            Le voci si spengono con la loro funzione: senza «Commandes» non
+            resta una legenda che nomina una barra che non c'e'. */}
+        <div class="j-hm-f">
+          <span class="j-key" id="j-k-cov"><b class="cov"></b> {t("home.affCovers")}</span>
+          <span class="j-key" id="j-k-ord"><b class="ord"></b> {t("home.affOrders")}</span>
+          <span class="j-pale">{t("home.affPale")}</span>
+          <span id="j-hm-pic"></span>
+          <span class="src" id="j-hm-src"></span>
+        </div>
+      </div>
+    </div>
+
+    {/* ---------- IL BLOCCO GOOGLE ----------
+        Il voto, l'ultima recensione e i comandi per rispondere: UNA scatola.
+        Sono tutte cose che vengono dalla stessa scheda e che spariscono
+        insieme a lei, e quello che si fa guardandole e' una cosa sola —
+        leggere cosa dicono di noi, e rispondere.
+        ⚠️ Prima il voto stava in un riquadro bianco e la recensione fuori,
+        sul fondo della pagina, separata da un filo: due oggetti per una cosa
+        sola, e il filo in mezzo diceva che non si parlavano. Il bianco era una
+        prova del 07/10 — si e' provato, e il blocco unico fa il suo mestiere
+        meglio.
+        ⚠️ Il vestito e' quello dei riquadri dei numeri, lo stesso del blocco
+        della giornata qui sopra. La colonna ha due scatole: devono essere la
+        stessa scatola. */}
+    <div class="j-box j-g-blocco" id="j-g-nb">
+      <div class="j-note" id="j-g-note">
+        {/* Il marchio sta col SUO dato: questo voto e' di Google, e senza
+            il logo accanto sarebbe un numero senza provenienza. */}
+        <img class="j-glogo" src="/restohub/Google_Favicon.webp" alt="Google" width="29" height="29" loading="lazy" />
+        <span class="v" id="j-g-rating">—</span>
+        <span class="st" id="j-g-stars" aria-hidden="true"></span>
+        {/* Porta all'ELENCO DELLE RECENSIONI di Google, non alla scheda: da
+            qui si arriva avendo letto un commento, e quello che si vuole e'
+            leggere gli altri. La scheda avrebbe rimesso in mezzo foto, orari
+            e indirizzo, con le recensioni da cercare piu' in giu'.
+            ⚠️ Stesso componente del link della testata (`.j-link .j-vedi` e la
+            stessa freccia): due modi di dire «vai a vedere» nella stessa
+            colonna sarebbero due cose da imparare per farne una. */}
+        <a class="j-link j-vedi" id="j-g-maps" href="#" target="_blank" rel="noopener">
+          <span>{t("home.allReviews")}</span>
+          <span class="j-arr" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg>
+          </span>
+        </a>
+      </div>
+      <div class="j-note-sub" id="j-g-count">—</div>
+
+      {/* La recensione: una citazione, non una scatola.
+          ⚠️ Chi ha scritto viene PRIMA di cosa ha scritto: si decide se
+          rispondere guardando la faccia, il voto e se qualcuno ha gia'
+          risposto — e solo dopo si legge. In fondo, il nome era l'ultima cosa
+          che l'occhio trovava, quando aveva gia' letto tutto. */}
+      {/* ⚠️ Chi ha scritto sta FUORI dalla citazione: la riga verticale segna
+          le parole del cliente, e il suo nome non e' una cosa che ha detto lui.
+          Dentro, l'intestazione sembrava la prima frase della recensione. */}
+      <div class="j-aut" id="j-g-aut" style="display:none">
+        <span class="j-av" id="j-g-av"></span>
+        <span class="j-aut-x">
+          <span class="nm" id="j-g-who"></span>
+          <span class="j-aut-r">
+            <span class="sr" id="j-g-astars" aria-hidden="true"></span>
+            <span class="dt" id="j-g-when"></span>
+            <span class="spx-b j-rep" id="j-g-rep"></span>
+          </span>
+        </span>
+        {/* ⚠️ Il bottone sta nella riga di CHI HA SCRITTO, non in fondo al
+            blocco insieme alle frecce. Li' stava dopo un vuoto di sei righe,
+            in mezzo ai comandi del carosello: sembrava un'azione del blocco —
+            «rispondi a Google» — e non la risposta a questa persona. Qui e'
+            attaccato al suo nome, e si vede a chi si risponde.
+            Compare solo sulle recensioni a cui si PUO' rispondere: serve
+            l'id, che arriva col Business Profile collegato, e serve che
+            nessuno abbia gia' risposto. Un bottone che a volte non fa niente
+            e' peggio di un bottone che non c'e'. */}
+        <button type="button" class="btn btn-sm btn-primary j-rbtn" id="j-g-rep-open" style="display:none">{t("gg.reply")}</button>
+      </div>
+
+      <div class="j-quote" id="j-g-car" style="display:none">
+        <p class="q-x" id="j-g-quote"></p>
+      </div>
+
+      <div class="j-qf" id="j-g-nav" style="display:none">
+        {/* Le frecce sono il tondo del pannello in taglia piccola, nella
+            variante da card (`.ibtn.ibtn-sm.ibtn-scuro`): dentro il blocco di
+            Google il tondo chiaro si confondeva col fondo.
+            ⚠️ Un DISEGNO, non i caratteri «‹ ›»: una freccia di testo si
+            centra come una lettera — sopra la linea di base e spostata dalla
+            spaziatura del carattere — e in un cerchio da 26px si vede. Lo
+            stesso chevron che il pannello usa dappertutto. */}
+        <span class="j-arrows">
+          <button type="button" class="ibtn ibtn-sm ibtn-scuro" id="j-g-prev" aria-label={t("home.prevReview")}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 5 8 12 15 19" /></svg>
+          </button>
+          <button type="button" class="ibtn ibtn-sm ibtn-scuro" id="j-g-next" aria-label={t("home.nextReview")}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 5 16 12 9 19" /></svg>
+          </button>
+        </span>
+        <span class="j-dots" id="j-g-dots"></span>
+      </div>
+    </div>
+
+    </div>
+
+    {/* I tre numeri della scheda: stessi blocchi dei numeri in fondo alle
+        colonne, perche' sono la stessa cosa — un numero che si va a guardare. */}
+    <div class="j-nums" id="j-g-perf" style="display:none">
+      <div><span class="k">{t("home.gSite")}</span><span class="v" id="j-g-site">—</span><span class="d" id="j-g-site-d"></span></div>
+      <div><span class="k">{t("home.gCalls")}</span><span class="v" id="j-g-calls">—</span><span class="d" id="j-g-calls-d"></span></div>
+      <div><span class="k">{t("home.gRoute")}</span><span class="v" id="j-g-route">—</span><span class="d" id="j-g-route-d"></span></div>
+    </div>
+    <div class="j-per" id="j-g-per" style="display:none">{t("home.last30")}</div>
+  </div>
+
+  {/* ---- Prenotazioni di oggi ---- */}
+  <div class="j-col j-resa" id="j-resa" data-admin-page="reservations" style="display:none">
+    <div class="j-hd">
+      {/* ⚠️ L'icona E il conteggio stanno DENTRO la riga del titolo: la
+          colonna si legge in una riga sola — che cosa, e quante. Il
+          conteggio era la riga sotto, e l'icona, accanto a un blocco alto
+          due righe, finiva a mezz'aria fra l'una e l'altra.
+          ⚠️ Stessa pastiglia di «OPEN» sotto AUJOURD'HUI (`.j-pil`), e non
+          una somigliante: le tre colonne dicono la stessa cosa nello
+          stesso posto — una pastiglia attaccata al titolo. Il COLORE
+          cambia perche' cambia cio' che dice: verde o corallo e' uno
+          STATO, neutra e' un NUMERO. Un conteggio in verde avrebbe detto
+          «aperto» a chi ha imparato la pastiglia due colonne piu' in la'. */}
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_RESA} />{t("nav.reservations")}<span class="j-pil n" id="j-resa-cnt"></span></span>
+      </span>
+      <a class="j-link j-vedi" href="/admin/reservations">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* I SERVIZI DI OGGI, con l'interruttore per chiuderli. ⚠️ E' il
+        comando, non un riassunto: chiude la stessa riga che chiude la
+        pagina Réservations, con la stessa chiamata e lo stesso
+        interruttore condiviso. Un secondo modo di chiudere un servizio e'
+        un modo che un giorno dimentica una regola.
+        Qui solo i servizi: le sezioni di sala si chiudono dalla loro
+        pagina, dove si vede il piano e quali tavoli restano. */}
+    <div class="j-box j-serv" id="j-serv"></div>
+
+    <div class="j-lista" id="j-resa-lista"></div>
+    <div class="j-nums">
+      <div><span class="k">{t("home.covers")}</span><span class="v" id="j-resa-couv">—</span><span class="d" id="j-resa-couv-d"></span></div>
+      <div><span class="k">{t("home.filling")}</span><span class="v" id="j-resa-rempl">—</span><span class="d" id="j-resa-rempl-d"></span></div>
+      <div><span class="k">{t("home.toConfirm")}</span><span class="v att" id="j-resa-conf">—</span><span class="d" id="j-resa-conf-d"></span></div>
+    </div>
+  </div>
+
+  {/* ---- Ordini di oggi ---- */}
+  <div class="j-col j-ord" id="j-ord" data-admin-page="orders" style="display:none">
+    <div class="j-hd">
+      {/* ⚠️ L'icona E il conteggio stanno DENTRO la riga del titolo: la
+          colonna si legge in una riga sola — che cosa, e quante. Il
+          conteggio era la riga sotto, e l'icona, accanto a un blocco alto
+          due righe, finiva a mezz'aria fra l'una e l'altra.
+          ⚠️ Stessa pastiglia di «OPEN» sotto AUJOURD'HUI (`.j-pil`), e non
+          una somigliante: le tre colonne dicono la stessa cosa nello
+          stesso posto — una pastiglia attaccata al titolo. Il COLORE
+          cambia perche' cambia cio' che dice: verde o corallo e' uno
+          STATO, neutra e' un NUMERO. Un conteggio in verde avrebbe detto
+          «aperto» a chi ha imparato la pastiglia due colonne piu' in la'. */}
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_ORD} />{t("nav.orders")}<span class="j-pil n" id="j-ord-cnt"></span></span>
+      </span>
+      <a class="j-link j-vedi" href="/admin/orders">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* Il tempo di preparazione e la chiusura degli ordini online: gli
+        STESSI bottoni di /admin/orders (styles/prep.css), nella stessa
+        taglia. Stavano anche nella tile Cuisine, sulla stessa pagina. */}
+    <div class="j-cmd" id="j-ord-cmd">
+      <div class="prep-btns" role="group" aria-label={t("ord.prepTime")}>
+        <button class="prep-btn" type="button" data-min="15" title={t("ord.prepFast")}><span class="m">15 min</span></button>
+        <button class="prep-btn" type="button" data-min="30" title={t("ord.prepNormal")}><span class="m">30 min</span></button>
+        <button class="prep-btn" type="button" data-min="45" title={t("ord.prepBusy")}><span class="m">45 min</span></button>
+        <button class="prep-btn prep-close" type="button" id="j-ord-close" title={t("ord.closeOnline")}><span class="m">{t("common.close")}</span></button>
+      </div>
+    </div>
+
+    <div class="j-lista" id="j-ord-lista"></div>
+    <div class="j-nums">
+      <div><span class="k">{t("home.cashed")}</span><span class="v" id="j-ord-enc">—</span><span class="d" id="j-ord-enc-d"></span></div>
+      <div><span class="k">{t("home.basket")}</span><span class="v" id="j-ord-pan">—</span><span class="d" id="j-ord-pan-d"></span></div>
+      <div><span class="k">{t("ord.toCollect")}</span><span class="v att" id="j-ord-aenc">—</span><span class="d" id="j-ord-aenc-d"></span></div>
+    </div>
+  </div>
+
+  {/* ---------- LA LAVAGNETTA ----------
+      Era una tile fra le tile, col fondo oro. Qui e' una colonna come le
+      altre: stessa testata, stessa pastiglia col conteggio, stesso riquadro
+      che scorre dentro invece di allungare la pagina.
+      ⚠️ E' una SEZIONE come le altre, non una cosa dentro un'altra. La fascia
+      e' una griglia di tre colonne e le sezioni si dispongono da sole: oggi,
+      prenotazioni e ordini riempiono la prima riga, la lavagnetta apre la
+      seconda. Nessuna riga che la incolli sotto una colonna precisa — se un
+      giorno un locale non prende ordini, quella casella non resta vuota: la
+      lavagnetta sale a riempirla.
+      ⚠️ Gli id sono QUELLI di prima (`notes-preview`, `notes-add`): lo
+      script delle note non e' stato riscritto, e' il
+      posto in cui disegna che e' cambiato. Rinominarli avrebbe voluto dire
+      rifare — e ricollaudare — l'aggiunta, la spunta e il modale, per un
+      lavoro che e' di disposizione. */}
+  <div class="j-col j-notes" id="j-notes">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_NOTE} />{t("home.notesTasks")}<span class="j-pil n" id="j-note-cnt"></span></span>
+      </span>
+      {/* ⚠️ `.ibtn`, il bottone tondo del pannello, e non i `.ntile-btn` che
+          la tile si era fatti: quelli erano marrone su oro e qui dentro non
+          si vedrebbero. Un bottone tondo da 34px esiste gia' — e' questo.
+          ⚠️ Qui accanto c'era «Agrandir», che apriva la lavagnetta intera.
+          Serviva quando le note erano una tile alta quattro righe e dentro ce
+          ne stavano tre: era l'unico modo di vedere le altre. La colonna le
+          mostra tutte e si apre toccando una nota — un bottone che fa quello
+          che fa gia' il contenuto accanto e' un bottone che chiede di
+          scegliere fra due strade uguali. */}
+      <span class="j-nbtns">
+        <button class="btn btn-sm btn-primary" id="notes-add" type="button">{t("home.noteBtn")}</button>
+      </span>
+    </div>
+    {/* I filtri per etichetta: le pastiglie condivise del pannello
+        (`styles/filters.css`), le stesse di Menu, Google e Statistiche.
+        ⚠️ Le riempie lo script con le etichette che ci sono DAVVERO nelle
+        note: un filtro per un'etichetta che nessuno ha usato e' un bottone
+        che da' sempre una colonna vuota. Senza etichette la riga non c'e'. */}
+    <div class="rh-filters j-nfiltri" id="j-note-filtri"></div>
+    <div class="j-lista notes-preview" id="notes-preview"></div>
+    {/* Il piede della colonna: la STESSA riga in fondo alla colonna di oggi
+        («30 derniers jours»), stessa classe e stesso carattere. Qui non ci
+        sono tre riquadri come nelle altre due: li' sotto ci sono coperti e
+        incassi, numeri che si confrontano fra loro; qui c'e' una frase, e una
+        frase in un riquadro da numero sembra un numero che non si legge. */}
+    <div class="j-per" id="j-note-stat"></div>
+    {/* I due riquadri in fondo, come le altre colonne. ⚠️ Il secondo ne occupa
+        DUE: dentro non c'e' una cifra ma tre nomi, e tre nomi in un terzo di
+        colonna vanno a capo o si tagliano coi puntini — cioe' una classifica
+        in cui non si legge chi e'. */}
+    <div class="j-nums j-note-nums" id="j-note-nums" style="display:none">
+      <div><span class="k">{t("home.notesMonth")}</span><span class="v" id="j-note-mese">—</span><span class="d" id="j-note-mese-d"></span></div>
+      <div class="j-note-top"><span class="k">{t("home.notesTop")}</span><ol class="j-top3" id="j-note-top"></ol></div>
+    </div>
+  </div>
+  {/* ---------- JOURS SPÉCIAUX: cosa non sara' come sempre ----------
+      ⚠️ Era una tile, e la tile mostrava DUE elenchi: i giorni speciali del
+      ristoratore in alto, le prossime feste del calendario in basso. Natale ci
+      compariva due volte — una come chiusura sua, una come festa — e niente
+      diceva che erano la stessa riga. Qui e' una linea del tempo sola.
+
+      ⚠️ `data-admin-page="settings"`: i giorni speciali si creano in Réglages,
+      e se il super spegne quella pagina la colonna se ne va con lei — un
+      elenco che non si puo' cambiare da nessuna parte e' un elenco che fa
+      perdere tempo. */}
+  <div class="j-col j-spx" id="j-spx" data-admin-page="settings" style="display:none">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_SPX} />{t("home.specialDays")}<span class="j-pil n" id="j-spx-cnt"></span></span>
+      </span>
+      {/* LO STESSO BOTTONE di Notes, con la sua parola: due colonne accanto
+          non possono avere due comandi diversi per la stessa cosa — «apri il
+          modale e aggiungi». Apre quello di sempre, con le due linguette
+          «Événement local» e «Fermeture / ouverture».
+          ⚠️ `id="spx-add"` non e' un residuo: e' l'aggancio che il modale
+          cerca da sempre. Cambiandolo, il bottone resterebbe li' bello pieno
+          e non aprirebbe niente — senza un errore da nessuna parte, perche'
+          chi lo aggancia esce in silenzio se non lo trova. */}
+      <span class="j-nbtns">
+        <button class="btn btn-sm btn-primary" id="spx-add" type="button" title={t("home.spxNew")}>{t("home.spxBtn")}</button>
+      </span>
+    </div>
+    {/* Le pastiglie dei filtri: le stesse di Notes, Menu e Google. Le riempie
+        lo script con i TIPI che ci sono davvero — un filtro «Fermetures» su
+        una colonna senza chiusure da' sempre una colonna vuota. */}
+    <div class="rh-filters j-nfiltri" id="j-spx-filtri" style="display:none"></div>
+    <div class="j-lista" id="j-spx-lista"></div>
+    {/* Il periodo coperto dall'elenco, come «30 derniers jours» nella colonna
+        di oggi. Gli eventi del locale non hanno piu' un comando suo qui: sono
+        la prima linguetta del modale che apre il `+`. */}
+    {/* ⚠️ Scritta nel markup e non dallo script: e' una frase FISSA. Scritta
+        dal JavaScript, la riga restava vuota finche' non rispondeva la rete —
+        e `.j-per:empty` la nasconde, quindi per mezzo secondo il piede della
+        colonna non c'era e i riquadri saltavano su. */}
+    <div class="j-per">{t("home.spxPeriod")}</div>
+    <div class="j-nums" id="j-spx-nums" style="display:none">
+      <div><span class="k">{t("home.spxClosures")}</span><span class="v" id="j-spx-ferm">—</span><span class="d" id="j-spx-ferm-d"></span></div>
+      <div><span class="k">{t("home.spxHoursTag")}</span><span class="v" id="j-spx-ore">—</span><span class="d" id="j-spx-ore-d"></span></div>
+      <div><span class="k">{t("home.spxNext")}</span><span class="v" id="j-spx-next">—</span><span class="d" id="j-spx-next-d"></span></div>
+    </div>
+  </div>
+
+  {/* ---------- MENU: cosa non si puo' vendere adesso ----------
+      ⚠️ NON e' la carta. La carta ha la sua pagina, e novanta righe in una
+      colonna non si leggono: qui c'e' solo cio' che oggi e' FUORI — gli
+      esauriti (il cliente li vede ancora sul sito, barrati) e i nascosti
+      (fuori dal sito del tutto). Quando non c'e' niente fuori, la colonna lo
+      dice in una riga e sta zitta.
+
+      ⚠️ Era una tile con due conteggi e i primi quattro indisponibili, con un
+      «+3 in piu'…» che per sapere QUALI mandava ad aprire la pagina Menu.
+      Qui l'elenco e' intero e scorre dentro, come nelle altre colonne.
+
+      `data-admin-page="menu"`: se il super spegne quella pagina, la colonna se
+      ne va con lei — un elenco che non si puo' cambiare da nessuna parte fa
+      perdere tempo e basta. */}
+  <div class="j-col j-menu" id="j-menu" data-admin-page="menu" style="display:none">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        {/* ⚠️ La pastiglia conta i piatti FUORI, non quelli del menu: come
+            nelle altre colonne e' «quanto c'e' da guardare». A zero sparisce,
+            e la sua assenza e' gia' una risposta. */}
+        <span class="j-t"><Fragment set:html={ICO_MENU} />{t("nav.menu")}<span class="j-pil n" id="j-menu-cnt"></span></span>
+      </span>
+      <a class="j-link j-vedi" href="/admin/menu">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* Le pastiglie dei filtri, fisse come nei giorni speciali: tre posti che
+        si imparano una volta. */}
+    <div class="rh-filters j-nfiltri" id="j-menu-filtri"></div>
+    <div class="j-lista" id="j-menu-lista"></div>
+    <div class="j-nums" id="j-menu-nums" style="display:none">
+      <div><span class="k">{t("home.dishes")}</span><span class="v" id="j-menu-food">—</span><span class="d" id="j-menu-food-d"></span></div>
+      <div><span class="k">{t("home.drinks")}</span><span class="v" id="j-menu-drink">—</span><span class="d" id="j-menu-drink-d"></span></div>
+      {/* ⚠️ In corallo quando ce ne sono: e' l'unica cosa del menu che si
+          sistema in dieci minuti e che il cliente vede sul sito. */}
+      <div><span class="k">{t("home.menuNoPhoto")}</span><span class="v att" id="j-menu-nofoto">—</span><span class="d" id="j-menu-nofoto-d"></span></div>
+    </div>
+  </div>
+
+  {/* ---------- PHOTOS: cosa e' entrato, e cosa non serve a niente ----------
+      ⚠️ UNA GRIGLIA, non un elenco: una foto si riconosce guardandola, e una
+      riga con «IMG_20260408_1193.jpg» non dice niente. Il nome e DOVE e' usata
+      stanno nel titolo della cella, che e' anche cio' che la libreria
+      nascondeva: `used_by` arrivava nella risposta e la Accueil mostrava otto
+      miniature senza leggerlo.
+
+      ⚠️ Il cestino sta SOLO sulle foto che non usa nessuno — le uniche che la
+      pagina Assets lascia cancellare (le altre le protegge, perche' un piatto
+      o un pop-up le sta mostrando). */}
+  <div class="j-col j-foto" id="j-foto" data-admin-page="assets" style="display:none">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        <span class="j-t"><Fragment set:html={ICO_FOTO} />{t("home.recentPhotos")}<span class="j-pil n" id="j-foto-cnt"></span></span>
+      </span>
+      {/* LO STESSO BOTTONE di Notes e Giorni speciali, con la sua parola: tre
+          colonne accanto non possono avere tre comandi diversi per «aggiungi».
+          ⚠️ Il campo del file e' NASCOSTO e il bottone lo apre: un `<input
+          type="file">` nudo non si puo' vestire — ogni browser lo disegna a
+          modo suo — e in una riga di testata diventa un rettangolo grigio con
+          scritto «Choose file». */}
+      <span class="j-nbtns">
+        <button class="btn btn-sm btn-primary" id="j-foto-add" type="button">{t("home.phBtn")}</button>
+        <input type="file" id="j-foto-file" accept="image/*" hidden />
+      </span>
+    </div>
+    <div class="rh-filters j-nfiltri" id="j-foto-filtri"></div>
+    <div class="j-lista j-foto-wrap" id="j-foto-lista"></div>
+    <div class="j-nums" id="j-foto-nums" style="display:none">
+      <div><span class="k">{t("home.phAll")}</span><span class="v" id="j-foto-tot">—</span><span class="d" id="j-foto-tot-d"></span></div>
+      <div><span class="k">{t("as.free")}</span><span class="v att" id="j-foto-libere">—</span><span class="d" id="j-foto-libere-d"></span></div>
+      <div><span class="k">{t("home.phSpace")}</span><span class="v" id="j-foto-peso">—</span><span class="d" id="j-foto-peso-d"></span></div>
+    </div>
+  </div>
+
+  {/* ---------- VISIBILITÉ: chi ci cerca su Google ----------
+      ⚠️ Senza una proprieta' Search Console configurata la colonna NON C'E':
+      a un locale che non l'ha, una colonna vuota che non puo' riempire non
+      dice niente — e non si puo' nemmeno andare a riempirla da qui.
+
+      ⚠️ Il grafico e' quello dell'affluenza: `.j-hm`, `.j-hm-plot`, `.j-hm-x` e
+      la funzione `altezza()` di `giornataRegole.ts`. Due grafici nella stessa
+      pagina con due righelli diversi sarebbero due grafici che non si possono
+      confrontare — e il secondo, scritto da zero, perderebbe le linee della
+      griglia che fanno capire QUANTO e' alta una barra. */}
+  <div class="j-col j-vis" id="j-vis" data-admin-page="stats" style="display:none">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        {/* Nessuna pastiglia col numero: qui non c'e' niente da fare oggi, e'
+            una colonna che si legge — come «Aujourd'hui». */}
+        <span class="j-t"><Fragment set:html={ICO_VIS} />{t("home.visibility")}</span>
+      </span>
+      {/* Il dettaglio sta in Statistiques → Google, che e' la pagina che sa
+          raccontarlo (serie lunghe, pagine, confronti). */}
+      <a class="j-link j-vedi" href="/admin/stats?tab=google">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* I filtri qui sono il PERIODO: l'API li sa gia' fare (7 · 28 · 90). */}
+    <div class="rh-filters j-nfiltri" id="j-vis-filtri"></div>
+    {/* ⚠️ LA STESSA SCATOLA del grafico di «Aujourd'hui» (`.j-box`): due
+        grafici nella stessa fascia, uno dentro una card e uno appoggiato sul
+        fondo, si leggevano come due cose di peso diverso. E il piede dice le
+        tre cose che un istogramma da solo non puo' dire: di che colore sono
+        le barre, se una barra e' un giorno o una settimana, e fino a QUANDO
+        arrivano i dati — Google ha circa tre giorni di ritardo, quindi
+        l'ultima barra non e' oggi. */}
+    <div class="j-box j-vis-box" id="j-vis-box" style="display:none">
+      {/* ⚠️ `serie1` sta QUI e non in JavaScript: e' la larghezza delle barre
+          quando la serie e' una sola, e questa colonna ne ha una sola per
+          sempre. Aggiunta a mano dal codice che disegna, e' finita sulla
+          scatola invece che sul grafico il giorno in cui il grafico e' entrato
+          in una scatola — e le barre, senza quella regola, si sono stirate. */}
+      <div class="j-hm j-vis-hm serie1">
+        <div class="j-hm-plot" id="j-vis-plot"></div>
+        <div class="j-hm-x" id="j-vis-x"></div>
+        <div class="j-hm-f">
+          <span class="j-key"><b class="vis"></b> {t("home.visClicks")}</span>
+          <span class="j-pale" id="j-vis-passo"></span>
+          <span class="src" id="j-vis-src"></span>
+        </div>
+      </div>
+    </div>
+    {/* L'intestazione dell'elenco: «requête» e «clics» si leggono una volta,
+        e poi ogni riga e' due numeri senza spiegazione. */}
+    <div class="j-lista-h" id="j-vis-h" style="display:none">
+      <span>{t("home.visQuery")}</span><span>{t("home.visClicks")}</span>
+    </div>
+    <div class="j-lista" id="j-vis-lista"></div>
+    <div class="j-nums" id="j-vis-nums" style="display:none">
+      <div><span class="k">{t("home.visClicks")}</span><span class="v" id="j-vis-clic">—</span><span class="d" id="j-vis-clic-d"></span></div>
+      <div><span class="k">{t("home.impressions")}</span><span class="v" id="j-vis-imp">—</span><span class="d" id="j-vis-imp-d"></span></div>
+      <div><span class="k">{t("home.visPos")}</span><span class="v" id="j-vis-pos">—</span><span class="d" id="j-vis-pos-d"></span></div>
+    </div>
+  </div>
+  {/* ---------- RECETTES: i soldi, nel tempo ----------
+      ⚠️ NON e' la colonna Commandes con altri numeri. Commandes e' OGGI e si
+      guarda per fare: chi deve ancora ritirare, cosa manca da incassare. Qui
+      non c'e' niente da fare — e' il periodo che si legge: quanto e' entrato,
+      quanto e' tornato indietro, e cosa l'ha portato. Per questo non c'e'
+      nemmeno una riga-cliente: i clienti sono di la'.
+
+      ⚠️ E' DELLA PAGINA STATISTIQUES, non di Commandes: il fatturato e' il
+      dato piu' chiuso del pannello, e chi non puo' aprire Statistiques non
+      deve vederlo nemmeno qui. Due lucchetti, e tutti e due servono: il
+      server non la disegna affatto (`recettes`, qui sopra), e
+      `data-admin-page="stats"` la toglie anche nel caso in cui la pagina sia
+      arrivata al browser senza SSR — e' AdminNav, coi permessi veri, a
+      rimuoverla. Un ristorante che non prende ordini la vede vuota: e' la
+      stessa cosa che gli dice la pagina Statistiques, e il server la spegne
+      insieme a Commandes solo se il super ha spento quella pagina.
+
+      ⚠️ I SOLDI NON SI CONTANO QUI. Arrivano gia' sommati da
+      `/api/admin/stats`, cioe' da `calcolaStats` — la stessa funzione della
+      pagina Statistiques, che a sua volta usa `ordiniConti`. La parola
+      «incassato» ha gia' avuto quattro definizioni diverse in questo
+      progetto, e quattro numeri diversi sullo stesso schermo. */}
+  {recettes && (
+  <div class="j-col j-rec" id="j-rec" data-admin-page="stats" style="display:none">
+    <div class="j-hd">
+      <span class="j-hd-x">
+        {/* Nessuna pastiglia col numero: qui non c'e' niente da fare oggi. */}
+        <span class="j-t"><Fragment set:html={ICO_REC} />{t("home.recettes")}</span>
+      </span>
+      <a class="j-link j-vedi" href="/admin/stats?tab=fin">
+        <span>{t("home.seeAll")}</span>
+        <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
+      </a>
+    </div>
+    {/* I filtri sono i periodi che l'API conosce gia': niente finestre da
+        ricalcolare qui, con i mesi di lunghezza diversa e il fuso del locale. */}
+    <div class="rh-filters j-nfiltri" id="j-rec-filtri"></div>
+
+    {/* La scatola: il totale, i resi e il grafico — le tre cose che si
+        guardano insieme. Stessa `.j-box` del grafico di «Aujourd'hui». */}
+    <div class="j-box j-rec-box" id="j-rec-box" style="display:none">
+      <div class="j-tot">
+        <span class="big" id="j-rec-tot">—</span>
+        <span class="d" id="j-rec-tot-d"></span>
+        <span class="q" id="j-rec-per"></span>
+      </div>
+      {/* ⚠️ I resi SOTTO il totale e non in fondo alla colonna: il totale e'
+          gia' al netto, e il numero che spiega un altro numero gli sta
+          accanto. Tace quando non c'e' stato nessun rimborso. */}
+      <div class="j-rb" id="j-rec-rb"></div>
+      {/* Due serie, come i coperti e gli ordini dell'affluenza: `serie2` dice
+          solo quanto sono larghe le barre. */}
+      <div class="j-hm j-rec-hm serie2">
+        <div class="j-hm-plot" id="j-rec-plot"></div>
+        <div class="j-hm-x" id="j-rec-x"></div>
+        <div class="j-hm-f">
+          <span class="j-key"><b class="inc"></b> {t("home.recIn")}</span>
+          {/* Il colore dei resi si nomina solo se ce ne sono: una voce in
+              legenda per una barra che non c'e' e' una domanda in piu'. */}
+          <span class="j-key" id="j-rec-k-rb" style="display:none"><b class="rb"></b> {t("home.recOut")}</span>
+          <span class="j-pale" id="j-rec-passo"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="j-lista-h" id="j-rec-h" style="display:none">
+      <span>{t("home.recTop")}</span><span>{t("home.recIn")}</span>
+    </div>
+    <div class="j-lista" id="j-rec-lista"></div>
+    <div class="j-nums" id="j-rec-nums" style="display:none">
+      <div><span class="k">{t("home.basket")}</span><span class="v" id="j-rec-avg">—</span><span class="d" id="j-rec-avg-d"></span></div>
+      <div><span class="k">{t("nav.orders")}</span><span class="v" id="j-rec-ord">—</span><span class="d" id="j-rec-ord-d"></span></div>
+      {/* In corallo: nel pannello il corallo e' il colore dell'ATTENZIONE, e
+          i soldi tornati indietro sono la cosa da guardare di questa fila. */}
+      <div><span class="k">{t("home.recOut")}</span><span class="v att" id="j-rec-rbt">—</span><span class="d" id="j-rec-rbt-d"></span></div>
+    </div>
+  </div>
+  )}
+</section>
+
+{/* ⚠️ Il modale sta FUORI da `.jour`: la fascia parte nascosta e resta
+    nascosta finche' i dati non arrivano, e un modale dentro un elemento
+    spento non si aprirebbe mai. Guscio condiviso (`Modal`), come ovunque. */}
+<Modal id="j-rep-overlay" title={t("gg.reply")} width="560px">
+  {/* Chi ha scritto e cosa ha scritto, perche' si risponde a una persona:
+      doverla andare a rileggere dietro al modale e' il modo di rispondere
+      alla recensione sbagliata. */}
+  <div class="j-aut">
+    <span class="j-av" id="j-rep-av"></span>
+    <span class="j-aut-x">
+      <span class="nm" id="j-rep-who"></span>
+      <span class="j-aut-r">
+        <span class="sr" id="j-rep-stars" aria-hidden="true"></span>
+        <span class="dt" id="j-rep-when"></span>
+      </span>
+    </span>
+  </div>
+  <div class="j-quote j-rep-quote"><p class="q-x" id="j-rep-quote"></p></div>
+
+  <label class="f-label j-rep-lab" for="j-rep-txt">{t("gg.reply")}</label>
+  <textarea id="j-rep-txt" class="fld j-rep-txt" maxlength="4000" placeholder={t("gg.replyPh")}></textarea>
+  {/* ⚠️ `.hint` e non `.f-note`: quest'ultima ha un margine NEGATIVO, fatto
+      apposta per incollarsi al campo di sopra. Qui la frase spiega una cosa
+      che si fa dopo aver scritto, e le serve aria. */}
+  <p class="hint j-rep-hint">{t("gg.replyHint")}</p>
+
+  <Fragment slot="foot">
+    <span class="j-reply-msg" id="j-rep-msg"></span>
+    <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+    <button type="button" class="md-btn md-btn-primary" id="j-rep-pub">{t("gg.replyPublish")}</button>
+  </Fragment>
+</Modal>

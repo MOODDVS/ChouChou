@@ -116,7 +116,7 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
       .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
-    // Migrazione `lang` (clients_lang.sql) non ancora lanciata: si rilegge
+    // Migrazione `lang` (054_clients_lang.sql) non ancora lanciata: si rilegge
     // MANTENENDO photo_url/blocked (per non perdere foto e blocchi).
     if (error && String(error.message ?? "").includes("lang")) {
       campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";

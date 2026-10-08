@@ -3,6 +3,8 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente } from "../../../lib/admin/sede";
+import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
+import { salvaConfigStampa } from "../../../lib/stampaConfig";
 import { cifra, cifraturaPronta } from "../../../lib/segreti";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -17,6 +19,7 @@ export const prerender = false;
 // PATCH  → { id, ...campi }                 modifica la scheda
 //          { storico_sede }                 assegna lo storico orfano a una sede
 //          { id, place_id }                 Place ID Google della sede
+//          { id, printer_id, print_auto }   la stampante dei ticket della sede
 //          { id, secret_key, secret_value } scrive un segreto (sola scrittura)
 // DELETE ?id= → elimina (il client manda POST + X-Method-Override)
 //
@@ -245,10 +248,11 @@ export const GET: APIRoute = async ({ request }) => {
   const placeIds: Record<string, string> = {};
   const google: Record<string, string> = {};
   const reviewUrls: Record<string, string> = {};
+  const stampanti: Record<string, { printer_id: string; auto: boolean; dest: Destinazione[] }> = {};
   const propri: Record<string, string[]> = {};
   try {
     for (const r of (data ?? []) as { id: string }[]) {
-      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title", "link_google_review"]);
+      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title", "link_google_review", ...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
       const v = (c.valori.get("google_place_id") ?? "").trim();
       if (v) placeIds[r.id] = v;
       // Il link «lascia una recensione» e' di una SCHEDA, e le schede sono
@@ -257,6 +261,14 @@ export const GET: APIRoute = async ({ request }) => {
       if (rv) reviewUrls[r.id] = rv;
       const g = (c.valori.get("google_location_title") ?? "").trim();
       if (g) google[r.id] = g;
+      // ⚠️ Il numero della stampante NON e' un segreto: si mostra. Si legge
+      // con `valori`, cioe' col ripiego sul marchio gia' applicato — a sede
+      // unica la stampante sta li', e la scheda deve vederla.
+      stampanti[r.id] = {
+        printer_id: (c.valori.get("print_printer_id") ?? "").trim(),
+        auto: accesoStampa(c.valori.get("print_auto")),
+        dest: leggiDestinazioni(c.valori.get(CHIAVE_DESTINAZIONI)),
+      };
       propri[r.id] = [...c.sovrascritte];
     }
   } catch { /* migrazione non lanciata */ }
@@ -294,7 +306,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   return json({
     locations: data ?? [], secrets: impostati, placeIds, reviewUrls, google, propri, storico,
-    cifratura: cifraturaPronta(), ambiente,
+    cifratura: cifraturaPronta(), ambiente, stampanti,
   });
 };
 
@@ -401,6 +413,22 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
     const err = await scriviConfig(ambitoDiRiga(id), { link_google_review: url });
     if (err) return json({ error: await msg(erroreDb("review", { message: err })) }, 500);
+    return json({ ok: true });
+  }
+
+  // ---- La stampante di QUESTO punto ----
+  // ⚠️ Due chiavi, e vanno insieme: l'interruttore dice che il ristoratore la
+  // vuole, il numero dice che esiste. Acceso senza numero vuol dire una coda
+  // che si riempie di ticket che nessuno stampera' mai — e' la stessa regola
+  // di `stampaAttiva`, qui dal lato di chi scrive.
+  // ---- La stampante di QUESTO punto ----
+  // ⚠️ La validazione e la scrittura stanno in `salvaConfigStampa`, perche' le
+  // stesse chiavi si salvano anche da Intégrations per i clienti a sede unica.
+  // Due copie della regola vorrebbero dire che un giorno una delle due accetta
+  // una categoria doppia — e il guasto uscirebbe da una porta sola.
+  if (body.printer_id !== undefined || body.print_auto !== undefined || body.destinazioni !== undefined) {
+    const r = await salvaConfigStampa(ambitoDiRiga(id), body);
+    if (r.errore) return json({ error: `${await msg(r.errore)} ${r.doppie.join(", ")}`.trim() }, r.errore === "common.saveErr" ? 500 : 400);
     return json({ ok: true });
   }
 

@@ -35,6 +35,45 @@ test("header e nav usano LA STESSA fascia del piede di misura", () => {
   }
 });
 
+test("sull'iPad orizzontale le sezioni diventano un bancone che si tira di lato", () => {
+  // 1024 CSS px: per il motore e' un desktop, ma la fascia si impilava lo
+  // stesso (la soglia stretta e' 1100) e dell'Accueil restava una colonna a
+  // tutta larghezza. Su un iPad in mano le sezioni stanno tutte su UNA riga e
+  // la riga si scorre col dito: mandata a capo, per vedere la quarta si
+  // scorre in verticale e si perdono di vista le prime — che e' esattamente
+  // cio' per cui si apre questa pagina.
+  const home = nudo("src/pages/admin/index.astro");
+  assert.ok(home.includes(QUERY), "la Accueil non e' piu' nella fascia iPad: a 1024px la giornata torna impilata");
+  const blocco = home.split(QUERY)[1]?.split("@media")[0] ?? "";
+  assert.match(blocco, /grid-auto-flow:\s*column/,
+    "sull'iPad le sezioni non stanno piu' su una riga sola");
+  assert.match(blocco, /overflow-x:\s*auto/,
+    "la riga delle sezioni non si scorre piu' di lato: le ultime restano irraggiungibili");
+  // Larghezza FISSA: un bancone ha le colonne tutte uguali. Con `1fr` la
+  // stessa colonna sarebbe larga diversa da un locale all'altro, a seconda di
+  // quante funzioni ha accese.
+  assert.doesNotMatch(blocco, /grid-auto-columns:[^;]*\bfr\b/,
+    "le colonne del bancone si allargano con lo schermo invece di avere la loro misura");
+
+  // ⚠️ Le misure della fascia stanno in UN posto solo, e una media query che
+  // se le ricopia resta indietro al primo cambio — due schermi, due disegni,
+  // e nessuno l'ha deciso.
+  assert.equal((home.match(/repeat\(3, minmax\(0, 1fr\)\)/g) ?? []).length, 1,
+    "le colonne della giornata sono scritte in piu' di un posto");
+  assert.equal((home.match(/--j-col-piena:/g) ?? []).length, 1,
+    "l'altezza delle colonne e' calcolata in piu' di un posto");
+
+  // ⚠️ QUI L'ALTEZZA SI RIACCENDE, e non e' un dettaglio del tablet: fra 1024
+  // e 1100 valgono DUE media query, e quella stretta (le sezioni impilate)
+  // spegne l'altezza con `auto`. Nessuna la contraddiceva, quindi su un iPad
+  // mini in orizzontale le colonne del bancone crescevano col loro contenuto
+  // e sbordavano sotto la barra — mentre sul desktop tutto sembrava a posto.
+  assert.match(blocco, /--j-col-h:\s*var\(--j-col-piena\)/,
+    "la fascia iPad non riaccende l'altezza delle colonne: a 1024-1100 vince l'`auto` della fascia stretta e il bancone sborda");
+  assert.doesNotMatch(blocco, /--j-col-h:\s*(calc|max)\(/,
+    "la fascia iPad si ricopia la formula dell'altezza invece di riusarla: al primo cambio resta indietro");
+});
+
 test("le etichette della barra non scendono sotto il leggibile", () => {
   // 0.56rem col piede a 13px fa 7px. In quella fascia il valore deve essere
   // in px, cioe' non seguire la scala: e' l'icona a stringersi, non la parola.
@@ -51,8 +90,20 @@ test("nel modale ordine le due colonne scorrono per conto loro", () => {
   // contenitore, la sua parte bassa non si raggiungeva. Un difetto di tutti
   // gli schermi larghi — su un monitor alto il menu ci stava e non si vedeva.
   const ord = nudo("src/pages/admin/orders.astro");
-  const blocco = ord.split("@media (min-width: 761px)")[1]?.split("@media")[0] ?? "";
-  assert.ok(blocco, "la fascia da 761px in su non c'e' piu': il modale ordine non ha piu' il suo layout a due colonne");
+  // ⚠️ Da 1024px in su: sotto, le colonne si impilano e scorre il pannello,
+  // come su telefono (il confine era 761 fino al 04/10, ma un iPad verticale
+  // e' 768-834 e restava a due colonne strette).
+  // ⚠️ I blocchi «da 1024 in su» sono PIU' DI UNO (lo step 3 a meta' e meta',
+  // il modale che scorre, la riga del titolo): prendendone uno solo, il test
+  // guardava la parte sbagliata e diventava rosso appena qualcuno ne
+  // aggiungeva un altro prima — rosso per una regola spostata, non per un
+  // difetto. Si guardano tutti insieme.
+  const blocco = ord
+    .split("@media (min-width: 1024px)")
+    .slice(1)
+    .map((p) => p.split("@media")[0])
+    .join("\n");
+  assert.ok(blocco, "la fascia da 1024px in su non c'e' piu': il modale ordine non ha piu' il suo layout a due colonne");
 
   assert.doesNotMatch(blocco, /position:\s*sticky/,
     "la colonna del menu e' tornata sticky: se e' piu' alta del modale, gli ultimi piatti non si raggiungono");

@@ -1,0 +1,15 @@
+-- #78 — `done_at` sulle note admin: QUANDO una nota e' stata spuntata.
+--
+-- La colonna `done` sa solo che e' fatta. «Quante ne abbiamo chiuse questa
+-- settimana» non e' una domanda difficile: e' una domanda IMPOSSIBILE senza
+-- questa colonna, e lo resta anche per il passato — nessuna query potra' mai
+-- ricostruire quando e' stata spuntata una nota gia' spuntata.
+--
+-- ⚠️ Le note gia' fatte restano a NULL, ed e' giusto: «non si sa» e «fatta il
+-- 3 marzo» sono due cose diverse, e riempirle con `created_at` o con `now()`
+-- avrebbe inventato una data — l'unico modo di avere una statistica
+-- sbagliata che sembra vera. Il conto parte da oggi.
+--
+-- Si azzera alla riapertura: una nota rimessa fra quelle da fare non e' piu'
+-- stata fatta in nessun giorno.
+alter table public.admin_notes add column if not exists done_at timestamptz;

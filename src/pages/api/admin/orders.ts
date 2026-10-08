@@ -1,3 +1,4 @@
+import { accodaTicket } from "../../../lib/stampaCoda";
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../lib/db";
@@ -13,6 +14,7 @@ import {
   ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
 } from "../../../lib/admin/sede";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
+import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA } from "../../../lib/ordiniRegole";
 import { applicaStatoSede } from "../../../lib/menuStato";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
 
@@ -505,6 +507,14 @@ export const POST: APIRoute = async ({ request }) => {
   // PAGATO DI PERSONA (contanti/carta): niente Stripe. Notifica cucina sempre;
   // conferma + recensione al cliente solo se ha lasciato l'email (guardie interne).
   if (paidSurPlace) {
+    // Il ticket segue l'avviso alla cucina, dallo stesso punto. Un ordine
+    // preso al banco e pagato subito e' `paid`: `daStampare` lo riconosce.
+    void accodaTicket({
+      id: orderId,
+      status: "paid",
+      payment_method: String(body.payment ?? "") || null,
+      location_id: ambito.modo === "sede" ? ambito.id : null,
+    });
     void inviaNotifiche({
       // L'ordine e' appena stato inserito con questo ambito.
       location_id: ambito.modo === "sede" ? ambito.id : null,
@@ -556,7 +566,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
 
-  let body: { id?: string; status?: string };
+  let body: { id?: string; status?: string; payment?: string; supplement?: string };
   try {
     body = await request.json();
   } catch {
@@ -565,6 +575,45 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   const id = String(body.id ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
+
+  /* ───────── Supplemento incassato AL BANCO ─────────
+   *
+   * ⚠️ Fino al 04/10 il supplemento (una modifica che alza il totale su un
+   * ordine pagato online) si poteva saldare in UN modo solo: il cliente paga
+   * il link Stripe, e il webhook scrive «pagato». Ma il caso piu' frequente e'
+   * l'altro — il cliente arriva, gli si dice «sono 8 € in piu'», e li da' al
+   * banco. Quel denaro entrava nel cassetto e il motore non lo sapeva: la
+   * barra «Incassare» restava li' per sempre.
+   *
+   * Qui si dichiara che quei soldi sono entrati. Non c'e' nessun incasso
+   * Stripe a confermarlo: e' lo stesso patto del bottone «Incassa» sugli
+   * ordini da incassare, e per questo vuole un metodo esplicito.
+   */
+  const supIncasso = String(body.supplement ?? "").trim();
+  if (supIncasso) {
+    if (!METODI_CASSA_SCELTA.includes(supIncasso)) {
+      return json({ error: await msg("err.payMethod") }, 400);
+    }
+    const { data: dSup, error: eSup } = await aggiornaRighe("orders", ambito, {
+      supplement_due_cents: 0,
+      supplement_paid_at: new Date().toISOString(),
+    })
+      .eq("id", id)
+      .gt("supplement_due_cents", 0)
+      .select("id")
+      .maybeSingle();
+    if (eSup) {
+      if (String(eSup.message ?? "").includes("supplement")) {
+        return json({ error: await msg("err.migr50") }, 500);
+      }
+      return json({ error: await msg("err.update") }, 500);
+    }
+    // ⚠️ `gt("supplement_due_cents", 0)`: due tocchi ravvicinati, o due
+    // apparecchi, non devono poter «incassare» due volte lo stesso
+    // supplemento. Se non c'era niente da incassare, non si e' incassato.
+    if (!dSup) return json({ error: await msg("err.noDiff") }, 409);
+    return json({ ok: true });
+  }
 
   const status = String(body.status ?? "");
   if (!["paid", "done", "cancelled"].includes(status)) {
@@ -600,7 +649,22 @@ export const PATCH: APIRoute = async ({ request }) => {
   const daIncassare =
     prima?.status === "pending" && String(prima?.payment_method ?? "") === "onsite";
 
-  let q = aggiornaRighe("orders", ambito, { status }).eq("id", id);
+  /* ⚠️ INCASSARE SCRIVE ANCHE **COME**. Il pannello lo chiede con due
+     bottoni, ma il bottone e' un suggerimento: la regola sta qui. Il metodo si
+     accetta SOLO insieme all'incasso di un ordine nato per la cassa — mai per
+     riscrivere il metodo di un ordine passato da Stripe, dove quel valore e'
+     la prova di dove sono i soldi.
+     Senza questo, l'ordine restava marcato `onsite`: la card mostrava il
+     marchio Stripe su contanti finiti nel cassetto, e a fine serata non si
+     distingueva piu' chi aveva pagato in contanti e chi con la carta. */
+  const metodoIncasso = String(body.payment ?? "").trim();
+  if (metodoIncasso && !(status === "paid" && daIncassare && METODI_CASSA_SCELTA.includes(metodoIncasso))) {
+    return json({ error: await msg("err.payMethod") }, 400);
+  }
+  const campi: Record<string, unknown> = metodoIncasso
+    ? { status, payment_method: metodoIncasso }
+    : { status };
+  let q = aggiornaRighe("orders", ambito, campi).eq("id", id);
   // Annuler è permesso anche su un pending (link di pagamento non pagato);
   // per gli altri passaggi i pending non si toccano (li gestisce il webhook).
   if (status !== "cancelled" && !(status === "paid" && daIncassare)) {
@@ -608,12 +672,19 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   const { data, error } = await q.select("id").maybeSingle();
 
-  if (error) return json({ error: await msg("err.update") }, 500);
+  if (error) {
+    // Migrazione #49 assente: la colonna del metodo non esiste. Si dice quale
+    // migrazione manca, invece di un «impossibile aggiornare» muto.
+    if (String(error.message ?? "").includes("payment_method")) {
+      return json({ error: await msg("err.migr49") }, 500);
+    }
+    return json({ error: await msg("err.update") }, 500);
+  }
   if (!data) return json({ error: await msg("err.orderNotFound") }, 404);
 
   // Email di annullamento al cliente (solo alla transizione verso "cancelled").
   if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
-    const inPersona = prima.payment_method === "cash" || prima.payment_method === "card";
+    const inPersona = inCassa(prima.payment_method);
     const totale = Number(prima.total_cents ?? 0);
     const gia = Number(prima.refunded_cents ?? 0);
     const residuo = Math.max(0, totale - gia);
@@ -671,6 +742,7 @@ export const PUT: APIRoute = async ({ request }) => {
     slot?: string;
     note?: string;
     items?: { id?: string; qty?: number }[];
+    payment?: string;
   };
   try {
     body = await request.json();
@@ -702,7 +774,10 @@ export const PUT: APIRoute = async ({ request }) => {
   if (ord.status !== "paid" && ord.status !== "pending") {
     return json({ error: await msg("err.onlyActiveOrders") }, 409);
   }
-  const isLink = ord.status === "pending";
+  /* ⚠️ `pending` da solo non vuol dire «aspetta un pagamento online». Un
+     ordine preso dal sito e da pagare al ritiro e' pending anche lui, e per
+     quello l'email non e' obbligatoria: al banco si paga di persona. */
+  const isLink = ord.status === "pending" && !inCassa(ord.payment_method);
 
   const LANG_PUBBLICHE = ["fr", "en", "it", "nl", "es"];
   const lang = LANG_PUBBLICHE.includes(String(body.lang)) ? String(body.lang) : "fr";
@@ -775,6 +850,35 @@ export const PUT: APIRoute = async ({ request }) => {
     total_cents: totale,
     lang,
   };
+  /* ───────── Metodo di pagamento: solo denaro di cassa ─────────
+   *
+   * ⚠️ Il bottone nascosto nel modale e' un suggerimento, non un controllo:
+   * chi manda la richiesta e' il browser. La regola sta qui.
+   *
+   * Si puo' passare solo a contanti o carta, e solo su un ordine i cui soldi
+   * li prende una persona al banco. Su un ordine incassato da Stripe il
+   * metodo e' la PROVA di dove sono i soldi: cambiarlo in «contanti» farebbe
+   * sparire dal pannello il rimborso di un incasso che esiste davvero.
+   *
+   * Su un ordine nato «paga al ritiro» e ancora da incassare, scegliere il
+   * metodo E' l'incasso: stesso gesto del bottone «Incassa» sulla card, e
+   * quindi stesso effetto — l'ordine diventa pagato ed entra nel conto della
+   * giornata. Nessuna email al cliente: ha pagato quello che doveva. */
+  const metodoRich = String(body.payment ?? "").trim();
+  let incassaOra = false;
+  if (metodoRich) {
+    if (!METODI_CASSA_SCELTA.includes(metodoRich)) {
+      return json({ error: await msg("err.payMethod") }, 400);
+    }
+    if (!metodoCambiabile(ord.payment_method)) {
+      return json({ error: await msg("err.payMethodLocked") }, 409);
+    }
+    aggiorna.payment_method = metodoRich;
+    // Era «da incassare» e adesso ha un metodo: i soldi sono entrati.
+    incassaOra = ord.status === "pending";
+    if (incassaOra) aggiorna.status = "paid";
+  }
+
   // Differenza d'importo: confronto il totale nuovo con quello vecchio.
   const oldTotal = Number(ord.total_cents ?? 0);
   const delta = totale - oldTotal; // >0 aumentato · <0 diminuito
@@ -782,7 +886,7 @@ export const PUT: APIRoute = async ({ request }) => {
   // cioe' ordini del sito o con payment link. Solo per questi si gestisce la
   // differenza (link supplemento / rimborso). Il rimborso vero (refund.ts)
   // richiede comunque un incasso Stripe: se non c'e', l'errore e' esplicito.
-  const inPersona = ord.payment_method === "cash" || ord.payment_method === "card";
+  const inPersona = inCassa(ord.payment_method);
   const paidOnline = ord.status === "paid" && !inPersona;
 
   // Pagato online + importo cambiato ma migrazione #50 assente: mi fermo PRIMA
@@ -795,6 +899,11 @@ export const PUT: APIRoute = async ({ request }) => {
   const { error: errUpd } = await aggiornaRighe("orders", ambito, aggiorna).eq("id", id);
   if (errUpd) {
     if (String(errUpd.message ?? "").toLowerCase().includes("lang")) {
+      return json({ error: await msg("err.migr49") }, 500);
+    }
+    // Migrazione #49 assente: la colonna del metodo non esiste ancora. Si dice
+    // chiaramente, invece di far passare la modifica senza l'incasso.
+    if (String(errUpd.message ?? "").includes("payment_method")) {
       return json({ error: await msg("err.migr49") }, 500);
     }
     return json({ error: await msg("err.update") }, 500);

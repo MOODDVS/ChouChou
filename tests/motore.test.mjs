@@ -238,6 +238,59 @@ test("nessuna pagina admin si riscrive il toast in casa", () => {
   );
 });
 
+test("nessuna pagina si ridisegna in casa i bottoni della preparation", () => {
+  // 15 / 30 / 45 / «Fermer» e' UN comando: scrive `prep_time_minutes` e
+  // `orders_closed` con la stessa PATCH, da /admin/orders e dalla colonna
+  // Commandes della Accueil. Ne esistevano due disegni — i chip grandi della
+  // pagina e i quadratini della tile Cuisine — per la stessa azione: chi
+  // imparava l'uno non riconosceva l'altro, e il giorno che cambia il colore
+  // dell'«acceso» si cambia in un posto e si dimentica l'altro.
+  // ⚠️ Si guardano le regole che fanno l'ASPETTO e gli STATI, non le media
+  // query: che su un telefono il bottone perda la parola «min» e' una scelta
+  // di quella pagina, e va benissimo che stia li'. Quello che non deve
+  // tornare in casa e' il colore dell'acceso, del chiuso, del bordo.
+  const LOOK = [/^\s*\.prep-btn\s*\{/m, /\.prep-btn:hover/, /\.prep-btn\.active/, /\.prep-btn:disabled/, /\.prep-close\.closed/, /\.prep-close:hover/];
+  const colpevoli = [];
+  for (const cartella of ["src/pages/admin", "src/components/admin/home"]) {
+    for (const f of readdirSync(cartella).filter((x) => x.endsWith(".astro"))) {
+      const src = readFileSync(`${cartella}/${f}`, "utf8");
+      const stili = src.split(/<style[^>]*>/).slice(1).map((b) => b.split("</style>")[0]).join("\n");
+      if (LOOK.some((re) => re.test(stili))) colpevoli.push(f);
+    }
+  }
+  assert.deepEqual(colpevoli, [], "questi file ridisegnano .prep-btn invece di usare styles/prep.css");
+
+  const prep = readFileSync("src/styles/prep.css", "utf8");
+  for (const regola of [".prep-btn ", ".prep-btn.active", ".prep-close.closed", ".prep-btns.sm"]) {
+    assert.ok(prep.includes(regola), `styles/prep.css non definisce piu' ${regola}`);
+  }
+  assert.match(readFileSync("src/components/admin/AdminHead.astro", "utf8"), /styles\/prep\.css/,
+    "AdminHead non importa prep.css: i bottoni arriverebbero senza disegno");
+});
+
+test("i comandi della Accueil chiamano le API che gia' esistono", () => {
+  // ⚠️ Chiudere un servizio o cambiare il tempo di preparazione dalla home
+  // deve passare dalle STESSE porte delle pagine che fanno quel mestiere.
+  // Una seconda porta per la stessa azione e' una porta che un giorno
+  // dimentica una regola — e nessuno lo scopre finche' un servizio resta
+  // aperto sul sito dopo essere stato chiuso dal pannello.
+  const home = readFileSync("src/pages/admin/index.astro", "utf8");
+  assert.match(home, /fetch\("\/api\/admin\/service-closures"/, "la home non usa piu' l'API delle chiusure");
+  assert.match(home, /"X-Method-Override": "DELETE"/, "la riapertura non passa dall'override: method DELETE non arriva");
+  assert.match(home, /\{ prep_time_minutes: min, orders_closed: false \}/,
+    "scegliere un tempo non riapre piu' gli ordini, come invece fa /admin/orders");
+  // E l'interruttore e' quello condiviso, nello stesso verso: acceso = aperto.
+  // ⚠️ Qui c'era `class="switch sw-sm"`: la taglia piccola. La prova pero' non
+  // era mai stata sulla MISURA — era sul fatto che l'interruttore fosse
+  // quello di tutti. La taglia piccola e' stata tolta (un interruttore che
+  // chiude un servizio si tocca col dito, su un tablet, di corsa), e la prova
+  // chiede quello che le interessa: il componente condiviso, senza dire
+  // quanto deve essere grande.
+  assert.match(home, /class="switch"/, "i servizi non usano piu' l'interruttore condiviso");
+  assert.match(home, /input type="checkbox" data-sv="\$\{escHtml\(sv\.key\)\}"\$\{motivo \? "" : " checked"\}/,
+    "acceso non vuol piu' dire aperto: lo stesso interruttore direbbe il contrario di Reservations");
+});
+
 test("il toast usa un vocabolario solo", () => {
   const cartella = "src/pages/admin";
   const AMMESSE = new Set(["toast", "is-on", "is-ok", "is-error", "is-sopra"]);
@@ -273,4 +326,45 @@ test("ogni file di test entra davvero nel runner", () => {
     else if (!/from\s+"vitest"/.test(src)) sbagliati.push(`${f}: non importa da vitest`);
   }
   assert.deepEqual(sbagliati, [], "questi file girano fuori dal runner, o non girano affatto");
+});
+
+test("i componenti condivisi li carica AdminHead, non le pagine a memoria", () => {
+  // ⚠️ Un componente condiviso che ogni pagina deve ricordarsi di importare
+  // non e' condiviso: e' un file che qualcuno un giorno dimentica. E'
+  // successo con `filters.css` — la colonna Notes della Accueil ha mostrato
+  // quattro bottoni grigi di sistema, senza un errore da nessuna parte,
+  // perche' la pagina non lo importava. Il CSS mancante non si rompe: si
+  // vede, e solo se qualcuno guarda.
+  const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
+  for (const f of ["modal", "switch", "toast", "field", "button", "prep", "filters"]) {
+    assert.ok(head.includes(`styles/${f}.css`), `AdminHead non importa piu' styles/${f}.css: le pagine lo perdono tutte insieme`);
+  }
+
+  const pagine = readdirSync("src/pages/admin").filter((f) => f.endsWith(".astro"));
+  const colpevoli = pagine.filter((f) =>
+    readFileSync(`src/pages/admin/${f}`, "utf8").includes('styles/filters.css";'),
+  );
+  assert.deepEqual(colpevoli, [],
+    `queste pagine importano styles/filters.css per conto loro: lo fa gia' AdminHead, e una copia a mano e' la prossima pagina che se ne dimentica`);
+});
+
+test("`hidden` nasconde davvero, e lo dice un posto solo", () => {
+  // ⚠️ `[hidden]{display:none}` del browser e' la regola piu' debole che
+  // esista: qualunque `display` nostro sullo stesso elemento la batte, e
+  // l'elemento resta in pagina con l'attributo addosso. Nessun errore, niente
+  // di rosso — si vede, e solo se qualcuno guarda quella schermata.
+  // Era gia' successo sei volte, e sei volte era stato rattoppato sul posto.
+  const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
+  assert.match(head, /\[hidden\]\{display:none!important\}/,
+    "AdminHead non impone piu' `hidden`: ogni pagina torna a doverselo ricordare");
+
+  const colpevoli = [];
+  for (const f of readdirSync("src/pages/admin").filter((x) => x.endsWith(".astro"))) {
+    const css = readFileSync(`src/pages/admin/${f}`, "utf8");
+    // ⚠️ Solo le regole che RIFANNO il nascondere. `:not([hidden])`, che
+    // seleziona il contrario, e' un'altra cosa e resta lecita.
+    if (/[.#][\w-]+\[hidden\]\s*\{[^}]*display:\s*none/.test(css)) colpevoli.push(f);
+  }
+  assert.deepEqual(colpevoli, [],
+    `queste pagine si riscrivono la regola di \`hidden\`: la fa gia' AdminHead, e una copia a mano e' la prossima pagina che se ne dimentica`);
 });

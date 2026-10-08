@@ -77,6 +77,12 @@ export interface StaffUser {
    *  scrivibile solo con la service key). NULL = le vede tutte.
    *  Viaggia FIRMATA dentro il JWT: il browser non può cambiarla. */
   location_id?: string | null;
+  /** Nome e cognome della persona, se qualcuno li ha scritti (user_metadata,
+   *  modificabile dall'utente stesso). Vuoto = non c'e'. ⚠️ A differenza di
+   *  `role` e `location_id`, questo NON e' un permesso: vive in
+   *  `user_metadata`, che il browser puo' cambiare. Va bene per firmare una
+   *  nota, mai per decidere cosa qualcuno puo' fare. */
+  nome?: string;
   /** Pagine admin permesse a QUESTA persona (app_metadata, service key).
    *  `undefined`/`null` = nessuno ha ancora deciso → vale il default del
    *  ruolo. Viaggia firmata nel JWT come `location_id`: il browser non può
@@ -191,6 +197,7 @@ async function verificaLocale(token: string, opts: { ignoraScadenza?: boolean } 
     pages: Array.isArray(payload.app_metadata?.pages)
       ? (payload.app_metadata.pages as unknown[]).map((x: unknown) => String(x))
       : null,
+    nome: nomeDiStaff(payload.user_metadata),
   };
 }
 
@@ -205,6 +212,23 @@ const tokenVerificati = new Map<string, { scade: number; user: StaffUser }>();
  * Verifica la richiesta: estrae il token Bearer e lo valida.
  * Ritorna lo StaffUser se autenticato, altrimenti null.
  */
+/**
+ * IL NOME DELLA PERSONA, in un posto solo.
+ *
+ * ⚠️ Tre campi per una cosa sola: `full_name` e la coppia
+ * `first_name`/`last_name`. Il pannello scrive tutti e tre quando si crea un
+ * utente, ma un account vecchio — o creato dal lato Supabase — puo' averne
+ * solo uno. Ricavarlo a mano dove serve vuol dire che un posto guarda
+ * `full_name` e l'altro la coppia, e la stessa persona si chiama in due modi
+ * in due schermate.
+ */
+export function nomeDiStaff(meta: unknown): string {
+  const m = (meta ?? {}) as { first_name?: unknown; last_name?: unknown; full_name?: unknown };
+  const pieno = String(m.full_name ?? "").trim();
+  if (pieno) return pieno;
+  return `${String(m.first_name ?? "").trim()} ${String(m.last_name ?? "").trim()}`.trim();
+}
+
 export async function verificaStaff(request: Request): Promise<StaffUser | null> {
   const authHeader = request.headers.get("Authorization") ?? "";
   const token = authHeader.startsWith("Bearer ")
@@ -230,6 +254,7 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
       is_super: (data.user.app_metadata as { is_super?: boolean } | undefined)?.is_super === true,
       location_id:
         (data.user.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
+      nome: nomeDiStaff(data.user.user_metadata),
     };
   }
 

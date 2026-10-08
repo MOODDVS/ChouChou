@@ -39,6 +39,11 @@
   border-radius: 999px;
   cursor: pointer;
   white-space: nowrap;
+  /* ⚠️ Vale anche quando `.btn` sta su un <a>: un bottone che porta da
+     un'altra parte resta un bottone, e senza questa riga il browser gli
+     disegna sotto la sottolineatura del link — l'unico bottone sottolineato
+     del pannello. */
+  text-decoration: none;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
 
@@ -68,10 +73,80 @@
   color: #ff6b6b;
 }
 
+/* ============================================================
+   `.btn-primary` — l'azione PIENA.
+   ------------------------------------------------------------
+   Il bottone in cima a una colonna della giornata: e' l'UNICA azione della
+   colonna, e il contorno e' il vestito dei bottoni che aspettano di essere
+   scoperti. Stesso accostamento dei bottoni di conferma — fondo `--c-accent`,
+   segno `--c-bg` — e non un corallo scelto sul posto.
+
+   ⚠️ Era scritto come `.j-notes .ibtn` dentro la Accueil, cioe' legato a UNA
+   colonna: la colonna dei giorni speciali e' nata col tondo vuoto accanto a
+   uno pieno che diceva la stessa cosa, e la differenza non la vede nessuno
+   finche' non si guardano le due colonne insieme — che e' sempre.
+
+   ⚠️ Il tondo pieno (`.ibtn-primary`) e' durato mezz'ora: nelle testate la
+   parola ci sta, e un bottone che dice «+ Note» non si deve indovinare. Una
+   variante senza nessuno che la usa non si tiene «per quando servira'»: si
+   riscrive in tre righe il giorno che serve, e intanto nessuno la copia per
+   sbaglio credendo che sia il modo giusto di fare un tondo.
+   ============================================================ */
+.btn-primary {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--c-bg);
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  color: var(--c-bg);
+  border-color: var(--c-accent);
+}
+
 /* Taglia piccola, dove la riga e' fitta. */
 .btn-sm {
   font-size: 0.8rem;
   padding: 0.42rem 0.9rem;
+}
+
+/* Il tondo piccolo: le frecce di un carosello, i comandi dentro una riga.
+   ⚠️ Cambia la MISURA e basta — fondo, bordo e colore restano quelli di
+   `.ibtn`. Era il modo in cui nascevano i bottoni nuovi: «mi serve un tondo
+   da 24» e insieme alla misura si riscriveva anche il vestito. */
+.ibtn-sm {
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
+}
+/* ⚠️ Il segno piu' piccolo del bottone, non il bottone piu' piccolo del segno:
+   senza questa riga l'icona resta a 15px dentro un cerchio da 26 e tocca il
+   bordo. */
+.ibtn-sm svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ============================================================
+   `.ibtn-scuro` — il tondo che vive SOPRA una card.
+   ------------------------------------------------------------
+   `.ibtn` si stacca dal fondo della PAGINA alzandosi al colore delle card.
+   Dentro una card quel colore e' lo stesso di cio' che ha sotto, e il bottone
+   diventa un filo sottile: e' esattamente perche' le frecce del carosello di
+   Google se n'erano disegnate uno loro, con `--c-bg` «per staccarsi».
+
+   Qui si va nel verso opposto — un velo nero, cioe' un INCAVO — che e' la
+   stessa scelta che `field.css` fa per i campi dentro i modali, e per la
+   stessa ragione: su un piano gia' alto, l'unica direzione libera e' sotto.
+   In alpha e non in `--c-bg`, cosi' regge anche sui clienti col tema chiaro.
+   ============================================================ */
+.ibtn-scuro {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: color-mix(in srgb, var(--c-text) 22%, transparent);
+}
+.ibtn-scuro:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: var(--c-accent);
+  color: var(--c-accent);
 }
 
 /* ============================================================
@@ -201,13 +276,21 @@
   color: #ffffff;
 }
 
-/* Secondo tempo: la pillola si allarga per contenere la parola. */
-.ibtn-danger.confirm {
-  background: #a3320f;
-  border-color: #a3320f;
-  color: #fff;
+/* Secondo tempo: la pillola si allarga per contenere la parola.
+   ⚠️ La FORMA vale per ogni `.ibtn`, non solo per il cestino: la stessa
+   guardia protegge anche cose che non si cancellano (cambiare la password
+   di qualcuno), e li' il rosso direbbe la cosa sbagliata. Il colore
+   dell'allarme resta al cestino, sotto. */
+.ibtn.confirm {
   width: auto;
   padding: 0 0.7rem;
   border-radius: 999px;
   font-size: 0.75rem;
+  font-family: var(--font-body);
+  white-space: nowrap;
+}
+.ibtn-danger.confirm {
+  background: #a3320f;
+  border-color: #a3320f;
+  color: #fff;
 }

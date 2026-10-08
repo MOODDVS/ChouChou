@@ -5,6 +5,8 @@ import { emailChiusuraResa, annullaEmailReview, type ResaEmail } from "../../../
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { fusoDi } from "../../../lib/fuso";
+import { DateTime } from "luxon";
 export const prerender = false;
 
 
@@ -43,11 +45,39 @@ export const GET: APIRoute = async ({ request, url }) => {
   const { data, error } = await leggi("reservations", ambito, "id, date, heure, service_key, people, first_name, last_name")
     .gte("date", from)
     .lte("date", to)
-    .eq("status", "confirmed")
+    .in("status", ["confirmed", "pending"])
     .order("date", { ascending: true })
     .order("heure", { ascending: true });
   if (error) return json({ error: await msg("err.read") }, 500);
-  return json({ reservations: data ?? [] });
+  const righe = (data ?? []) as ({ status?: string } & Record<string, unknown>)[];
+
+  /* ⚠️ GLI ORDINI DA RITIRARE. Una chiusura chiudeva il sito per i NUOVI
+     ordini (`schedule.ts`) e avvisava delle prenotazioni — e taceva su quelli
+     gia' pagati per quel giorno. Il cliente arriva, paga fatto, porta chiusa.
+     Qui si CONTANO e si dicono: non si annullano, perche' annullare un ordine
+     vuol dire far uscire dei soldi, e quel gesto sta nella pagina Commandes,
+     dove si vede l'importo e si firma il rimborso.
+     La colonna `pickup_time` e' un istante: il giorno si taglia sul fuso del
+     locale, come fa la pagina Commandes. */
+  const fuso = await fusoDi(ambito);
+  const daISO = DateTime.fromISO(`${from}T00:00:00`, { zone: fuso }).toUTC().toISO() ?? "";
+  const aISO = DateTime.fromISO(`${to}T23:59:59`, { zone: fuso }).toUTC().toISO() ?? "";
+  const ordQ = await leggi("orders", ambito, "id, pickup_time, customer_name, total_cents, status")
+    .in("status", ["paid", "pending"])
+    .gte("pickup_time", daISO)
+    .lte("pickup_time", aISO)
+    .order("pickup_time", { ascending: true });
+
+  return json({
+    // Le confermate: sono quelle che il bottone «annulla e avvisa» tocca.
+    reservations: righe.filter((r) => String(r.status ?? "") === "confirmed"),
+    // ⚠️ Le richieste IN ATTESA restano appese: nessuno risponderebbe piu' «si'»
+    // a una domanda per un giorno chiuso, e il cliente aspetta.
+    pending: righe.filter((r) => String(r.status ?? "") === "pending"),
+    // Se la lettura degli ordini fallisce si manda una lista vuota, non un
+    // errore: la chiusura deve poter essere scritta comunque.
+    orders: ordQ.error ? [] : (ordQ.data ?? []),
+  });
 };
 
 export const POST: APIRoute = async ({ request }) => {

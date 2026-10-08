@@ -23,6 +23,14 @@ import "../../styles/field.css";   // campi condivisi (.md-box input, .fld)
 import "../../styles/button.css";  // bottoni d'azione condivisi (.btn)
 import "../../styles/fab.css";     // pulsante fisso in basso a destra (.fab-add .fab-pill)
 import "../../styles/sede.css";    // multi-sede: pastiglia e selettore (.sede-avatar)
+import "../../styles/stati.css";   // menu degli stati di una prenotazione (.st-menu)
+import "../../styles/prep.css";    // bottoni 15/30/45 e «Fermer» (.prep-btn)
+// ⚠️ I filtri a pastiglia erano l'unico componente condiviso che OGNI PAGINA
+// doveva ricordarsi di importare da sola. Ed e' andata come doveva: la
+// colonna Notes della Accueil ha avuto i suoi filtri e ha mostrato quattro
+// bottoni grigi di sistema — il CSS non c'era, e non c'era nessun errore,
+// solo un disegno che non somigliava a niente. Ora sta qui con gli altri.
+import "../../styles/filters.css"; // filtri a pastiglia condivisi (.rh-filter)
 import "../../styles/tablet.css";  // iPad orizzontale: scala ridotta (vedi il file)
 
 const boot = await caricaBootAdmin();
@@ -39,14 +47,73 @@ const PLACEHOLDER_CSS =
 // pagine admin (AdminHead è nel <head> di ognuna). Prima era ripetuta in ogni
 // pagina. Mobile: meno padding laterale (più spazio alle card); il padding in
 // basso resta per la bottom-nav.
+// ⚠️ I colori di STATO stanno qui, una volta per tutto il pannello. Il verde
+// «va bene» era dichiarato dentro `super.astro` (su `.pane`) e serviva anche
+// alla Accueil: due dichiarazioni dello stesso colore sono due colori, e un
+// giorno divergono senza che nessuno se ne accorga. `--c-barra` e' il tono
+// delle barrette dei grafici: una serie sola, un colore solo, e non il
+// corallo — quello e' il colore dell'ATTENZIONE in tutto il pannello.
+const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-barra:#4e8f9c}";
+// ⚠️ `hidden` DEVE nascondere, sempre. L'attributo si appoggia alla regola
+// del browser `[hidden]{display:none}`, che e' debolissima: QUALUNQUE regola
+// nostra che dia un `display` a quell'elemento la batte, e l'elemento resta
+// in pagina con l'attributo addosso. Non da' nessun errore — si vede, e solo
+// se qualcuno guarda. E' successo tre volte: il modale (`.md-overlay`), il
+// menu delle sedi (`.ah-sede-menu`) e il campo «+ etichetta» delle note, ogni
+// volta rattoppato sul posto con una regola in piu'. Qui si chiude per tutti.
+// `!important` e' voluto: `hidden` dice che la cosa NON C'E', e non e' una
+// preferenza di stile che un'altra regola possa discutere.
+const HIDDEN_CSS = "[hidden]{display:none!important}";
+// ⚠️ L'ISOLA IN BASSO, IN DUE PEZZI E UNA SOMMA. Sta qui accanto a
+// `--h-header` perche' e' la stessa specie di misura: l'altezza che il telaio
+// del pannello si prende sullo schermo.
+//   --h-nav-h    altezza dell'isola (uguale a `.fab-pill` in styles/fab.css,
+//                che e' disegnato apposta per posarsi sulla sua linea)
+//   --h-nav-gap  quanto sta staccata dal bordo (`bottom` di `.admin-nav`)
+//   --h-nav      la somma: l'ingombro totale, per chi deve starci FUORI
+//                (il piede del `main` qui sotto).
+// ⚠️ I pezzi separati non sono pedanteria: chi ci passa SOTTO di proposito
+// — la fascia della Accueil, che si ferma a meta' isola — ha bisogno della
+// meta' dell'ALTEZZA, e con la sola somma dovrebbe dividere per due anche lo
+// stacco dal bordo, cioe' inventarsi un numero che nessuna delle due scale
+// controlla. Qui ogni scala dichiara i due pezzi e la somma si rifa' da sola.
+//   desktop  57px + 1.25rem                               = 77px
+//   tablet   46px + 0.9rem col piede a 13px               = 58px
+// Se si tocca una di quelle misure, questa riga la segue: sono scritte nei
+// commenti di fab.css e AdminNav, che rimandano qui.
+// Telefono: l'isola e' alta come sul desktop, quindi i valori non cambiano.
+// ⚠️ Il filo del copyright (AdminFooter, ~28px) sta SOTTO l'isola e piu'
+// basso di lei: chi sta fuori dall'isola e' gia' fuori anche da quello.
+//
+// ⚠️ E' LA STESSA MISURA DEL PIEDE DEL `main`, e percio' il piede la USA
+// invece di riscriverla. Erano `8rem` sul desktop e `6rem` sul tablet, scelti
+// a occhio: due numeri che esistevano solo per lasciar passare l'isola e che
+// nessuno avrebbe aggiornato il giorno in cui l'isola cambia altezza — anzi,
+// sul tablet i 6rem col piede a 13px fanno 78px contro un'isola da 58, cioe'
+// gia' due misure che non si parlavano. Ora il piede e' l'ingombro + l'aria
+// per staccare l'ultima riga, e le media query cambiano solo le VARIABILI.
 const LAYOUT_CSS =
-  ":root{--h-header:81px}" +
-  "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) 8rem}" +
-  "@media(max-width:640px){main{--pad-y:1.25rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 8rem}}" +
-  // iPad orizzontale al dito: stessa fascia di styles/tablet.css. Il fondo
-  // scende da 8rem a 6rem perche' anche la barra in basso e' piu' bassa.
-  "@media(min-width:1024px) and (max-width:1366px) and (pointer:coarse){:root{--h-header:51px}main{--pad-y:1rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 6rem}}";
-const css = cssTema(boot.theme) + PLACEHOLDER_CSS + LAYOUT_CSS;
+  ":root{--h-header:81px;--h-nav-h:57px;--h-nav-gap:1.25rem;--h-nav:calc(var(--h-nav-h) + var(--h-nav-gap))}" +
+  "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) calc(var(--h-nav) + 3rem)}" +
+  "@media(max-width:640px){main{--pad-y:1.25rem;--pad-x:1rem}}" +
+  // iPad orizzontale al dito: stessa fascia di styles/tablet.css.
+  "@media(min-width:1024px) and (max-width:1366px) and (pointer:coarse){:root{--h-header:51px;--h-nav-h:46px;--h-nav-gap:0.9rem}main{--pad-y:1rem;--pad-x:1rem}}";
+// ⚠️ LE FUNZIONI SPENTE, una volta per tutto il pannello e per TUTTI.
+// `data-admin-page="orders"` marca cio' che PARLA di ordini: la colonna della
+// giornata, le tile, i numeri. Se il super ha spento Commandes in Pages
+// visibles, quel ristorante non prende ordini e nulla di tutto questo deve
+// comparire — nemmeno al super, che pure la pagina deve poterla riaprire
+// (il link in nav resta: lo tocca solo AdminNav, con `a[data-page]`).
+//
+// Qui e non lato client: `boot` e' la stessa lettura in cache che la pagina
+// fa comunque, non serve ne' cookie ne' token, e stando nel <head> arriva
+// prima del primo paint. Una rimozione dal DOM dopo un fetch, invece, era un
+// lampo di tile e una griglia che teneva il posto a una colonna che spariva.
+const SPENTE_CSS = boot.hiddenPages
+  .filter((k) => /^[a-z]+$/.test(k))
+  .map((k) => `[data-admin-page="${k}"]{display:none!important}`)
+  .join("");
+const css = cssTema(boot.theme) + PLACEHOLDER_CSS + STATO_CSS + HIDDEN_CSS + LAYOUT_CSS + SPENTE_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";

@@ -12,8 +12,8 @@
  * non fa danni.
  *
  * ⚠️ L'ORDINE VIENE DA MIGRATIONS.md, NON DALLA CARTELLA.
- * Alfabetico sarebbe sbagliato: `clients_photo.sql` verrebbe prima di
- * `clients.sql` e fallirebbe. La tabella del .md e' gia' l'ordine giusto, ed
+ * Alfabetico sarebbe sbagliato: `031_clients_photo.sql` verrebbe prima di
+ * `012_clients.sql` e fallirebbe. La tabella del .md e' gia' l'ordine giusto, ed
  * e' l'unico posto dove sta scritto.
  *
  * ⚠️ QUESTO FILE NON SI MODIFICA A MANO: si rigenera. C'e' una prova

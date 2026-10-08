@@ -30,7 +30,7 @@ Quindi sono **due lavori separati**, e il secondo puoi non farlo mai:
 - la **Fase B**, in fondo, crea la prima sede — e serve solo a chi ha più punti.
 
 Il lato database di tutto il multi-sede è **una migrazione sola**, la #73
-`locations.sql`, dichiarata «solo schema, nessun effetto visibile».
+`073_locations.sql`, dichiarata «solo schema, nessun effetto visibile».
 
 ---
 

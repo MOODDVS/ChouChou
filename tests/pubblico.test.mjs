@@ -248,7 +248,15 @@ test("i campi del widget non scendono sotto i 16px sul tocco", () => {
   // di stile. L'unica cura buona e' non scendere sotto i 16px dove si tocca.
   const W = readFileSync("src/components/ReservationWidget.astro", "utf8");
 
-  assert.match(W, /@media \(pointer: coarse\)[\s\S]{0,200}?\.rw-in[^}]*font-size:\s*16px/,
+  // ⚠️ Si cerca DENTRO i blocchi `pointer: coarse`, uno per uno, non «entro
+  // 200 caratteri dall'apertura». I clienti hanno blocchi coarse loro — il
+  // datepicker di ChouChou e L'Huile — e la posizione della regola dentro il
+  // blocco e' una questione di stile, non di comportamento: il 04/10 questo
+  // test e' diventato rosso su un cliente dove la regola c'era, solo piu' in
+  // basso. Un test che litiga su dove sta una riga finisce aggirato.
+  const blocchiCoarse = [...W.matchAll(/@media \(pointer: coarse\)\s*\{([\s\S]*?)\n\s*\}/g)].map((m) => m[1]);
+  const coi16 = blocchiCoarse.some((b) => /\.rw-in[^}]*font-size:\s*16px/.test(b));
+  assert.ok(coi16,
     "i campi del widget sono tornati sotto i 16px sul tocco: iPhone zooma e il modulo diventa inusabile");
 
   // E la scorciatoia che non vogliamo, in nessuna pagina pubblica.

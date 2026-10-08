@@ -25,6 +25,7 @@ import {
   PAGINA_APERTA,
   chiaveApi,
   puoChiamareApi,
+  funzioneAccesa,
 } from "../src/lib/admin/permessiRegole.ts";
 
 const TUTTE = ["orders", "reservations", "clients", "menu", "stats", "marketing", "assets", "print", "agenda", "settings"];
@@ -249,19 +250,35 @@ test("un'isola vietata non si legge NEMMENO dal database", () => {
   // lascerebbe il server a interrogare il database per righe che butta via —
   // e chi tocca il file dopo non avrebbe modo di accorgersi che quel `.data`
   // non doveva uscire di li'.
-  for (const [chi, query] of [
-    ["vedeOrdini", /vedeOrdini\s*\n?\s*\?\s*leggi\("orders"/],
-    ["vedeResa", /vedeResa \? caricaResaGiorno\(/],
-    ["vedeMenu", /vedeMenu \? caricaMenuHome\(/],
-    ["vedeMenu", /vedeMenu\s*\n?\s*\?\s*leggi\("menu_categories"/],
-    ["vedeMenu", /vedeMenu \? leggi\("menu_items"/],
-  ]) {
-    assert.match(HOME_DATA, query, `la lettura non e' piu' condizionata a ${chi}`);
+  // ⚠️ Il nome della guardia si LEGGE dal file, non si scrive qui: questa
+  // prova e' nata controllando `vedeOrdini ? ...` e si e' rotta il giorno in
+  // cui quella variabile si e' chiamata `mostraOrdini` — mentre la falla che
+  // doveva sorvegliare non era tornata. Cio' che conta e' che esista una
+  // guardia costruita con `mostra(ctx, pagina)` e che TUTTO quello che
+  // riguarda quell'isola — le letture e la risposta — passi da lei.
+  const guardiaDi = (pagina) => {
+    const m = HOME_DATA.match(new RegExp(`const (\\w+) = mostra\\(ctx, "${pagina}"\\)`));
+    assert.ok(m, `l'isola «${pagina}» non ha piu' una guardia costruita con mostra(ctx, ...)`);
+    return m[1];
+  };
+  const letture = [
+    ["orders", 'caricaOrdiniHome('],
+    ["reservations", 'caricaResaGiorno('],
+    ["menu", 'caricaMenuHome('],
+    ["menu", 'leggi("menu_categories"'],
+    ["menu", 'leggi("menu_items"'],
+  ];
+  const lett = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const [pagina, query] of letture) {
+    const g = guardiaDi(pagina);
+    assert.match(HOME_DATA, new RegExp(`${g}\\s*\\n?\\s*\\?\\s*${lett(query)}`),
+      `la lettura ${query} non e' piu' condizionata alla guardia dell'isola «${pagina}»`);
   }
   // E non finisce nemmeno nella risposta.
-  assert.match(HOME_DATA, /\.\.\.\(vedeOrdini \? \{ orders:/);
-  assert.match(HOME_DATA, /\.\.\.\(vedeResa \? \{ resa \}/);
-  assert.match(HOME_DATA, /\.\.\.\(vedeMenu \? \{ menu:/);
+  for (const [pagina, campo] of [["orders", "{ orders:"], ["reservations", "{ resa }"], ["menu", "{ menu:"]]) {
+    assert.match(HOME_DATA, new RegExp(`\\.\\.\\.\\(${guardiaDi(pagina)} \\? ${lett(campo)}`),
+      `l'isola «${pagina}» finisce nella risposta senza guardia`);
+  }
 });
 
 test("le isole della home e le API rispondono alla STESSA pagina", () => {
@@ -276,7 +293,7 @@ test("le isole della home e le API rispondono alla STESSA pagina", () => {
   ];
   for (const [api, pagina] of ISOLE) {
     assert.equal(API_PAGINA[api], pagina, `l'API ${api} non e' piu' sotto la pagina «${pagina}»`);
-    assert.match(HOME_DATA, new RegExp(`puo\\(ctx, "${pagina}"\\)`),
+    assert.match(HOME_DATA, new RegExp(`mostra\\(ctx, "${pagina}"\\)`),
       `l'SSR della home non guarda piu' la pagina «${pagina}»`);
   }
   // `today` resta aperta: e' lo stato della cucina, la home ne ha sempre bisogno.
@@ -305,12 +322,37 @@ test("il contesto dei permessi si costruisce in UN posto solo", () => {
   assert.match(PERMESSI, /export async function contestoDaToken\(/);
 });
 
-test("le statistiche non si chiedono a chi riceverebbe un 403", () => {
-  // Tre 403 in console a ogni caricamento fanno sembrare rotto quello che
-  // funziona. `pagine` nell'SSR non e' un segreto: sono i permessi di chi
-  // sta leggendo quella stessa pagina.
-  assert.match(HOME_DATA, /pagine: pagineConsentite\(ctx\)/);
-  assert.match(HOME_PAGINA, /ssrHome\.pagine\.includes\("stats"\)/);
+test("le statistiche si chiedono SOLO da chi puo' vederle", () => {
+  // LA STORIA, perche' questa prova ha gia' cambiato forma due volte.
+  // Prima la home chiedeva le statistiche tre volte a ogni caricamento, anche
+  // a chi non ha la pagina: tre 403 in console e l'aria di qualcosa di rotto.
+  // Si era risolto mandando al client l'elenco delle sue pagine. Poi la tile
+  // del fatturato e' sparita dalla Accueil e la regola e' diventata la piu'
+  // semplice possibile: NON chiedere affatto.
+  // Dall'08/10/2026 la Accueil ha di nuovo una colonna del fatturato
+  // («Recettes»), quindi chiede — e la regola torna a essere quella vera, che
+  // non e' «non chiedere» ma CHIEDERE SOLO SE SI PUO'. Le tre righe qui sotto
+  // sono i tre pezzi che lo garantiscono: toglierne uno riapre la porta.
+  //
+  // 1. Il server decide, col contesto dei permessi che usa il middleware.
+  assert.match(HOME_PAGINA, /puoVederePagina\("stats", ctx\)/,
+    "la Accueil non chiede piu' al server se chi guarda puo' vedere il fatturato");
+  assert.match(HOME_PAGINA, /<Giornata recettes=\{vedeRecettes\} \/>/,
+    "la fascia non riceve piu' la decisione: la colonna del fatturato si disegna a tutti");
+  // 2. Il client non chiede se la colonna non c'e'. Senza questa riga la
+  //    colonna sparisce dallo schermo ma il `fetch` parte lo stesso.
+  assert.match(HOME_PAGINA, /if \(!document\.getElementById\("j-rec"\)\) return;[\s\S]{0,400}?api\/admin\/stats/,
+    "il fetch delle statistiche non e' piu' protetto dalla presenza della colonna");
+  // 3. Nessun ALTRO punto della Accueil chiede le statistiche: una seconda
+  //    chiamata, fuori da quella funzione, non avrebbe nessuna di queste due
+  //    protezioni.
+  // ⚠️ Si contano le CHIAMATE, non le volte che l'indirizzo compare: i
+  // commenti qui intorno lo nominano apposta, ed e' giusto che lo facciano.
+  assert.equal((HOME_PAGINA.match(/fetch\([`"']\/api\/admin\/stats/g) ?? []).length, 1,
+    "la Accueil chiede le statistiche da piu' di un posto: solo quello dentro `caricaRec` e' protetto");
+  // E l'SSR non manda l'elenco delle pagine: non lo legge nessuno, e un dato
+  // che nessuno legge e' un dato che nessuno aggiorna.
+  assert.ok(!/pagine:/.test(HOME_DATA), "l'SSR manda ancora `pagine`, che ormai non serve a nessuno");
 });
 
 test("cio' che si NASCONDE e' cio' che non si puo' vedere, non solo cio' che il super ha spento", () => {
@@ -348,4 +390,81 @@ test("nascosto e vietato dicono la stessa cosa, per ogni pagina", () => {
   for (const k of consentite) {
     assert.equal(puoVederePagina(k, ctx), true, `${k}: visibile ma vietata`);
   }
+});
+
+test("un pannello aperto da un'ora salva ancora: il token si rinnova", () => {
+  // Il token Supabase scade dopo un'ora. Un header costruito una volta sola
+  // al caricamento continua a mandare quello vecchio: ogni salvataggio torna
+  // «Non autorisé» e in certi punti il campo sparisce senza spiegazione. Il
+  // guasto non e' teorico: e' stato corretto in otto pagine una alla volta,
+  // e restava in super, marketing, print e nel SECONDO script della home.
+  //
+  // ⚠️ Si guarda BLOCCO per BLOCCO, non file per file: una pagina con due
+  // <script> ha due scope, e il primo che ascolta non salva il secondo —
+  // e' esattamente cosi' che il difetto era sopravvissuto nella home.
+  const dir = "src/pages/admin";
+  const sordi = [];
+  for (const nome of readdirSync(dir).filter((n) => n.endsWith(".astro"))) {
+    const testo = readFileSync(`${dir}/${nome}`, "utf8");
+    // Si divide sui tag VERI (a inizio riga), non sulla parola: in questo
+    // repo i commenti la nominano, e dividere anche li' spezzerebbe un
+    // blocco in due meta' di cui una senza il suo ascolto.
+    testo.split(/^[ \t]*<script/m).slice(1).forEach((blocco, i) => {
+      if (!/Bearer \$\{/.test(blocco)) return;
+      if (/onAuthStateChange|authFresh\(\)/.test(blocco)) return;
+      sordi.push(`${nome} (script ${i + 1})`);
+    });
+  }
+  assert.deepEqual(sordi, [], `header dell'autorizzazione costruito e mai piu' aggiornato:\n  ${sordi.join("\n  ")}`);
+});
+
+test("spegnere una funzione non e' negare un permesso", () => {
+  // Due domande diverse, e per il super hanno risposte diverse: puo' APRIRE
+  // Commandes (deve: e' da li' che la riaccende) ma il locale NON prende
+  // ordini, quindi la Accueil non deve mostrarne niente. Finche' era una sola
+  // domanda, il super spegneva Commandes in Pages visibles e si ritrovava la
+  // colonna degli ordini a dire «0 aujourd'hui» — un numero vero su una cosa
+  // che non esiste.
+  const ctx = { ruolo: "super", nascoste: ["orders"], tutte: TUTTE };
+  assert.equal(puoVederePagina("orders", ctx), true);
+  assert.equal(funzioneAccesa("orders", ctx), false);
+  assert.equal(funzioneAccesa("reservations", ctx), true);
+  // Una chiave sconosciuta resta accesa: cio' che si spegne si dichiara.
+  assert.equal(funzioneAccesa("notes", ctx), true);
+  assert.equal(funzioneAccesa("orders", { ruolo: "admin", tutte: TUTTE }), true);
+});
+
+test("la Accueil chiede «lo mostriamo?», non «puo' aprirlo?»", () => {
+  // ⚠️ Prova sulla SOSTANZA: il pre-caricamento della home non deve decidere
+  // con `puo`, che al super dice sempre si'. Se qualcuno lo rimette, la falla
+  // non da' nessun errore — da' una colonna in piu' a chi l'aveva spenta.
+  const home = readFileSync("src/lib/admin/caricaHomeData.ts", "utf8");
+  for (const k of ["orders", "reservations", "menu"]) {
+    assert.ok(home.includes(`mostra(ctx, "${k}")`), `l'isola ${k} non passa da mostra()`);
+  }
+  assert.ok(!/\bpuo\(ctx/.test(home), "caricaHomeData decide ancora con puo(ctx, ...)");
+});
+
+test("cio' che e' spento sparisce prima del primo paint", () => {
+  // La regola sta nel <head> stampato dal server: nessun cookie, nessun
+  // token, nessun fetch. Toglierla di qui per rimetterla dopo un fetch
+  // significa un lampo di tile e una griglia che tiene il posto a una
+  // colonna che spariva un istante dopo.
+  const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
+  assert.ok(/boot\.hiddenPages/.test(head), "AdminHead non legge le funzioni spente");
+  assert.ok(/\[data-admin-page="\$\{k\}"\]\{display:none!important\}/.test(head),
+    "AdminHead non nasconde cio' che e' marcato data-admin-page");
+  assert.ok(/SPENTE_CSS/.test(head) && /\+ SPENTE_CSS/.test(head), "la regola non finisce nel CSS stampato");
+
+  // ⚠️ Qui si pretendeva anche che la fascia CONTASSE le colonne vive con
+  // `getComputedStyle`, per non lasciare mezzo schermo vuoto quando una
+  // funzione e' spenta. Quel conto non c'e' piu' e non serve: la fascia era
+  // fatta di caselle di misura fissa, adesso e' una griglia di sezioni e una
+  // sezione spenta esce dal flusso — le altre scorrono al suo posto da sole.
+  // La prova e' passata al difetto che resta possibile: che qualcuno rimetta
+  // un involucro attorno a due sezioni «per tenerle insieme», e il buco
+  // torni. La guarda `tests/giornata.test.mjs`.
+  //
+  // Cio' che conta QUI e' solo che la regola arrivi prima del primo paint, ed
+  // e' quello che si e' appena provato.
 });

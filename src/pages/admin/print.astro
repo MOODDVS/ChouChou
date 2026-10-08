@@ -208,7 +208,6 @@ const prodotti = catalogo
       .pbtn:disabled { cursor: not-allowed; }
 
       .pmodal { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
-      .pmodal[hidden] { display: none; }
       .pmodal-back { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
       .pmodal-box { position: relative; width: min(1000px, 100%); height: min(90vh, 100%); background: var(--c-card); border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; overflow: hidden; }
       .pmodal-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--c-line); }
@@ -326,7 +325,18 @@ const prodotti = catalogo
         document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) chiudi(); });
 
         // ---------- Ordine (acquisto) ----------
-        const authH = { Authorization: `Bearer ${session.access_token ?? ""}`, "Content-Type": "application/json" };
+        let authH = { Authorization: `Bearer ${session.access_token ?? ""}`, "Content-Type": "application/json" };
+
+        // Il token Supabase SCADE (di norma dopo un'ora). Con l'header fissato
+        // una volta sola al caricamento, un tab lasciato aperto continuava a
+        // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
+        // e in certi punti il campo spariva senza spiegazione. supabase-js
+        // rinnova il token da solo in background: qui ci limitiamo ad
+        // ASCOLTARLO e a riscrivere l'header. Nessuna chiamata da cambiare.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) authH = { Authorization: `Bearer ${sessione.access_token}`, "Content-Type": "application/json" };
+        });
+
         const parse = (id: string) => { try { return JSON.parse(document.getElementById(id)?.textContent || "{}"); } catch { return {}; } };
         const PD = parse("print-data") as { unit?: string; products?: any[] };
         const OI = parse("print-order-i18n") as Record<string, string>;

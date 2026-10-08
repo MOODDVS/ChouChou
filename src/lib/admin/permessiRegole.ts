@@ -90,6 +90,28 @@ export function puoVederePagina(
   return pagineConsentite(ctx).includes(chiave);
 }
 
+/**
+ * LA FUNZIONE E' ACCESA PER QUESTO LOCALE?
+ *
+ * ⚠️ Non e' un permesso, e' un'ESISTENZA — e sono due domande diverse.
+ * `puoVederePagina` risponde «questa persona puo' aprire la pagina», e per il
+ * super e' sempre si': deve poter entrare in Commandes anche per riaccenderla.
+ * Qui si chiede un'altra cosa: questo ristorante prende ordini? Se il super ha
+ * spento «Commandes» in Pages visibles, in questa installazione gli ordini NON
+ * ESISTONO, e la Accueil non deve mostrarne la colonna NEMMENO AL SUPER: una
+ * colonna «0 commandes aujourd'hui» per un locale che non prende ordini non e'
+ * un dato, e' un errore che si legge come un dato.
+ *
+ * Una chiave sconosciuta e' accesa, per la stessa ragione di `puoVederePagina`:
+ * cio' che si spegne si dichiara in PAGINE_ADMIN.
+ */
+export function funzioneAccesa(
+  chiave: string,
+  ctx: { nascoste?: string[] | null },
+): boolean {
+  return !(ctx.nascoste ?? []).includes(String(chiave || ""));
+}
+
 /** Le caselle da spuntare per difetto quando si crea un «utente». */
 export function pagineDiDefault(tutte: string[]): string[] {
   return (tutte ?? []).filter((k) => !PAGINE_SOLO_ADMIN.includes(k));
@@ -176,6 +198,11 @@ export const API_PAGINA: Record<string, string> = {
   // --- Solo MOODD -------------------------------------------------------
   "users": "super",
   "locations": "super",
+  // ⚠️ `printers` (le stampanti dei ticket), non `print`: `print` e' gia' il
+  // catalogo degli stampati ordinabili a MOODD, ed e' un'altra cosa. Due
+  // nomi uguali in due posti diversi si pagano la prima volta che qualcuno
+  // cerca il file sbagliato con una stampante ferma in cucina.
+  "printers": "super",
   "integrations": "super",
   "google-place": "super",
   // --- Scheda Google ----------------------------------------------------
@@ -201,6 +228,11 @@ export const API_PAGINA: Record<string, string> = {
   "pages": PAGINA_APERTA,          // e' AdminNav a chiederla, per sapere cosa mostrare
   "search-console": PAGINA_APERTA, // tile Visibilite': nessun data-admin-page
   "events": PAGINA_APERTA,         // eventi del locale, tile «Prossimi eventi»
+  // L'abitudine oraria della Accueil: la fascia della giornata la chiede
+  // sempre, e dentro conta solo cio' che chi guarda ha il diritto di vedere
+  // (vedi caricaAffluenza). Chiuderla qui spegnerebbe il grafico a chi ha la
+  // home ma non le prenotazioni — e la home ce l'hanno tutti.
+  "affluence": PAGINA_APERTA,
   "special-days": PAGINA_APERTA,   // orari: li legge anche la home
   "special-days-impact": PAGINA_APERTA,
   "slots": PAGINA_APERTA,

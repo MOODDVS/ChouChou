@@ -2500,14 +2500,16 @@ const t = adminT(lang);
             if (!slZona) return;
             const shape = btn.dataset.sh ?? "square";
             const mis = slMisura(shape, 4);
-            const n = slTavoli.length;
+            // ⚠️ Nome e posto si CERCANO, non si contano: vedi `slNomeLibero`
+            // e `slPostoLibero`. Col conteggio, cancellare un tavolo in mezzo
+            // faceva nascere il successivo con un nome gia' usato e sopra un
+            // tavolo esistente.
             const riga = {
               zone: slZona,
-              name: "T" + (n + 1),
+              name: slNomeLibero("T"),
               seats: 4,
               shape,
-              x: Math.min(1000 - mis.w, 40 + (n % 5) * 180),
-              y: Math.min(600 - mis.h, 40 + Math.floor(n / 5) * 150),
+              ...slPostoLibero(mis.w, mis.h),
               ...mis,
             };
             try {
@@ -2567,6 +2569,49 @@ const t = adminT(lang);
           slDecorSelezionato(null);
           void slSalvaDecor();
         });
+        /**
+         * IL PRIMO POSTO LIBERO DELLA GRIGLIA — non la casella numero N.
+         *
+         * ⚠️ Qui si usava `slTavoli.length`: il CONTEGGIO dei tavoli come
+         * numero di casella. Finche' si aggiunge e basta funziona; basta
+         * cancellarne uno in mezzo e il conto torna indietro, cosi' il tavolo
+         * dopo nasce esattamente SOPRA uno che c'e' gia'. Due riquadri
+         * sovrapposti non danno nessun errore — si vedono, e solo se qualcuno
+         * apre quella sala.
+         *
+         * Si cercano le caselle una per una e si prende la prima che non ha
+         * niente addosso. Se sono tutte prese (venti tavoli), si torna in
+         * fondo: meglio un tavolo da spostare che un tavolo che non nasce.
+         */
+        function slPostoLibero(w: number, h: number): { x: number; y: number } {
+          const occupato = (x: number, y: number) =>
+            slTavoli.some((t) => Math.abs(t.x - x) < 40 && Math.abs(t.y - y) < 40);
+          for (let i = 0; i < 20; i++) {
+            const x = Math.min(1000 - w, 40 + (i % 5) * 180);
+            const y = Math.min(600 - h, 40 + Math.floor(i / 5) * 150);
+            if (!occupato(x, y)) return { x, y };
+          }
+          return { x: Math.min(1000 - w, 40), y: Math.min(600 - h, 490) };
+        }
+
+        /**
+         * IL PRIMO NOME LIBERO col prefisso dato.
+         *
+         * ⚠️ Stessa storia del posto: il nome era «T» + il conteggio. In una
+         * sala con T1…T6, cancellato il T3, il tavolo dopo si chiamava di
+         * nuovo T6 — due tavoli con lo stesso nome, in una lista dove il nome
+         * e' l'unica cosa che li distingue a colpo d'occhio, e dove le
+         * combinazioni («T6+T5») si leggono per nome.
+         */
+        function slNomeLibero(prefix: string): string {
+          const presi = new Set(slTavoli.map((t) => t.name));
+          for (let n = 1; n < 999; n++) {
+            const cand = (prefix + n).slice(0, 12);
+            if (!presi.has(cand)) return cand;
+          }
+          return prefix + "1";
+        }
+
         function slNomeIncrement(name: string): string {
           const m = name.match(/^(.*?)(\d+)$/);
           const prefix = m ? m[1] : name;
