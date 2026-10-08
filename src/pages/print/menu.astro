@@ -440,7 +440,7 @@ const teaHead = (s: BevSub) => {
         </div>
         <p class="sh">Fournisseurs et producteurs locaux et belges</p>
         <p class="sub">Boissons :</p>
-        <p class="lst">Domaine W, Domaine de Glabais, Domaine du Chenoy, Bertinchamps, Brasserie de L'Orne, Brasserie 3D, Tea Bo, Dada Gin, Ritchie</p>
+        <p class="lst">Domaine W, Domaine de Glabais, Domaine du Chenoy, Bertinchamps, Brasserie de L'Orne, Brasserie 3D, Tea Bo, Be Kombucha, Dada Gin, Ritchie</p>
         <p class="sub">Viandes, produits laitiers, maraîchage, épicerie :</p>
         <p class="lst">Au Gré des Pétales, Hors Champs, Les P'tits Plaisirs, Les Glaces d'Ophélie, Bamboo, Badjawan, Maître Corbeau, Les Fraises de Jonathan, Nuu Miso</p>
       </div>
@@ -453,7 +453,7 @@ const teaHead = (s: BevSub) => {
     <div class="mag-body">
       <div class="blk">
         <h2>PLATS ENFANTS (-12 ANS)</h2>
-        <p>En taille enfant, <b>les entrées à 10€, les plats à 18€</b></p>
+        <p>En taille enfant, <b>30% de réduction sur toute la carte</b></p>
         <p class="script">(hors suggestions)</p>
       </div>
       <div class="blk">
@@ -466,7 +466,7 @@ const teaHead = (s: BevSub) => {
       <div class="blk">
         <h2>UN SOIR, UN CHEF</h2>
         <p><b>Un concept créé par Chouchou en 2024</b>, dans l'idée d'inviter un Chef par mois, pour un moment de partage unique.</p>
-        <p class="chefs">Eric Boschman, Curtis Mulpas, Pierre Burtonboy, Dario Michaud, Kévin Roquet, Carlo de Pascale, Sébastien Hayot…</p>
+        <p class="chefs">Eric Boschman, Curtis Mulpas, Pierre Burtonboy, Dario Michaud, Kévin Roquet, Carlo de Pascale, Sébastien Hayot, Damien Huylebroek…</p>
         <p class="script">qui sera le prochain ?</p>
       </div>
       <div class="blk">
@@ -574,7 +574,7 @@ const teaHead = (s: BevSub) => {
   {hasBev && (
     <section class={hasBottiglia ? "" : "drink-part"}>
       {gruppiBev.map((fam) => (
-        <div class="fam-block">
+        <div class={"fam-block" + (rangoBev(fam) === 5 ? " bev-break" : "")}>
           <div class="fam-title">{fam.title}</div>
           {fam.subs.map((sub) => (
             sub.orange ? (
