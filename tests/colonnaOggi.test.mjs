@@ -288,7 +288,16 @@ test("a sede unica il Place ID ha un posto dove essere messo", () => {
   // `#g-unica`, e questo e' il suo gemello.
   const SUP = readFileSync("src/pages/admin/super.astro", "utf8");
   assert.match(SUP, /id="g-place-unica"/, "a sede unica il Place ID non si puo' piu' impostare da nessuna parte");
-  assert.match(SUP, /g-place-unica[\s\S]{0,600}?id="g-place"/, "manca il campo del Place ID");
+  assert.match(SUP, /g-place-unica[\s\S]{0,900}?id="g-place"/, "manca il campo del Place ID");
+  // ⚠️ L'INVOLUCRO `.f-field` NON E' DECORAZIONE. `.f-note` ha un margine
+  // NEGATIVO fatto apposta per annullare lo spazio sotto un `.f-field` e
+  // attaccarsi al campo: senza involucro quel margine non annulla niente e la
+  // frase sale SOPRA il campo. Visto su BROS appena messo il Place ID.
+  // Il pezzo di markup dal blocco alla sua nota, e dentro l'ordine giusto:
+  // involucro, campo, chiusura, e SOLO DOPO la nota.
+  const blocco = SUP.slice(SUP.indexOf('id="g-place-unica"'), SUP.indexOf('id="g-place-res"'));
+  assert.match(blocco, /<div class="f-field">[\s\S]*id="g-place"[\s\S]*<\/div>\s*<p class="f-note"\s*$/,
+    "il campo del Place ID ha perso l'involucro `.f-field`: la nota qui sotto torna a salire sopra il campo");
   assert.match(SUP, /gPlaceBox\.style\.display = sedi\.length > 0 \? "none" : "block"/,
     "il campo non si accende piu' solo a sede unica: con piu' sedi il posto giusto e' la scheda del punto");
   // ⚠️ Il campo deve comparire anche senza OAuth: il Place ID e' il livello 1
