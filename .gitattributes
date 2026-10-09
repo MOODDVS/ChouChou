@@ -43,3 +43,29 @@ astro.config.mjs         merge=ours
 # motore la mappa del cliente tornava quella del template. (06/09/2026)
 src/config/siteImageSlots.ts  merge=ours
 src/config/sitePages.ts       merge=ours
+
+# --- Il DISEGNO del ticket di cucina ---
+# ⚠️ STESSO DIFETTO, UN MESE DOPO (09/10/2026). `src/config/ticket.ts` nasce
+# il 05/10 dichiarando nella sua intestazione «questo file e' del cliente, e
+# il motore non lo tocca piu' dopo averlo creato… non si prende conflitti al
+# merge» — ma era `unspecified`, come siteImageSlots e sitePages il 06/09.
+# Scoperto per caso: merge del motore in 450 Gradi, e git ha scritto
+# «Auto-merging src/config/ticket.ts» su un file che non doveva nemmeno
+# guardare. Lì è andata bene (le due aggiunte non si toccavano), ma
+# Educazione Napoletana ha un disegno TUTTO SUO in quel file: il primo
+# ritocco del motore al disegno di ripiego gliel'avrebbe fuso dentro, e un
+# ticket di cucina sbagliato non fa rumore — esce storto in cucina, non a
+# schermo.
+# ⚠️ La promessa scritta in un'intestazione non protegge niente: protegge
+# QUESTO file. Un file nuovo in `src/config/` va dichiarato qui lo stesso
+# giorno, e `git check-attr merge -- src/config/*.ts` lo dice in un secondo.
+src/config/ticket.ts          merge=ours
+
+# ⚠️ DEL MOTORE, e scritto a mano invece di lasciarlo al silenzio: `merge`
+# e `unspecified` si comportano uguale, ma «unspecified» non distingue una
+# scelta da una dimenticanza — ed e' per questo che ticket.ts e' passato
+# scoperto per quattro giorni. Qui dentro c'e' il seed dei prezzi, uguale per
+# tutti; il listino vero di ogni cliente sta in `app_config.print_catalog`,
+# nel suo database. Una prova (`tests/config.test.mjs`) pretende che OGNI file
+# di `src/config/` sia nominato qui, in un verso o nell'altro.
+src/config/printCatalog.ts    merge

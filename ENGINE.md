@@ -181,6 +181,30 @@ motore (admin, api, lib, migrazioni, stili). Niente più copie a mano.
 per-cliente con `merge=ours`. Perché il driver funzioni serve, una volta
 per repo cliente: `git config merge.ours.driver true` (lo fa lo script).
 
+⚠️ **Una promessa scritta nell'intestazione di un file non protegge quel
+file.** `src/config/ticket.ts` nasce il 05/10 dichiarando «questo file è del
+cliente, il motore non lo tocca più dopo averlo creato, non si prende
+conflitti al merge» — e era `unspecified` in `.gitattributes`, cioè si fondeva
+come qualunque file del motore. Scoperto per caso il 09/10: un merge in 450
+Gradi ha stampato «Auto-merging src/config/ticket.ts» su un file che non
+doveva nemmeno guardare. Lì è andata bene (le due aggiunte non si toccavano),
+ma **Educazione Napoletana ha un disegno tutto suo in quel file**, e un ticket
+di cucina fuso col ripiego del motore non fa rumore: esce storto in cucina,
+non a schermo.
+
+Era **la seconda volta**: il 06/09 erano `siteImageSlots.ts` e `sitePages.ts`,
+scoperti, con la stessa promessa nell'intestazione. Quindi adesso:
+- **ogni** file di `src/config/` va nominato in `.gitattributes`, anche quando
+  la risposta è «del motore» (`merge`): `unspecified` non distingue una scelta
+  da una dimenticanza, e una riga scritta a mano porta il perché;
+- una prova (`tests/config.test.mjs`) diventa rossa se un file nuovo non è
+  dichiarato. ⚠️ La prima versione di quella prova cercava il nome del file
+  *nel testo* di `.gitattributes` e passava anche togliendo la riga, perché il
+  nome compare pure nel commento che la spiega: ora legge le **regole**,
+  saltando i commenti. Una rete che si accontenta di trovare la parola approva
+  esattamente il caso che deve bocciare;
+- da riga di comando: `git check-attr merge -- src/config/*.ts`.
+
 ### Aggiornare TUTTI i clienti in un colpo
 Dal repo motore, con i repo cliente clonati in locale:
 ```

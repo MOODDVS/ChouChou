@@ -276,3 +276,47 @@ test("la classifica copre davvero tutte e tre le appartenenze", () => {
     assert.ok(["marchio", "sede", "utente"].includes(v), `${k}: appartenenza sconosciuta "${v}"`);
   }
 });
+
+test("ogni file di src/config/ e' dichiarato in .gitattributes, in un verso o nell'altro", () => {
+  // ⚠️ IL GUASTO, DUE VOLTE. `src/config/ticket.ts` nasce il 05/10 scrivendo
+  // nella sua intestazione «questo file e' del cliente, e il motore non lo
+  // tocca piu' dopo averlo creato… non si prende conflitti al merge». Era
+  // falso: in .gitattributes non c'era, quindi `merge=ours` non valeva, e il
+  // 09/10 un merge del motore in 450 Gradi ha stampato «Auto-merging
+  // src/config/ticket.ts» su un file che non doveva nemmeno guardare. Li' e'
+  // andata bene per caso; Educazione Napoletana ha un disegno TUTTO SUO in
+  // quel file, e un ticket di cucina fuso col ripiego del motore non fa
+  // rumore — esce storto in cucina, non a schermo.
+  //
+  // Era gia' successo il 06/09 con `siteImageSlots.ts` e `sitePages.ts`, per
+  // la stessa ragione: una promessa scritta in un'intestazione non protegge
+  // niente, protegge solo QUESTO file. La regola che protegge sta in
+  // .gitattributes, e il silenzio (`unspecified`) non distingue una scelta
+  // da una dimenticanza. Quindi: ogni file va NOMINATO, anche quando la
+  // risposta e' «del motore». La riga la si scrive il giorno che il file
+  // nasce; questa prova e' quello che se ne accorge se non succede.
+  //
+  // Da riga di comando: `git check-attr merge -- src/config/*.ts`.
+  if (!SONO_IL_MOTORE) return;
+  // ⚠️ Si guardano le REGOLE, non il testo del file. Prima questa prova
+  // faceva `regole.includes("src/config/ticket.ts")`: passava anche togliendo
+  // la riga, perche' il nome del file compare pure nel commento che spiega
+  // perche' la riga esiste. Una rete che si accontenta di trovare la parola
+  // approva proprio il caso che deve bocciare — provato togliendo la riga.
+  const dichiarati = new Set(
+    readFileSync(".gitattributes", "utf8")
+      .split("\n")
+      .map((r) => r.trim())
+      .filter((r) => r && !r.startsWith("#"))
+      .map((r) => r.split(/\s+/)[0]),
+  );
+  const scoperti = readdirSync("src/config")
+    .filter((f) => f.endsWith(".ts"))
+    .filter((f) => !dichiarati.has(`src/config/${f}`));
+  assert.deepEqual(
+    scoperti,
+    [],
+    `file di src/config/ non dichiarati in .gitattributes: ${scoperti.join(", ")}. ` +
+      "Scrivi una riga: `merge=ours` se e' del cliente, `merge` se e' del motore — col perche'.",
+  );
+});
