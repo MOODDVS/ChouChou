@@ -93,3 +93,29 @@ export function scarto(ora: unknown, prima: unknown): number | null {
   if (!Number.isFinite(a) || !Number.isFinite(b) || b <= 0) return null;
   return Math.round(((a - b) / b) * 100);
 }
+
+/**
+ * UN PLACE ID E' SCRITTO BENE?
+ *
+ * ⚠️ La stessa regola per i DUE posti che lo scrivono: la scheda di una sede
+ * (`locations.ts`) e l'installazione a sede unica (`integrations.ts`). Erano
+ * due regex uguali in due file, e due regex uguali sono due regex finche'
+ * qualcuno non tocca la prima.
+ *
+ * Tre risposte e non un sì/no, perche' i due rifiuti si riparano in modi
+ * diversi:
+ *   "chiave"  — e' una chiave API Google (AIza…), incollata al posto del
+ *               Place ID. E' L'ERRORE TIPICO, e vale la pena dirlo con
+ *               precisione: la chiave va nel `.env`, non qui.
+ *   "formato" — non e' fatto come un Place ID (`ChIJ…`: lettere, cifre,
+ *               trattino e underscore).
+ *   "ok"      — va bene. Il vuoto e' «ok»: vuol dire «togli», ed e' una cosa
+ *               che si deve poter fare.
+ */
+export type EsitoPlaceId = "ok" | "chiave" | "formato";
+export function controllaPlaceId(v: unknown): EsitoPlaceId {
+  const s = String(v ?? "").trim();
+  if (!s) return "ok";
+  if (/^AIza/.test(s)) return "chiave";
+  return /^[A-Za-z0-9_-]+$/.test(s) ? "ok" : "formato";
+}

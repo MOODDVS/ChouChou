@@ -320,7 +320,9 @@ const prI18n = {
       /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
          scheda Google in Intégrations: a sede unica non esiste nessun modale
          in cui metterlo. Stesso aspetto, non un secondo aspetto. */
-      #loc-overlay .loc-riga, #g-unica .loc-riga, #itg-print .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      #loc-overlay .loc-riga, #g-unica .loc-riga, #g-place-unica .loc-riga, #itg-print .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      /* Il campo prende lo spazio che resta: i due bottoni hanno la loro misura. */
+      #g-place-unica input { flex: 1; min-width: 0; }
       #loc-overlay .loc-g-cur, #g-unica .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
       #loc-overlay .loc-g-cur:empty::before, #g-unica .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
       #loc-overlay #loc-g-list:not(:empty), #g-unica #g-unica-list:not(:empty) { margin-top: 0.6rem; }
@@ -764,7 +766,25 @@ const prI18n = {
             </div>
 
             <!-- Il Place ID (livello 1) sta nella scheda della sede: identifica
-                 UN'attivita' fisica, quindi tre pizzerie sono tre Place ID. -->
+                 UN'attivita' fisica, quindi tre pizzerie sono tre Place ID.
+                 ⚠️ A SEDE UNICA la scheda della sede non esiste, e dal
+                 15/09/2026 al 09/10/2026 il Place ID non ha avuto NESSUN
+                 posto dove essere messo: un cliente configurato in quel
+                 periodo vedeva «CONNESSO» qui sotto — che e' il livello 2,
+                 un'altra cosa — e il blocco Google della Accueil non
+                 compariva mai. E' lo stesso buco che quel giorno colpi' la
+                 scelta della scheda (vedi `#g-unica` piu' sotto), trovato su
+                 BROS. Qui il campo torna, e SOLO quando le sedi non ci
+                 sono. -->
+            <div id="g-place-unica" style="display:none">
+              <label class="f-label" for="g-place">Place ID</label>
+              <div class="loc-riga">
+                <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
+                <button type="button" id="g-place-test" class="btn">{t("common.verify")}</button>
+                <button type="button" id="g-place-save" class="us-add">{t("common.save")}</button>
+              </div>
+              <p class="f-note" id="g-place-res">{t("loc.placeIdHint")}</p>
+            </div>
 
             <p class="itg-niv">{t("itg.g.lvl2")}</p>
             <div class="us-frow us-frow-pass">
@@ -1607,6 +1627,11 @@ const prI18n = {
          *  chiama qui (`sedi` sarebbe ancora nella sua zona morta e lancerebbe)
          *  ma in fondo a `locCarica`, quando l'elenco c'e' davvero. */
         async function gCaricaSedeStato() {
+          // ⚠️ FUORI dal `try`: il Place ID e' il livello 1 e non dipende da
+          // Google OAuth. Dentro, una chiamata fallita avrebbe lasciato il
+          // campo nascosto — cioe' di nuovo nessun posto dove metterlo.
+          const gPlaceBox = document.getElementById("g-place-unica") as HTMLElement | null;
+          if (gPlaceBox) gPlaceBox.style.display = sedi.length > 0 ? "none" : "block";
           try {
             const res = await fetch("/api/admin/google/locations", { headers });
             const j = await res.json();
@@ -1616,6 +1641,51 @@ const prI18n = {
             if (gUnicaCur) gUnicaCur.textContent = j.current?.title || (SUP.loc?.gNessuna ?? "");
           } catch { /* best-effort */ }
         }
+
+        // --- Place ID a sede unica: verifica e salvataggio ---------------
+        // ⚠️ La VERIFICA e' la stessa della scheda sede (`loc-place-test`):
+        // stessa API, stesso errore tipico (la chiave API incollata al posto
+        // del Place ID), stessa frase di risposta. Due verifiche diverse per
+        // lo stesso campo sarebbero due idee di «valido».
+        const gPlace = document.getElementById("g-place") as HTMLInputElement | null;
+        const gPlaceTest = document.getElementById("g-place-test") as HTMLButtonElement | null;
+        const gPlaceSave = document.getElementById("g-place-save") as HTMLButtonElement | null;
+        const gPlaceRes = document.getElementById("g-place-res") as HTMLElement | null;
+
+        gPlaceTest?.addEventListener("click", () => conAttesa(gPlaceTest, async () => {
+          const id = (gPlace?.value ?? "").trim();
+          if (!gPlaceRes) return;
+          if (!id) { gPlaceRes.textContent = SUP.loc?.placeVuoto ?? ""; return; }
+          if (/^AIza/.test(id)) { gPlaceRes.textContent = SUP.loc?.placeChiave ?? ""; return; }
+          gPlaceRes.textContent = SUP.loading ?? "";
+          try {
+            const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
+            const j = await res.json();
+            gPlaceRes.textContent = res.ok
+              ? `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0}`
+              : (j.error ?? SUP.loc?.netErr ?? "");
+          } catch {
+            gPlaceRes.textContent = SUP.loc?.netErr ?? "";
+          }
+        }));
+
+        gPlaceSave?.addEventListener("click", () => conAttesa(gPlaceSave, async () => {
+          if (!gPlaceRes) return;
+          try {
+            const res = await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ google_place_id: (gPlace?.value ?? "").trim() }),
+            });
+            const j = await res.json();
+            gPlaceRes.textContent = res.ok ? (SUP.loc?.gSalvata ?? "") : (j.error ?? SUP.loc?.netErr ?? "");
+            // Salvato: lo stato in alto a destra cambia da solo, perche' lo
+            // decide il Place ID tanto quanto il collegamento OAuth.
+            if (res.ok) void itgCarica();
+          } catch {
+            gPlaceRes.textContent = SUP.loc?.netErr ?? "";
+          }
+        }));
 
         gUnicaPick?.addEventListener("click", () => conAttesa(gUnicaPick, async () => {
           if (!gUnicaList) return;
@@ -1698,6 +1768,10 @@ const prI18n = {
             };
             const g = j.google;
             if (g) {
+              // ⚠️ Il campo si riempie col valore che c'e' davvero: lasciandolo
+              // vuoto, un «Salva» dato per sbaglio cancellerebbe il Place ID.
+              const inp = document.getElementById("g-place") as HTMLInputElement | null;
+              if (inp) inp.value = g.place_id ?? "";
               if (gState) {
                 gState.textContent = g.connected ? tr("itg.g.connected") : g.place_id ? tr("itg.g.reviewsActive") : tr("itg.g.off");
                 gState.classList.toggle("ext", g.connected || Boolean(g.place_id));

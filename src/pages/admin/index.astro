@@ -5392,11 +5392,47 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               if (el) el.style.display = "none";
             }
           };
+          /**
+           * ⚠️ GOOGLE CHE NON RISPONDE NON E' «GOOGLE CHE NON C'E'».
+           *
+           * Fino all'08/10 erano la stessa cosa: tutt'e due facevano sparire
+           * il blocco. Su 450 Gradi — tre sedi — il voto si vedeva per
+           * Schaerbeek e Stockel e su Jourdan compariva e spariva, e dallo
+           * schermo non c'era modo di sapere perche': l'API il motivo lo
+           * mandava gia' («Google non disponibile», piu' il codice), e questa
+           * funzione lo buttava via insieme al blocco.
+           *
+           * Senza scheda configurata il blocco se ne va, ed e' giusto: non
+           * c'e' niente da dire. Con la scheda configurata e Google che
+           * rifiuta, il blocco RESTA e dice cosa e' successo — un 404 vuol
+           * dire che quel Place ID non esiste per quella sede, ed e' una cosa
+           * che si va a correggere in Réglages.
+           */
+          const guastoGoogle = (testo: string) => {
+            const nb = document.getElementById("j-g-nb");
+            if (nb) nb.style.display = "";
+            const r = document.getElementById("j-g-rating");
+            if (r) r.textContent = "—";
+            const st = document.getElementById("j-g-stars");
+            if (st) st.textContent = "";
+            const c = document.getElementById("j-g-count");
+            if (c) c.textContent = testo;
+            // Quello che non si puo' mostrare non resta a meta': la recensione,
+            // le frecce del carosello e il link all'elenco se ne vanno insieme
+            // al voto. Un link «tutte le recensioni» che non porta da nessuna
+            // parte si clicca una volta sola.
+            for (const id of ["j-g-aut", "j-g-car", "j-g-nav", "j-g-maps", "j-g-per"]) {
+              const el = document.getElementById(id);
+              if (el) (el as HTMLElement).style.display = "none";
+            }
+          };
           try {
             const res = await fetch("/api/admin/google-info", { headers });
             if (!res.ok) { soloOrari(); return; }
             const g = (await res.json()) as {
               configured: boolean; rating?: number | null; reviews?: number; maps_url?: string;
+              /** Il messaggio e il codice quando Google rifiuta la scheda. */
+              error?: string; motivo?: string;
               /** L'elenco delle recensioni su Google (costruito dall'API). */
               reviews_url?: string;
               // Recensioni arrivate questo mese. Assente quando non si puo'
@@ -5410,7 +5446,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // l'intestazione, la nota e il conteggio — ma la colonna puo'
             // restare, perche' ci stanno anche gli orari del locale. Prima
             // qui si usciva e basta, e con la scheda sparivano pure quelli.
-            if (!g.configured || g.rating == null) { soloOrari(); return; }
+            // Scheda non configurata per questo punto: niente da dire di
+            // Google, il blocco se ne va e restano gli orari. Scheda
+            // configurata ma Google che non risponde: il blocco resta e dice
+            // il motivo — sparendo, non lo direbbe nessuno.
+            if (!g.configured) { soloOrari(); return; }
+            if (g.rating == null) {
+              const motivo = String((g as { motivo?: string }).motivo ?? "").trim();
+              guastoGoogle(`${g.error ?? tr("err.googleDown")}${motivo ? ` · ${motivo}` : ""}`);
+              return;
+            }
             box.style.display = "";
 
             const nota = Number(g.rating);

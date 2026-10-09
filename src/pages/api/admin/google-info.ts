@@ -100,7 +100,18 @@ export const GET: APIRoute = async ({ request }) => {
   const ambitoPI = await ambitoDiRichiesta(request, staff);
   const cfgPI = await leggiConfig(ambitoPI, ["google_place_id"]);
   const placeId = (cfgPI.valori.get("google_place_id") ?? "").trim();
-  if (!placeId || !KEY) return json({ configured: false });
+  // ⚠️ DUE ASSENZE DIVERSE, e per mesi hanno dato la stessa risposta muta.
+  // «Nessun Place ID per questo punto» si risolve in Réglages del super, in
+  // trenta secondi; «manca la chiave Places sull'ambiente» e' una variabile
+  // d'ambiente del server e non si risolve dall'admin affatto. La colonna
+  // nasconde il blocco in tutti e due i casi — per il ristoratore e' giusto,
+  // non c'e' niente da vedere — ma la risposta ora dice QUALE delle due, e il
+  // server ne lascia traccia: senza, l'unico modo di saperlo era indovinare.
+  if (!KEY) {
+    console.error("[google-info] GOOGLE_PLACES_API_KEY assente su questo ambiente");
+    return json({ configured: false, motivo: "no-key" });
+  }
+  if (!placeId) return json({ configured: false, motivo: "no-place" });
 
   try {
     const info = await cacheOr(
@@ -203,7 +214,18 @@ export const GET: APIRoute = async ({ request }) => {
       }
     } catch { /* tabella assente/non collegato: restano le recensioni Places */ }
     return json({ configured: true, ...info, avis: avisOut, mois });
-  } catch {
-    return json({ configured: true, error: await msg("err.googleDown") }, 200);
+  } catch (e) {
+    // ⚠️ IL MOTIVO, non solo «non disponibile». Questa riga si accende quando
+    // Google rifiuta la scheda, e il perche' e' la meta' della risposta: 404
+    // vuol dire che quel Place ID non esiste (di solito e' stato incollato
+    // male, o e' di un'altra sede), 403 che la chiave non ha i permessi, 429
+    // che la quota e' finita. Senza, su un cliente a tre sedi si vede «non
+    // disponibile» su una sola e non si sa da che parte cominciare — e' il
+    // caso di 450 Gradi Jourdan, 08/10/2026.
+    // Il Place ID NON entra nel messaggio: va a schermo, e non e' un segreto
+    // ma e' rumore in una riga che deve dire una cosa sola.
+    const motivo = String((e as Error)?.message ?? "").trim().slice(0, 40);
+    console.error("[google-info]", motivo || "errore sconosciuto");
+    return json({ configured: true, error: await msg("err.googleDown"), motivo }, 200);
   }
 };

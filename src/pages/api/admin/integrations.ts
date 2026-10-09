@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { controllaPlaceId } from "../../../lib/admin/googleRegole";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
@@ -117,12 +118,35 @@ export const PUT: APIRoute = async ({ request }) => {
   const upserts: { key: string; value: string }[] = [];
 
   // --- Google Business : Place ID ---
-  // ⚠️ NON si scrive piu' da qui (15/09/2026). Il Place ID identifica UN
-  // esercizio fisico, quindi e' un dato della SEDE e si imposta nella sua
-  // scheda (Sedi → matita), che lo salva in `location_config`. La chiave
-  // resta LEGGIBILE in `app_config` perche' `leggiConfig` ci ripiega: le
-  // installazioni a sede unica di oggi continuano a funzionare senza
-  // toccare niente.
+  // ⚠️ SOLO A SEDE UNICA, e la storia spiega perche'. Il 15/09/2026 il Place
+  // ID e' passato da qui alla scheda della sede: identifica UN esercizio
+  // fisico, quindi tre pizzerie sono tre Place ID, e il posto giusto e' la
+  // scheda del punto. La riga che resto' qui diceva che le installazioni a
+  // sede unica «continuano a funzionare senza toccare niente» — ed era vero
+  // solo per chi un Place ID ce l'aveva GIA'. Un cliente a sede unica
+  // configurato dopo quel giorno non ha piu' avuto NESSUN posto dove
+  // metterlo: la scheda della sede, a sede unica, non esiste. Il blocco
+  // Google della Accueil non compariva, e in Integrations si leggeva
+  // «CONNESSO» — perche' il livello 2 (OAuth) e' un'altra cosa.
+  // E' lo stesso buco che quel giorno colpi' la scelta della scheda, dove il
+  // rimedio fu `#g-unica`: qui e' lo stesso, scritto nel marchio.
+  // Con piu' sedi si rifiuta: li' il posto giusto c'e', ed e' la scheda.
+  // ⚠️ QUESTO ENDPOINT NON SA CHE LE SEDI ESISTONO, ed e' una difesa
+  // strutturale: non importa niente da `admin/sede`, quindi il selettore
+  // dell'header non puo' arrivarci per nessuna strada. Percio' qui NON si
+  // controlla «e' multi-sede?» — sarebbe una seconda definizione di
+  // multi-sede, accanto a quella vera. A decidere dove va il Place ID e'
+  // chi disegna il campo: il super admin lo mostra solo quando le sedi non
+  // ci sono, e con piu' sedi si imposta nella scheda del punto. Quello che
+  // si scrive qui e' il valore DEL MARCHIO, che `leggiConfig` usa come
+  // ripiego — esattamente cio' che serve a un'installazione a sede unica.
+  if (body.google_place_id !== undefined) {
+    const pid = String(body.google_place_id).trim().slice(0, 200);
+    const esito = controllaPlaceId(pid);
+    if (esito === "chiave") return json({ error: await msg("itg.g.isKey") }, 400);
+    if (esito === "formato") return json({ error: await msg("loc.err.placeId") }, 400);
+    upserts.push({ key: K_GPLACE, value: pid });
+  }
 
   // --- Search Console : "sc-domain:exemple.be" ou une URL https ---
   if (body.gsc_site !== undefined) {

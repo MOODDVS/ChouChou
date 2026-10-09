@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente } from "../../../lib/admin/sede";
+import { controllaPlaceId } from "../../../lib/admin/googleRegole";
 import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
 import { salvaConfigStampa } from "../../../lib/stampaConfig";
 import { cifra, cifraturaPronta } from "../../../lib/segreti";
@@ -434,9 +435,11 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   if (body.place_id !== undefined) {
     const placeId = String(body.place_id).trim().slice(0, 200);
-    if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {
-      return json({ error: await msg("loc.err.placeId") }, 400);
-    }
+    // La regola sta in `googleRegole`, con l'altro posto che scrive un Place
+    // ID (Integrations, a sede unica): era la stessa regex in due file.
+    const esito = controllaPlaceId(placeId);
+    if (esito === "chiave") return json({ error: await msg("itg.g.isKey") }, 400);
+    if (esito === "formato") return json({ error: await msg("loc.err.placeId") }, 400);
     const err = await scriviConfig(ambitoDiRiga(id), { google_place_id: placeId });
     if (err) return json({ error: await msg(erroreDb("place", { message: err })) }, 500);
     return json({ ok: true });
