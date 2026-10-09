@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 import {
   fasce, statoGiorno, oreAperte, grafico, altezza, picco, oraDi, quanto,
 } from "../src/lib/admin/giornataRegole.ts";
-import { stelle, stellePiene, linkRecensioni, variazione } from "../src/lib/admin/googleRegole.ts";
+import { stelle, stellePiene, linkRecensioni, variazione, controllaPlaceId } from "../src/lib/admin/googleRegole.ts";
 
 const HOME = readFileSync("src/pages/admin/index.astro", "utf8");
 const FASCIA = readFileSync("src/components/admin/home/Giornata.astro", "utf8");
@@ -258,4 +258,56 @@ test("Google che non risponde non e' Google che non c'e'", () => {
   // l'unico modo di saperlo e' indovinare.
   assert.match(API, /motivo: "no-key"/, "la chiave Places assente non si distingue piu' dal Place ID mancante");
   assert.match(API, /motivo: "no-place"/, "il Place ID mancante non si distingue piu' dalla chiave assente");
+});
+
+test("un Place ID scritto male si riconosce, e si dice COME e' sbagliato", () => {
+  // ⚠️ Tre risposte e non un sì/no: i due rifiuti si riparano in modi
+  // diversi. «E' una chiave API» vuol dire che quella stringa va nel `.env` e
+  // che il Place ID e' un'altra cosa — ed e' L'ERRORE TIPICO, chi configura ha
+  // le due stringhe aperte nella stessa pagina di Google Cloud.
+  assert.equal(controllaPlaceId("ChIJrTLr-GyuEmsRBfy61i59si0"), "ok");
+  assert.equal(controllaPlaceId("AIzaSyD-ExampleKeyNotAPlaceId"), "chiave");
+  assert.equal(controllaPlaceId("ChIJ abc"), "formato");
+  assert.equal(controllaPlaceId("https://maps.google.com/?cid=123"), "formato");
+  // ⚠️ Il VUOTO va bene: vuol dire «togli il Place ID», ed e' una cosa che si
+  // deve poter fare — un campo che non si puo' svuotare e' un dato che non si
+  // puo' correggere.
+  assert.equal(controllaPlaceId(""), "ok");
+  assert.equal(controllaPlaceId("   "), "ok");
+  assert.equal(controllaPlaceId(null), "ok");
+});
+
+test("a sede unica il Place ID ha un posto dove essere messo", () => {
+  // ⚠️ IL BUCO TROVATO SU BROS, 09/10/2026. Il 15/09 il Place ID e' passato
+  // dall'installazione alla scheda della sede — giusto: identifica UN
+  // esercizio fisico. Ma a sede unica la scheda della sede NON ESISTE, e da
+  // quel giorno un cliente nuovo non ha piu' avuto nessun posto dove metterlo:
+  // in Integrations si legge «CONNESSO» (che e' il livello 2, OAuth, un'altra
+  // cosa) e il blocco Google della Accueil non compare mai. Lo stesso buco,
+  // lo stesso giorno, aveva colpito la scelta della scheda: il rimedio fu
+  // `#g-unica`, e questo e' il suo gemello.
+  const SUP = readFileSync("src/pages/admin/super.astro", "utf8");
+  assert.match(SUP, /id="g-place-unica"/, "a sede unica il Place ID non si puo' piu' impostare da nessuna parte");
+  assert.match(SUP, /g-place-unica[\s\S]{0,600}?id="g-place"/, "manca il campo del Place ID");
+  assert.match(SUP, /gPlaceBox\.style\.display = sedi\.length > 0 \? "none" : "block"/,
+    "il campo non si accende piu' solo a sede unica: con piu' sedi il posto giusto e' la scheda del punto");
+  // ⚠️ Il campo deve comparire anche senza OAuth: il Place ID e' il livello 1
+  // e non dipende dal collegamento a Google Business — era proprio la
+  // confusione che su BROS faceva leggere «connesso» e non mostrare niente.
+  assert.doesNotMatch(SUP, /connected && !conSedi[\s\S]{0,200}?g-place-unica/,
+    "il campo del Place ID e' tornato a dipendere dal collegamento OAuth");
+  // ⚠️ E il server NON si mette a decidere «e' multi-sede?»: Integrations non
+  // importa niente da `admin/sede` — e' la difesa strutturale per cui il
+  // selettore dell'header non puo' arrivarci (vedi superadmin.test.mjs).
+  // Chi decide dove va il Place ID e' chi disegna il campo. Quello che il
+  // server fa e' controllare come e' SCRITTO, con la stessa regola dell'altro
+  // posto che lo scrive.
+  const API = readFileSync("src/pages/api/admin/integrations.ts", "utf8");
+  const LOC = readFileSync("src/pages/api/admin/locations.ts", "utf8");
+  for (const [nome, src] of [["integrations", API], ["locations", LOC]]) {
+    assert.match(src, /controllaPlaceId\(/,
+      `${nome}: il Place ID si controlla con una regola sua invece di quella condivisa`);
+    assert.doesNotMatch(src, /\[A-Za-z0-9_-\]\+/,
+      `${nome}: la regex del Place ID e' tornata nel file — due copie, e la seconda resta indietro`);
+  }
 });
