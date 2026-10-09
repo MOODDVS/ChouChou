@@ -949,6 +949,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            ⚠️ `minmax(380px, 1fr)` e non una larghezza secca: quando le
            sezioni accese sono due e ci stanno, si prendono lo schermo invece
            di lasciare mezzo bancone vuoto. */
+        /* ⚠️ Il piede del `main` serve a far passare l'isola in fondo a una
+           pagina che SCORRE. Qui la Accueil non scorre: la fascia e' alta
+           quanto lo schermo e si ferma gia' sopra l'isola (`--j-col-sotto`).
+           Lasciarlo voleva dire un centinaio di pixel di vuoto sotto il
+           bancone, e la possibilita' di scorrere in giu' per vederli. Vale
+           solo qui: le altre pagine admin scorrono e quel piede gli serve. */
+        main { padding-bottom: 0; }
         .jour { --j-cols: none; --j-gap: 2rem; --j-scroll: auto;
           /* ⚠️ L'ALTEZZA SI RIACCENDE QUI. Da 1024 a 1100 vale anche la media
              query della fascia stretta, che l'aveva spenta (`auto`): senza
@@ -965,18 +972,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           grid-auto-flow: column; grid-auto-columns: var(--j-col-w);
           overflow-x: auto; overscroll-behavior-x: contain;
           scroll-snap-type: x proximity;
-          /* Lo spazio sotto e' per il dito e per la barra: senza, il filo di
-             scorrimento passa sopra l'ultima riga dei numeri. */
-          padding-bottom: 3rem;
+          /* ⚠️ UN FILO, non tre rem. Lo spazio serve al filo di scorrimento
+             orizzontale, che se no passa sopra l'ultima riga dei numeri — ma
+             qui la fascia E' la pagina, alta quanto lo schermo le concede, e
+             ogni millimetro sotto diventa una striscia vuota da scorrere in
+             verticale per non trovarci niente. */
+          padding-bottom: 1rem;
         }
         .jour > * { scroll-snap-align: start; }
-        /* ⚠️ L'ultima casella del bancone, non una riga in fondo: `1 / -1` su
-           una griglia a colonne automatiche creerebbe una RIGA sotto, e per
-           vedere un disegno si scorrerebbe in verticale uno schermo che e'
-           alto quanto le colonne. Qui il marchio e' l'ultima colonna: lo si
-           incontra arrivando in fondo allo scorrimento di lato. */
-        .j-marchio { grid-column: auto; }
-        .j-marchio i { width: 150px; }
       }
       @media (max-width: 759px) { .j-hm-f .src { margin-left: 0; } }
 
@@ -1003,6 +1006,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         background: var(--c-text); opacity: 0.12;
         -webkit-mask: url("/restohub/wordmark-negative.svg") center / contain no-repeat;
         mask: url("/restohub/wordmark-negative.svg") center / contain no-repeat; }
+      /* ⚠️ SUL BANCONE E' L'ULTIMA COLONNA, e questa regola deve stare DOPO
+         quella di sopra: scritta prima (dentro la media query del tablet) a
+         parita' di specificita' perdeva, il marchio si riprendeva
+         `grid-column: 1 / -1` — che su una griglia a colonne automatiche non
+         significa «tutta la larghezza» ma una colonna sola, la PRIMA — e
+         compariva a sinistra, davanti alla giornata.
+         Le media query non stanno tutte insieme in fondo a questo foglio: ogni
+         regola sta vicino a cio' che descrive, e percio' l'ordine va guardato
+         ogni volta che una variante tocca una proprieta' gia' scritta. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        .j-marchio { grid-column: auto; }
+        .j-marchio i { width: 150px; }
+      }
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
