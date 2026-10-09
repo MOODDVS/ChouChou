@@ -777,11 +777,21 @@ const prI18n = {
                  BROS. Qui il campo torna, e SOLO quando le sedi non ci
                  sono. -->
             <div id="g-place-unica" style="display:none">
-              <label class="f-label" for="g-place">Place ID</label>
-              <div class="loc-riga">
-                <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
-                <button type="button" id="g-place-test" class="btn">{t("common.verify")}</button>
-                <button type="button" id="g-place-save" class="us-add">{t("common.save")}</button>
+              {/* ⚠️ `.f-field` NON e' decorazione: `.f-note` qui sotto ha un
+                  margine NEGATIVO (-0.55rem), fatto apposta per annullare lo
+                  spazio sotto un `.f-field` e attaccarsi al campo. Senza
+                  l'involucro quel margine non annulla niente e la frase SALE
+                  SOPRA il campo — succede subito, si vede, ed e' quello che
+                  si e' visto su BROS il 09/10. Stessa ossatura del Place ID
+                  nella scheda della sede: involucro, label, riga, e la nota
+                  FUORI, subito dopo. */}
+              <div class="f-field">
+                <label class="f-label" for="g-place">Place ID</label>
+                <div class="loc-riga">
+                  <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
+                  <button type="button" id="g-place-test" class="btn">{t("common.verify")}</button>
+                  <button type="button" id="g-place-save" class="us-add">{t("common.save")}</button>
+                </div>
               </div>
               <p class="f-note" id="g-place-res">{t("loc.placeIdHint")}</p>
             </div>
