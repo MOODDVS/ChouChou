@@ -847,8 +847,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .m-var { color: #ffb9ad; }
       /* L'interruttore dentro la riga non deve stirarsi in altezza con lei. */
       .j-menu .j-li .switch { flex: none; align-self: center; }
+      /* Le etichette della lavagnetta: piene e bianche come le altre
+         pastiglie della fascia. Erano un contorno col testo grigio — su un
+         fondo chiaro, due grigi uno sull'altro. */
       .j-tag { font-size: 0.6rem; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
-        padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid var(--c-line); color: var(--c-muted); }
+        padding: 0.12rem 0.45rem; border-radius: 999px; background: #5f7378; color: #fff; }
       .j-li .tx small b { color: var(--c-text); font-weight: 700; }
       /* Niente da mostrare: non e' un errore ne' una riga mancante, e' la
          buona notizia della serata.
@@ -872,19 +875,43 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         font-family: var(--font-body); cursor: default;
         white-space: nowrap; height: 26px; padding: 0 0.7rem; display: inline-flex; align-items: center;
         justify-content: center; flex: none; font-weight: 700; }
-      .j-badge.ok { background: rgba(46, 158, 107, .18); border: 1px solid #2e9e6b; color: #6fd0a3; }
-      .j-badge.pd { background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg); }
-      .j-badge.bl { background: rgba(59, 130, 246, .16); border: 1px solid #3b82f6; color: #8ab6ff; }
-      .j-badge.gr { background: rgba(179, 172, 166, .12); border: 1px solid var(--c-muted); color: var(--c-muted); }
+      /* ⚠️ FONDO PIENO E SCRITTA BIANCA (09/10/2026). Erano tinte tenui con
+         il bordo colorato e la scritta nel colore dello stato: un disegno
+         fatto per il fondo SCURO, dove una velatura al 15% si stacca. Sul
+         tema chiaro quelle stesse velature diventano quasi bianche e la
+         scritta chiara ci sparisce dentro — «Terminée» era messa anche
+         peggio: bordo bianco e testo bianco, cioe' invisibile su bianco.
+         Il pieno e' l'unico che non dipende dal tema di chi guarda, ed e' la
+         stessa lingua delle pastiglie delle foto e dei giorni speciali.
+         ⚠️ I colori restano FISSI: `--c-accent` e' il colore delle AZIONI e
+         cambia da cliente a cliente — «confermata» non deve diventare blu
+         perche' un ristorante ha scelto il blu. */
+      .j-badge.ok { background: #2e9e6b; color: #fff; }
+      /* L'unica legata all'accento: «in attesa» e' la riga su cui si deve
+         fare qualcosa, ed e' il colore con cui il pannello chiama all'azione. */
+      .j-badge.pd { background: var(--c-accent); color: var(--c-bg); }
+      .j-badge.bl { background: #3b82f6; color: #fff; }
+      /* ⚠️ Una regola per due nomi: `gr` (prenotazione finita, no-show,
+         annullata) e `done` (ordine terminato o annullato) sono la stessa
+         cosa in due colonne — una riga chiusa, che non chiede piu' niente.
+         Due grigi diversi sarebbero stati due stati diversi. */
+      .j-badge.gr,
+      .j-badge.done { background: #5f7378; color: #fff; }
       .j-badge.enc { background: #5d5555; color: #fff; }
       .j-badge.pay { background: #2e9e6b; color: #fff; }
-      .j-badge.done { border: 1px solid #fff; color: #fff; }
       /* «Fini ?» — la domanda dell'orologio: la stessa veste di `.b-fini`
          nella pagina Réservations, perche' e' la stessa domanda.
          ⚠️ Senza il battito che ha di la'. Nella pagina ce n'e' una alla
          volta in mezzo a venti righe ferme; qui le righe sono poche e tutte
          della sera: tre pastiglie che pulsano insieme in un terzo di schermo
          non chiamano l'attenzione, la consumano. */
+      /* ⚠️ «Fini ?» NON diventa piena, ed e' l'unica. Non e' uno stato: e' una
+         DOMANDA che si clicca, e ha la veste del suo bottone nella pagina
+         Réservations (`.b-fini`: contorno, e si riempie al passaggio). Piena
+         sarebbe identica a «in attesa» — due cose diverse con la stessa
+         faccia — e sul chiaro il contorno accento su fondo quasi bianco si
+         legge, perche' il colore sta nel bordo e nella scritta, non in una
+         velatura. */
       .j-badge.fin { background: color-mix(in srgb, var(--c-accent) 15%, transparent);
         border: 1px solid var(--c-accent); color: var(--c-accent); }
       /* Quella delle prenotazioni si clicca: lo dice il cursore, e si accende
