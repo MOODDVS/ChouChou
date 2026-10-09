@@ -22,9 +22,9 @@ import { PRODOTTO } from "../../config/client";
     font-size: 0.68rem;
     letter-spacing: 0.04em;
     color: var(--c-muted, var(--c-muted));
+    /* ⚠️ La sfocatura sta in `AdminHead` (`VETRO_CSS`): nel CSS di un
+       componente la costruzione la toglieva in silenzio. */
     background: color-mix(in srgb, var(--c-bg) 85%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     border-top: 1px solid var(--c-line, var(--c-line));
     white-space: nowrap;
   }
