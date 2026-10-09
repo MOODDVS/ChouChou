@@ -160,6 +160,8 @@ export interface RigaFisica {
   inverso: boolean;
   /** Questa riga non e' testo: e' il logo caricato nella stampante. */
   logo?: boolean;
+  /** Comandi gia' pronti, da far passare TALI E QUALI (vedi `RigaTicket`). */
+  grezzo?: string;
 }
 
 /**
@@ -175,8 +177,11 @@ export function impagina(righe: RigaTicket[]): RigaFisica[] {
        e' un oggetto della stampante. Esce qui e salta tutto il resto, se no
        `aCapo` proverebbe a impaginare una riga vuota e ne uscirebbe una
        riga bianca in piu' sopra il marchio. */
-    if (r.logo) {
-      out.push({ testo: "", taglia: "normale", grassetto: false, centrato: true, inverso: false, logo: true });
+    if (r.logo || r.grezzo) {
+      out.push({
+        testo: "", taglia: "normale", grassetto: false, centrato: true, inverso: false,
+        logo: r.logo || undefined, grezzo: r.grezzo,
+      });
       if (r.linea) out.push({ testo: linea("-", TAGLIE.normale.colonne), taglia: "normale", grassetto: false, centrato: false, inverso: false });
       continue;
     }
@@ -225,6 +230,7 @@ export function anteprima(righe: RigaTicket[]): string {
   return impagina(righe)
     .map((r) => {
       if (r.logo) return "[logo]".padStart(Math.floor((COLONNE + 6) / 2));
+      if (r.grezzo) return "[immagine]".padStart(Math.floor((COLONNE + 10) / 2));
       const col = TAGLIE[r.taglia].colonne;
       const scala = COLONNE / col;
       const vuoto = r.centrato ? Math.max(0, Math.floor(((col - r.testo.length) / 2) * scala)) : 0;
@@ -267,8 +273,16 @@ export function componi(righe: RigaTicket[]): Uint8Array {
     /* Il logo: si centra, si stampa, si torna a sinistra. Non cambia taglia
        ne' grassetto, quindi lo stato del resto del ticket resta quello che
        era. */
-    if (r.logo) {
-      parti.push(C.centro, C.logo, enc.encode("\n"), centro ? C.centro : C.sinistra);
+    if (r.logo || r.grezzo) {
+      /* ⚠️ Si rimette la taglia NORMALE prima di disegnare. `GS !` vale anche
+         per le immagini su parecchie stampanti: una banda mandata mentre e'
+         attiva la doppia larghezza esce larga il doppio e sfonda la carta,
+         cioe' si perde meta' logo senza un errore da nessuna parte. */
+      if (taglia && taglia !== "normale") { parti.push(TAGLIE[taglia].post, TAGLIE.normale.cmd); taglia = "normale"; }
+      parti.push(C.centro);
+      if (r.logo) parti.push(C.logo);
+      if (r.grezzo) parti.push(enc.encode(r.grezzo));
+      parti.push(enc.encode("\n"), centro ? C.centro : C.sinistra);
       continue;
     }
     if (taglia !== r.taglia) {

@@ -280,6 +280,25 @@ export interface RigaTicket {
    * niente e non sbaglia niente: resta una riga vuota.
    */
   logo?: boolean;
+  /**
+   * COMANDI GIA' PRONTI, che passano tali e quali.
+   *
+   * ⚠️ E' una porta di servizio, e si vede: tutto il resto di questo file
+   * descrive il ticket A PAROLE — «grande», «centrato», «inverso» — proprio
+   * perche' un disegno sbagliato non possa rompere la stampa, al massimo
+   * uscire brutto. Qui invece si scrivono comandi a mano, e chi sbaglia manda
+   * alla testina quello che vuole.
+   *
+   * ⚠️ Esiste per UNA cosa: un'immagine. E' l'unico pezzo che non si puo'
+   * descrivere a parole, perche' i suoi byte vanno sopra il 128 e il
+   * trasporto e' testo — quindi vanno scritti come i CARATTERI che l'app
+   * riconvertira' in quei byte. Oggi la usa solo la prova del logo
+   * (`provaLogo.ts`), che e' un esperimento con la data di scadenza scritta
+   * in testa. Se l'esperimento riesce, quello che ne resta va in una funzione
+   * di `escpos.ts` che prende un bitmap — non in questa riga lasciata aperta
+   * a chiunque.
+   */
+  grezzo?: string;
 }
 
 export interface OrdineDaStampare {

@@ -196,3 +196,33 @@ test("il ripiego del motore NON stampa il logo, il cliente lo accende", () => {
   assert.ok(!ticketCucina(ORDINE).some((r) => r.logo), "il ripiego ha iniziato a stampare un logo da solo");
   assert.ok(ticketCucina({ ...ORDINE, logo: true }).some((r) => r.logo), "il cliente non puo' piu' accenderlo");
 });
+
+test("i comandi gia' pronti passano tali e quali, e non in doppia larghezza", () => {
+  // ⚠️ `grezzo` serve a UNA cosa: un'immagine, che e' l'unico pezzo del ticket
+  // che non si puo' descrivere a parole. Due cose devono reggere.
+  //
+  // 1. Passa INTATTO. Se `impagina` lo trattasse come testo, `aCapo`
+  //    spezzerebbe i comandi sugli spazi — e uno spazio, dentro i dati di
+  //    un'immagine, e' semplicemente il byte 0x20: il disegno si romperebbe
+  //    esattamente dove capita, senza un errore da nessuna parte.
+  // 2. Esce in taglia NORMALE. `GS !` vale anche per le immagini su parecchie
+  //    stampanti: una banda mandata mentre e' attiva la doppia larghezza esce
+  //    larga il doppio e meta' finisce fuori dalla carta.
+  const disegno = "\u001dv0\u0000\u0004\u0000\u0002\u0000ABCDEFGH";
+  const righe = [
+    { testo: "450 GRADI", taglia: "gigante", centrato: true },
+    { grezzo: disegno, testo: "" },
+  ];
+  const fisiche = impagina(righe);
+  assert.equal(fisiche.length, 2, "il comando e' stato spezzato in piu' righe");
+  assert.equal(fisiche[1].grezzo, disegno, "il comando e' stato ritoccato");
+
+  const testo = componiTesto(righe);
+  assert.ok(testo.includes(disegno), "il comando non e' uscito intatto");
+  const prima = testo.slice(0, testo.indexOf(disegno));
+  const ultimaTaglia = prima.lastIndexOf("\u001d!");
+  assert.ok(ultimaTaglia >= 0, "nessuna taglia impostata prima dell'immagine");
+  assert.equal(prima.charCodeAt(ultimaTaglia + 2), 0, "l'immagine parte in doppia larghezza: uscira' tagliata");
+
+  assert.ok(anteprima(righe).includes("[immagine]"), "l'anteprima non dice che li' c'e' un disegno");
+});
