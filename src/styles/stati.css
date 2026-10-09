@@ -59,10 +59,22 @@
    piu' piccola a seconda della pagina. E il giorno che si cambia il
    verde, si cambia in un posto e si dimentica l'altro.
 
-   ⚠️ I colori NON sono `--c-ok` e `--c-hover`: aperto e chiuso qui
-   sono uno STATO da leggere, non un esito d'azione, e vanno letti su
-   un fondo tenue — un verde pieno in una colonna di dodici righe
-   diventa una fila di lampadine.
+   ⚠️ COLORI PIENI E SCRITTA BIANCA (09/10/2026). Erano tinte tenui —
+   un fondo trasparente e la scritta nel colore dello stato — e la
+   ragione scritta qui era che «un verde pieno in una colonna di dodici
+   righe diventa una fila di lampadine». Vera su fondo scuro, falsa sul
+   TEMA CHIARO: `rgba(0,113,83,.3)` sul bianco diventa un verdino, e il
+   `#58c9a3` della scritta ci sparisce dentro. La pastiglia grigia era
+   anche peggio — `rgba(255,255,255,.09)` su bianco e' bianco, e di
+   «FESTA» restava una parola grigia senza pastiglia.
+   Il fondo pieno e' l'unico che non dipende dal tema di chi guarda, ed
+   e' la stessa lingua delle pastiglie delle foto (`.ph-menu`,
+   `.ph-site`, `.ph-b`): colore pieno, scritta bianca.
+   ⚠️ I colori sono FISSI e non `--c-accent`: quello e' il colore delle
+   AZIONI e cambia da cliente a cliente — «chiuso» non deve diventare
+   verde perche' un ristorante ha scelto il verde. Il verde e il rosso
+   qui sono gli stessi che il pannello usa gia' per «confermata» e per
+   l'attenzione.
    ============================================================ */
 
 .spx-b {
@@ -75,12 +87,15 @@
   font-weight: 800;
 }
 
-.spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
-.spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+.spx-b.open { background: #2e9e6b; color: #fff; }
+.spx-b.closed { background: #c7443f; color: #fff; }
 /* Grigia: una festa che nessuno ha ancora deciso, o un piatto fuori dal
-   sito. Rossa (.closed) = chiuso, o esaurito ma ancora a menu. */
+   sito. Rossa (.closed) = chiuso, o esaurito ma ancora a menu.
+   ⚠️ Il grigio e' quello delle foto del sito (`.ph-site`): un grigio
+   PIENO, non il fondo semitrasparente di prima — che sul tema chiaro
+   spariva, e la pastiglia non si vedeva affatto. */
 .spx-b.hid,
-.spx-b.fete { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
+.spx-b.fete { background: #5f7378; color: #fff; }
 /* Piena: «oggi». E' l'unica riga della colonna che parla del momento in
    cui qualcuno la sta guardando. */
 .spx-b.now { background: var(--c-accent); color: var(--c-bg); }
