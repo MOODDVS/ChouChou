@@ -13,6 +13,9 @@ import {
   RIPIEGO_STAMPA, CHIAVI_STAMPA, accesoStampa, stampaAttiva,
   daStampare, attesaTentativo, MAX_TENTATIVI, ticketCucina,
 } from "../src/lib/stampaRegole.ts";
+// ⚠️ Le colonne di una taglia si CHIEDONO a `escpos.ts`: scritte a mano qui,
+// una taglia nuova resterebbe misurata con i numeri di quella vecchia.
+import { colonneDi } from "../src/lib/escpos.ts";
 
 const leggi = (f) => readFileSync(f, "utf8");
 
@@ -90,11 +93,18 @@ test("il ticket di cucina non e' uno scontrino", () => {
   assert.equal(righe[0].taglia, "gigante");
 
   // ⚠️ L'ora due volte, e non e' una svista: sul ferma-comande si vede solo
-  // la prima riga di ogni ticket, il resto lo copre quello davanti. Piccola
-  // in alto per sapere quale va in forno adesso, grossa sotto per chi ce
-  // l'ha in mano.
+  // la prima riga di ogni ticket, il resto lo copre quello davanti. Una in
+  // alto per sapere quale va in forno adesso, una sotto per chi ce l'ha in
+  // mano.
+  //
+  // ⚠️ Quella in alto NON e' piu' `piccolo`, ed era un difetto vero: la riga
+  // per cui il ticket esiste usciva nel Font B, il carattere condensato della
+  // stampante, che sta in 64 colonne perche' e' stretto — non perche'
+  // servissero 64 colonne per venti caratteri. 450 Gradi l'ha visto sulla
+  // carta prima che io nel codice (09/10/2026). Qui non si impone una taglia,
+  // si impone che sia larga il doppio: `escpos.ts` dice quante colonne vale.
   assert.match(righe[1].testo, /RITIRO 19:30/);
-  assert.equal(righe[1].taglia, "piccolo");
+  assert.equal(colonneDi(righe[1].taglia), 24, `la riga del ritiro e' tornata stretta (${righe[1].taglia})`);
   const grossa = righe.filter((r) => r.testo === "19:30" && r.taglia === "gigante");
   assert.equal(grossa.length, 1, "l'ora grossa non c'e' piu', o ce n'e' piu' d'una");
 
@@ -122,6 +132,7 @@ test("il ticket di cucina non e' uno scontrino", () => {
   // La nota del piatto non e' mai piccola.
   const nota = righe.find((r) => r.testo.includes("senza basilico"));
   assert.notEqual(nota.taglia, "piccolo", "la nota del piatto e' diventata piccola: e' la riga che fa sbagliare l'ordine");
+  assert.equal(colonneDi(nota.taglia), 24, "la nota del piatto e' tornata stretta: e' la riga che fa sbagliare l'ordine");
 });
 
 test("fra un piatto e l'altro c'e' aria, in fondo all'elenco no", () => {
@@ -164,7 +175,7 @@ test("senza insegna il ticket comincia dalla riga di servizio", () => {
   // vuota grande come un titolo.
   const righe = ticketCucina({ numero: "4F2A", ora: "19:45", cliente: "Marco Rossi", piatti: [{ qty: 1, nome: "Margherita" }] });
   assert.match(righe[0].testo, /^#4F2A/);
-  assert.equal(righe[0].taglia, "piccolo");
+  assert.equal(colonneDi(righe[0].taglia), 24, "la riga di servizio e' tornata stretta");
 });
 
 test("un ordine pagato non puo' avere due ticket automatici", () => {

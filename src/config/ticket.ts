@@ -22,7 +22,13 @@ import type { OrdineDaStampare, RigaTicket } from "../lib/stampaRegole";
  * e chi le trasforma in comandi per la stampante (`escpos.ts`) resta del
  * motore: cosi' un disegno nuovo non puo' rompere la stampa, al massimo esce
  * brutto. Le misure vere: 48 colonne in `normale` e `grande`, 24 in
- * `gigante`, 64 in `piccolo`.
+ * `gigante` e `largo`, 64 in `piccolo`. ⚠️ `grande` e' doppia ALTEZZA sola —
+ * tiene le 48 colonne ma le lettere sembrano strette; per scrivere davvero
+ * grande servono `gigante` o `largo`, e si paga in colonne.
+ *
+ * `logo: true` su una riga stampa il marchio caricato DENTRO la stampante.
+ * Vuole un passo a mano su ogni stampante (vedi `C.logo` in `escpos.ts`);
+ * dove non e' stato fatto, non stampa niente e non rompe niente.
  *
  * ⚠️ `ticketCucina` del motore e' il RIPIEGO, non una base da copiare: finche'
  * si chiama lui, il cliente riceve anche i miglioramenti dei giri successivi.

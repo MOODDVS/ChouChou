@@ -38,6 +38,25 @@ const C = {
   /** Avanza la carta e taglia: senza questo il ticket resta attaccato al
    *  prossimo, e in cucina arrivano due ordini su un nastro solo. */
   taglio: b(GS, 0x56, 0x42, 0x00),
+  /**
+   * IL LOGO CHE STA DENTRO LA STAMPANTE (NV logo, `FS p n m`).
+   *
+   * ⚠️ NON e' un'immagine spedita col ticket, ed e' l'unica via possibile. Un
+   * bitmap ESC/POS (`GS v 0`) porta byte sopra il 128, e il corpo della
+   * risposta viaggia come testo UTF-8: quei byte verrebbero ricodificati e
+   * arriverebbe spazzatura alla testina — lo stesso guasto delle tabelle di
+   * caratteri, gia' provato su carta. Questi quattro byte stanno tutti sotto
+   * il 128, come tutti gli altri comandi, e il test dell'andata e ritorno
+   * resta verde.
+   *
+   * ⚠️ IL LOGO VA CARICATO UNA VOLTA NELLA FLASH DELLA STAMPANTE, con
+   * l'utility del costruttore, e in OGNUNA: e' un oggetto della stampante,
+   * non del ticket. Su una stampante che non ce l'ha questo comando non
+   * stampa niente — non sbaglia, non blocca: non succede nulla. E' il motivo
+   * per cui si puo' lasciare acceso senza rischi mentre si attrezzano i
+   * punti uno alla volta.
+   */
+  logo: b(0x1c, 0x70, 1, 0),
 };
 
 /**
@@ -53,9 +72,22 @@ const C = {
 export const COLONNE = 48;
 
 const TAGLIE = {
-  /** L'ora: doppia altezza E larghezza. */
+  /** L'ora e i piatti: doppia altezza E larghezza. */
   gigante: { cmd: b(GS, 0x21, 0x11), pre: b(), post: b(), colonne: 24 },
-  /** I piatti: doppia altezza, larghezza normale. Restano 48 colonne. */
+  /**
+   * Doppia LARGHEZZA sola: lettere larghe il doppio, alte come le normali.
+   *
+   * ⚠️ E' la taglia che mancava, e la mancanza si vedeva. Per scrivere piu'
+   * grande c'era solo `grande`, che e' doppia ALTEZZA sola: le lettere si
+   * allungano in verticale e restano larghe uguale, cioe' diventano STRETTE.
+   * 450 Gradi l'ha detto con parole sue — «scritte piu' grandi e un carattere
+   * meno stretto» — e aveva ragione due volte: anche il Font B di `piccolo`
+   * e' il carattere condensato della stampante.
+   */
+  largo: { cmd: b(GS, 0x21, 0x10), pre: b(), post: b(), colonne: 24 },
+  /** Doppia altezza, larghezza normale: 48 colonne, ma lettere strette.
+   *  ⚠️ Per scrivere grande preferire `gigante` o `largo`: questa serve
+   *  quando servono davvero 48 colonne e un po' piu' di presenza. */
   grande: { cmd: b(GS, 0x21, 0x01), pre: b(), post: b(), colonne: COLONNE },
   normale: { cmd: b(GS, 0x21, 0x00), pre: b(), post: b(), colonne: COLONNE },
   /** Font B: piu' piccolo e piu' stretto, 64 colonne. Per le righe di
@@ -66,6 +98,15 @@ const TAGLIE = {
 export type Taglia = keyof typeof TAGLIE;
 
 const taglieDi = (t: RigaTicket["taglia"]) => TAGLIE[(t ?? "normale") as Taglia] ?? TAGLIE.normale;
+
+/**
+ * Quante colonne ha una taglia. ⚠️ Esiste perche' il numero stava scritto
+ * anche nelle prove («gigante ? 24 : piccolo ? 64 : 48»): una taglia nuova
+ * entrava nel motore e la prova continuava a misurarla con 48 colonne, cioe'
+ * smetteva di provare proprio il caso nuovo senza diventare rossa. Una
+ * misura, un posto solo.
+ */
+export const colonneDi = (t: RigaTicket["taglia"]): number => taglieDi(t).colonne;
 
 /**
  * Spezza un testo troppo lungo, sulle PAROLE, e rientra le continuazioni.
@@ -117,6 +158,8 @@ export interface RigaFisica {
   grassetto: boolean;
   centrato: boolean;
   inverso: boolean;
+  /** Questa riga non e' testo: e' il logo caricato nella stampante. */
+  logo?: boolean;
 }
 
 /**
@@ -128,6 +171,15 @@ export interface RigaFisica {
 export function impagina(righe: RigaTicket[]): RigaFisica[] {
   const out: RigaFisica[] = [];
   for (const r of righe ?? []) {
+    /* ⚠️ Il logo non si spezza, non si centra col testo e non ha colonne:
+       e' un oggetto della stampante. Esce qui e salta tutto il resto, se no
+       `aCapo` proverebbe a impaginare una riga vuota e ne uscirebbe una
+       riga bianca in piu' sopra il marchio. */
+    if (r.logo) {
+      out.push({ testo: "", taglia: "normale", grassetto: false, centrato: true, inverso: false, logo: true });
+      if (r.linea) out.push({ testo: linea("-", TAGLIE.normale.colonne), taglia: "normale", grassetto: false, centrato: false, inverso: false });
+      continue;
+    }
     const t = taglieDi(r.taglia);
     const nome = ((r.taglia ?? "normale") as Taglia) in TAGLIE ? ((r.taglia ?? "normale") as Taglia) : "normale";
     const inverso = Boolean((r as RigaTicket & { inverso?: boolean }).inverso);
@@ -150,8 +202,20 @@ export function impagina(righe: RigaTicket[]): RigaFisica[] {
   return out;
 }
 
-/** Il testo del ticket come si vedrebbe su carta. Serve ai test e
- *  all'anteprima nel pannello: nessuno sa leggere dei byte. */
+/**
+ * Il testo del ticket come si vedrebbe su carta: serve alle PROVE e a
+ * guardarlo con gli occhi, perche' nessuno sa leggere dei byte. ⚠️ Nel
+ * pannello non c'e' ancora nessuna anteprima che la chiami — questa riga
+ * diceva il contrario, e una dipendenza immaginaria e' un motivo in meno per
+ * accorgersi che manca.
+ *
+ * ⚠️ NON e' fedele al millimetro, e non puo' esserlo: in `gigante` e `largo`
+ * ogni carattere occupa DUE celle sulla carta, e in un testo a spaziatura
+ * fissa ne occupa una. Il rientro e il punto di partenza sono giusti (si
+ * riportano sulla griglia da 48), la lunghezza apparente della riga no: una
+ * riga larga sembra finire a meta' foglio e invece arriva al bordo. Chi
+ * vuole la misura vera conta le colonne della sua taglia con `colonneDi`.
+ */
 export function anteprima(righe: RigaTicket[]): string {
   /* ⚠️ Le righe non hanno tutte la stessa griglia: 24 colonne in gigante, 64
      in piccolo, 48 nelle altre. Il rientro si riporta sulla CARTA, se no
@@ -160,6 +224,7 @@ export function anteprima(righe: RigaTicket[]): string {
      serata a sistemare un difetto che esiste solo nell'anteprima. */
   return impagina(righe)
     .map((r) => {
+      if (r.logo) return "[logo]".padStart(Math.floor((COLONNE + 6) / 2));
       const col = TAGLIE[r.taglia].colonne;
       const scala = COLONNE / col;
       const vuoto = r.centrato ? Math.max(0, Math.floor(((col - r.testo.length) / 2) * scala)) : 0;
@@ -199,6 +264,13 @@ export function componi(righe: RigaTicket[]): Uint8Array {
   let grass = false, centro = false, inv = false;
 
   for (const r of impagina(righe)) {
+    /* Il logo: si centra, si stampa, si torna a sinistra. Non cambia taglia
+       ne' grassetto, quindi lo stato del resto del ticket resta quello che
+       era. */
+    if (r.logo) {
+      parti.push(C.centro, C.logo, enc.encode("\n"), centro ? C.centro : C.sinistra);
+      continue;
+    }
     if (taglia !== r.taglia) {
       if (taglia) parti.push(TAGLIE[taglia].post);
       parti.push(TAGLIE[r.taglia].cmd, TAGLIE[r.taglia].pre);
