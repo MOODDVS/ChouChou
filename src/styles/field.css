@@ -105,9 +105,15 @@ input[type="time"].fld:hover::-webkit-calendar-picker-indicator,
   border-color: var(--c-accent);
 }
 
+/* ⚠️ `--c-ph` e NON `--c-muted`. Il grigio secondario lo sceglie il cliente
+   nel suo tema: su 450 Gradi e' quasi bianco, e i suggerimenti dentro i
+   campi si leggevano come testo scritto davvero. Il colore del placeholder
+   nasce dal TESTO sfumato nel trasparente, e sta in un posto solo
+   (AdminHead): qui si usa, non si sceglie. Il ripiego a `--c-muted` e' per
+   le pagine che non montano AdminHead. */
 .md-overlay .md-box :is(input, textarea)::placeholder,
 .fld::placeholder {
-  color: var(--c-muted);
+  color: var(--c-ph, var(--c-muted));
   opacity: 1;
 }
 

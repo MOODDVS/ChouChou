@@ -37,12 +37,27 @@ const boot = await caricaBootAdmin();
 // App installata col marchio del cliente: vale solo se l'icona c'e' davvero
 // (caricaBootAdmin ripiega gia' su "restohub" se manca, qui e' solo leggibilita').
 const marchioCliente = boot.pwaBrand === "client" && !!boot.appIcon;
-// Placeholder piu' chiari: 40% del colore testo mescolato col fondo, cosi'
-// si distinguono nettamente dai campi compilati (in qualsiasi tema).
-// :where() = specificita' 0 -> le regole ::placeholder specifiche delle
-// singole pagine vincono comunque. opacity:1 annulla il 0.54 di Firefox.
+// IL COLORE DEI PLACEHOLDER, una volta per tutto il pannello.
+//
+// ⚠️ NON `--c-muted`, ed e' il guasto visto su 450 Gradi (09/10/2026): il
+// grigio secondario e' un colore del TEMA, che ogni cliente sceglie, e li'
+// e' quasi bianco — i suggerimenti dentro i campi si leggevano come testo
+// scritto davvero. Un placeholder non e' testo secondario: e' testo che NON
+// C'E', e deve sembrarlo su qualunque tema.
+//
+// ⚠️ Mescolato con `transparent` e non col fondo pagina: i campi hanno il
+// LORO fondo (`--c-input`), che nei temi scuri e' piu' chiaro della pagina.
+// Mescolando con `--c-bg` il suggerimento sarebbe stato calcolato su un
+// fondo che non e' quello su cui si posa. Trasparente si fonde con quello
+// che ha dietro, qualunque sia.
+//
+// `:where()` = specificita' zero, quindi ogni regola di pagina vince:
+// percio' il colore sta in una VARIABILE, e chi ha una sua regola
+// `::placeholder` usa quella (vedi `styles/field.css`) invece di un grigio
+// proprio. `opacity:1` annulla lo 0.54 che ci mette Firefox.
 const PLACEHOLDER_CSS =
-  ":where(input,textarea)::placeholder{color:color-mix(in srgb,var(--c-text) 40%,var(--c-bg));opacity:1}";
+  ":root{--c-ph:color-mix(in srgb,var(--c-text) 38%,transparent)}" +
+  ":where(input,textarea)::placeholder{color:var(--c-ph);opacity:1}";
 // Layout del contenuto: UNICA definizione per <main>, condivisa da tutte le
 // pagine admin (AdminHead è nel <head> di ognuna). Prima era ripetuta in ogni
 // pagina. Mobile: meno padding laterale (più spazio alle card); il padding in

@@ -190,7 +190,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem;
         padding: 0.65rem 0.85rem; border-radius: 8px; transition: border-color 0.2s;
       }
-      .f-input::placeholder, .f-area::placeholder { color: var(--c-muted); opacity: 0.7; }
+      .f-input::placeholder, .f-area::placeholder { color: var(--c-ph, var(--c-muted)); opacity: 1; }
       .f-input:focus, .f-area:focus { outline: none; border-color: var(--c-accent); }
       .f-area { min-height: 90px; resize: vertical; }
       .f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
