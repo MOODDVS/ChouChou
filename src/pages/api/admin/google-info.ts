@@ -100,7 +100,18 @@ export const GET: APIRoute = async ({ request }) => {
   const ambitoPI = await ambitoDiRichiesta(request, staff);
   const cfgPI = await leggiConfig(ambitoPI, ["google_place_id"]);
   const placeId = (cfgPI.valori.get("google_place_id") ?? "").trim();
-  if (!placeId || !KEY) return json({ configured: false });
+  // ⚠️ DUE ASSENZE DIVERSE, e per mesi hanno dato la stessa risposta muta.
+  // «Nessun Place ID per questo punto» si risolve in Réglages del super, in
+  // trenta secondi; «manca la chiave Places sull'ambiente» e' una variabile
+  // d'ambiente del server e non si risolve dall'admin affatto. La colonna
+  // nasconde il blocco in tutti e due i casi — per il ristoratore e' giusto,
+  // non c'e' niente da vedere — ma la risposta ora dice QUALE delle due, e il
+  // server ne lascia traccia: senza, l'unico modo di saperlo era indovinare.
+  if (!KEY) {
+    console.error("[google-info] GOOGLE_PLACES_API_KEY assente su questo ambiente");
+    return json({ configured: false, motivo: "no-key" });
+  }
+  if (!placeId) return json({ configured: false, motivo: "no-place" });
 
   try {
     const info = await cacheOr(

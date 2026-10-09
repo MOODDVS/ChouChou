@@ -250,4 +250,12 @@ test("Google che non risponde non e' Google che non c'e'", () => {
   assert.match(API, /motivo/, "l'API non manda piu' il motivo del rifiuto di Google");
   assert.match(API, /console\.error\("\[google-info\]"/,
     "il rifiuto di Google non lascia piu' traccia nei log del server");
+  // ⚠️ E le due ASSENZE non sono la stessa assenza: «nessun Place ID per
+  // questo punto» si risolve in Réglages in trenta secondi, «manca la chiave
+  // Places sull'ambiente» e' una variabile del server e dall'admin non si
+  // risolve affatto. Lo schermo tace in tutti e due i casi — per il
+  // ristoratore e' giusto — ma la risposta deve dire quale delle due, se no
+  // l'unico modo di saperlo e' indovinare.
+  assert.match(API, /motivo: "no-key"/, "la chiave Places assente non si distingue piu' dal Place ID mancante");
+  assert.match(API, /motivo: "no-place"/, "il Place ID mancante non si distingue piu' dalla chiave assente");
 });
