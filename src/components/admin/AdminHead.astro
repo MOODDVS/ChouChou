@@ -78,6 +78,36 @@ const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-barra:#4e8f9c}
 // volta rattoppato sul posto con una regola in piu'. Qui si chiude per tutti.
 // `!important` e' voluto: `hidden` dice che la cosa NON C'E', e non e' una
 // preferenza di stile che un'altra regola possa discutere.
+// IL VETRO (liquid glass): le tre sfocature del telaio, QUI e non nei loro
+// componenti — ed e' l'unico motivo per cui stanno separate dal fondo che
+// accompagnano.
+//
+// ⚠️ IL GUASTO (09/10/2026, trovato su L'Huile). Header, isola della nav e
+// filo del copyright avevano ognuno il suo `backdrop-filter` nel proprio
+// `<style>`, e sul sito in produzione il vetro era sparito da tutti e tre
+// insieme: il fondo trasparente c'era, la sfocatura no. Nel browser
+// `getComputedStyle` diceva `none` e la proprieta' non era NEMMENO nel CSS
+// servito — cioe' non e' il browser che la ignora, e' la COSTRUZIONE che la
+// butta via. Vite 8 passa il CSS dei componenti a lightningcss con un
+// bersaglio di browser «largamente disponibili», e `backdrop-filter` non e'
+// ancora in quell'elenco (Safari lo ha senza prefisso solo dal 18): la riga
+// viene tolta in silenzio. Nessun errore, nessun avviso — solo un pannello
+// piatto, e tre componenti che sembravano a posto.
+//
+// Questo foglio invece e' una STRINGA stampata a runtime (`is:inline`): la
+// costruzione non lo guarda nemmeno, e quello che c'e' scritto arriva al
+// browser esattamente com'e'. Il giorno in cui il bersaglio cambia ancora,
+// qui non cambia niente.
+//
+// ⚠️ Si dichiara SOLO la sfocatura: i fondi semitrasparenti restano nei
+// componenti, dove non danno fastidio a nessuno e dove si leggono accanto al
+// resto del loro disegno. La specificita' lo permette — le regole dei
+// componenti hanno un attributo in piu' (lo scope di Astro) e vincono sul
+// fondo, ma la sfocatura non la dichiarano piu' nessuno.
+const VETRO_CSS =
+  "html.glass .ah-header{-webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%)}" +
+  "html.glass .admin-nav{-webkit-backdrop-filter:blur(26px) saturate(150%);backdrop-filter:blur(26px) saturate(150%)}" +
+  ".ah-footer{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}";
 const HIDDEN_CSS = "[hidden]{display:none!important}";
 // ⚠️ L'ISOLA IN BASSO, IN DUE PEZZI E UNA SOMMA. Sta qui accanto a
 // `--h-header` perche' e' la stessa specie di misura: l'altezza che il telaio
@@ -128,7 +158,7 @@ const SPENTE_CSS = boot.hiddenPages
   .filter((k) => /^[a-z]+$/.test(k))
   .map((k) => `[data-admin-page="${k}"]{display:none!important}`)
   .join("");
-const css = cssTema(boot.theme) + PLACEHOLDER_CSS + STATO_CSS + HIDDEN_CSS + LAYOUT_CSS + SPENTE_CSS;
+const css = cssTema(boot.theme) + PLACEHOLDER_CSS + STATO_CSS + HIDDEN_CSS + LAYOUT_CSS + VETRO_CSS + SPENTE_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";

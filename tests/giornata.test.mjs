@@ -154,10 +154,19 @@ test("sotto la fascia c'e' il marchio, e non una linea che non separa piu' nient
     "la linea sotto la fascia e' tornata: separa la giornata da niente");
   // Il marchio del PRODOTTO (non quello del cliente, che sta nell'intestazione)
   // e la sua versione bianca, quella che esiste in `public/restohub/`.
-  assert.match(nudo(HOME), /class="j-marchio"[^>]*aria-hidden/,
-    "il marchio in fondo non c'e' piu', o non e' piu' nascosto a chi legge con la voce");
-  assert.match(HOME, /\/restohub\/wordmark-negative\.svg/,
-    "il marchio non punta piu' al disegno bianco del prodotto");
+  // ⚠️ Il marchio sta DENTRO la fascia, come ultima casella della griglia: sul
+  // tablet le colonne sono un bancone che si tira di lato, e un disegno messo
+  // sotto costringeva a scorrere in verticale uno schermo alto quanto le
+  // colonne. E il colore viene dal TESTO (maschera, non immagine): il file e'
+  // bianco, e bianco su un tema chiaro vuol dire invisibile.
+  assert.match(nudo(FASCIA), /class="j-marchio"[^>]*aria-hidden/,
+    "il marchio non e' piu' dentro la fascia, o non e' piu' nascosto a chi legge con la voce");
+  assert.match(nudo(HOME), /\.j-marchio i \{[^}]*background:\s*var\(--c-text\)/,
+    "il marchio non prende piu' il colore dal testo: sui temi chiari torna bianco su bianco");
+  assert.match(HOME, /mask:[^;]*\/restohub\/wordmark-negative\.svg/,
+    "il marchio non e' piu' una maschera sul disegno del prodotto");
+  assert.doesNotMatch(nudo(HOME), /\.j-marchio[\s\S]{0,200}?filter:\s*brightness/,
+    "il marchio e' tornato un'immagine ricolorata a filtro: su un tema chiaro non si vede");
 });
 
 test("nella cartella della Accueil non restano componenti che nessuno mette in pagina", () => {

@@ -182,3 +182,27 @@ test("il colore dei suggerimenti dentro i campi sta in UN posto solo", () => {
     }
   }
 });
+
+test("il vetro del telaio sta dove la costruzione non lo tocca", () => {
+  // ⚠️ IL GUASTO DI L'HUILE (09/10/2026). Header, isola della nav e filo del
+  // copyright avevano ognuno il suo `backdrop-filter` nel proprio `<style>`,
+  // e in produzione il vetro era sparito da tutti e tre insieme: il fondo
+  // trasparente c'era, la sfocatura no — e nel browser non era nemmeno nel
+  // CSS servito. Non e' il browser che la ignora: e' la costruzione che la
+  // butta via (Vite passa il CSS dei componenti a lightningcss con un
+  // bersaglio di browser «largamente disponibili», e `backdrop-filter` non e'
+  // ancora in quell'elenco). Nessun errore, nessun avviso, un pannello piatto.
+  //
+  // Il foglio di AdminHead e' una stringa stampata a runtime: la costruzione
+  // non la guarda. La sfocatura vive li', e nei componenti non deve tornare —
+  // sparirebbe di nuovo, e di nuovo senza che niente diventi rosso.
+  const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
+  assert.match(head, /backdrop-filter:blur\(20px\)[\s\S]{0,200}ah-footer\{/,
+    "le tre sfocature del telaio non stanno piu' nel foglio stampato a runtime");
+  for (const f of ["AdminHeader", "AdminNav", "AdminFooter"]) {
+    const src = readFileSync(`src/components/admin/${f}.astro`, "utf8");
+    const senzaCommenti = src.replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.doesNotMatch(senzaCommenti, /backdrop-filter\s*:/,
+      `${f}: la sfocatura e' tornata nel CSS del componente, da dove la costruzione la toglie in silenzio`);
+  }
+});

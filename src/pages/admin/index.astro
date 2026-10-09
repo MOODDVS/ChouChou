@@ -970,28 +970,39 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           padding-bottom: 3rem;
         }
         .jour > * { scroll-snap-align: start; }
+        /* ⚠️ L'ultima casella del bancone, non una riga in fondo: `1 / -1` su
+           una griglia a colonne automatiche creerebbe una RIGA sotto, e per
+           vedere un disegno si scorrerebbe in verticale uno schermo che e'
+           alto quanto le colonne. Qui il marchio e' l'ultima colonna: lo si
+           incontra arrivando in fondo allo scorrimento di lato. */
+        .j-marchio { grid-column: auto; }
+        .j-marchio i { width: 150px; }
       }
       @media (max-width: 759px) { .j-hm-f .src { margin-left: 0; } }
 
-      /* IL MARCHIO IN FONDO: bianco, quasi trasparente, e largo quanto serve
-         per leggersi senza diventare un titolo. ⚠️ `pointer-events: none` e
-         `aria-hidden`: non e' un link e non e' un'informazione, e chi legge lo
-         schermo ad alta voce non deve annunciarlo in fondo a ogni giornata. */
-      .j-marchio { display: flex; justify-content: center; padding: 0.5rem 0 0.5rem;
-        pointer-events: none; }
-      /* ⚠️ `brightness(0) invert(1)` e non il file cosi' com'e': il marchio
-         «negative» e' bianco MA il blocco finale e' nel rosso del marchio, e
-         a un decimo di opacita' un rosa sbiadito accanto al bianco non si
-         legge come un colore — si legge come una macchia. Qui il marchio e'
-         una filigrana, e una filigrana ha un colore solo. Due passaggi:
-         tutto nero, poi tutto bianco, qualunque cosa ci sia dentro il file. */
-      .j-marchio img { width: 180px; max-width: 45vw; height: auto;
-        opacity: 0.12; filter: brightness(0) invert(1); }
-      /* ⚠️ Sul tablet al dito la fascia e' un bancone che si scorre di lato:
-         il marchio sta sotto, e non deve prendersi mezzo schermo in altezza. */
-      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
-        .j-marchio img { width: 140px; }
-      }
+      /* IL MARCHIO DEL MOTORE, in fondo alla fascia.
+         ⚠️ E' un FIGLIO DELLA GRIGLIA, e per questo sta dentro `.jour`: su un
+         tablet in orizzontale la fascia e' un bancone che si tira di lato, e
+         il marchio messo SOTTO costringeva a scorrere anche in verticale per
+         un disegno — su uno schermo che e' alto esattamente quanto le colonne.
+         Dentro la griglia diventa l'ultima casella: sul desktop prende tutta
+         la larghezza sotto le colonne, sul bancone e' l'ultima colonna e si
+         trova in fondo allo scorrimento, dove la giornata finisce.
+         ⚠️ `pointer-events: none` e `aria-hidden`: non e' un link e non e'
+         un'informazione, e chi legge lo schermo ad alta voce non deve
+         annunciarlo in fondo a ogni giornata. */
+      .j-marchio { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center;
+        padding: 0.5rem 0; pointer-events: none; }
+      /* ⚠️ IL COLORE E' QUELLO DEL TESTO, e il disegno e' una MASCHERA, non
+         un'immagine: il file del marchio e' bianco (piu' un blocco rosso), e
+         bianco su un tema chiaro vuol dire invisibile. Con la maschera la
+         forma viene dal file e il colore da `--c-text`: scuro sui temi
+         chiari, chiaro su quelli scuri, senza una seconda copia del disegno
+         da tenere allineata e senza chiedere al server se il tema e' scuro. */
+      .j-marchio i { display: block; width: 180px; max-width: 45vw; height: 24px;
+        background: var(--c-text); opacity: 0.12;
+        -webkit-mask: url("/restohub/wordmark-negative.svg") center / contain no-repeat;
+        mask: url("/restohub/wordmark-negative.svg") center / contain no-repeat; }
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
@@ -1521,19 +1532,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             giro: vedi `ENGINE.md`. Intanto nessuna tile = nessun comando, e i
             FAB dell'Organiser restano spenti. */}
         <div class="cards" id="cards" style="display:none"></div>
-        {/* IL MARCHIO DEL MOTORE, in fondo alla giornata. Non e' una
-            decorazione in cerca di posto: la fascia finisce e la pagina deve
-            dire che e' finita — prima lo faceva una linea rimasta li' dalle
-            tile, che prometteva qualcosa sotto.
-            ⚠️ E' il marchio del PRODOTTO, non quello del ristorante: quello
-            sta in alto a sinistra nell'intestazione, ed e' del cliente. Qui
-            sotto, scolorito, c'e' chi fa funzionare il pannello.
-            ⚠️ La versione «negative» (bianca) e l'opacita' nel CSS: un PNG
-            grigio «gia' giusto» sarebbe giusto su un tema solo, e il fondo
-            dell'admin cambia da cliente a cliente. */}
-        <div class="j-marchio" aria-hidden="true">
-          <img src="/restohub/wordmark-negative.svg" alt="" width="420" height="56" loading="lazy" decoding="async" />
-        </div>
       </main>
 
       <!-- FAB Organiser (disposizione delle isole) -->

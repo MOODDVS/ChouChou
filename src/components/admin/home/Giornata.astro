@@ -678,6 +678,19 @@ const ICO_OGGI = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><rec
     </div>
   </div>
   )}
+
+  {/* IL MARCHIO DEL MOTORE: l'ultima casella della griglia.
+      ⚠️ Dentro la fascia e non sotto, ed e' il tablet a deciderlo: li' le
+      colonne diventano un bancone che si tira di lato, e un disegno messo
+      SOTTO costringeva a scorrere anche in verticale uno schermo alto
+      esattamente quanto le colonne. Da figlio della griglia, sul desktop
+      prende tutta la larghezza sotto le colonne e sul bancone e' l'ultima
+      colonna — la si incontra arrivando in fondo, dove la giornata finisce.
+      ⚠️ E' il marchio del PRODOTTO, non quello del ristorante: quello sta in
+      alto a sinistra ed e' del cliente. Qui sotto, scolorito, c'e' chi fa
+      funzionare il pannello. Il colore lo prende dal testo (maschera, non
+      immagine): scuro sui temi chiari, chiaro su quelli scuri. */}
+  <div class="j-marchio" aria-hidden="true"><i></i></div>
 </section>
 
 {/* ⚠️ Il modale sta FUORI da `.jour`: la fascia parte nascosta e resta
