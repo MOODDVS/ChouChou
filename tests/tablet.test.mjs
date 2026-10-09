@@ -72,6 +72,27 @@ test("sull'iPad orizzontale le sezioni diventano un bancone che si tira di lato"
     "la fascia iPad non riaccende l'altezza delle colonne: a 1024-1100 vince l'`auto` della fascia stretta e il bancone sborda");
   assert.doesNotMatch(blocco, /--j-col-h:\s*(calc|max)\(/,
     "la fascia iPad si ricopia la formula dell'altezza invece di riusarla: al primo cambio resta indietro");
+
+  // ⚠️ SUL BANCONE NON SI SCORRE IN VERTICALE. La fascia E' la pagina, alta
+  // quanto lo schermo le concede: ogni millimetro sotto diventa una striscia
+  // vuota da andare a scoprire scorrendo in giu'. Il piede del `main` serve a
+  // far passare l'isola in fondo a una pagina che scorre — qui non scorre, e
+  // la fascia si ferma gia' sopra l'isola per conto suo.
+  assert.match(blocco, /main\s*\{[^}]*padding-bottom:\s*0/,
+    "sul tablet torna il piede del `main` sotto il bancone: cento pixel di vuoto da scorrere");
+  const giu = blocco.match(/\.jour\s*\{[\s\S]*?padding-bottom:\s*([^;]+);/);
+  assert.ok(giu && parseFloat(giu[1]) <= 1,
+    `sotto il bancone ci sono ${giu ? giu[1] : "?"} di spazio: basta un filo per la barra di scorrimento`);
+
+  // ⚠️ E il marchio e' l'ULTIMA colonna, non la prima. La sua variante sta
+  // DOPO la regola di base: scritta prima, a parita' di specificita' perdeva e
+  // il marchio si riprendeva `grid-column: 1 / -1` — che su una griglia a
+  // colonne automatiche vuol dire la PRIMA colonna, davanti alla giornata.
+  const base = home.indexOf(".j-marchio { grid-column: 1 / -1");
+  const variante = home.indexOf(".j-marchio { grid-column: auto");
+  assert.ok(base > -1 && variante > -1, "il marchio non ha piu' le sue due regole");
+  assert.ok(variante > base,
+    "la regola del marchio sul bancone sta PRIMA di quella di base: perde, e il marchio torna davanti alla giornata");
 });
 
 test("le etichette della barra non scendono sotto il leggibile", () => {
