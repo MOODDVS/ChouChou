@@ -147,3 +147,38 @@ test("le pastiglie dei conteggi: una regola per tutte le colonne", () => {
     assert.match(HOME, new RegExp(`pastigliaConta\\("${id}"`), `${id} passa dalla regola condivisa`);
   }
 });
+
+test("il colore dei suggerimenti dentro i campi sta in UN posto solo", () => {
+  // ⚠️ IL GUASTO DI 450 GRADI (09/10/2026). I placeholder erano
+  // `var(--c-muted)`: ma il grigio secondario e' un colore del TEMA, che ogni
+  // cliente sceglie, e li' e' quasi bianco — i suggerimenti si leggevano come
+  // testo scritto davvero. Un placeholder e' testo che NON C'E', e deve
+  // sembrarlo su qualunque tema: nasce dal testo sfumato nel TRASPARENTE
+  // (non mescolato col fondo pagina, perche' i campi hanno il loro).
+  const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
+  assert.match(head, /--c-ph:\s*color-mix\(in srgb,\s*var\(--c-text\)[^)]*,\s*transparent\)/,
+    "il colore dei placeholder non nasce piu' dal testo sfumato: torna a dipendere dal grigio del cliente");
+
+  // Il foglio dei campi condivisi USA la variabile, non sceglie un colore:
+  // `.fld` e i campi dei modali sono la maggior parte dei campi del pannello.
+  const campi = readFileSync("src/styles/field.css", "utf8");
+  assert.match(campi, /::placeholder\s*\{[^}]*--c-ph/,
+    "i campi condivisi sono tornati a scegliersi il colore del placeholder");
+
+  // E nessuna pagina admin se lo riscrive: chi ha la sua regola `::placeholder`
+  // usa la variabile. Un grigio proprio e' un secondo colore che il giorno in
+  // cui si cambia questo resta indietro — ed e' invisibile finche' qualcuno
+  // non apre quella pagina con quel tema.
+  const PAGINE = ["orders", "clients", "reservations", "marketing"];
+  for (const p of PAGINE) {
+    const src = readFileSync(`src/pages/admin/${p}.astro`, "utf8");
+    for (const m of src.matchAll(/::placeholder[^{]*\{([^}]*)\}/g)) {
+      const dentro = m[1];
+      if (!/color:/.test(dentro)) continue;
+      assert.ok(/--c-ph/.test(dentro) || /#[0-9a-f]{6}/i.test(dentro),
+        `${p}.astro: un ::placeholder col grigio del tema invece della variabile condivisa`);
+      assert.doesNotMatch(dentro, /color:\s*var\(--c-muted\)/,
+        `${p}.astro: il placeholder e' tornato a `+"`--c-muted`"+`, che su un tema chiaro di grigio si legge come testo vero`);
+    }
+  }
+});

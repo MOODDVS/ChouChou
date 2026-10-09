@@ -135,7 +135,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
         background-repeat: no-repeat; background-position: 0.85rem center; background-size: 14px;
       }
-      .o-search::placeholder { color: var(--c-muted); }
+      .o-search::placeholder { color: var(--c-ph, var(--c-muted)); }
       .o-search:focus { outline: none; border-color: var(--c-accent); }
       .o-search-wrap { position: relative; display: inline-flex; }
       /* Navigazione giorno: bottone Oggi + bottone datepicker (sfondo tile). */

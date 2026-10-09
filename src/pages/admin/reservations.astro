@@ -190,7 +190,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         display: flex; align-items: center; justify-content: center; padding: 0 0 2px;
       }
       .d-search-x:hover { background: var(--c-accent); color: var(--c-bg); }
-      .d-search::placeholder { color: var(--c-muted); }
+      .d-search::placeholder { color: var(--c-ph, var(--c-muted)); }
       .d-search:focus { outline: none; border-color: var(--c-accent); }
       .d-txt-short { display: none; }
       .d-ico-today, .d-ico-week, .d-ico-month { display: none; align-items: center; }

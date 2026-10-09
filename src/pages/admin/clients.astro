@@ -105,7 +105,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         background-repeat: no-repeat; background-position: 0.85rem center; background-size: 14px;
         padding-left: 2.3rem;
       }
-      .search::placeholder { color: var(--c-muted); }
+      .search::placeholder { color: var(--c-ph, var(--c-muted)); }
       .search:focus { outline: none; border-color: var(--c-accent); }
       /* Selettore colonne, accanto alla ricerca */
       .colpick { position: relative; flex: 0 0 auto; }
