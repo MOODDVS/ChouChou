@@ -205,6 +205,34 @@ scoperti, con la stessa promessa nell'intestazione. Quindi adesso:
   esattamente il caso che deve bocciare;
 - da riga di comando: `git check-attr merge -- src/config/*.ts`.
 
+⚠️ **E la riga nuova NON protegge il merge che la porta: protegge dal
+successivo.** Git legge `.gitattributes` com'è PRIMA del merge, non la
+versione che il merge sta portando. Quindi il giro in cui il motore aggiunge
+`src/config/ticket.ts merge=ours` **e** tocca quel file è esattamente il giro
+in cui la protezione non c'è ancora. Provato in un repo finto il 09/10/2026:
+cliente con la sua riga, motore che cambia il file e aggiunge la regola nello
+stesso commit → `CONFLICT (content) in ticket.ts`. E subito dopo
+`git check-attr` risponde `ours`, perché ormai il file nuovo è nell'albero:
+**l'indizio sembra dire il contrario di quello che è appena successo.**
+
+Conseguenza pratica, da fare PRIMA di un sync che porta una regola nuova: per
+ogni cliente che ha una versione sua di quel file, guardare cosa entrerebbe,
+fuori dal repo e senza mergiare —
+
+```
+B=$(git merge-base HEAD engine/main)
+git show $B:src/config/ticket.ts   > /tmp/base.ts
+git show HEAD:src/config/ticket.ts > /tmp/suo.ts
+git show engine/main:src/config/ticket.ts > /tmp/motore.ts
+cp /tmp/suo.ts /tmp/prova.ts && git merge-file /tmp/prova.ts /tmp/base.ts /tmp/motore.ts
+diff /tmp/suo.ts /tmp/prova.ts
+```
+
+Il 09/10 l'unico cliente esposto era **Educazione Napoletana** (ticket suo dal
+commit `e32521e`): la fusione è uscita pulita e tocca solo il commento in
+testa al file — il suo `disegnaTicket` non si muove. È andata bene, non è
+stata evitata. Dal merge dopo quel file è davvero protetto.
+
 ### Aggiornare TUTTI i clienti in un colpo
 Dal repo motore, con i repo cliente clonati in locale:
 ```
