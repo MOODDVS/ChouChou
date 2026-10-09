@@ -82,30 +82,48 @@ export const GET: APIRoute = async ({ params }) => {
         { testo: "RestoHub", taglia: "normale", centrato: true, linea: true },
         { testo: "Cette imprimante est bien reliee.", taglia: "normale", grassetto: true },
         { testo: "123456789012345678901234567890123456789012345678", taglia: "piccolo" },
-        // ---- ESPERIMENTO DEL LOGO (09/10/2026) — DA TOGLIERE ----
-        // ⚠️ Quattro volte lo stesso disegno, scritto in quattro modi. La
-        // domanda e' una sola: l'app che legge questo corpo CONVERTE il testo
-        // nella tabella della stampante? Se si', il logo esce pieno, e quale
-        // delle prime tre bande esce dice quale tabella usa. La quarta e' il
-        // controllo: solo byte sotto il 128, quindi deve uscire comunque — a
-        // righe, perche' a 7 bit una colonna ogni otto resta bianca.
+        // ---- ESPERIMENTO DEL LOGO, SECONDO GIRO — DA TOGLIERE ----
+        // ⚠️ Il primo biglietto si e' interrotto ESATTAMENTE dove cominciava
+        // la prima banda: dopo «1 · CP437» la carta era tagliata, e le altre
+        // tre — compresa quella di controllo — non sono mai uscite. Quindi la
+        // domanda non era quella giusta: prima di sapere QUALE tabella usa
+        // l'app, bisogna sapere se un comando del genere attraversa il tubo.
         //
-        //   esce la 1, la 2 o la 3  -> l'app converte. Il logo si puo' fare.
-        //   esce SOLO la 4          -> la stampante disegna, l'app non converte.
-        //   non esce niente         -> questa stampante non fa immagini da qui.
+        // L'indiziato e' IL BYTE ZERO. L'intestazione di `GS v 0` ne porta
+        // due, e se l'app tratta il corpo come una stringa che finisce al
+        // primo zero, il lavoro muore li' e la taglierina parte perche' il
+        // taglio lo aggiunge lei. Torna col fatto che il ticket di tutti i
+        // giorni funziona: il suo unico zero sta nel comando di taglio, in
+        // fondo, dove troncare non si vede.
         //
-        // Si legge con gli occhi, su carta: va fotografato. ⚠️ Quando la
-        // risposta c'e', si tolgono queste righe e `lib/provaLogo.ts`.
+        // Qui sotto le domande sono tre, e le prime due sono di solo TESTO —
+        // quelle escono di sicuro, qualunque cosa succeda dopo:
+        //
+        //   1. Quali caratteri alti escono giusti? Dice se l'app converte, e
+        //      verso quale tabella. L'euro lo sappiamo gia' (05/10): esce. In
+        //      CP437 e CP850 l'euro NON esiste — se esce, la tabella e'
+        //      un'altra, e le bande scritte in CP437 non potevano funzionare.
+        //   2. Una riga, un byte zero, un'altra riga. ⚠️ Se la riga DOPO non
+        //      c'e', lo zero tronca — e allora la strada e' chiusa per
+        //      sempre, non per la tabella: il bianco di un disegno sono byte
+        //      zero a mucchi, e quelli non si tolgono.
+        //   3. Solo allora le bande: prima quella di CONTROLLO (tutti byte
+        //      sotto il 128), poi il disegno pieno. Nell'ordine giusto,
+        //      stavolta: la prima volta la banda che doveva uscire era quarta,
+        //      dietro tre che potevano far saltare il ticket. Una prova che
+        //      si auto-impedisce di rispondere non e' una prova.
         { testo: "", linea: true },
-        { testo: "PROVA LOGO — guarda quale esce", taglia: "normale", grassetto: true, centrato: true },
-        { testo: "1 · CP437", taglia: "normale" },
-        { grezzo: PROVA.cp437, testo: "" },
-        { testo: "2 · CP850", taglia: "normale" },
-        { grezzo: PROVA.cp850, testo: "" },
-        { testo: "3 · CP1252", taglia: "normale" },
-        { grezzo: PROVA.cp1252, testo: "" },
-        { testo: "4 · a 7 bit (deve uscire, a righe)", taglia: "normale" },
+        { testo: "PROVA 2", taglia: "normale", grassetto: true, centrato: true },
+        { testo: "1) EUR \u20ac | CP437 \u2554 \u2591 | lat \u00f1 \u00b0 \u00a7" },
+        { testo: "2) riga PRIMA dello zero" },
+        // Il byte zero, da solo. Se quello che segue non si stampa, e' lui.
+        { grezzo: "\u0000", testo: "" },
+        { testo: "3) riga DOPO lo zero — se la vedi, passa" },
+        { testo: "4) banda di CONTROLLO (deve uscire a righe)" },
         { grezzo: PROVA.sette, testo: "" },
+        { testo: "5) banda piena in CP437" },
+        { grezzo: PROVA.cp437, testo: "" },
+        { testo: "6) FINE — se leggi questa, e' passato tutto" },
       ]),
     );
   }
