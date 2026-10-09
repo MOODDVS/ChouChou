@@ -181,6 +181,58 @@ motore (admin, api, lib, migrazioni, stili). Niente più copie a mano.
 per-cliente con `merge=ours`. Perché il driver funzioni serve, una volta
 per repo cliente: `git config merge.ours.driver true` (lo fa lo script).
 
+⚠️ **Una promessa scritta nell'intestazione di un file non protegge quel
+file.** `src/config/ticket.ts` nasce il 05/10 dichiarando «questo file è del
+cliente, il motore non lo tocca più dopo averlo creato, non si prende
+conflitti al merge» — e era `unspecified` in `.gitattributes`, cioè si fondeva
+come qualunque file del motore. Scoperto per caso il 09/10: un merge in 450
+Gradi ha stampato «Auto-merging src/config/ticket.ts» su un file che non
+doveva nemmeno guardare. Lì è andata bene (le due aggiunte non si toccavano),
+ma **Educazione Napoletana ha un disegno tutto suo in quel file**, e un ticket
+di cucina fuso col ripiego del motore non fa rumore: esce storto in cucina,
+non a schermo.
+
+Era **la seconda volta**: il 06/09 erano `siteImageSlots.ts` e `sitePages.ts`,
+scoperti, con la stessa promessa nell'intestazione. Quindi adesso:
+- **ogni** file di `src/config/` va nominato in `.gitattributes`, anche quando
+  la risposta è «del motore» (`merge`): `unspecified` non distingue una scelta
+  da una dimenticanza, e una riga scritta a mano porta il perché;
+- una prova (`tests/config.test.mjs`) diventa rossa se un file nuovo non è
+  dichiarato. ⚠️ La prima versione di quella prova cercava il nome del file
+  *nel testo* di `.gitattributes` e passava anche togliendo la riga, perché il
+  nome compare pure nel commento che la spiega: ora legge le **regole**,
+  saltando i commenti. Una rete che si accontenta di trovare la parola approva
+  esattamente il caso che deve bocciare;
+- da riga di comando: `git check-attr merge -- src/config/*.ts`.
+
+⚠️ **E la riga nuova NON protegge il merge che la porta: protegge dal
+successivo.** Git legge `.gitattributes` com'è PRIMA del merge, non la
+versione che il merge sta portando. Quindi il giro in cui il motore aggiunge
+`src/config/ticket.ts merge=ours` **e** tocca quel file è esattamente il giro
+in cui la protezione non c'è ancora. Provato in un repo finto il 09/10/2026:
+cliente con la sua riga, motore che cambia il file e aggiunge la regola nello
+stesso commit → `CONFLICT (content) in ticket.ts`. E subito dopo
+`git check-attr` risponde `ours`, perché ormai il file nuovo è nell'albero:
+**l'indizio sembra dire il contrario di quello che è appena successo.**
+
+Conseguenza pratica, da fare PRIMA di un sync che porta una regola nuova: per
+ogni cliente che ha una versione sua di quel file, guardare cosa entrerebbe,
+fuori dal repo e senza mergiare —
+
+```
+B=$(git merge-base HEAD engine/main)
+git show $B:src/config/ticket.ts   > /tmp/base.ts
+git show HEAD:src/config/ticket.ts > /tmp/suo.ts
+git show engine/main:src/config/ticket.ts > /tmp/motore.ts
+cp /tmp/suo.ts /tmp/prova.ts && git merge-file /tmp/prova.ts /tmp/base.ts /tmp/motore.ts
+diff /tmp/suo.ts /tmp/prova.ts
+```
+
+Il 09/10 l'unico cliente esposto era **Educazione Napoletana** (ticket suo dal
+commit `e32521e`): la fusione è uscita pulita e tocca solo il commento in
+testa al file — il suo `disegnaTicket` non si muove. È andata bene, non è
+stata evitata. Dal merge dopo quel file è davvero protetto.
+
 ### Aggiornare TUTTI i clienti in un colpo
 Dal repo motore, con i repo cliente clonati in locale:
 ```
@@ -198,6 +250,13 @@ non è in lista non viene mergiato **e non compare nel riepilogo**: il giro
 sembra riuscito e quel cliente resta indietro. Il 12/09 mancavano L'Huile
 (mergiato a mano da sessioni) ed EN v2. Quando si aggiunge un cliente, si
 aggiunge lì lo stesso giorno.
+
+⚠️ **È già successo di nuovo.** Il 09/10 la lista ne aveva quattro, mentre i
+clienti erano sei: **450 Gradi** e **BROS** sono vissuti per settimane fuori
+dallo script, aggiornati solo a mano. Non se n'è accorto nessuno proprio
+perché il riepilogo di `sync-clienti.sh` diceva «fatto» su quelli che
+conosceva. La lista non si verifica da sola: il controllo è `ls ~/Developer`
+contro `CLIENTI`, e la riga di CLIENTS.md che nomina il cliente.
 
 ### Aggiornare UN solo cliente a mano
 ```
@@ -1798,8 +1857,9 @@ Chromium sul server per generare un'immagine o un PDF.
 Da qui due conseguenze pratiche:
 - **La misura e' la COLONNA, non il pixel.** Carta da 80 mm, font A: 48
   colonne. Un nome di piatto piu' lungo va a capo, e dove va a capo si decide
-  contando caratteri. (Le misure in dot servono solo se un giorno si stampa un
-  logo, che e' un'immagine raster a parte.)
+  contando caratteri. Quante colonne vale una taglia lo dice `colonneDi()` —
+  vedi «Le taglie» qui sotto. (E il logo non si misura in dot da qui: non e'
+  un'immagine che parte dal server, vedi «Il logo».)
 - **Gli accenti si scrivono in UTF-8, e basta** — e ⚠️ **`ESC t` non va
   mandato.** Provato su carta il 05/10: la riga in UTF-8 senza nessun `ESC t`
   esce perfetta, accenti ed euro compresi. Quelle scritte a mano nelle tabelle
@@ -1809,6 +1869,75 @@ Da qui due conseguenze pratiche:
   testina. Avevo scritto il contrario in questa stessa pagina un'ora prima,
   ragionando su come funziona una termica collegata a un cavo: ma qui in mezzo
   c'e' un'app, e il ragionamento valeva per una catena diversa da questa.
+
+### Le taglie, e il difetto di «grande» (09/10/2026)
+
+450 Gradi ha chiesto «scritte ben piu' grandi e un carattere meno stretto».
+Erano **due** osservazioni, e tutte e due giuste:
+
+1. **La riga piu' importante del ticket era scritta col carattere piu'
+   piccolo.** «#numero · RITIRO hh:mm» usciva in `piccolo`, cioe' **Font B**,
+   il carattere **condensato** della stampante: ci stanno 64 colonne perche' e'
+   stretto, non perche' servissero 64 colonne per venti caratteri. Era una
+   scelta di comodo mai rimessa in discussione.
+2. **`grande` non era grande, era STRETTA.** `GS ! 0x01` raddoppia solo
+   l'**altezza**: le lettere si allungano e restano larghe come le normali,
+   quindi *sembrano* strette — ed e' esattamente la parola che ha usato lui.
+   Per scrivere davvero grande serve raddoppiare anche la larghezza, e si paga
+   in **colonne**.
+
+Le taglie, con le colonne che costano (dichiarate in `escpos.ts`, e si
+**chiedono** con `colonneDi()` — mai riscritte a mano, nemmeno in una prova):
+
+| taglia | comando | cosa fa | colonne |
+|---|---|---|---|
+| `gigante` | `GS ! 0x11` | doppia altezza **e** larghezza | 24 |
+| `largo` | `GS ! 0x10` | doppia **larghezza** sola | 24 |
+| `grande` | `GS ! 0x01` | doppia **altezza** sola — lettere strette | 48 |
+| `normale` | `GS ! 0x00` | — | 48 |
+| `piccolo` | `ESC M 1` | Font B, condensato | 64 |
+
+⚠️ **Scrivere grosso vuol dire andare a capo prima, e va bene.** Un nome di
+piatto in `gigante` esce su due righe: `aCapo` spezza sulle parole e rientra
+le continuazioni. Due righe larghe si leggono in piedi a due metri dal
+ferma-comande; una riga sola di lettere alte e strette no. Chi prepara guarda
+il ticket in piedi, non seduto — e quello e' il metro.
+
+⚠️ **Il difetto valeva per tutti e sei, quindi e' stato corretto nel RIPIEGO
+del motore** (`ticketCucina`), non nel cliente che l'ha segnalato: 450 Gradi
+continua a chiamare il ripiego. Chi ha un disegno PROPRIO non riceve la
+correzione — **Educazione Napoletana** (`config/ticket.ts`, `e32521e`) ha
+ancora la riga di servizio in `piccolo`: e' suo, nessuno si e' lamentato, e si
+cambia il giorno che lo chiede. Sta scritto qui perche' non si scopra per caso.
+
+### Il logo: l'unico possibile sta DENTRO la stampante (09/10/2026)
+
+Un logo sul ticket sembra una cosa da niente e invece e' l'unico punto dove la
+catena di questa stampa non passa.
+
+⚠️ **Un'immagine raster non puo' partire da qui.** `GS v 0` porta byte **sopra
+il 128**, e il corpo della risposta viaggia come **testo UTF-8** (e' la stessa
+ragione per cui le tabelle di caratteri escono sbagliate, provata su carta il
+05/10): quei byte verrebbero ricodificati e alla testina arriverebbe
+spazzatura. Non e' una limitazione di BizPrint, e' la forma del trasporto.
+
+**L'unica via e' il logo caricato nella memoria della stampante** (*NV logo*),
+richiamato con `FS p 1 0` — quattro byte, tutti sotto il 128, come l'init e il
+taglio. Nel ticket e' una riga come le altre: `{ testo: "", logo: true }`.
+
+⚠️ **Il logo va caricato A MANO, con l'utility del costruttore, in OGNUNA
+delle stampanti del cliente.** E' un oggetto della stampante, non del ticket.
+Su una stampante dove non e' stato caricato il comando **non stampa niente e
+non rompe niente**: si puo' accendere mentre si attrezzano i punti uno alla
+volta.
+
+⚠️ **Acceso dal CLIENTE, non dal motore.** Il ripiego non lo stampa: farlo
+vorrebbe dire mandare un comando nuovo a sei ristoranti che non l'hanno
+chiesto, su stampanti in servizio, per guadagnarci una riga vuota. Si accende
+in `config/ticket.ts` — `ticketCucina({ ...o, logo: true })` — che e' del
+cliente e non si prende conflitti al merge. Nessuna chiave di
+configurazione nuova: l'interruttore e' quella riga, e sta dove sta il
+disegno.
 
 ### Piu' stampanti: il REPARTO (deciso il 05/10/2026, da costruire)
 

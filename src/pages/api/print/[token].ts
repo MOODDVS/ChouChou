@@ -9,6 +9,8 @@ import { disegnaTicket } from "../../../config/ticket";
 import { dividiPerStampante } from "../../../lib/stampaCoda";
 import { componiTesto } from "../../../lib/escpos";
 import { leggiProva, sembraProva } from "../../../lib/printToken";
+// ⚠️ TEMPORANEO: le bande della prova del logo. Si cancella con l'esperimento.
+import { BANDE as PROVA } from "../../../lib/provaLogo";
 
 /**
  * IL TICKET, COME LO LEGGE LA STAMPANTE.
@@ -80,6 +82,30 @@ export const GET: APIRoute = async ({ params }) => {
         { testo: "RestoHub", taglia: "normale", centrato: true, linea: true },
         { testo: "Cette imprimante est bien reliee.", taglia: "normale", grassetto: true },
         { testo: "123456789012345678901234567890123456789012345678", taglia: "piccolo" },
+        // ---- ESPERIMENTO DEL LOGO (09/10/2026) — DA TOGLIERE ----
+        // ⚠️ Quattro volte lo stesso disegno, scritto in quattro modi. La
+        // domanda e' una sola: l'app che legge questo corpo CONVERTE il testo
+        // nella tabella della stampante? Se si', il logo esce pieno, e quale
+        // delle prime tre bande esce dice quale tabella usa. La quarta e' il
+        // controllo: solo byte sotto il 128, quindi deve uscire comunque — a
+        // righe, perche' a 7 bit una colonna ogni otto resta bianca.
+        //
+        //   esce la 1, la 2 o la 3  -> l'app converte. Il logo si puo' fare.
+        //   esce SOLO la 4          -> la stampante disegna, l'app non converte.
+        //   non esce niente         -> questa stampante non fa immagini da qui.
+        //
+        // Si legge con gli occhi, su carta: va fotografato. ⚠️ Quando la
+        // risposta c'e', si tolgono queste righe e `lib/provaLogo.ts`.
+        { testo: "", linea: true },
+        { testo: "PROVA LOGO — guarda quale esce", taglia: "normale", grassetto: true, centrato: true },
+        { testo: "1 · CP437", taglia: "normale" },
+        { grezzo: PROVA.cp437, testo: "" },
+        { testo: "2 · CP850", taglia: "normale" },
+        { grezzo: PROVA.cp850, testo: "" },
+        { testo: "3 · CP1252", taglia: "normale" },
+        { grezzo: PROVA.cp1252, testo: "" },
+        { testo: "4 · a 7 bit (deve uscire, a righe)", taglia: "normale" },
+        { grezzo: PROVA.sette, testo: "" },
       ]),
     );
   }

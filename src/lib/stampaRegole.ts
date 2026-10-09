@@ -247,12 +247,22 @@ export function attesaTentativo(n: number): number {
  *  motore le trasforma nella pagina che il servizio di stampa legge. */
 export interface RigaTicket {
   testo: string;
-  /** ⚠️ `gigante` NON e' «grande di piu'»: e' doppia larghezza, cioe' **24
-   *  colonne invece di 48**. Va bene per l'ora, che e' corta; su un nome di
-   *  piatto manderebbe a capo mezzo menu. I piatti sono `grande` (doppia
-   *  altezza sola), che resta a 48. Le colonne di ogni taglia sono dichiarate
-   *  in `escpos.ts`, una volta. */
-  taglia?: "gigante" | "grande" | "normale" | "piccolo";
+  /**
+   * ⚠️ UNA TAGLIA GRANDE COSTA COLONNE, e le colonne sono dichiarate in
+   * `escpos.ts` una volta sola: 48 in `normale` e `grande`, 24 in `gigante` e
+   * `largo`, 64 in `piccolo`. Scrivere grosso vuol dire andare a capo prima —
+   * `aCapo` spezza sulle parole e rientra le continuazioni, quindi un nome
+   * lungo esce su due righe, non sparisce.
+   *
+   * ⚠️ `grande` e' doppia ALTEZZA SOLA: tiene le 48 colonne, ma le lettere
+   * restano larghe come le normali e quindi sembrano STRETTE. E' il difetto
+   * che 450 Gradi ha visto per primo («piu' grandi e meno strette»): per
+   * scrivere davvero grande servono `gigante` (alto e largo) o `largo` (largo
+   * e alto normale), e si paga in colonne. `piccolo` e' il Font B, il
+   * carattere condensato: va bene per una riga di servizio, mai per un dato
+   * che qualcuno deve leggere in piedi a due metri.
+   */
+  taglia?: "gigante" | "largo" | "grande" | "normale" | "piccolo";
   grassetto?: boolean;
   centrato?: boolean;
   /** Bianco su nero, a tutta larghezza. Per le DUE righe che, se non si
@@ -261,6 +271,34 @@ export interface RigaTicket {
   inverso?: boolean;
   /** Una linea di separazione sotto questa riga. */
   linea?: boolean;
+  /**
+   * Questa riga non e' testo: e' IL LOGO CARICATO DENTRO LA STAMPANTE.
+   *
+   * ⚠️ Non e' un'immagine che parte da qui — quella non ci passa (vedi
+   * `escpos.ts`, `C.logo`). E' un comando che dice alla stampante «stampa il
+   * marchio che hai in memoria». Su una stampante che non ce l'ha non stampa
+   * niente e non sbaglia niente: resta una riga vuota.
+   */
+  logo?: boolean;
+  /**
+   * COMANDI GIA' PRONTI, che passano tali e quali.
+   *
+   * ⚠️ E' una porta di servizio, e si vede: tutto il resto di questo file
+   * descrive il ticket A PAROLE — «grande», «centrato», «inverso» — proprio
+   * perche' un disegno sbagliato non possa rompere la stampa, al massimo
+   * uscire brutto. Qui invece si scrivono comandi a mano, e chi sbaglia manda
+   * alla testina quello che vuole.
+   *
+   * ⚠️ Esiste per UNA cosa: un'immagine. E' l'unico pezzo che non si puo'
+   * descrivere a parole, perche' i suoi byte vanno sopra il 128 e il
+   * trasporto e' testo — quindi vanno scritti come i CARATTERI che l'app
+   * riconvertira' in quei byte. Oggi la usa solo la prova del logo
+   * (`provaLogo.ts`), che e' un esperimento con la data di scadenza scritta
+   * in testa. Se l'esperimento riesce, quello che ne resta va in una funzione
+   * di `escpos.ts` che prende un bitmap — non in questa riga lasciata aperta
+   * a chiunque.
+   */
+  grezzo?: string;
 }
 
 export interface OrdineDaStampare {
@@ -280,6 +318,15 @@ export interface OrdineDaStampare {
    *  legge un ticket che SEMBRA tutto l'ordine ed e' un terzo: peggio di
    *  nessun ticket, perche' non sa che manca qualcosa. */
   parte?: { n: number; su: number; altri: { nome: string; righe: number }[] } | null;
+  /**
+   * Stampare il logo in testa? ⚠️ SPENTO di ripiego, e non per timidezza: il
+   * logo deve stare nella FLASH DI OGNI STAMPANTE, caricato a mano con
+   * l'utility del costruttore. Accenderlo per tutti vorrebbe dire mandare un
+   * comando nuovo a sei ristoranti che non l'hanno chiesto, su stampanti in
+   * servizio, per guadagnarci una riga vuota. L'accende il cliente che il
+   * logo l'ha caricato davvero, nel suo `config/ticket.ts`.
+   */
+  logo?: boolean;
 }
 
 /** Una riga di `orders` per quel poco che serve a stampare. Scritta qui e non
@@ -342,6 +389,7 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   const righe: RigaTicket[] = [];
 
   // ---- La testa: di chi e' questo ordine ----
+  if (o.logo) righe.push({ testo: "", logo: true });
   if (o.insegna) {
     righe.push({ testo: o.insegna.toUpperCase(), taglia: "gigante", grassetto: true, centrato: true });
   }
@@ -350,13 +398,17 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   // e per sapere quale va in forno adesso bisognerebbe sollevarli uno a uno.
   // Due caratteri qui costano niente; quella grossa, sotto, resta per chi il
   // ticket ce l'ha in mano.
-  righe.push({ testo: `#${o.numero} · RITIRO ${o.ora}`, taglia: "piccolo", centrato: true, linea: true });
+  // ⚠️ `largo`, non `piccolo`. Era la riga piu' importante del ticket scritta
+  // col carattere piu' piccolo che la stampante possiede (il Font B
+  // condensato): sta in 64 colonne perche' e' stretto, non perche' serva.
+  // Qui ci stanno 24 colonne e «#A1B2 · RITIRO 19:45» ne occupa 20.
+  righe.push({ testo: `#${o.numero} · RITIRO ${o.ora}`, taglia: "largo", grassetto: true, centrato: true, linea: true });
 
   // ⚠️ «DA INCASSARE» sta in ALTO, non in fondo. Chi prepara passa il
   // sacchetto a chi sta in cassa, e deve sapere prima di consegnarlo che quei
   // soldi non sono ancora entrati.
   if (o.daIncassare) {
-    righe.push({ testo: "DA INCASSARE", taglia: "grande", grassetto: true, centrato: true, inverso: true });
+    righe.push({ testo: "DA INCASSARE", taglia: "gigante", grassetto: true, centrato: true, inverso: true });
   }
 
   // ---- I piatti ----
@@ -365,10 +417,14 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   // il ticket e basta. A fine serata sono centimetri di carta.
   o.piatti.forEach((p, i) => {
     if (i) righe.push({ testo: "" });
-    righe.push({ testo: `${p.qty}x ${p.nome}`, taglia: "grande", grassetto: true });
-    if (p.variante) righe.push({ testo: `   ${p.variante}`, taglia: "normale" });
+    // ⚠️ `gigante`, e il nome lungo va a capo: e' il prezzo, ed e' quello
+    // giusto. Con `grande` il piatto stava su una riga sola ma in lettere
+    // strette e alte, che da due metri si leggono peggio di due righe larghe.
+    // Chi prepara guarda il ticket in piedi, non seduto.
+    righe.push({ testo: `${p.qty}x ${p.nome}`, taglia: "gigante", grassetto: true });
+    if (p.variante) righe.push({ testo: `   ${p.variante}`, taglia: "largo" });
     // La nota del piatto e' il punto in cui si sbaglia un ordine: mai piccola.
-    if (p.nota) righe.push({ testo: `   ${p.nota}`, taglia: "normale", grassetto: true });
+    if (p.nota) righe.push({ testo: `   ${p.nota}`, taglia: "largo", grassetto: true });
   });
   righe.push({ testo: "", linea: true });
 
@@ -386,8 +442,8 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
 
   // ---- L'ora, e chi viene a ritirare ----
   righe.push({ testo: o.ora, taglia: "gigante", grassetto: true, centrato: true, linea: true });
-  righe.push({ testo: o.cliente, taglia: "normale", grassetto: true });
-  if (o.telefono) righe.push({ testo: o.telefono, taglia: "normale" });
-  if (o.note) righe.push({ testo: o.note, taglia: "normale", grassetto: true });
+  righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
+  if (o.telefono) righe.push({ testo: o.telefono, taglia: "largo" });
+  if (o.note) righe.push({ testo: o.note, taglia: "largo", grassetto: true });
   return righe;
 }

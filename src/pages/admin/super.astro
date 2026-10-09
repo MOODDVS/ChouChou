@@ -303,6 +303,12 @@ const prI18n = {
          perche' sono due decisioni diverse e si leggono insieme. */
       .itg-card.is-wide { max-width: none; }
       .itg-print-grid { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 1.6rem 2.2rem; align-items: start; }
+      /* ⚠️ Una colonna di griglia non stringe il suo contenuto piu' di cosi':
+         `min-width: auto` e' il valore di partenza anche qui, e senza questa
+         riga un figlio troppo largo ESCE dalla colonna invece di andare a
+         capo — e finisce addosso alla colonna accanto. E' la seconda meta'
+         dello stesso difetto dei bottoni sovrapposti. */
+      .itg-print-grid > * { min-width: 0; }
       @media (max-width: 1100px) { .itg-print-grid { grid-template-columns: 1fr; } }
       .itg-print-grid .itg-niv:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
       /* Il piede di una scheda: separatore, poi il salva A DESTRA — dove si
@@ -315,14 +321,30 @@ const prI18n = {
       }
       /* Il messaggio resta a sinistra: da vuoto non occupa niente. */
       .us-foot > :not(button) { margin-right: auto; }
-      #loc-overlay .loc-riga input { flex: 1; min-width: 0; }
-      #loc-overlay .loc-riga .btn { flex: 0 0 auto; }
       /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
          scheda Google in Intégrations: a sede unica non esiste nessun modale
          in cui metterlo. Stesso aspetto, non un secondo aspetto. */
       #loc-overlay .loc-riga, #g-unica .loc-riga, #g-place-unica .loc-riga, #itg-print .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
-      /* Il campo prende lo spazio che resta: i due bottoni hanno la loro misura. */
-      #g-place-unica input { flex: 1; min-width: 0; }
+      /* IL CAMPO CEDE, IL BOTTONE NO — e vale OVUNQUE viva una `.loc-riga`.
+         ⚠️ IL GUASTO (09/10/2026, visto da Enzo in Intégrations): «Test de
+         connexion» finiva SOTTO «+ Ajouter une destination». Non era una
+         sovrapposizione voluta da nessuno: la riga del campo e' un flex, e un
+         elemento flex non scende sotto la sua larghezza naturale finche' non
+         gli si dice `min-width: 0`. Un `select` e' largo quanto la sua voce
+         piu' lunga — qui il nome di una stampante — quindi la riga sfondava
+         la sua colonna e il bottone andava a finire sopra quella accanto.
+         ⚠️ La regola c'era gia', ma col prefisso `#loc-overlay` e solo su
+         `input`: nata nel modale della sede, e rimasta li' quando la riga e'
+         stata riusata in altri tre posti. E' lo stesso errore del commento
+         qui sopra — uno stile legato al POSTO invece che alla COSA — trovato
+         due volte nello stesso file. Qui non ha prefisso, e copre anche i
+         `select`. */
+      .loc-riga > :is(input, select) { flex: 1 1 auto; min-width: 0; }
+      /* ⚠️ Anche `.us-add`: nella riga del Place ID i bottoni sono due e il
+         secondo e' un `.us-add`. Elencare solo `.btn` avrebbe lasciato
+         «Enregistrer» libero di schiacciarsi — lo stesso difetto, un
+         centimetro piu' in la'. */
+      .loc-riga > :is(.btn, .us-add) { flex: 0 0 auto; white-space: nowrap; }
       #loc-overlay .loc-g-cur, #g-unica .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
       #loc-overlay .loc-g-cur:empty::before, #g-unica .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
       #loc-overlay #loc-g-list:not(:empty), #g-unica #g-unica-list:not(:empty) { margin-top: 0.6rem; }

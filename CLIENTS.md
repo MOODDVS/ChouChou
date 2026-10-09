@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `main` (06/10/2026, `c878877` — la giornata nella Accueil).
+**Motore — riferimento attuale:** `main` (09/10/2026, `70406ee` — il marchio in fondo al bancone).
 
 > ⚠️ **Da dove si aggiornano i clienti: `engine/main`, e basta.** Il ramo `multi-sede`
 > ha fatto il suo lavoro — il multi-sede e' nel motore e tutti e sei i clienti ci sono
@@ -20,26 +20,37 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 - 🟡 **Parziale** — allineato a una data passata; mancano commit motore recenti e/o migrazioni.
 - 🔴 **Indietro** — molto distante dal motore, richiede merge importante.
 - ⚫ **Fuori motore** — non gira sul motore (da ricostruire).
+- 🔵 **In allestimento** — clonato dal motore, non ancora in linea: manca ancora qualcosa della checklist nuovo cliente.
 
 ## Quadro
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `c878877` — 06/10/2026** (la giornata; 0 conflitti, build verde) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ fino al 06/10 questa riga diceva `e3e863a`: non c'era mai arrivato (vedi il giro del 06/10) |
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
-| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
-| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `07a89cf` — 07/10/2026** (la giornata; 0 conflitti, 688 prove verdi) | pagina di annullo anche in italiano. **Ticket di cucina suo** (`config/ticket.ts`, commit `e32521e`): «Forza Napoli!» sotto l'insegna, nota dell'ordine sopra i piatti, conto dei pezzi sulla riga di servizio. Stampante collegata e prova uscita il 07/10 |
-| **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan). **Ticket 09/10/2026: scritte piu' grandi** (il ripiego del motore, corretto per tutti) **+ logo acceso** in `config/ticket.ts` — ⚠️ il logo va ancora caricato a mano nella memoria di tutte e tre le stampanti, se no esce solo il testo; dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ fino al 06/10 questa riga diceva `e3e863a`: non c'era mai arrivato (vedi il giro del 06/10) |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
+| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | pagina di annullo nelle sue 4 lingue |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | pagina di annullo anche in italiano. **Ticket di cucina suo** (`config/ticket.ts`, commit `e32521e`) — ⚠️ **quindi NON ha ricevuto le scritte piu' grandi del 09/10**, che stanno nel ripiego del motore: ha ancora la riga di servizio in Font B condensato. Si cambia il giorno che lo chiede: «Forza Napoli!» sotto l'insegna, nota dell'ordine sopra i piatti, conto dei pezzi sulla riga di servizio. Stampante collegata e prova uscita il 07/10 |
+| **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **L'Aperitivo** | 🔵 In allestimento | — | brasserieaperitivo.be (sito WordPress attuale) | fr | **clone `70406ee` — 09/10/2026** | settimo cliente, allestimento iniziato il 09/10. Fatti: demo cancellati, `client.ts` coi recapiti veri (dal sito attuale), `site`, `manifest.json`. Mancano: loghi e icone, Supabase + `TUTTO.sql` + bucket, env, Stripe, Resend, sito pubblico, super admin |
 
-✅ **Tutti e sei allineati e deployati** (04/10/2026). **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
+✅ **Tutti e sei allineati e deployati** (09/10/2026, `70406ee`). Il settimo, L’Aperitivo, e' in allestimento. **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
 
-⚠️ **Per chi prende la stampa servono tre cose, e due stanno fuori dal codice:**
+⚠️ **Per chi prende la stampa servono SEI cose, e quattro stanno fuori dal codice** (diceva «tre» quando l'elenco ne aveva gia' cinque: un elenco che cresce e un'intestazione che non cambia e' il modo piu' facile di far sembrare finito un allestimento che non lo e'):
 1. **`TUTTO.sql`** nel suo Supabase — porta la coda (#76) e il ticket per stampante (#77). Da oggi si puo' rilanciare su un database vivo senza riscrivere niente.
 2. **`PUBLIC_SITE_URL`** fra le variabili su Hostinger (`https://www.450gradi.be`, `https://educazionenapoletana.be`…): e' l'indirizzo che il tablet va ad aprire. Senza, la coda non accoda e lo scrive solo nei log.
 3. La stampante si sceglie nel **super**: **Sedi → matita → Impression** se il cliente ha piu' punti, **Intégrations → Impression** se ne ha uno solo.
-4. **L'interruttore della stampa automatica ACCESO.** ⚠️ La «prova di stampa» del pannello chiama `mandaStampa` diretto (`api/admin/printers.ts`): salta la coda **e** salta l'interruttore. Un ordine vero passa da `accodaTicket`, che si ferma secco se `print_auto` non e' `1` con la stampante scelta. Prova uscita + switch spento = la stampa «funziona» e in cucina non arriva mai niente, senza un errore da nessuna parte. **Dopo la prova, un ordine vero da un pezzo.**
-5. **Le chiavi senza virgolette.** Incollando `BIZPRINT_SECRET_KEY="abc"` nel pannello dell'hosting le virgolette restano dentro il valore: il servizio risponde `401`, che si legge come «stampante assente». Dal commit `5b912d6` il motore le spoglia da solo e il 401 dice le lunghezze delle due chiavi (assente = 0, virgolette = due caratteri di troppo, invertite = lunghezze scambiate).
+4. **Il LOGO, se il cliente lo vuole: un passo A MANO su OGNI stampante.**
+   Si carica nella memoria della stampante (*NV logo*) con l'utility del
+   costruttore, e poi si accende nel suo `config/ticket.ts`
+   (`ticketCucina({ ...o, logo: true })`). ⚠️ Un'immagine spedita col ticket
+   non ci passa — il perche' sta in ENGINE.md, «Il logo». ⚠️ Su una stampante
+   dove non e' stato caricato non stampa niente e non da' errore: con tre
+   punti, il logo esce in due e nel terzo no, e nessuno lo segnala. **450
+   Gradi: acceso il 09/10/2026, da caricare su tutte e tre (Schaerbeek,
+   Stockel, Jourdan).**
+5. **L'interruttore della stampa automatica ACCESO.** ⚠️ La «prova di stampa» del pannello chiama `mandaStampa` diretto (`api/admin/printers.ts`): salta la coda **e** salta l'interruttore. Un ordine vero passa da `accodaTicket`, che si ferma secco se `print_auto` non e' `1` con la stampante scelta. Prova uscita + switch spento = la stampa «funziona» e in cucina non arriva mai niente, senza un errore da nessuna parte. **Dopo la prova, un ordine vero da un pezzo.**
+6. **Le chiavi senza virgolette.** Incollando `BIZPRINT_SECRET_KEY="abc"` nel pannello dell'hosting le virgolette restano dentro il valore: il servizio risponde `401`, che si legge come «stampante assente». Dal commit `5b912d6` il motore le spoglia da solo e il 401 dice le lunghezze delle due chiavi (assente = 0, virgolette = due caratteri di troppo, invertite = lunghezze scambiate).
 
 ## ⚠️ Il giro del 04/10: 4 clienti su 6 rotti dall'AUTO-MERGE
 

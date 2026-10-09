@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { componi, componiTesto, anteprima, impagina, aCapo, due, linea, COLONNE } from "../src/lib/escpos.ts";
+import { componi, componiTesto, anteprima, impagina, aCapo, due, linea, colonneDi, COLONNE } from "../src/lib/escpos.ts";
 import { ticketCucina } from "../src/lib/stampaRegole.ts";
 
 const ORDINE = {
@@ -26,8 +26,11 @@ test("la carta e' larga 48 colonne, e nessuna riga le sfonda", () => {
   // capo. Quello che sfonda non va a capo da solo: lo TAGLIA la stampante, e
   // sparisce senza dirlo. «50 cl» mancante e' una bibita che non si prepara.
   assert.equal(COLONNE, 48);
+  // ⚠️ Il limite si CHIEDE a `escpos.ts`, non si riscrive qui. Scritto a mano
+  // («gigante ? 24 : piccolo ? 64 : 48»), al primo taglia nuova questa prova
+  // l'avrebbe misurata con 48 colonne: verde, e il caso nuovo non provato.
   for (const r of impagina(ticketCucina(ORDINE))) {
-    const max = r.taglia === "gigante" ? 24 : r.taglia === "piccolo" ? 64 : 48;
+    const max = colonneDi(r.taglia);
     assert.ok(r.testo.length <= max, `riga oltre il bordo (${r.taglia}, ${max}): ${r.testo}`);
   }
 });
@@ -81,7 +84,19 @@ test("la fascia in negativo arriva ai due bordi", () => {
   const byte = componi(ticketCucina(ORDINE));
   const testo = new TextDecoder().decode(byte);
   const riga = testo.split("\n").find((l) => l.includes("DA INCASSARE"));
-  assert.ok(riga.replace(/[\x00-\x1f]/g, "").length >= 48, `la fascia non arriva al bordo: «${riga}»`);
+  // ⚠️ Si contano le colonne DELLA SUA TAGLIA, non 48 fisse. La fascia e'
+  // `gigante`: 24 caratteri larghi il doppio riempiono la stessa carta di 48
+  // normali. Scritto «>= 48», il giorno che la fascia e' diventata gigante la
+  // prova e' diventata rossa su un ticket giusto — e la tentazione era
+  // rimpicciolire la fascia per far contenta la prova.
+  //
+  // ⚠️ E si misura DA «DA INCASSARE» in avanti, non ripulendo i caratteri di
+  // controllo: i comandi portano anche byte STAMPABILI (`GS !` e' 0x1d 0x21,
+  // e 0x21 e' «!»), che una `replace` di /[\x00-\x1f]/ lascia dentro e conta
+  // come testo. Era il difetto della prova vecchia, nascosto da un «>= 48».
+  const colonne = colonneDi(impagina(ticketCucina(ORDINE)).find((r) => r.inverso).taglia);
+  const fine = riga.slice(riga.indexOf("DA INCASSARE"));
+  assert.equal(fine.length, colonne, `la fascia non arriva al bordo: «${fine}»`);
 });
 
 test("il ticket finisce col taglio, dopo l'avanzamento", () => {
@@ -120,4 +135,94 @@ test("il ticket come testo e' identico al ticket come byte", () => {
   const byte = componi(righe);
   const testo = componiTesto(righe);
   assert.deepEqual([...new TextEncoder().encode(testo)], [...byte], "testo e byte non coincidono piu'");
+});
+
+test("`largo` e' larga il doppio, `grande` e' solo alta il doppio", () => {
+  // ⚠️ E' la differenza che 450 Gradi ha visto sulla carta prima che io nel
+  // codice: con `grande` le lettere raddoppiano in ALTEZZA e restano larghe
+  // come le normali — cioe' diventano strette. `largo` raddoppia la
+  // larghezza, e il prezzo sono le colonne: 24, non 48. Se un giorno le due
+  // taglie tornassero a contare uguale, vorrebbe dire che una delle due ha
+  // perso il suo comando e i testi escono tagliati senza dirlo.
+  assert.equal(colonneDi("grande"), 48);
+  assert.equal(colonneDi("largo"), 24);
+  assert.equal(colonneDi("gigante"), 24);
+  // I due comandi veri: `GS ! 0x10` e' doppia larghezza, `GS ! 0x01` doppia
+  // altezza. Un bit scambiato qui e' un ticket che esce stretto.
+  assert.deepEqual([...componi([{ testo: "x", taglia: "largo" }])].slice(2, 5), [0x1d, 0x21, 0x10]);
+  assert.deepEqual([...componi([{ testo: "x", taglia: "grande" }])].slice(2, 5), [0x1d, 0x21, 0x01]);
+});
+
+test("la riga del ritiro non e' scritta col carattere condensato", () => {
+  // ⚠️ IL GUASTO (detto da 450 Gradi, 09/10/2026): «#numero · RITIRO hh:mm» —
+  // la riga per cui il ticket esiste — usciva in Font B, il carattere
+  // CONDENSATO della stampante, scelto perche' ci stanno 64 colonne. Nessuno
+  // aveva chiesto 64 colonne per venti caratteri. Questa prova non impone una
+  // taglia: impone che quella riga sia larga il doppio, cioe' leggibile in
+  // piedi a due metri dal ferma-comande.
+  const riga = impagina(ticketCucina(ORDINE)).find((r) => r.testo.includes("RITIRO"));
+  assert.ok(riga, "la riga del ritiro non c'e' piu'");
+  assert.equal(colonneDi(riga.taglia), 24, `la riga del ritiro e' tornata stretta (${riga.taglia})`);
+  assert.ok(riga.testo.length <= 24, `e ora non ci sta: «${riga.testo}»`);
+});
+
+test("il logo della stampante passa come testo, come tutti gli altri comandi", () => {
+  // ⚠️ E' la ragione per cui il logo si CHIAMA invece di spedirlo: un bitmap
+  // ESC/POS porta byte sopra il 128, e il corpo della risposta viaggia come
+  // testo UTF-8 — quei byte verrebbero ricodificati e arriverebbe spazzatura
+  // alla testina. `FS p 1 0` sta sotto il 128 come `init` e come il taglio.
+  const righe = [{ testo: "", logo: true }, { testo: "450 GRADI", taglia: "gigante", centrato: true }];
+  const byte = componi(righe);
+  for (const b of byte) assert.ok(b < 128, `un byte fuori da UTF-8: ${b}`);
+  assert.deepEqual([...new TextEncoder().encode(componiTesto(righe))], [...byte], "testo e byte non coincidono piu'");
+  const dentro = [...byte];
+  const i = dentro.findIndex((b, k) => b === 0x1c && dentro[k + 1] === 0x70);
+  assert.ok(i >= 0, "il comando del logo non c'e'");
+  assert.deepEqual(dentro.slice(i, i + 4), [0x1c, 0x70, 1, 0]);
+  // E non lascia una riga di testo vuota: `impagina` non ci passa `aCapo`.
+  const fisiche = impagina(righe);
+  assert.equal(fisiche.length, 2, "il logo ha prodotto una riga di troppo");
+  assert.equal(fisiche[0].logo, true);
+  assert.ok(anteprima(righe).startsWith(" "), "nell'anteprima il logo non e' centrato");
+  assert.ok(anteprima(righe).includes("[logo]"), "l'anteprima non mostra il logo");
+});
+
+test("il ripiego del motore NON stampa il logo, il cliente lo accende", () => {
+  // ⚠️ Il logo vive nella FLASH di ogni stampante, caricato a mano. Accenderlo
+  // nel ripiego vorrebbe dire mandare un comando nuovo a sei ristoranti che
+  // non l'hanno chiesto, su stampanti in servizio, per guadagnarci una riga
+  // vuota. Lo accende chi il logo l'ha caricato davvero, nel suo
+  // `config/ticket.ts` — ed e' l'unico interruttore che serve.
+  assert.ok(!ticketCucina(ORDINE).some((r) => r.logo), "il ripiego ha iniziato a stampare un logo da solo");
+  assert.ok(ticketCucina({ ...ORDINE, logo: true }).some((r) => r.logo), "il cliente non puo' piu' accenderlo");
+});
+
+test("i comandi gia' pronti passano tali e quali, e non in doppia larghezza", () => {
+  // ⚠️ `grezzo` serve a UNA cosa: un'immagine, che e' l'unico pezzo del ticket
+  // che non si puo' descrivere a parole. Due cose devono reggere.
+  //
+  // 1. Passa INTATTO. Se `impagina` lo trattasse come testo, `aCapo`
+  //    spezzerebbe i comandi sugli spazi — e uno spazio, dentro i dati di
+  //    un'immagine, e' semplicemente il byte 0x20: il disegno si romperebbe
+  //    esattamente dove capita, senza un errore da nessuna parte.
+  // 2. Esce in taglia NORMALE. `GS !` vale anche per le immagini su parecchie
+  //    stampanti: una banda mandata mentre e' attiva la doppia larghezza esce
+  //    larga il doppio e meta' finisce fuori dalla carta.
+  const disegno = "\u001dv0\u0000\u0004\u0000\u0002\u0000ABCDEFGH";
+  const righe = [
+    { testo: "450 GRADI", taglia: "gigante", centrato: true },
+    { grezzo: disegno, testo: "" },
+  ];
+  const fisiche = impagina(righe);
+  assert.equal(fisiche.length, 2, "il comando e' stato spezzato in piu' righe");
+  assert.equal(fisiche[1].grezzo, disegno, "il comando e' stato ritoccato");
+
+  const testo = componiTesto(righe);
+  assert.ok(testo.includes(disegno), "il comando non e' uscito intatto");
+  const prima = testo.slice(0, testo.indexOf(disegno));
+  const ultimaTaglia = prima.lastIndexOf("\u001d!");
+  assert.ok(ultimaTaglia >= 0, "nessuna taglia impostata prima dell'immagine");
+  assert.equal(prima.charCodeAt(ultimaTaglia + 2), 0, "l'immagine parte in doppia larghezza: uscira' tagliata");
+
+  assert.ok(anteprima(righe).includes("[immagine]"), "l'anteprima non dice che li' c'e' un disegno");
 });
