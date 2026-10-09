@@ -199,6 +199,13 @@ sembra riuscito e quel cliente resta indietro. Il 12/09 mancavano L'Huile
 (mergiato a mano da sessioni) ed EN v2. Quando si aggiunge un cliente, si
 aggiunge lì lo stesso giorno.
 
+⚠️ **È già successo di nuovo.** Il 09/10 la lista ne aveva quattro, mentre i
+clienti erano sei: **450 Gradi** e **BROS** sono vissuti per settimane fuori
+dallo script, aggiornati solo a mano. Non se n'è accorto nessuno proprio
+perché il riepilogo di `sync-clienti.sh` diceva «fatto» su quelli che
+conosceva. La lista non si verifica da sola: il controllo è `ls ~/Developer`
+contro `CLIENTI`, e la riga di CLIENTS.md che nomina il cliente.
+
 ### Aggiornare UN solo cliente a mano
 ```
 cd <repo-cliente>

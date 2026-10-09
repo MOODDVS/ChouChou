@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `main` (06/10/2026, `c878877` — la giornata nella Accueil).
+**Motore — riferimento attuale:** `main` (09/10/2026, `70406ee` — il marchio in fondo al bancone).
 
 > ⚠️ **Da dove si aggiornano i clienti: `engine/main`, e basta.** Il ramo `multi-sede`
 > ha fatto il suo lavoro — il multi-sede e' nel motore e tutti e sei i clienti ci sono
@@ -20,19 +20,21 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 - 🟡 **Parziale** — allineato a una data passata; mancano commit motore recenti e/o migrazioni.
 - 🔴 **Indietro** — molto distante dal motore, richiede merge importante.
 - ⚫ **Fuori motore** — non gira sul motore (da ricostruire).
+- 🔵 **In allestimento** — clonato dal motore, non ancora in linea: manca ancora qualcosa della checklist nuovo cliente.
 
 ## Quadro
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `c878877` — 06/10/2026** (la giornata; 0 conflitti, build verde) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ fino al 06/10 questa riga diceva `e3e863a`: non c'era mai arrivato (vedi il giro del 06/10) |
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
-| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
-| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `07a89cf` — 07/10/2026** (la giornata; 0 conflitti, 688 prove verdi) | pagina di annullo anche in italiano. **Ticket di cucina suo** (`config/ticket.ts`, commit `e32521e`): «Forza Napoli!» sotto l'insegna, nota dell'ordine sopra i piatti, conto dei pezzi sulla riga di servizio. Stampante collegata e prova uscita il 07/10 |
-| **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ fino al 06/10 questa riga diceva `e3e863a`: non c'era mai arrivato (vedi il giro del 06/10) |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
+| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | pagina di annullo nelle sue 4 lingue |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | pagina di annullo anche in italiano. **Ticket di cucina suo** (`config/ticket.ts`, commit `e32521e`): «Forza Napoli!» sotto l'insegna, nota dell'ordine sopra i piatti, conto dei pezzi sulla riga di servizio. Stampante collegata e prova uscita il 07/10 |
+| **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `70406ee` — 09/10/2026** (il marchio in fondo al bancone; incassi, resi e articoli piu' ordinati nella Accueil) | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **L'Aperitivo** | 🔵 In allestimento | — | brasserieaperitivo.be (sito WordPress attuale) | fr | **clone `70406ee` — 09/10/2026** | settimo cliente, allestimento iniziato il 09/10. Fatti: demo cancellati, `client.ts` coi recapiti veri (dal sito attuale), `site`, `manifest.json`. Mancano: loghi e icone, Supabase + `TUTTO.sql` + bucket, env, Stripe, Resend, sito pubblico, super admin |
 
-✅ **Tutti e sei allineati e deployati** (04/10/2026). **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
+✅ **Tutti e sei allineati e deployati** (09/10/2026, `70406ee`). Il settimo, L’Aperitivo, e' in allestimento. **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
 
 ⚠️ **Per chi prende la stampa servono tre cose, e due stanno fuori dal codice:**
 1. **`TUTTO.sql`** nel suo Supabase — porta la coda (#76) e il ticket per stampante (#77). Da oggi si puo' rilanciare su un database vivo senza riscrivere niente.
