@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import { supabaseAdmin, scadeMenu } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, aggiorna, cancella, salva } from "../../../lib/admin/sede";
 import { sedeDaScrivere, type Ambito } from "../../../lib/admin/sedeRegole";
@@ -328,6 +328,7 @@ export const POST: APIRoute = async ({ request }) => {
     creato
   );
   if (errStato) return json({ error: await msg(errStato) }, 500);
+  scadeMenu();
   return json({ item: ambito.modo === "sede" ? perIlPunto(creato, ambito, await statiDelPunto(ambito, [String(creato.id)])) : creato });
 };
 
@@ -428,6 +429,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const errStato = await scriviStatoPunto(id, ambito, cambi, riga);
   if (errStato) return json({ error: await msg(errStato) }, 500);
 
+  scadeMenu();
   return json({
     item:
       ambito.modo === "sede"
@@ -469,6 +471,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     const { error } = await aggiorna("menu_items", ambito, { sort_order: i + 1 }).eq("id", order[i]);
     if (error) return json({ error: await msg("err.save") }, 500);
   }
+  scadeMenu();
   return json({ ok: true });
 };
 
@@ -486,5 +489,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const { error } = await cancella("menu_items", ambito).eq("id", id);
   if (error) return json({ error: await msg("err.delete") }, 500);
 
+  scadeMenu();
   return json({ ok: true });
 };
