@@ -320,3 +320,63 @@ test("ogni file di src/config/ e' dichiarato in .gitattributes, in un verso o ne
       "Scrivi una riga: `merge=ours` se e' del cliente, `merge` se e' del motore — col perche'.",
   );
 });
+
+/**
+ * COSA DICONO LE REGOLE PER UN DATO FILE: l'ultima che lo prende vince, che
+ * e' la semantica di .gitattributes. `**` attraversa le cartelle, `*` no.
+ */
+function attributoMerge(percorso) {
+  let vinta = null;
+  for (const riga of readFileSync(".gitattributes", "utf8").split("\n")) {
+    const r = riga.trim();
+    if (!r || r.startsWith("#")) continue;
+    const [pattern, ...attributi] = r.split(/\s+/);
+    const re = new RegExp(
+      "^" +
+        pattern
+          .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+          .replace(/\*\*/g, "\u0000")
+          .replace(/\*/g, "[^/]*")
+          .replace(/\u0000/g, ".*") +
+        "$",
+    );
+    if (re.test(percorso)) vinta = attributi.includes("merge=ours") ? "ours" : "motore";
+  }
+  return vinta;
+}
+
+test("i componenti del MOTORE non sono blindati come se fossero del cliente", () => {
+  // ⚠️ IL GUASTO, ED E' LA TERZA VOLTA OGGI CHE LE REGOLE DI MERGE MENTONO.
+  // Le prime due erano file del cliente lasciati scoperti (vedi la prova qui
+  // sopra). Questa e' il rovescio: fino al 10/10/2026 c'era
+  // `src/components/** merge=ours`, e nella radice di src/components/ NON ci
+  // sono componenti del cliente — ci sono i NOVE del motore (ContactForm,
+  // CookieBanner, Fonts, Immagine, LegalDoc, OrderApp, ReservationWidget,
+  // SitePopup, SlotPicker). Del cliente e' solo `site/`.
+  //
+  // Nessun merge si lamentava: una correzione del motore a uno di quei file
+  // semplicemente non partiva, per sempre, verso tutti i clienti. Si e' vista
+  // solo correggendo le parentesi del consenso nel widget (eaab87b), e
+  // scoprendo che quattro clienti su sei avevano quel file IDENTICO al
+  // motore — non l'avevano personalizzato, stavano solo indietro.
+  //
+  // ⚠️ La prova guarda TUTTI E DUE I VERSI: i file della radice devono
+  // arrivare dal motore, e `site/` deve restare del cliente. Una prova che
+  // controlla un verso solo approva la regola che cancella l'altra.
+  if (!SONO_IL_MOTORE) return;
+  const radice = readdirSync("src/components")
+    .filter((f) => statSync(join("src/components", f)).isFile());
+  const blindati = radice.filter((f) => attributoMerge(`src/components/${f}`) === "ours");
+  assert.deepEqual(
+    blindati,
+    [],
+    `componenti del motore protetti da merge=ours: ${blindati.join(", ")}. ` +
+      "Nella radice di src/components/ stanno i componenti del MOTORE: una loro " +
+      "correzione non arriverebbe mai a nessun cliente. Del cliente e' src/components/site/.",
+  );
+  assert.equal(
+    attributoMerge("src/components/site/Header.astro"),
+    "ours",
+    "src/components/site/ deve restare del cliente: e' il sito pubblico, disegnato per ognuno.",
+  );
+});

@@ -143,7 +143,22 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       .rw-in-societe { margin-bottom: 0.6rem; }
       .rw-ta { resize: vertical; margin-bottom: 0.6rem; display: block; }
       .rw-tel-prefix { flex: 0 0 118px; color-scheme: dark; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.6rem center; background-size: 12px; padding-right: 2rem; }
-      .rw-terms { display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; color: #b3aca6; font-size: 0.78rem; line-height: 1.5; margin-bottom: 0.8rem; }
+      /* ⚠️ `flex-start` e non `center` anche se adesso la frase sta su una
+         riga: su uno schermo stretto va a capo lo stesso, e una casella
+         centrata su due righe finisce in mezzo al testo invece che davanti
+         alla prima parola. */
+      /* ⚠️ I COLORI RESTANO QUELLI DI CHOUCHOU, scritti a mano. Il motore qui
+         usa `var(--rw-accent,#dfab4e)`, ma questo repo NON definisce le
+         variabili `--rw-*` da nessuna parte (verificato): prendere la riga
+         del motore avrebbe fatto diventare ORO la casella e il collegamento,
+         cioe' il rosa del marchio sparito in fondo al modulo di
+         prenotazione. Del motore si prende la MISURA (0.78 -> 0.72rem,
+         interlinea 1.5 -> 1.45), che e' quello che il commit cambiava.
+         ⚠️ Il giorno che a ChouChou si danno le variabili `--rw-*` — come su
+         L'Aperitivo, in `styles/site/prenota.css` — queste tre righe tornano
+         identiche al motore e questo conflitto non si ripresenta piu'. Il
+         rosa compare 31 volte scritto a mano in questo solo file. */
+      .rw-terms { display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; color: #b3aca6; font-size: 0.72rem; line-height: 1.45; margin-bottom: 0.8rem; }
       .rw-terms input { accent-color: #ed2289; width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; cursor: pointer; }
       .rw-terms a { color: #ed2289; text-decoration: underline; text-underline-offset: 2px; }
       .rw-terms a:hover { color: #fff; }
@@ -645,7 +660,25 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
         $("rw-done-msg").textContent = t.confMsg;
         $("rw-done-new").textContent = t.nouvelleResa;
         const privacy = CLIENT.privacyUrl[lingua] ?? CLIENT.privacyUrl.fr ?? "/privacy";
-        $("rw-terms-txt").innerHTML = `<a href="${privacy}" target="_blank" rel="noopener">${esc(t.accepteConditions)}</a>`;
+        /**
+         * ⚠️ LE PARENTESI QUADRE DICONO QUALE PEZZO E' IL COLLEGAMENTO, e
+         * nessuno le leggeva: la riga di prima avvolgeva TUTTA la frase in
+         * un `<a>` — parentesi comprese, stampate a schermo. Il risultato
+         * era «J'accepte les [conditions...] du restaurant.» tutto
+         * sottolineato, con due parentesi quadre in mezzo a una frase.
+         * I testi avevano gia' il segno giusto in tutte e otto le lingue
+         * (vedi `lib/reservationI18n.ts`): mancava chi lo guardasse.
+         * ⚠️ Niente parentesi nel testo (una traduzione che le perde) e il
+         * ripiego e' il comportamento di prima: tutta la frase cliccabile.
+         * Meglio un collegamento troppo largo di una frase senza.
+         */
+        const frase = t.accepteConditions;
+        const pezzi = frase.match(/^([^[]*)\[([^\]]+)\](.*)$/s);
+        const legame = (txt: string) =>
+          `<a href="${privacy}" target="_blank" rel="noopener">${esc(txt)}</a>`;
+        $("rw-terms-txt").innerHTML = pezzi
+          ? `${esc(pezzi[1])}${legame(pezzi[2])}${esc(pezzi[3])}`
+          : legame(frase);
         $("rw-lang-cur").textContent = lingua.toUpperCase();
         renderPersone();
         render();
