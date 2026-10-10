@@ -93,6 +93,17 @@ export interface TestiWidget {
   merci: string;
   confMsg: string;
   nouvelleResa: string;
+  /**
+   * La spunta sopra il bottone di conferma.
+   * ⚠️ LE PARENTESI QUADRE SONO IL COLLEGAMENTO: quello che sta dentro
+   * diventa cliccabile, il resto no. Non vanno tradotte via, e non vanno
+   * lasciate attorno a tutta la frase — una frase intera sottolineata non
+   * dice dove si va a finire.
+   * ⚠️ UNA RIGA SOLA. Prima nominava anche delle «conditions de
+   * réservation» che non esistono: il collegamento e' sempre stato uno, e
+   * punta alla politica di riservatezza. Dirne due e portarne una e' una
+   * promessa che la pagina linkata non mantiene.
+   */
   accepteConditions: string;
 }
 
@@ -141,7 +152,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "Merci !",
     confMsg: "Votre demande de réservation a bien été envoyée. Vous recevrez un email de confirmation.",
     nouvelleResa: "Nouvelle réservation",
-    accepteConditions: "J'accepte les [conditions de réservation et la politique de confidentialité] du restaurant.",
+    accepteConditions: "J'accepte la [politique de confidentialité].",
   },
   en: {
     titre: "Book a table",
@@ -187,7 +198,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "Thank you!",
     confMsg: "Your booking request has been sent. You will receive a confirmation email.",
     nouvelleResa: "New booking",
-    accepteConditions: "I accept the restaurant's [booking terms and privacy policy].",
+    accepteConditions: "I accept the [privacy policy].",
   },
   es: {
     titre: "Reservar una mesa",
@@ -233,7 +244,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "¡Gracias!",
     confMsg: "Su solicitud de reserva ha sido enviada. Recibirá un email de confirmación.",
     nouvelleResa: "Nueva reserva",
-    accepteConditions: "Acepto las [condiciones de reserva y la política de privacidad] del restaurante.",
+    accepteConditions: "Acepto la [política de privacidad].",
   },
   it: {
     titre: "Prenota un tavolo",
@@ -279,7 +290,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "Grazie!",
     confMsg: "La tua richiesta di prenotazione è stata inviata. Riceverai un'email di conferma.",
     nouvelleResa: "Nuova prenotazione",
-    accepteConditions: "Accetto le [condizioni di prenotazione e l'informativa privacy] del ristorante.",
+    accepteConditions: "Accetto l'[informativa privacy].",
   },
   nl: {
     titre: "Een tafel reserveren",
@@ -325,7 +336,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "Bedankt!",
     confMsg: "Je reserveringsaanvraag is verzonden. Je ontvangt een bevestigingsmail.",
     nouvelleResa: "Nieuwe reservering",
-    accepteConditions: "Ik accepteer de [reserveringsvoorwaarden en het privacybeleid] van het restaurant.",
+    accepteConditions: "Ik accepteer het [privacybeleid].",
   },
   de: {
     titre: "Tisch reservieren",
@@ -371,7 +382,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "Danke!",
     confMsg: "Ihre Reservierungsanfrage wurde gesendet. Sie erhalten eine Bestätigung per E-Mail.",
     nouvelleResa: "Neue Reservierung",
-    accepteConditions: "Ich akzeptiere die [Reservierungsbedingungen und die Datenschutzerklärung] des Restaurants.",
+    accepteConditions: "Ich akzeptiere die [Datenschutzerklärung].",
   },
   ru: {
     titre: "Забронировать столик",
@@ -417,7 +428,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "Спасибо!",
     confMsg: "Ваш запрос на бронирование отправлен. Вы получите письмо с подтверждением.",
     nouvelleResa: "Новая бронь",
-    accepteConditions: "Я принимаю [условия бронирования и политику конфиденциальности] ресторана.",
+    accepteConditions: "Я принимаю [политику конфиденциальности].",
   },
   ar: {
     titre: "حجز طاولة",
@@ -463,7 +474,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     merci: "شكراً!",
     confMsg: "تم إرسال طلب الحجز الخاص بك. ستتلقى بريداً إلكترونياً للتأكيد.",
     nouvelleResa: "حجز جديد",
-    accepteConditions: "أوافق على [شروط الحجز وسياسة الخصوصية] الخاصة بالمطعم.",
+    accepteConditions: "أوافق على [سياسة الخصوصية].",
   },
   zh: {
     titre: "预订餐桌",
