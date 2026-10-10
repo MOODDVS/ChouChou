@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import { supabaseAdmin, scadeMenu } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -152,6 +152,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (ins.error.code === "23505") return json({ error: await msg("cat.err.dup") }, 400);
     return json({ error: await msg("cat.err.create") }, 500);
   }
+  scadeMenu();
   return json({ category: ins.data });
 };
 
@@ -264,6 +265,7 @@ export const PUT: APIRoute = async ({ request }) => {
     const { error: errItems } = await supabaseAdmin.from("menu_items").update(aggiornaPiatti).eq("category", attuale.name);
     if (errItems) return json({ error: await msg("cat.err.sync") }, 500);
   }
+  scadeMenu();
   return json({ ok: true });
 };
 
@@ -356,6 +358,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     )
   );
   if (esiti.some((r) => r.error)) return json({ error: await msg("cat.err.sync") }, 500);
+  scadeMenu();
   return json({ ok: true });
 };
 
@@ -410,5 +413,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 
   const { error } = await supabaseAdmin.from("menu_categories").delete().eq("id", id);
   if (error) return json({ error: await msg("cat.err.delete") }, 500);
+  scadeMenu();
   return json({ ok: true });
 };

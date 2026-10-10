@@ -6,7 +6,7 @@ import { leggi, type Ambito } from "./admin/sede";
 import { i18nPulito } from "./i18nMenu";
 import { applicaStatoSede } from "./menuStato";
 import { trovaCategoriaStandard, i18nStandard, LINGUE } from "./admin/categorieStandard";
-import { cacheOr } from "./cache";
+import { cacheOr, cacheDelPrefisso } from "./cache";
 
 // Ri-esportato per comodità: il server legge il menu da qui.
 // NB: le isole React devono importarlo da "./i18nMenu", non da db.ts
@@ -402,10 +402,15 @@ const perAmbito = (a: Ambito) => (a.modo === "sede" ? a.id : a.modo);
  * ordina e la paga. Un menu vecchio di un minuto non fa danno; un esaurito
  * vecchio di un minuto e' un ordine che non si puo' servire.
  *
- * ⚠️ Nessuno la svuota, e non e' una dimenticanza: valgono i 60 secondi, come
- * per gli orari in `schedule.ts`, che il ristoratore cambia quanto il menu.
- * Il giorno che non bastassero, e' una riga: `cacheDelPrefisso("menu:def:")`
- * nelle API che scrivono menu, categorie e lunch.
+ * ⚠️ ADESSO LA SVUOTANO LE API CHE SCRIVONO (10/10/2026): `scadeMenu()` qui
+ * sotto, chiamata nei gestori di `menu.ts`, `categories.ts` e `lunch.ts`.
+ * Fino a quel giorno nessuno la svuotava, e i 60 secondi erano il mezzo
+ * minuto in cui il ristoratore salva, va a controllare sul sito e non vede
+ * niente. Il commento diceva «il giorno che non bastassero, e' una riga»:
+ * quel giorno e' arrivato con gli allergeni.
+ * ⚠️ Il TTL resta, e serve ancora: e' quello che regge le visite normali, e
+ * copre anche chi scrive il database da fuori (SQL a mano, un'altra API)
+ * senza passare dai gestori.
  */
 async function definizioneMenu(
   soloOrdinabili: boolean,
@@ -427,6 +432,33 @@ async function definizioneMenu(
     // rete non resta in cache per un minuto.
     return { visibili, categorie: await mappaCategorie() };
   });
+}
+
+/**
+ * FA SCADERE SUBITO LA DEFINIZIONE DEL MENU IN CACHE.
+ *
+ * ⚠️ DA CHIAMARE DOPO OGNI SCRITTURA su piatti, categorie e lunch. Senza,
+ * valgono i 60 secondi di `definizioneMenu` — e quei 60 secondi sono
+ * esattamente il mezzo minuto in cui il ristoratore salva, va sul sito a
+ * controllare, non vede la sua modifica e la rifa'. E' successo il
+ * 10/10/2026 con gli allergeni: tutto il percorso era giusto, il dato era
+ * scritto, e il sito mostrava ancora la versione di prima.
+ *
+ * Il commento sopra `definizioneMenu` diceva gia' «il giorno che i 60
+ * secondi non bastassero, e' una riga». Quel giorno e' arrivato.
+ *
+ * ⚠️ `cacheDelPrefisso` e non `cacheDel`: la chiave porta dentro la sede
+ * (`menu:def:vetrina:<id>`), e chi salva non sa quante sedi ci sono. Con una
+ * chiave sola si svuoterebbe quella del punto che ha scritto e resterebbe
+ * piena quella degli altri — un menu vecchio servito a meta' dei clienti,
+ * per mezzo minuto, senza che niente lo dica.
+ *
+ * ⚠️ Non tocca l'ESAURITO, che non e' mai stato in questa cache
+ * (`applicaStatoSede` gira a ogni richiesta): la cucina segna finita la
+ * burrata e il sito smette di offrirla subito, come prima.
+ */
+export function scadeMenu(): void {
+  cacheDelPrefisso("menu:def:");
 }
 
 export async function getMenu(ambito: Ambito): Promise<MenuCategoria[]> {

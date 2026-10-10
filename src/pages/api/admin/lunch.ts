@@ -1,5 +1,10 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+/* ⚠️ `scadeMenu` anche qui, e non e' per scrupolo: `definizioneMenu` chiama
+   `piattiNascostiDaLunch()` (lib/db.ts), quindi il lunch decide quali piatti
+   il sito NON mostra. Toccarlo senza svuotare la cache vuol dire un piatto
+   nascosto che resta in vetrina — o riapparso che non si vede — per un
+   minuto. */
+import { supabaseAdmin, scadeMenu } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -207,6 +212,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (error || !data) {
     return json({ error: await msg("err.migrLunch") }, 500);
   }
+  scadeMenu();
   return json({ lunch: data }, 201);
 };
 
@@ -285,6 +291,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       .single());
   }
   if (error || !data) return json({ error: await msg("err.update") }, 500);
+  scadeMenu();
   return json({ lunch: data });
 };
 
@@ -297,5 +304,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 
   const { error } = await supabaseAdmin.from("lunch_menus").delete().eq("id", id);
   if (error) return json({ error: await msg("err.delete") }, 500);
+  scadeMenu();
   return json({ ok: true });
 };
