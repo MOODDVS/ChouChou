@@ -17,9 +17,30 @@ src/pages/**             merge=ours
 src/pages/admin/**       merge
 src/pages/api/**         merge
 
-# --- Componenti pubblici: tutto TRANNE components/admin (= motore) ---
-src/components/**        merge=ours
-src/components/admin/**  merge
+# --- Componenti del sito pubblico: SOLO components/site (= cliente) ---
+#
+# ⚠️ FINO AL 10/10/2026 QUI C'ERA `src/components/** merge=ours`, e teneva
+# fuori dal merge NOVE COMPONENTI DEL MOTORE che vivono nella radice di
+# src/components/: ContactForm, CookieBanner, Fonts, Immagine, LegalDoc,
+# OrderApp, ReservationWidget, SitePopup, SlotPicker. Gli stessi nomi, gli
+# stessi file, stanno in questo repo. Del cliente e' solo `site/`.
+#
+# L'effetto era invisibile e totale: una correzione del motore a uno di quei
+# file non arrivava MAI a nessun cliente, e nessun merge si lamentava. Si e'
+# visto correggendo le parentesi del consenso nel widget di prenotazione
+# (commit eaab87b): quattro clienti su sei erano IDENTICI al motore — cioe'
+# non avevano personalizzato niente, stavano solo indietro — e la correzione
+# non sarebbe mai partita.
+#
+# ⚠️ DUE CLIENTI HANNO DAVVERO PERSONALIZZATO il widget: ChouChou (199
+# righe) e L'huile sur le feu (81). Per loro questa riga trasforma una
+# divergenza silenziosa in un CONFLITTO al prossimo merge — ed e' lo scopo:
+# un conflitto si vede e si decide, una correzione che non arriva no.
+#
+# ⚠️ VALE DAL SYNC DOPO QUELLO CHE LA PORTA. Git legge .gitattributes com'era
+# PRIMA del merge: il sync che aggiorna questo file applica ancora le regole
+# vecchie. Stessa trappola gia' documentata in ENGINE.md.
+src/components/site/**   merge=ours
 
 # --- Layout del sito pubblico (design per-cliente) ---
 src/layouts/**           merge=ours

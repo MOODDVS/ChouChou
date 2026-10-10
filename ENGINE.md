@@ -205,6 +205,29 @@ scoperti, con la stessa promessa nell'intestazione. Quindi adesso:
   esattamente il caso che deve bocciare;
 - da riga di comando: `git check-attr merge -- src/config/*.ts`.
 
+⚠️ **E si sbaglia anche nel verso opposto: proteggere troppo.** Fino al
+10/10/2026 c'era `src/components/** merge=ours`. Ma nella radice di
+`src/components/` non ci sono componenti del cliente: ci sono i **nove del
+motore** — `ContactForm`, `CookieBanner`, `Fonts`, `Immagine`, `LegalDoc`,
+`OrderApp`, `ReservationWidget`, `SitePopup`, `SlotPicker`. Del cliente è
+solo `site/`. L'effetto era invisibile e totale: una correzione del motore a
+uno di quei file **non arrivava mai a nessun cliente**, e nessun merge si
+lamentava — perché `merge=ours` non è un conflitto, è un silenzio.
+
+Si è visto solo correggendo le parentesi del consenso nel widget di
+prenotazione: quattro clienti su sei avevano quel file **identico** al
+motore, cioè non l'avevano personalizzato, stavano solo indietro. Due
+(ChouChou, L'huile sur le feu) l'hanno davvero personalizzato, e per loro
+la regola stretta trasforma una divergenza silenziosa in un conflitto al
+merge — ed è lo scopo: un conflitto si vede e si decide, una correzione che
+non arriva no.
+
+La regola adesso è `src/components/site/** merge=ours`, e
+`tests/config.test.mjs` diventa rossa se qualcuno riallarga: la prova
+calcola l'attributo che vincerebbe per ogni file della radice e controlla
+**tutti e due i versi** — radice dal motore, `site/` dal cliente. Una prova
+che guarda un verso solo approva la regola che cancella l'altro.
+
 ⚠️ **E la riga nuova NON protegge il merge che la porta: protegge dal
 successivo.** Git legge `.gitattributes` com'è PRIMA del merge, non la
 versione che il merge sta portando. Quindi il giro in cui il motore aggiunge
