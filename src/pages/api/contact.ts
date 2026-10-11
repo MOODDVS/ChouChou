@@ -292,6 +292,18 @@ export const POST: APIRoute = async ({ request }) => {
 </body>
 </html>`;
 
+  /**
+   * ⚠️ LA COPIA AL CLIENTE PUO' FALLIRE DA SOLA, e il sito lo deve sapere.
+   * Il ringraziamento (2) e' best-effort: se non parte, l'operazione resta
+   * buona — il messaggio al ristorante e' arrivato, che e' la cosa che
+   * conta. Ma la pagina scriveva comunque «vous avez aussi recu une copie
+   * par email», e quando quel secondo invio falliva era una frase falsa
+   * detta a schermo mentre l'errore finiva solo in console. Adesso
+   * l'esito viaggia nella risposta e la pagina dice la copia solo se c'e'
+   * stata davvero.
+   */
+  let copia = false;
+
   try {
     // 1) Messaggio al ristorante
     const { error: errR } = await resend.emails.send({
@@ -319,9 +331,10 @@ export const POST: APIRoute = async ({ request }) => {
       html: htmlCliente,
     });
     if (errC) console.error("Contact: invio ringraziamento cliente fallito:", errC);
+    copia = !errC;
   } catch {
     return new Response(JSON.stringify({ error: "Envoi impossible" }), { status: 502 });
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  return new Response(JSON.stringify({ ok: true, copia }), { status: 200 });
 };
