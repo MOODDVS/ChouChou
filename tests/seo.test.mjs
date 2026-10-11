@@ -89,6 +89,31 @@ test("robots.txt chiude il pannello, e non chiude il ristorante", () => {
   assert.match(ROBOTS, /^Sitemap: /m, "robots.txt non indica piu' dove sta la sitemap");
 });
 
+test("robots.txt manda Google sulla sitemap di QUESTO dominio", () => {
+  // ⚠️ LA PROVA CHE MANCAVA, e il guasto che non ha trovato.
+  // Fino all'11/10/2026 qui sopra si controllava solo che una riga `Sitemap:`
+  // ci fosse. C'era: con dentro il segnaposto del motore
+  // (`www.dominiocliente.be`). L'Aperitivo e' andato online cosi' — il
+  // robots.txt mandava Google a cercare la sitemap di un dominio che non
+  // esiste, e il sito non gliene dichiarava nessuna. File valido, nessun
+  // errore da nessuna parte, e la riga giusta scritta in SETUP.md.
+  // Gli altri sei clienti erano a posto: e' una cosa che si sbaglia una volta
+  // su sette, cioe' quella che una prova trova e un occhio no.
+  const sito = CONFIG.match(/site:\s*["']([^"']+)["']/)?.[1];
+  assert.ok(sito, "astro.config.mjs non dichiara `site`");
+  // ⚠️ Nel MOTORE `site` e' `example.com`, perche' il motore non ha un sito:
+  // li' le due righe sono due segnaposti e non devono combaciare. Questa
+  // prova gira anche nei repo dei clienti, ed e' li' che serve.
+  if (new URL(sito).host === "example.com") return;
+  const dichiarata = ROBOTS.match(/^Sitemap:\s*(\S+)/m)?.[1];
+  assert.ok(dichiarata, "robots.txt non indica dove sta la sitemap");
+  assert.equal(
+    new URL(dichiarata).host,
+    new URL(sito).host,
+    `robots.txt manda alla sitemap di ${new URL(dichiarata).host}, ma il sito e' ${new URL(sito).host}`,
+  );
+});
+
 test("le pagine di ritorno da Stripe restano fuori IN OGNI LINGUA", () => {
   // ⚠️ La proposta diceva di elencare `/order-confirm` e `/en/order-confirm`.
   // Ma L'Huile sur le Feu ha `/it/` e `/nl/`, Educazione Napoletana ha `/it/`:
@@ -106,6 +131,27 @@ test("le pagine di ritorno da Stripe restano fuori IN OGNI LINGUA", () => {
     "/feedback/", "/en/feedback/", "/it/feedback/", "/nl/feedback/",
   ]) {
     assert.equal(inSitemap(`https://www.esempio.be${p}`), false, `${p} e' rimasta in sitemap`);
+  }
+});
+
+test("le pagine di stampa e la pagina del QR restano fuori dalla sitemap", () => {
+  // ⚠️ Portano gia' `noindex` tutte e due — una pagina di stampa e' un PDF
+  // per la tipografia, `/links` e' la navigazione del sito in un'altra forma
+  // per la biografia Instagram — ma ci finivano lo stesso: @astrojs/sitemap
+  // unisce le pagine COSTRUITE e TUTTE le rotte di tipo `page`, quindi anche
+  // una pagina `prerender = false` entra in sitemap (verificato sulla 3.7.4).
+  // Consegnare a Google un indirizzo che poi gli dice di non indicizzare e'
+  // l'avviso «Inviata, ma con tag noindex».
+  for (const p of [
+    "/print/menu/", "/print/setdetable/", "/print/lunch/",
+    "/links/", "/en/links/", "/it/links/", "/nl/links/",
+  ]) {
+    assert.equal(inSitemap(`https://www.esempio.be${p}`), false, `${p} e' rimasta in sitemap`);
+  }
+  // ⚠️ Il confine, come per `/administration`: `/printemps` e' una pagina di
+  // primavera, non di stampa, e `/linksammlung` non e' `/links`.
+  for (const p of ["/printemps/", "/en/printemps/", "/linksammlung/"]) {
+    assert.ok(inSitemap(`https://www.esempio.be${p}`), `${p} e' sparita dalla sitemap`);
   }
 });
 

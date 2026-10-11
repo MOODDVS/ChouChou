@@ -32,6 +32,15 @@ export const FUORI_SITEMAP: readonly string[] = [
   "/reservation-test", //   banco di prova
   "/order/cancel", //       si arriva qui solo dal proprio link firmato
   "/reservation/cancel", // idem
+  // ⚠️ LE PAGINE DI STAMPA (`/print/menu`, `/print/setdetable`…) portano
+  // gia' `noindex`: sono un PDF da mandare in tipografia, non una pagina da
+  // trovare. Restavano pero' in sitemap — e una sitemap che consegna a
+  // Google un indirizzo che poi gli dice di non indicizzare e' esattamente
+  // l'avviso «Inviata, ma con tag noindex» documentato qui sotto per
+  // /feedback. Verificato leggendo @astrojs/sitemap 3.7.4: la sitemap
+  // unisce le pagine COSTRUITE e TUTTE le rotte di tipo `page`, quindi una
+  // pagina `prerender = false` ci finisce lo stesso (11/10/2026).
+  "/print",
 ];
 
 /**
@@ -58,6 +67,12 @@ export const PAGINE_FUORI_SITEMAP: readonly string[] = [
   // (29/09/2026). Qui si guarda l'ultimo pezzo, quindi vale anche per
   // /en/feedback, /it/feedback e /nl/feedback in un colpo solo.
   "feedback",
+  // ⚠️ `/links` e' la stessa navigazione del sito in un'altra forma, per il
+  // QR e la biografia Instagram: la pagina porta `noindex` da sempre (lo
+  // dice il suo commento), ma nessuno l'aveva tolta dalla sitemap. Qui, e
+  // non in `FUORI_SITEMAP`, perche' si guarda l'ultimo pezzo: cosi' vale
+  // anche per /en/links, /it/links e /nl/links in un colpo solo.
+  "links",
 ];
 
 /**
@@ -74,7 +89,21 @@ export const PAGINE_FUORI_SITEMAP: readonly string[] = [
  * e il motore un sito non ce l'ha — vedi tests/motore.test.mjs.
  */
 
-/** `true` se l'URL puo' stare in sitemap. Accetta un URL intero o un path. */
+/**
+ * `true` se l'URL puo' stare in sitemap. Accetta un URL intero o un path.
+ *
+ * ⚠️ `/order` NON E' IN NESSUNA DELLE DUE LISTE, ed e' una scelta.
+ *
+ * E' una pagina vera il giorno che il ristorante prende ordini, e una pagina
+ * `noindex` finche' non li prende. Una riga fissa qui la terrebbe fuori
+ * dalla sitemap anche dopo, e quel giorno nessuno verrebbe a rileggere
+ * questo file. Il motore non puo' saperlo da solo — quel `noindex` e' una
+ * proprieta' che la PAGINA passa al telaio — quindi finche' gli ordini sono
+ * spenti Search Console segnala «Inviata, ma con tag noindex» su /order.
+ * E' un avviso, non un errore: sparisce da solo quando si accende la presa
+ * d'ordine. Chi non lo vuole vedere toglie il `noindex` dalla pagina: dice
+ * «arriva presto, intanto telefonate», ed e' una risposta utile a chi cerca.
+ */
 export function inSitemap(url: string): boolean {
   let path: string;
   try {
