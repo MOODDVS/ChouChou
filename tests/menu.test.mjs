@@ -685,6 +685,19 @@ test("una classe nuova sola, e il campo resta annunciabile", () => {
    LA CACHE DEL MENU — la definizione sì, lo stato no
    ============================================================ */
 
+/**
+ * Il testo di un file senza i suoi commenti.
+ *
+ * ⚠️ Serve alle prove che leggono il SORGENTE per sorvegliare una regola:
+ * un nome citato in un commento non e' una chiamata, e una rete che non
+ * distingue le due cose va in rosso per una frase scritta bene.
+ * Toglie i blocchi `/* *\/` e le righe che cominciano con `//`. Non e' un
+ * parser: le va bene perche' guarda del codice nostro, non del testo
+ * qualunque.
+ */
+const senzaCommenti = (testo) =>
+  testo.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[ \t]*\/\/.*$/gm, "");
+
 test("l'esaurito NON finisce in cache", () => {
   // ⚠️ La ragione di tutta la separazione. `getMenu` costava quattro giri di
   // database su ogni visita della pagina piu' vista, e metterli in cache e'
@@ -700,8 +713,17 @@ test("l'esaurito NON finisce in cache", () => {
   const a = src.indexOf("export async function getMenu(");
   assert.ok(da > 0 && a > da, "definizioneMenu non c'e' piu', o non sta prima di getMenu");
 
-  const inCache = src.slice(da, a);
-  assert.doesNotMatch(inCache, /applicaStatoSede/,
+  // ⚠️ SENZA I COMMENTI, E CERCANDO UNA CHIAMATA. Questa prova riguarda il
+  //    CODICE che sta dentro la cache, non le parole che lo spiegano.
+  //    L'11/10/2026 e' diventata rossa senza che nessuno avesse toccato la
+  //    cache: `scadeMenu()`, aggiunta fra `definizioneMenu` e `getMenu` e
+  //    quindi dentro questa fetta, NOMINA `applicaStatoSede` nella sua
+  //    intestazione — per dire che l'esaurito in quella cache non c'e'.
+  //    Cioe' affermava esattamente cio' che questa prova pretende, e la
+  //    faceva fallire. Una rete che si rompe quando qualcuno documenta la
+  //    regola che sorveglia insegna a non documentarla.
+  const inCache = senzaCommenti(src.slice(da, a));
+  assert.doesNotMatch(inCache, /applicaStatoSede\s*\(/,
     "l'esaurito e' finito dentro la cache: un piatto finito resta ordinabile per 60s");
 
   // ...e deve restare applicato, fuori, in tutte e due le viste.
