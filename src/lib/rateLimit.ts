@@ -1,10 +1,23 @@
 /**
  * Rate limiting IN MEMORIA (finestra fissa) — protezione anti-abuso / DoS.
  *
- * L'app gira come SINGOLA istanza Node (adapter standalone), quindi un
- * contatore in memoria di processo è sufficiente e non richiede servizi
- * esterni (Redis ecc.). Se in futuro si passa a più istanze, questo va
- * sostituito con uno store condiviso.
+ * Il contatore vive nella memoria del processo: niente servizi esterni
+ * (Redis ecc.), e per quello che deve fare basta.
+ *
+ * ⚠️ MA IL PROCESSO NON È UNO SOLO, e fino all'11/10/2026 qui c'era scritto
+ * il contrario («l'app gira come SINGOLA istanza Node»). Su Hostinger è
+ * falso, ed è stato misurato: LiteSpeed avvia due o tre processi `lsnode`
+ * per applicazione — il secondo nasce alla prima richiesta HTTP — e non li
+ * ritira più. Ogni processo ha la sua memoria, quindi il suo contatore: il
+ * limite VERO è quello scritto moltiplicato per il numero di processi, e
+ * quel numero non lo decidiamo noi.
+ *
+ * Non è un guasto da rincorrere: i limiti qui sotto sono tarati largo
+ * apposta, e il doppio di «5 al minuto» resta un numero piccolo. È una cosa
+ * da sapere quando si legge un limite e lo si crede esatto — e il giorno
+ * che un limite dovesse essere davvero esatto (una soglia a pagamento, un
+ * blocco per abuso), questo non è il posto dove metterlo: ci vuole un
+ * contatore condiviso, nel database.
  *
  * Uso: `const r = colpisci(chiave, max, finestraMs);` → se `r.ok` è false
  * la richiesta va rifiutata con 429 e header `Retry-After: r.retryAfter`.
