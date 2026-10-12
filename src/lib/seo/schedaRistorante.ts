@@ -38,7 +38,8 @@ export interface DatiScheda {
   nome: string;
   /** Una sola descrizione per il locale: vedi il commento su `@id` sotto. */
   descrizione?: string;
-  immagine?: string;
+  /** Una fotografia, o piu' d'una: Google ne sceglie la migliore. */
+  immagine?: string | string[];
   /** Il tipo schema.org: `Restaurant`, `CafeOrCoffeeShop`, `Bakery`... */
   tipo?: string;
   cucina?: string | string[];
@@ -49,8 +50,12 @@ export interface DatiScheda {
   email?: string;
   /** Indirizzo della pagina della carta. */
   carta?: string;
-  /** Indirizzo della pagina di prenotazione. */
-  prenotazioni?: string;
+  /**
+   * Indirizzo della pagina di prenotazione, oppure `true` per dire
+   * soltanto «si prenota» (e `false` per dire che non si prenota: anche
+   * quello e' un'informazione, e vale la pena darla).
+   */
+  prenotazioni?: string | boolean;
   indirizzo?: IndirizzoScheda;
   mappa?: string;
   /** `openingHoursSpecification` gia' pronto (vedi `orariSchema()`). */
@@ -58,6 +63,32 @@ export interface DatiScheda {
   /** I profili veri, dal pannello: non i ripieghi del config. */
   social?: string[];
   geo?: { lat?: number | null; lng?: number | null };
+  /**
+   * L'ancora dell'`@id` (`#restaurant` se non si dice niente).
+   *
+   * ⚠️ Un `@id` e' una promessa fatta a Google: «questo nodo e' questo
+   * locale». Un sito che ne usa gia' un altro (BROS dice `#ristorante`)
+   * passa il suo invece di cambiarlo, perche' la coerenza di un nome nel
+   * nostro codice non vale la rottura di un identificativo pubblicato.
+   */
+  ancora?: string;
+  /**
+   * `true` quando il nodo entra in un `@graph`: il contesto esce.
+   *
+   * ⚠️ In un `@graph` il `@context` sta IN CIMA, una volta. Ripeterlo su
+   * ogni nodo non e' piu' JSON-LD valido allo stesso modo, e i validatori lo
+   * segnalano.
+   */
+  dentroGrafo?: boolean;
+  /**
+   * CAMPI CHE IL MOTORE NON CONOSCE, aggiunti in coda (`areaServed`,
+   * `founder`, quello che serve a un cliente e a nessun altro).
+   *
+   * ⚠️ E' una valvola, non una porta di servizio: un campo che hanno in
+   * due o piu' clienti diventa un campo di `DatiScheda`, altrimenti fra sei
+   * mesi le regole comuni sono tornate in sette posti.
+   */
+  extra?: Record<string, unknown>;
 }
 
 /** Via i campi vuoti: in JSON-LD un `telephone: ""` e' peggio che niente —
@@ -87,9 +118,9 @@ const conBarra = (u: string) => (u.endsWith("/") ? u : u + "/");
 export function schedaRistorante(d: DatiScheda): Record<string, unknown> {
   const radice = conBarra(d.radice);
   const scheda = pulisci({
-    "@context": "https://schema.org",
+    "@context": d.dentroGrafo ? undefined : "https://schema.org",
     "@type": d.tipo || "Restaurant",
-    "@id": `${radice}#restaurant`,
+    "@id": `${radice}#${d.ancora || "restaurant"}`,
     name: d.nome,
     description: d.descrizione,
     image: d.immagine,
@@ -136,6 +167,11 @@ export function schedaRistorante(d: DatiScheda): Record<string, unknown> {
     scheda.geo = { "@type": "GeoCoordinates", latitude: d.geo.lat, longitude: d.geo.lng };
   }
 
+  /* I campi del cliente per ultimi, puliti come gli altri. */
+  if (d.extra) {
+    for (const [k, v] of Object.entries(pulisci(d.extra))) scheda[k] = v;
+  }
+
   return scheda;
 }
 
@@ -165,4 +201,64 @@ export function briciole(d: {
       { "@type": "ListItem", position: 2, name: p.nome, item: p.url },
     ],
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* GLI ORARI, DA RIGHE A `openingHoursSpecification`                  */
+/* ------------------------------------------------------------------ */
+
+/** Una riga di `settings` / `location_settings` (vedi `leggiOrari`). */
+export interface RigaOrario {
+  /** 0 = domenica, come nel database. */
+  day_of_week: number;
+  lunch_active?: boolean | null;
+  lunch_open?: string | null;
+  lunch_close?: string | null;
+  dinner_active?: boolean | null;
+  dinner_open?: string | null;
+  dinner_close?: string | null;
+}
+
+const GIORNI_SCHEMA = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+];
+
+/** `18:30:00` → `18:30`: schema.org vuole l'ora, non i secondi. */
+const ora = (t: unknown) => String(t ?? "").slice(0, 5);
+
+/**
+ * GLI ORARI PER LA SCHEDA, dalle righe che rende `leggiOrari(ambito)`.
+ *
+ * ⚠️ DUE SERVIZI = DUE RIGHE, non una fascia dal mezzogiorno a mezzanotte.
+ * Unire pranzo e cena in un intervallo solo dice a Google che alle 16 si
+ * mangia: il risultato non e' un errore in un file, e' qualcuno che arriva e
+ * trova chiuso — e lo ha letto sulla scheda del ristorante.
+ *
+ * ⚠️ Un servizio senza orario (`active` ma `open` o `close` vuoti) si salta:
+ * meglio un giorno in meno che un giorno con un'ora inventata.
+ *
+ * ⚠️ Regole pure: le righe le legge chi chiama, CON L'AMBITO. Tre pizzerie
+ * hanno tre orari, e `leggiOrari` sovrappone quelli della sede; una funzione
+ * che interrogasse `settings` da se' pubblicherebbe gli orari della prima.
+ */
+export function orariSpecifica(righe: RigaOrario[]): Record<string, string>[] {
+  const fuori: Record<string, string>[] = [];
+  for (const r of righe ?? []) {
+    const giorno = GIORNI_SCHEMA[Number(r.day_of_week)];
+    if (!giorno) continue;
+    const servizi: [unknown, unknown, unknown][] = [
+      [r.lunch_active, r.lunch_open, r.lunch_close],
+      [r.dinner_active, r.dinner_open, r.dinner_close],
+    ];
+    for (const [attivo, apre, chiude] of servizi) {
+      if (!attivo || !apre || !chiude) continue;
+      fuori.push({
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: giorno,
+        opens: ora(apre),
+        closes: ora(chiude),
+      });
+    }
+  }
+  return fuori;
 }

@@ -16,7 +16,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { schedaRistorante, briciole } from "../src/lib/seo/schedaRistorante.ts";
+import { schedaRistorante, briciole, orariSpecifica } from "../src/lib/seo/schedaRistorante.ts";
 
 const PIENO = {
   radice: "https://www.esempio.be/",
@@ -174,7 +174,58 @@ test("⚠️ su una pagina `noindex` non esce niente da indicizzare", () => {
   );
 });
 
+test("\u26a0\ufe0f i `<` del JSON-LD escono neutralizzati", () => {
+  // Un valore che contiene `</script>` chiude lo script: i dati arrivano dal
+  // pannello, e basta che qualcuno incolli dell'HTML nel nome del locale.
+  // `\\u003c` e' lo stesso carattere per chi legge il JSON e non e' piu' una
+  // parentesi per chi legge l'HTML.
+  assert.match(CODICE, /JSON\.stringify\(o\)\.replace\(/, "la funzione che neutralizza i `<` non c'e' piu'");
+  const riga = TESTA.split("\n").find((r) => r.includes("application/ld+json"));
+  assert.ok(riga, "la riga dei dati strutturati non c'e' piu'");
+  assert.doesNotMatch(riga, /set:html=\{JSON\.stringify/, "il JSON-LD va in pagina senza neutralizzare i `<`");
+});
+
 test("`x-default` e' una delle alternative, non un indirizzo nuovo", () => {
   assert.match(CODICE, /alternative\.find\(/, "x-default non viene piu' cercato fra le alternative");
   assert.doesNotMatch(TESTA, /hreflang="x-default"\s+href=\{(?!xdef)/, "x-default punta a un indirizzo che non e' in elenco");
+});
+
+/* ------------------------------------------------------------------ */
+/* GLI ORARI                                                          */
+/* ------------------------------------------------------------------ */
+
+const MARTEDI = {
+  day_of_week: 2,
+  lunch_active: true, lunch_open: "12:00:00", lunch_close: "14:30:00",
+  dinner_active: true, dinner_open: "18:30:00", dinner_close: "22:00:00",
+};
+
+test("\u26a0\ufe0f due servizi fanno DUE righe, non una fascia sola", () => {
+  // Unire pranzo e cena in un intervallo 12:00-22:00 dice a Google che alle
+  // 16 si mangia. Non e' un errore in un file: e' qualcuno che arriva e
+  // trova chiuso, dopo averlo letto sulla scheda.
+  const o = orariSpecifica([MARTEDI]);
+  assert.equal(o.length, 2);
+  assert.deepEqual(o[0], { "@type": "OpeningHoursSpecification", dayOfWeek: "Tuesday", opens: "12:00", closes: "14:30" });
+  assert.deepEqual(o[1], { "@type": "OpeningHoursSpecification", dayOfWeek: "Tuesday", opens: "18:30", closes: "22:00" });
+});
+
+test("i secondi non entrano nell'orario", () => {
+  assert.equal(orariSpecifica([MARTEDI])[0].opens, "12:00", "schema.org vuole hh:mm");
+});
+
+test("0 e' DOMENICA, come nel database", () => {
+  // Uno scarto di un giorno qui pubblica gli orari di tutta la settimana
+  // spostati: nessun errore, e un cliente davanti alla porta ogni giorno.
+  assert.equal(orariSpecifica([{ ...MARTEDI, day_of_week: 0 }])[0].dayOfWeek, "Sunday");
+  assert.equal(orariSpecifica([{ ...MARTEDI, day_of_week: 6 }])[0].dayOfWeek, "Saturday");
+});
+
+test("un servizio senza ore si salta, non si inventa", () => {
+  assert.deepEqual(orariSpecifica([{ day_of_week: 1, dinner_active: true, dinner_open: "18:30", dinner_close: null }]), []);
+  assert.deepEqual(orariSpecifica([{ day_of_week: 1, lunch_active: false, lunch_open: "12:00", lunch_close: "14:00" }]), [],
+    "un servizio spento non e' un orario di apertura");
+  assert.deepEqual(orariSpecifica([{ day_of_week: 9, lunch_active: true, lunch_open: "12:00", lunch_close: "14:00" }]), [],
+    "un giorno che non esiste non diventa domenica");
+  assert.deepEqual(orariSpecifica([]), []);
 });

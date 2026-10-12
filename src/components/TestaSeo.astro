@@ -46,7 +46,13 @@ interface Props {
   /** La lingua di QUESTA pagina. */
   lang: string;
   titolo: string;
-  descrizione: string;
+  /**
+   * La meta description.
+   * ⚠️ VUOTA = NESSUN TAG. Una frase generica ripetuta su venti pagine e'
+   * peggio di niente: Google la scarta e si scrive la sua, e nel frattempo
+   * dice di noi che non abbiamo niente da dire su questa pagina.
+   */
+  descrizione?: string;
   /**
    * L'indirizzo canonico di questa pagina (assoluto).
    * ⚠️ Su una pagina `noindex` non viene stampato: vedi sotto.
@@ -80,6 +86,13 @@ interface Props {
    */
   ogImg?: string;
   ogImgAlt?: string;
+  /**
+   * Le misure dell'immagine, SE SI SANNO.
+   * ⚠️ Nessun valore di ripiego: `1200×630` dichiarato su un'immagine che
+   * non è 1200×630 fa ritagliare la figura dove non va, e il motore non
+   * ha visto quel file. Chi passa l'immagine sa quanto misura; chi non lo sa
+   * non dichiara niente, e chi la legge la misura da sé.
+   */
   ogImgLarghezza?: number;
   ogImgAltezza?: number;
   ogImgTipo?: string;
@@ -106,6 +119,17 @@ interface Props {
    * pagina e' giusta: sbagliato e' solo quello che nessuno guarda.
    */
   noindex?: boolean;
+  /**
+   * Chiede a Google l'ANTEPRIMA GRANDE dell'immagine nei risultati
+   * (`max-image-preview:large`). Per un ristorante vale la pena: nei
+   * risultati la figura grande e' meta' della decisione.
+   *
+   * ⚠️ Senza questo, il componente non stampa nessun `robots` sulle pagine
+   * indicizzabili — ed e' giusto: `index, follow` e' quello che Google fa
+   * per difetto, e un tag che ripete il difetto e' una riga che non dice
+   * niente e che un giorno qualcuno copia sbagliata.
+   */
+  anteprimaGrande?: boolean;
 }
 
 const {
@@ -119,12 +143,13 @@ const {
   ogTipo = "website",
   ogImg,
   ogImgAlt,
-  ogImgLarghezza = 1200,
-  ogImgAltezza = 630,
+  ogImgLarghezza,
+  ogImgAltezza,
   ogImgTipo,
   locali = {},
   schede = [],
   noindex = false,
+  anteprimaGrande = false,
 } = Astro.props;
 
 /** I locali piu' comuni, perche' nessun cliente debba ricordarseli. Chi ha
@@ -141,10 +166,19 @@ const LOCALI: Record<string, string> = {
 };
 
 const locale = LOCALI[lang];
-const localiAltri = alternative
-  .filter((a) => a.lang !== lang)
-  .map((a) => LOCALI[a.lang])
-  .filter((l): l is string => Boolean(l));
+/**
+ * I locali delle ALTRE versioni, senza doppioni e senza il nostro.
+ *
+ * ⚠️ Un `og:locale:alternate` uguale a `og:locale` dice a Facebook che la
+ * pagina ha una traduzione in se stessa. Succede appena i codici di
+ * `hreflang` e quelli dei locali non si somigliano (`fr-be` e `fr` che
+ * portano entrambi a `fr_BE`): il filtro guarda il locale, non il codice.
+ */
+const localiAltri = [
+  ...new Set(
+    alternative.map((a) => LOCALI[a.lang]).filter((l): l is string => Boolean(l) && l !== locale),
+  ),
+];
 
 /** `x-default` e' una DELLE alternative, non un indirizzo nuovo: cosi' non
  *  si puo' dichiarare una pagina che non e' in elenco. */
@@ -152,16 +186,30 @@ const rifDefault = xDefault ?? alternative[0]?.lang;
 const xdef = alternative.find((a) => a.lang === rifDefault);
 
 const indicizza = !noindex;
+
+/**
+ * JSON-LD da mettere in pagina, con i `<` neutralizzati.
+ *
+ * ⚠️ UN VALORE CHE CONTIENE `</script>` CHIUDE LO SCRIPT. I dati arrivano
+ * dal pannello: basta che qualcuno incolli dell'HTML nella descrizione o nel
+ * nome del locale e il resto della scheda finisce nella pagina come markup,
+ * nel migliore dei casi. `\u003c` e' lo stesso carattere per chi legge il
+ * JSON, e non e' piu' una parentesi per chi legge l'HTML.
+ * (L'accortezza arriva dal telaio di Educazione Napoletana: era il solo dei
+ * sette ad averla, e da qui ce l'hanno tutti.)
+ */
+const inPagina = (o: unknown) => JSON.stringify(o).replace(/</g, "\\u003c");
 const schedeVere = indicizza ? schede.filter((s) => s !== null && s !== undefined) : [];
 ---
 
 <title>{titolo}</title>
-<meta name="description" content={descrizione} />
+{descrizione && <meta name="description" content={descrizione} />}
 
 {/* ⚠️ `follow`: la pagina non va in indice, ma i collegamenti che porta si
     seguono — su una 404 sono proprio quelli che riportano il visitatore (e
     il robot) sulle pagine vere. */}
 {noindex && <meta name="robots" content="noindex, follow" />}
+{indicizza && anteprimaGrande && <meta name="robots" content="index, follow, max-image-preview:large" />}
 
 {indicizza && canonico && <link rel="canonical" href={canonico} />}
 
@@ -173,15 +221,15 @@ const schedeVere = indicizza ? schede.filter((s) => s !== null && s !== undefine
 <meta property="og:type" content={ogTipo} />
 {nomeSito && <meta property="og:site_name" content={nomeSito} />}
 <meta property="og:title" content={titolo} />
-<meta property="og:description" content={descrizione} />
+{descrizione && <meta property="og:description" content={descrizione} />}
 {indicizza && canonico && <meta property="og:url" content={canonico} />}
 {locale && <meta property="og:locale" content={locale} />}
 {localiAltri.map((l) => <meta property="og:locale:alternate" content={l} />)}
 {ogImg && (
   <>
     <meta property="og:image" content={ogImg} />
-    <meta property="og:image:width" content={String(ogImgLarghezza)} />
-    <meta property="og:image:height" content={String(ogImgAltezza)} />
+    {ogImgLarghezza && <meta property="og:image:width" content={String(ogImgLarghezza)} />}
+    {ogImgAltezza && <meta property="og:image:height" content={String(ogImgAltezza)} />}
     {ogImgTipo && <meta property="og:image:type" content={ogImgTipo} />}
     {ogImgAlt && <meta property="og:image:alt" content={ogImgAlt} />}
   </>
@@ -191,7 +239,7 @@ const schedeVere = indicizza ? schede.filter((s) => s !== null && s !== undefine
     scheda promette una figura grande e resta un rettangolo vuoto. */}
 <meta name="twitter:card" content={ogImg ? "summary_large_image" : "summary"} />
 <meta name="twitter:title" content={titolo} />
-<meta name="twitter:description" content={descrizione} />
+{descrizione && <meta name="twitter:description" content={descrizione} />}
 {ogImg && <meta name="twitter:image" content={ogImg} />}
 
-{schedeVere.map((s) => <script type="application/ld+json" set:html={JSON.stringify(s)} />)}
+{schedeVere.map((s) => <script type="application/ld+json" set:html={inPagina(s)} />)}
