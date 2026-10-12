@@ -4,6 +4,9 @@ import Layout from "../../layouts/Layout.astro";
 import LinksBoard from "../../components/LinksBoard.astro";
 ---
 
-<Layout bare={true} title={`Links — ${CLIENT.nome}`}>
+{/* ⚠️ `noindex` come sulla pagina francese, che ce l'aveva da sempre: questa
+    e' la destinazione del QR code, cioe' la navigazione del sito in un'altra
+    forma. In indice si contende le parole con la home. */}
+<Layout bare={true} noindex={true} title={`Links — ${CLIENT.nome}`}>
   <LinksBoard />
 </Layout>
