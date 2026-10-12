@@ -105,17 +105,19 @@ const T = {
 // Etichette dell'email di NOTIFICA al ristoratore: nella lingua dell'ADMIN
 // (app_config "admin_lang"), non in quella del cliente.
 const R_TXT: Record<string, {
+  /** Riga di prova del consenso, con data e ora. */
+  consenso: (quando: string) => string;
   nuovoMsg: string; subject: string; email: string; phone: string;
   clientLang: string; message: string; footer: string;
   reply: (n: string) => string;
   subjectLine: (o: string) => string;
   subjectFallback: (b: string) => string;
 }> = {
-  fr: { nuovoMsg: "Nouveau message", subject: "Objet", email: "Email", phone: "Téléphone", clientLang: "Langue client", message: "Message", footer: "Reçu via le formulaire de contact du site.", reply: (n) => `Répondre à ${n}`, subjectLine: (o) => `Contact site : ${o}`, subjectFallback: (b) => `Nouveau message — site ${b}` },
-  en: { nuovoMsg: "New message", subject: "Subject", email: "Email", phone: "Phone", clientLang: "Customer language", message: "Message", footer: "Received via the website contact form.", reply: (n) => `Reply to ${n}`, subjectLine: (o) => `Website contact: ${o}`, subjectFallback: (b) => `New message — ${b} website` },
-  it: { nuovoMsg: "Nuovo messaggio", subject: "Oggetto", email: "Email", phone: "Telefono", clientLang: "Lingua cliente", message: "Messaggio", footer: "Ricevuto tramite il modulo di contatto del sito.", reply: (n) => `Rispondi a ${n}`, subjectLine: (o) => `Contatto sito: ${o}`, subjectFallback: (b) => `Nuovo messaggio — sito ${b}` },
-  nl: { nuovoMsg: "Nieuw bericht", subject: "Onderwerp", email: "E-mail", phone: "Telefoon", clientLang: "Taal klant", message: "Bericht", footer: "Ontvangen via het contactformulier van de site.", reply: (n) => `Beantwoorden aan ${n}`, subjectLine: (o) => `Contact site: ${o}`, subjectFallback: (b) => `Nieuw bericht — site ${b}` },
-  es: { nuovoMsg: "Nuevo mensaje", subject: "Asunto", email: "Email", phone: "Teléfono", clientLang: "Idioma del cliente", message: "Mensaje", footer: "Recibido a través del formulario de contacto del sitio.", reply: (n) => `Responder a ${n}`, subjectLine: (o) => `Contacto sitio: ${o}`, subjectFallback: (b) => `Nuevo mensaje — sitio ${b}` },
+  fr: { consenso: (q: string) => `Conditions acceptées le ${q}`, nuovoMsg: "Nouveau message", subject: "Objet", email: "Email", phone: "Téléphone", clientLang: "Langue client", message: "Message", footer: "Reçu via le formulaire de contact du site.", reply: (n) => `Répondre à ${n}`, subjectLine: (o) => `Contact site : ${o}`, subjectFallback: (b) => `Nouveau message — site ${b}` },
+  en: { consenso: (q: string) => `Terms accepted on ${q}`, nuovoMsg: "New message", subject: "Subject", email: "Email", phone: "Phone", clientLang: "Customer language", message: "Message", footer: "Received via the website contact form.", reply: (n) => `Reply to ${n}`, subjectLine: (o) => `Website contact: ${o}`, subjectFallback: (b) => `New message — ${b} website` },
+  it: { consenso: (q: string) => `Condizioni accettate il ${q}`, nuovoMsg: "Nuovo messaggio", subject: "Oggetto", email: "Email", phone: "Telefono", clientLang: "Lingua cliente", message: "Messaggio", footer: "Ricevuto tramite il modulo di contatto del sito.", reply: (n) => `Rispondi a ${n}`, subjectLine: (o) => `Contatto sito: ${o}`, subjectFallback: (b) => `Nuovo messaggio — sito ${b}` },
+  nl: { consenso: (q: string) => `Voorwaarden aanvaard op ${q}`, nuovoMsg: "Nieuw bericht", subject: "Onderwerp", email: "E-mail", phone: "Telefoon", clientLang: "Taal klant", message: "Bericht", footer: "Ontvangen via het contactformulier van de site.", reply: (n) => `Beantwoorden aan ${n}`, subjectLine: (o) => `Contact site: ${o}`, subjectFallback: (b) => `Nieuw bericht — site ${b}` },
+  es: { consenso: (q: string) => `Condiciones aceptadas el ${q}`, nuovoMsg: "Nuevo mensaje", subject: "Asunto", email: "Email", phone: "Teléfono", clientLang: "Idioma del cliente", message: "Mensaje", footer: "Recibido a través del formulario de contacto del sitio.", reply: (n) => `Responder a ${n}`, subjectLine: (o) => `Contacto sitio: ${o}`, subjectFallback: (b) => `Nuevo mensaje — sitio ${b}` },
 };
 
 function esc(s: string): string {
@@ -140,6 +142,29 @@ export const POST: APIRoute = async ({ request }) => {
   const telefono = String(body.telefono ?? "").trim();
   const oggetto = String(body.oggetto ?? "").trim();
   const messaggio = String(body.messaggio ?? "").trim();
+  // ⚠️ IL TRANELLO. Il modulo del sito ha un campo invisibile che una persona
+  // non vede e non compila mai, e che un programma automatico riempie perche'
+  // riempie tutto. Il campo c'era, la riga che lo spedisce c'era, e qui non
+  // lo guardava nessuno: una trappola senza nessuno che controlla la gabbia.
+  // ⚠️ Il NOME DEL CAMPO nel modulo e la CHIAVE qui sono due cose diverse: nel
+  // modulo si chiama `website`, perche' quando si chiamava `societe` Chrome lo
+  // riempiva da solo con l'organizzazione dell'utente e mangiava i messaggi
+  // veri (11/10/2026). La chiave spedita resta `societe`.
+  const tranello = String(body.societe ?? "").trim();
+
+  // ⚠️ IL CONSENSO. Finora era una spunta che viveva solo nel browser: chi
+  // manda la richiesta scavalcando la pagina — cioe' esattamente un robot —
+  // la saltava, e non restava traccia da nessuna parte di chi avesse
+  // acconsentito. Qui si legge, e piu' sotto finisce nell'email al ristorante
+  // con data e ora: la casella di posta fa da archivio, senza inventare una
+  // tabella e senza conservare l'indirizzo IP di nessuno.
+  // ⚠️ MANCANTE NON VUOL DIRE RIFIUTATO: oggi solo alcuni moduli lo spediscono,
+  // e un controllo rigido qui spegnerebbe il contatto dei clienti che non lo
+  // mandano ancora. Si rifiuta solo chi lo manda DICENDO DI NO — cioe' chi ha
+  // tolto la spunta a mano. Il giorno che tutti e sette lo spediscono, questa
+  // riga diventa un `if (!consenso) return 400` e lo diciamo in CLIENTS.md.
+  const consensoDato = "cgu" in body ? body.cgu === true || String(body.cgu) === "true" : null;
+
   const langIn = String(body.lang ?? "");
   const lang: Lang = (["fr", "en", "it", "nl", "es"] as Lang[]).includes(langIn as Lang)
     ? (langIn as Lang)
@@ -156,6 +181,22 @@ export const POST: APIRoute = async ({ request }) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return new Response(JSON.stringify({ error: "Email invalide" }), { status: 400 });
   }
+  // ⚠️ SI RISPONDE «OK» E NON PARTE NIENTE, e il 200 non e' una svista.
+  // Un robot a cui si risponde «errore» capisce di essere stato scoperto e
+  // riprova da un'altra parte, magari indovinando quale campo lo ha tradito.
+  // A uno che riceve «grazie, ricevuto» non resta niente da capire.
+  // ⚠️ E' QUI CHE SI FERMA LA SPESA: ogni invio buono manda DUE email, una al
+  // ristorante e una all'indirizzo scritto nel modulo. E' la seconda che
+  // conta — senza questo controllo, chiunque puo' far spedire al dominio
+  // verificato del ristorante un'email vestita col suo logo a un indirizzo
+  // qualunque, scelto da lui.
+  if (tranello) {
+    console.warn("Contact: invio scartato dal tranello antispam.");
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  }
+  if (consensoDato === false) {
+    return new Response(JSON.stringify({ error: "Consentement requis" }), { status: 400 });
+  }
 
   // Prénom per il saluto (prima parola del nome).
   const prenom = nome.split(/\s+/)[0] || nome;
@@ -171,6 +212,12 @@ export const POST: APIRoute = async ({ request }) => {
     LOGO_URL;
   const adminL = await adminLang();
   const R = R_TXT[adminL] ?? R_TXT.fr;
+  // ⚠️ La prova del consenso sta nell'email che il ristoratore riceve e
+  // conserva: e' la casella di posta a fare da archivio. Niente IP — sarebbe
+  // un dato personale in piu' da custodire per rispettarne un altro.
+  const rigaConsenso = consensoDato === true
+    ? ` &middot; ${R.consenso(new Date().toLocaleString("fr-BE", { timeZone: "Europe/Brussels" }))}`
+    : "";
 
   // --- Email al ristorante (theme-driven, lingua admin) ---
   const htmlRistorante = `<!doctype html>
@@ -223,7 +270,7 @@ export const POST: APIRoute = async ({ request }) => {
         </tr>
         <tr>
           <td style="padding:20px 40px 26px;border-top:1px solid ${tema.border};text-align:center;">
-            <p style="margin:0 0 12px;color:${tema.muted};font-size:12px;">${R.footer}</p>
+            <p style="margin:0 0 12px;color:${tema.muted};font-size:12px;">${R.footer}${rigaConsenso}</p>
             <img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" />
           </td>
         </tr>

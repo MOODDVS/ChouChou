@@ -82,6 +82,22 @@ export const PRINT_DEFAULTS: PrintProduct[] = [
     ],
   },
   {
+    slug: "set-de-table",
+    label: "Set de table",
+    route: "/print/setdetable",
+    visible: false,
+    meta: { format: "A3 (420 × 297 mm)", pages: "1", paper: "120 g/m²", color: "Quadrichromie" },
+    // ⚠️ NESSUNA FASCIA, e non è una dimenticanza. Le fasce sono PREZZI, e un
+    // prezzo inventato nel seed è peggio di nessun prezzo: viaggia in ogni
+    // deployment, si vede nel pannello come se fosse una decisione presa, e
+    // il giorno che qualcuno lo legge per fare un'offerta è già partito.
+    // Un prodotto visibile SENZA fasce è previsto (`validaCatalogo` lo
+    // accetta apposta): il ristoratore vede l'anteprima e scarica il PDF, il
+    // bottone «Commander» non compare. Il super admin mette i prezzi quando
+    // li ha, e da quel momento si ordina.
+    tiers: [],
+  },
+  {
     slug: "business-cards",
     label: "Cartes de visite",
     route: "/print/businesscard",
