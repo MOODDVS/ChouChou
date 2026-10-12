@@ -104,7 +104,24 @@ function pulisci(o: Record<string, unknown>): Record<string, unknown> {
   return fuori;
 }
 
-const conBarra = (u: string) => (u.endsWith("/") ? u : u + "/");
+/**
+ * L'indirizzo del locale, normalizzato.
+ *
+ * ⚠️ LA RADICE DI UN SITO FINISCE CON LA BARRA, una pagina interna NO.
+ * `https://sito.be` e `https://sito.be/` sono lo stesso posto e devono dare
+ * lo stesso `@id`, altrimenti lo stesso locale diventa due nodi. Ma un
+ * marchio con piu' locali ha un nodo per pagina (`/schaerbeek`), e li' la
+ * barra in piu' non e' uguale a niente: va lasciata la forma che usano il
+ * canonico e i collegamenti interni.
+ */
+const conBarra = (u: string) => {
+  try {
+    const x = new URL(u);
+    return x.pathname === "/" ? x.origin + "/" : u.replace(/\/+$/, "");
+  } catch {
+    return u.endsWith("/") ? u : u + "/";
+  }
+};
 
 /**
  * LA SCHEDA DEL LOCALE.

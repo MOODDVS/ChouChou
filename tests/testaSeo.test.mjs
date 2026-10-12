@@ -51,6 +51,17 @@ test("⚠️ `@id` e `url` puntano alla RADICE, non alla pagina", () => {
   assert.equal(senzaBarra.url, s.url);
 });
 
+test("\u26a0\ufe0f una PAGINA non prende la barra in piu'", () => {
+  // Un marchio con tre pizzerie ha un nodo per pagina: `/schaerbeek`, non
+  // `/schaerbeek/`. La barra la vuole solo la radice, dove `https://sito.be`
+  // e `https://sito.be/` sono lo stesso posto e devono dare lo stesso `@id`.
+  const s = schedaRistorante({ ...PIENO, radice: "https://www.esempio.be/schaerbeek" });
+  assert.equal(s["@id"], "https://www.esempio.be/schaerbeek#restaurant");
+  assert.equal(s.url, "https://www.esempio.be/schaerbeek");
+  const conBarra = schedaRistorante({ ...PIENO, radice: "https://www.esempio.be/schaerbeek/" });
+  assert.equal(conBarra["@id"], s["@id"], "la stessa pagina con e senza barra fa due locali");
+});
+
 test("l'indirizzo esce intero", () => {
   const s = schedaRistorante(PIENO);
   assert.deepEqual(s.address, {
