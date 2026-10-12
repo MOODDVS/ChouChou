@@ -29,6 +29,19 @@ export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; 
   const [oggetto, setOggetto] = useState("");
   const [messaggio, setMessaggio] = useState("");
   const [accettato, setAccettato] = useState(false);
+  /**
+   * IL TRANELLO ANTISPAM — un campo che una persona non vede e non compila
+   * mai, e che un programma automatico riempie perche' riempie tutto. Chi lo
+   * compila si e' dichiarato robot da solo, e il motore butta via l'invio
+   * rispondendo «grazie» (vedi `api/contact.ts`).
+   *
+   * ⚠️ SI CHIAMA `website` E NON `societe`, e non e' un dettaglio: quando il
+   * CAMPO si chiamava `societe`, Chrome lo riempiva da solo con
+   * l'organizzazione dell'utente — `autocomplete="off"` non lo ferma — e il
+   * server buttava via i messaggi VERI. La CHIAVE spedita resta `societe`:
+   * nome del campo e nome della chiave sono due cose diverse apposta.
+   */
+  const [tranello, setTranello] = useState("");
   const [stato, setStato] = useState<Stato>("idle");
 
   async function invia(e: FormEvent) {
@@ -39,7 +52,11 @@ export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; 
       const res = await fetch(conSede("/api/contact"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome, email, telefono, oggetto, messaggio, lang }),
+        // ⚠️ `cgu` VIAGGIA. Prima la spunta viveva solo qui dentro: chi manda
+        // la richiesta scavalcando la pagina — cioe' un robot — la saltava, e
+        // non restava traccia di chi avesse acconsentito. Adesso il motore la
+        // scrive con data e ora nell'email che il ristoratore riceve.
+        body: JSON.stringify({ nome, email, telefono, oggetto, messaggio, lang, societe: tranello, cgu: accettato }),
       });
       if (!res.ok) throw new Error();
       setStato("ok");
@@ -49,6 +66,7 @@ export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; 
       setOggetto("");
       setMessaggio("");
       setAccettato(false);
+      setTranello("");
     } catch {
       setStato("errore");
     }
@@ -106,6 +124,33 @@ export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; 
         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setMessaggio(e.target.value)}
         required
       />
+
+      {/* ⚠️ NASCOSTO AGLI OCCHI E AI LETTORI DI SCHERMO, ma non con
+          `display:none`: i programmi automatici piu' svegli saltano i campi
+          spenti, e un campo che nessuno compila mai non prende nessuno.
+          Fuori dallo schermo e fuori dall'ordine di tabulazione: chi naviga
+          da tastiera non ci casca dentro, chi usa un lettore di schermo non
+          lo sente, un robot che legge il modulo lo trova e lo riempie.
+          ⚠️ `aria-hidden` SUL CONTENITORE e `tabIndex={-1}` sul campo: senza
+          il secondo, il campo resta raggiungibile col tasto Tab anche se
+          nessuno lo annuncia — e un utente da tastiera si ritroverebbe a
+          scrivere in una casella invisibile che gli cancella il messaggio. */}
+      <div
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-9999px", width: "1px", height: "1px", overflow: "hidden" }}
+      >
+        <label>
+          Site web
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            value={tranello}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setTranello(e.target.value)}
+          />
+        </label>
+      </div>
 
       <label className="cf-consent">
         <input
