@@ -6,6 +6,7 @@ import CookieBanner from "../components/CookieBanner.astro";
 import ReservationModal from "../components/ReservationModal.astro";
 import SitePopup from "../components/SitePopup.astro";
 import Fonts from "../components/Fonts.astro";
+import TestaSeo from "../components/TestaSeo.astro";
 import { getLangFromUrl } from "../i18n/ui";
 import { CLIENT } from "../config/client";
 import { supabaseAdmin } from "../lib/db";
@@ -64,7 +65,17 @@ const frUrl = new URL(frPath, siteUrl).href;
 const enUrl = new URL(enPath, siteUrl).href;
 
 // Dati strutturati Restaurant (SEO locale), su tutte le pagine tranne quelle "bare".
-const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPubblicoChiesto(Astro.request));
+const jsonLd = bare ? null : await restaurantJsonLd(siteUrl, lang, await ambitoPubblicoChiesto(Astro.request));
+
+/** Le due lingue di QUESTA pagina, la corrente compresa: si dichiarano a
+ *  vicenda. La prima vale anche come `x-default`.
+ *  ⚠️ `fr-be` e non `fr`: e' il codice che il sito dichiara da sempre, e
+ *  cambiarlo adesso vorrebbe dire rimandare Google a scoprire da capo quale
+ *  versione serve a chi. */
+const alternative = [
+  { lang: "fr-be", url: frUrl },
+  { lang: "en", url: enUrl },
+];
 ---
 
 <html lang={lang}>
@@ -73,14 +84,41 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPub
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} />}
     <slot name="head" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
-    {noindex && <meta name="robots" content="noindex, follow" />}
-    <link rel="alternate" hreflang="fr-be" href={frUrl} />
-    <link rel="alternate" hreflang="en" href={enUrl} />
-    <link rel="alternate" hreflang="x-default" href={frUrl} />
+    {/* TITOLO, DESCRIZIONE, CANONICO, HREFLANG, SCHEDA SOCIAL E DATI
+        STRUTTURATI: un componente del motore, uguale per tutti i clienti.
+        Qui restano solo le cose di ChouChou.
+        ⚠️ Gli passiamo dati GIA' RISOLTI: lui non legge niente da se'.
+        ⚠️ `locali`: `fr_BE` e `en_US`, come prima.
+        ⚠️ Le misure dell'immagine SOLO quando e' quella predefinita: di
+        una figura passata da una pagina non sappiamo quanto misura, e
+        dichiarare 1200×630 su un'immagine che non lo e' la fa ritagliare
+        dove non va.
+        ⚠️ Su una pagina `noindex` adesso spariscono anche canonico,
+        hreflang, `og:url` e la scheda. Prima restavano: su /links il
+        canonico diceva a Google «questa pagina esiste e indicizzala»
+        mentre il robots diceva il contrario, e la scheda del ristorante
+        usciva anche dalla 404.
+        ⚠️ Via `og:image:secure_url`: l'immagine e' gia' su https, e
+        quel tag Facebook lo guarda solo quando `og:image` non lo e'. */}
+    <TestaSeo
+      lang={lang}
+      titolo={title}
+      descrizione={description}
+      canonico={canonical}
+      alternative={alternative}
+      nomeSito={CLIENT.nome}
+      ogImg={ogImage}
+      ogImgAlt={title}
+      ogImgLarghezza={ogImageDefault ? 1200 : undefined}
+      ogImgAltezza={ogImageDefault ? 630 : undefined}
+      ogImgTipo={ogImageDefault ? "image/jpeg" : undefined}
+      locali={{ fr: "fr_BE", "fr-be": "fr_BE", en: "en_US" }}
+      schede={[jsonLd]}
+      noindex={noindex}
+    />
 
+    {/* La favicon del marchio (Admin → Général), con i file statici come
+        ripiego. Non e' SEO: e' il vestito, e resta nel telaio del cliente. */}
     {brandFavicon ? (
       <link rel="icon" href={brandFavicon} />
     ) : (
@@ -90,26 +128,6 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPub
       </>
     )}
     <link rel="apple-touch-icon" href={brandFavicon || "/apple-touch-icon.png"} />
-
-    <!-- Open Graph (Facebook, WhatsApp, LinkedIn, iMessage) -->
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content={CLIENT.nome} />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:image" content={ogImage} />
-    <meta property="og:image:secure_url" content={ogImage} />
-    {ogImageDefault && <meta property="og:image:type" content="image/jpeg" />}
-    {ogImageDefault && <meta property="og:image:width" content="1200" />}
-    {ogImageDefault && <meta property="og:image:height" content="630" />}
-    <meta property="og:image:alt" content={title} />
-    <meta property="og:url" content={canonical} />
-    <meta property="og:locale" content={ogLocale} />
-
-    <!-- Twitter / X -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={title} />
-    <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImage} />
 
     {/*
       I font arrivano dal dominio di ChouChou, non da Google: due handshake in
@@ -459,7 +477,6 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPub
       .bk-cal-cell.is-disabled { color: #4a4a4a; cursor: not-allowed; text-decoration: line-through; }
       .bk-cal-cell.is-selected { background: var(--c-text); color: var(--c-bg); }
     </style>
-    {jsonLd && <script type="application/ld+json" set:html={jsonLd} is:inline />}
   </head>
   <body>
     {!bare && <Header transparent={transparentHeader} onLight={lightHeader} />}

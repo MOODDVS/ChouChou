@@ -1,51 +1,24 @@
 // Dati strutturati Schema.org "Restaurant" (SEO locale) costruiti dai dati
 // LIVE dell'admin: nome/telefono/email/indirizzo (Réglages → Général), orari
-// (settings) e social. Cache 5 min. Read-only, non tocca il motore.
-import { supabaseAdmin } from "./db";
+// (settings) e social. Cache 5 min.
+//
+// ⚠️ LA FORMA DELLA SCHEDA ORA LA TIENE IL MOTORE, in
+// `lib/seo/schedaRistorante.ts`: le regole che valgono per tutti i clienti
+// (`@id` e `url` sulla radice, indirizzo intero o niente, `geo` solo con
+// coordinate vere, campi vuoti fuori) stanno scritte una volta la'. Qui
+// resta quello che e' di ChouChou: le cucine e la regione in due lingue, la
+// fotografia. Gli orari li legge il motore (`leggiOrari`, con la sede) e li
+// converte il motore (`orariSpecifica`).
 import { datiRistorante } from "./ristorante";
 import { linksSocial } from "./links";
 import { cacheOr } from "./cache";
+import { leggiOrari } from "./admin/sede";
+import { schedaRistorante, orariSpecifica } from "./seo/schedaRistorante";
+import { CLIENT } from "../config/client";
 import type { Ambito } from "./admin/sedeRegole";
 
-// index = day_of_week nel DB (0 = dimanche)
-const SCHEMA_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-function hhmm(t: unknown): string {
-  return t ? String(t).slice(0, 5) : "";
-}
-
-async function orariSpec(): Promise<Array<Record<string, string>>> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("settings")
-      .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close");
-    if (!data) return [];
-    const specs: Array<Record<string, string>> = [];
-    for (const r of data as any[]) {
-      const day = SCHEMA_DAYS[Number(r.day_of_week)];
-      if (!day) continue;
-      if (r.lunch_active && r.lunch_open && r.lunch_close) {
-        specs.push({ "@type": "OpeningHoursSpecification", dayOfWeek: day, opens: hhmm(r.lunch_open), closes: hhmm(r.lunch_close) });
-      }
-      if (r.dinner_active && r.dinner_open && r.dinner_close) {
-        specs.push({ "@type": "OpeningHoursSpecification", dayOfWeek: day, opens: hhmm(r.dinner_open), closes: hhmm(r.dinner_close) });
-      }
-    }
-    return specs;
-  } catch {
-    return [];
-  }
-}
-
-function parseIndirizzo(indirizzo: string): { street: string; postalCode: string; locality: string } {
-  const idx = indirizzo.indexOf(",");
-  const street = (idx >= 0 ? indirizzo.slice(0, idx) : indirizzo).trim();
-  const rest = idx >= 0 ? indirizzo.slice(idx + 1).trim() : "";
-  const m = rest.match(/^(\d{4,6})\s+(.+)$/);
-  return { street, postalCode: m ? m[1] : "", locality: m ? m[2] : rest };
-}
-
-/** JSON-LD "Restaurant" (stringa pronta per <script type="application/ld+json">). */
+/** La scheda "Restaurant" come OGGETTO: la stampa `TestaSeo`, che la
+ *  mette in pagina solo se la pagina e' indicizzabile. */
 /**
  * ⚠️ L'ambito arriva da fuori, non se lo sceglie questa funzione. Qui non c'e'
  * nessuna richiesta da cui dedurre il punto, e indovinarlo vorrebbe dire
@@ -56,44 +29,67 @@ function parseIndirizzo(indirizzo: string): { street: string; postalCode: string
  * ⚠️ E la sede entra nella CHIAVE di cache: senza, la prima pagina servita
  * deciderebbe i dati strutturati di tutte le altre per cinque minuti.
  */
-export async function restaurantJsonLd(siteUrl: string, lang: string, ambito: Ambito): Promise<string> {
+export async function restaurantJsonLd(
+  siteUrl: string,
+  lang: string,
+  ambito: Ambito,
+): Promise<Record<string, unknown>> {
   return cacheOr(
     `seo:jsonld:${lang}:${ambito.modo === "sede" ? ambito.id : ambito.modo}`,
     async () => {
       const base = siteUrl.replace(/\/$/, "");
-      const dati = await datiRistorante(ambito);
-      const social = await linksSocial();
-      const hours = await orariSpec();
-      const a = parseIndirizzo(dati.indirizzo);
+      /* ⚠️ ORARI DELLA SEDE, non dell'installazione. Fino al 12/10/2026
+         questo file leggeva `settings` da se', senza l'ambito: su un
+         gruppo con piu' punti pubblicava a Google gli orari del primo per
+         tutti. `leggiOrari` sovrappone quelli della sede, e la conversione
+         in `openingHoursSpecification` la fa il motore.
+         ⚠️ `leggiOrari` lancia se `settings` e' illeggibile: una scheda
+         senza orari e' meglio di una pagina che non apre. */
+      const [dati, social, righeOrario] = await Promise.all([
+        datiRistorante(ambito),
+        linksSocial(),
+        leggiOrari(ambito).catch(() => []),
+      ]);
+      const hours = orariSpecifica(righeOrario);
       const en = lang === "en";
 
-      const jsonld: Record<string, unknown> = {
-        "@context": "https://schema.org",
-        "@type": "Restaurant",
-        "@id": base + "/#restaurant",
-        name: dati.nome,
-        url: base + (en ? "/en" : "/"),
-        image: base + "/slideshow/slide-01.webp",
-        telephone: dati.tel,
-        email: dati.email,
-        priceRange: "€€",
-        servesCuisine: en ? ["French", "Contemporary", "Homemade"] : ["Française", "Créative", "Fait maison"],
-        acceptsReservations: true,
-        hasMenu: base + (en ? "/en/menu" : "/menu"),
-        address: {
-          "@type": "PostalAddress",
-          streetAddress: a.street,
-          postalCode: a.postalCode,
-          addressLocality: a.locality,
-          addressRegion: en ? "Walloon Brabant" : "Brabant wallon",
-          addressCountry: "BE",
-        },
-        areaServed: a.locality || (en ? "Walloon Brabant" : "Brabant wallon"),
-      };
-      if (hours.length) jsonld.openingHoursSpecification = hours;
-      if (social.length) jsonld.sameAs = social.map((s) => s.url);
+      /* ⚠️ L'INDIRIZZO A PEZZI, NON SPEZZATO. Fino al 12/10/2026 qui si
+         tagliava `dati.indirizzo` sulla prima virgola con un'espressione
+         regolare: funzionava per questo indirizzo e non in generale (un
+         civico con una barra, un «bus 3», una frazione). Adesso i pezzi
+         arrivano separati da Général, che e' dove stanno nel database. Se
+         Général e' vuoto si ripiega sui pezzi scritti a mano nel config —
+         mai su un taglio indovinato. */
+      const p =
+        dati.via && dati.citta
+          ? { via: dati.via, cap: dati.cap, comune: dati.citta }
+          : CLIENT.indirizzoParti;
+      const regione = en ? "Walloon Brabant" : "Brabant wallon";
 
-      return JSON.stringify(jsonld);
+      /* ⚠️ LA FORMA DELLA SCHEDA LA DECIDE IL MOTORE
+         (`lib/seo/schedaRistorante.ts`): `@id` e `url` sulla radice,
+         indirizzo intero o niente, campi vuoti fuori. Qui restano le cose di
+         ChouChou — le cucine, la regione in due lingue, la fotografia.
+         ⚠️ `url` ADESSO E' SEMPRE LA RADICE. Prima su /en diceva
+         `.../en`, con lo stesso `@id` della pagina francese: due indirizzi
+         per lo stesso locale, e Google che sceglie. Il locale e' uno. */
+      const scheda = schedaRistorante({
+        radice: base + "/",
+        nome: dati.nome,
+        immagine: base + "/slideshow/slide-01.webp",
+        telefono: dati.tel,
+        email: dati.email,
+        fasciaPrezzo: "€€",
+        cucina: en ? ["French", "Contemporary", "Homemade"] : ["Française", "Créative", "Fait maison"],
+        prenotazioni: true,
+        carta: base + (en ? "/en/menu" : "/menu"),
+        indirizzo: { ...p, regione, paese: "BE" },
+        orari: hours,
+        social: social.map((s) => s.url),
+        extra: { areaServed: p.comune || regione },
+      });
+
+      return scheda;
     },
     300_000
   );

@@ -1,0 +1,245 @@
+---
+/**
+ * LA TESTA SEO — UN COMPONENTE, SETTE SITI.
+ *
+ * Titolo, descrizione, canonico, hreflang, scheda social (Open Graph e
+ * Twitter) e dati strutturati. Tutto quello che un motore di ricerca legge
+ * e che nessun visitatore vede.
+ *
+ * ⚠️ PERCHE' ESISTE: fino al 12/10/2026 ognuno dei sette siti si scriveva
+ * questa roba da solo. Sei in sei forme diverse, e 450 Gradi senza niente —
+ * nessun canonico, nessun hreflang, nessuna scheda, nessun dato
+ * strutturato. Il difetto di ieri (`url` della scheda che su /carte diceva
+ * che il ristorante «si trova» a /carte) andava corretto sette volte, e sei
+ * volte si dimentica. Da qui si corregge una volta e arriva a tutti col
+ * merge.
+ *
+ * ⚠️ NON LEGGE NIENTE DA SOLO: nessun `CLIENT`, nessun `Astro.site`,
+ * nessuna configurazione, nessun database. Tutto entra dalle `Props`, già
+ * risolto da chi lo monta. Non e' pignoleria:
+ *  - oggi il telaio del cliente sa chi e' il cliente, e glielo passa;
+ *  - il giorno che UN'APP SOLA servira' tutti i clienti, «chi siamo» arriva
+ *    dalla richiesta. Un componente che legge una costante importata e'
+ *    esattamente il pezzo che quel giorno va riscritto. Questo no: cambia
+ *    chi riempie le props, non lui.
+ *
+ * ⚠️ COSA NON FA, di proposito: icone, font, `theme-color`, manifest. Sono
+ * il vestito del cliente, non quello che leggono i motori, e stanno nel suo
+ * telaio.
+ *
+ * Esempio d'uso (dentro <head>):
+ *   <TestaSeo
+ *     lang={lang} titolo={titolo} descrizione={descrizione}
+ *     canonico={canonico} alternative={[{lang:"fr",url:urlFr},{lang:"en",url:urlEn}]}
+ *     nomeSito={ristorante.nome} ogImg={ogImg} ogImgAlt={`${ristorante.nome} — ${claim}`}
+ *     locali={{ fr: "fr_BE" }} schede={[scheda, briciole]} noindex={noindex}
+ *   />
+ */
+export interface AlternativaLingua {
+  /** Il codice che va in `hreflang` (`fr`, `en`, `nl`, `fr-BE`...). */
+  lang: string;
+  /** L'indirizzo ASSOLUTO di questa stessa pagina in quella lingua. */
+  url: string;
+}
+
+interface Props {
+  /** La lingua di QUESTA pagina. */
+  lang: string;
+  titolo: string;
+  /**
+   * La meta description.
+   * ⚠️ VUOTA = NESSUN TAG. Una frase generica ripetuta su venti pagine e'
+   * peggio di niente: Google la scarta e si scrive la sua, e nel frattempo
+   * dice di noi che non abbiamo niente da dire su questa pagina.
+   */
+  descrizione?: string;
+  /**
+   * L'indirizzo canonico di questa pagina (assoluto).
+   * ⚠️ Su una pagina `noindex` non viene stampato: vedi sotto.
+   */
+  canonico?: string;
+  /**
+   * TUTTE le lingue di questa pagina, LA CORRENTE COMPRESA: le versioni si
+   * dichiarano a vicenda, e una pagina che non nomina se stessa lascia
+   * l'elenco incompleto. Vuoto su un sito a una lingua sola.
+   */
+  alternative?: AlternativaLingua[];
+  /**
+   * Quale lingua serve a chi non ha nessuna delle nostre (`x-default`).
+   * Senza, la prima dell'elenco.
+   */
+  xDefault?: string;
+  /** Il nome del locale, per `og:site_name`. */
+  nomeSito?: string;
+  /**
+   * ⚠️ `website`, NON `restaurant`: `restaurant.restaurant` e' un
+   * vocabolario a parte che pretende altre sei proprieta', e senza quelle
+   * Facebook lo scarta e ricade su `website` da solo. Che il locale sia un
+   * ristorante lo dicono i dati strutturati, che e' quello che Google legge.
+   */
+  ogTipo?: string;
+  /**
+   * L'immagine che esce su WhatsApp, Facebook e LinkedIn (assoluta: nessuno
+   * di loro risolve i percorsi relativi). Senza, chi incolla l'indirizzo in
+   * una chat vede un rettangolo grigio col dominio dentro — ed e' quello il
+   * momento in cui qualcuno decide se cliccare.
+   */
+  ogImg?: string;
+  ogImgAlt?: string;
+  /**
+   * Le misure dell'immagine, SE SI SANNO.
+   * ⚠️ Nessun valore di ripiego: `1200×630` dichiarato su un'immagine che
+   * non è 1200×630 fa ritagliare la figura dove non va, e il motore non
+   * ha visto quel file. Chi passa l'immagine sa quanto misura; chi non lo sa
+   * non dichiara niente, e chi la legge la misura da sé.
+   */
+  ogImgLarghezza?: number;
+  ogImgAltezza?: number;
+  ogImgTipo?: string;
+  /**
+   * Le coppie lingua → locale di Facebook, SOLO quelle da correggere: un
+   * locale e' una lingua E un mercato, e per un ristorante belga «fr_BE»
+   * dice una cosa in piu' di «fr_FR».
+   */
+  locali?: Record<string, string>;
+  /**
+   * I dati strutturati gia' costruiti (vedi `lib/seo/schedaRistorante.ts`).
+   * I `null` si possono lasciare dentro: vengono scartati.
+   */
+  schede?: unknown[];
+  /**
+   * Pagina da NON far indicizzare (la 404, un'anteprima, un
+   * ringraziamento).
+   *
+   * ⚠️ NON E' SOLO UN META IN PIU': toglie anche canonico, hreflang,
+   * `og:url` e i dati strutturati. Una scheda `Restaurant` su una 404 e' un
+   * secondo ristorante con lo stesso nome a un indirizzo che non esiste; e
+   * un canonico di ripiego su una 404 diceva a Google «questa pagina e' la
+   * home». E' l'errore piu' facile da non vedere, perche' a schermo la
+   * pagina e' giusta: sbagliato e' solo quello che nessuno guarda.
+   */
+  noindex?: boolean;
+  /**
+   * Chiede a Google l'ANTEPRIMA GRANDE dell'immagine nei risultati
+   * (`max-image-preview:large`). Per un ristorante vale la pena: nei
+   * risultati la figura grande e' meta' della decisione.
+   *
+   * ⚠️ Senza questo, il componente non stampa nessun `robots` sulle pagine
+   * indicizzabili — ed e' giusto: `index, follow` e' quello che Google fa
+   * per difetto, e un tag che ripete il difetto e' una riga che non dice
+   * niente e che un giorno qualcuno copia sbagliata.
+   */
+  anteprimaGrande?: boolean;
+}
+
+const {
+  lang,
+  titolo,
+  descrizione,
+  canonico,
+  alternative = [],
+  xDefault,
+  nomeSito,
+  ogTipo = "website",
+  ogImg,
+  ogImgAlt,
+  ogImgLarghezza,
+  ogImgAltezza,
+  ogImgTipo,
+  locali = {},
+  schede = [],
+  noindex = false,
+  anteprimaGrande = false,
+} = Astro.props;
+
+/** I locali piu' comuni, perche' nessun cliente debba ricordarseli. Chi ha
+ *  un mercato diverso dalla lingua passa la sua coppia in `locali`. */
+const LOCALI: Record<string, string> = {
+  fr: "fr_FR",
+  en: "en_GB",
+  it: "it_IT",
+  nl: "nl_NL",
+  es: "es_ES",
+  de: "de_DE",
+  pt: "pt_PT",
+  ...locali,
+};
+
+const locale = LOCALI[lang];
+/**
+ * I locali delle ALTRE versioni, senza doppioni e senza il nostro.
+ *
+ * ⚠️ Un `og:locale:alternate` uguale a `og:locale` dice a Facebook che la
+ * pagina ha una traduzione in se stessa. Succede appena i codici di
+ * `hreflang` e quelli dei locali non si somigliano (`fr-be` e `fr` che
+ * portano entrambi a `fr_BE`): il filtro guarda il locale, non il codice.
+ */
+const localiAltri = [
+  ...new Set(
+    alternative.map((a) => LOCALI[a.lang]).filter((l): l is string => Boolean(l) && l !== locale),
+  ),
+];
+
+/** `x-default` e' una DELLE alternative, non un indirizzo nuovo: cosi' non
+ *  si puo' dichiarare una pagina che non e' in elenco. */
+const rifDefault = xDefault ?? alternative[0]?.lang;
+const xdef = alternative.find((a) => a.lang === rifDefault);
+
+const indicizza = !noindex;
+
+/**
+ * JSON-LD da mettere in pagina, con i `<` neutralizzati.
+ *
+ * ⚠️ UN VALORE CHE CONTIENE `</script>` CHIUDE LO SCRIPT. I dati arrivano
+ * dal pannello: basta che qualcuno incolli dell'HTML nella descrizione o nel
+ * nome del locale e il resto della scheda finisce nella pagina come markup,
+ * nel migliore dei casi. `\u003c` e' lo stesso carattere per chi legge il
+ * JSON, e non e' piu' una parentesi per chi legge l'HTML.
+ * (L'accortezza arriva dal telaio di Educazione Napoletana: era il solo dei
+ * sette ad averla, e da qui ce l'hanno tutti.)
+ */
+const inPagina = (o: unknown) => JSON.stringify(o).replace(/</g, "\\u003c");
+const schedeVere = indicizza ? schede.filter((s) => s !== null && s !== undefined) : [];
+---
+
+<title>{titolo}</title>
+{descrizione && <meta name="description" content={descrizione} />}
+
+{/* ⚠️ `follow`: la pagina non va in indice, ma i collegamenti che porta si
+    seguono — su una 404 sono proprio quelli che riportano il visitatore (e
+    il robot) sulle pagine vere. */}
+{noindex && <meta name="robots" content="noindex, follow" />}
+{indicizza && anteprimaGrande && <meta name="robots" content="index, follow, max-image-preview:large" />}
+
+{indicizza && canonico && <link rel="canonical" href={canonico} />}
+
+{/* ⚠️ Le lingue si dichiarano a vicenda. Senza, Google le legge come pagine
+    quasi uguali e ne sceglie una lui. */}
+{indicizza && alternative.map((a) => <link rel="alternate" hreflang={a.lang} href={a.url} />)}
+{indicizza && xdef && <link rel="alternate" hreflang="x-default" href={xdef.url} />}
+
+<meta property="og:type" content={ogTipo} />
+{nomeSito && <meta property="og:site_name" content={nomeSito} />}
+<meta property="og:title" content={titolo} />
+{descrizione && <meta property="og:description" content={descrizione} />}
+{indicizza && canonico && <meta property="og:url" content={canonico} />}
+{locale && <meta property="og:locale" content={locale} />}
+{localiAltri.map((l) => <meta property="og:locale:alternate" content={l} />)}
+{ogImg && (
+  <>
+    <meta property="og:image" content={ogImg} />
+    {ogImgLarghezza && <meta property="og:image:width" content={String(ogImgLarghezza)} />}
+    {ogImgAltezza && <meta property="og:image:height" content={String(ogImgAltezza)} />}
+    {ogImgTipo && <meta property="og:image:type" content={ogImgTipo} />}
+    {ogImgAlt && <meta property="og:image:alt" content={ogImgAlt} />}
+  </>
+)}
+
+{/* ⚠️ `summary_large_image` solo se c'e' davvero un'immagine: altrimenti la
+    scheda promette una figura grande e resta un rettangolo vuoto. */}
+<meta name="twitter:card" content={ogImg ? "summary_large_image" : "summary"} />
+<meta name="twitter:title" content={titolo} />
+{descrizione && <meta name="twitter:description" content={descrizione} />}
+{ogImg && <meta name="twitter:image" content={ogImg} />}
+
+{schedeVere.map((s) => <script type="application/ld+json" set:html={inPagina(s)} />)}

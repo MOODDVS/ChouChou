@@ -31,6 +31,25 @@ export const CLIENT = {
   telefono: "+32 476 28 06 79",
   email: "info@comptoirchouchou.be",
   indirizzo: "Boucle Jean-François Breuer 34, 1435 Mont-Saint-Guibert",
+  /**
+   * LO STESSO INDIRIZZO, A PEZZI — RIPIEGO per i dati strutturati.
+   *
+   * ⚠️ LA VERITÀ VIVA STA IN ADMIN → GÉNÉRAL (`company_street`,
+   * `company_zip`, `company_city`): `datiRistorante` li rende separati e la
+   * scheda per Google usa quelli. Questi valgono quando Général e' vuoto o
+   * il DB non risponde, esattamente come `indirizzo` qui sopra.
+   * ⚠️ Scritti a mano, non ricavati spezzando la riga: un civico puo' avere
+   * una barra o un «bus 3», e `postalCode` e `addressLocality` sono i campi
+   * con cui Google capisce DOVE siamo. Un pezzo indovinato male vale meno di
+   * nessun pezzo.
+   */
+  indirizzoParti: {
+    via: "Boucle Jean-François Breuer 34",
+    cap: "1435",
+    comune: "Mont-Saint-Guibert",
+    /** ⚠️ NON e' un ripiego: Général non chiede la regione. */
+    regione: "Brabant wallon",
+  },
   /** Firma dell’email di conferma ordine (per lingua). */
   firma: {
     fr: "À très bientôt,<br>Toute l’équipe du Comptoir Chouchou",
