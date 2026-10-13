@@ -8,6 +8,7 @@ import { parseSegment } from "../../../lib/newsletterSend";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { pulisciHtml } from "../../../lib/htmlRicco";
 export const prerender = false;
 
 
@@ -69,7 +70,15 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const subject = String(body.subject ?? "").trim();
-  const message = String(body.message ?? "").trim();
+  /* ⚠️ Il messaggio e' TESTO RICCO da un editor: si ripulisce QUI, cioe'
+       all'ingresso, e non solo al momento di spedire. Due motivi:
+        - quello che si salva nel database e' gia' pulito, per cui nessuna
+          lettura successiva (bozze, storico, rilanci) deve ricordarsi di
+          ripulirlo — e una di quelle, prima o poi, si dimentica;
+        - una bozza non e' detto che la spedisca lo stesso codice di oggi.
+       `messaggioEmail` ripassa comunque dalla lista bianca: due reti, perche'
+       questa roba finisce in un'email a tutta la rubrica. */
+  const message = pulisciHtml(body.message, 20000);
 
   // ---- BROUILLON: salvataggio per finire più tardi (validazioni minime) ----
   if (body.draft === true) {

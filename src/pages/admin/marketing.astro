@@ -10,6 +10,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import Modal from "../../components/admin/Modal.astro";
+import { markupRte } from "../../lib/admin/rte";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -631,8 +632,17 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <label class="f-lab" for="n-subject">{t("mk.subjectReq")}</label>
         <input type="text" class="f-input" id="n-subject" placeholder={t("mk.subjectPh")} />
 
-        <label class="f-lab" for="n-msg">{t("mk.messageReq")}</label>
-        <textarea class="f-area" id="n-msg" style="min-height:140px" placeholder={t("mk.newsMsgPh")}></textarea>
+        {/* Senza `for`: l'editor e' un contenteditable, non un campo — il
+            suo nome glielo da' `aria` qui sotto. */}
+        <label class="f-lab">{t("mk.messageReq")}</label>
+        {/* L'editor e' lo stesso degli eventi (lib/admin/rte.ts + styles/rte.css):
+            grassetto, corsivo, titoli e link. Il markup si costruisce qui,
+            lato server, cosi' il riquadro c'e' anche prima che parta il JS. */}
+        <div id="n-msg-rte" set:html={markupRte({
+          titoli: { bold: t("rte.bold"), italic: t("rte.italic"), h2: t("rte.h2"), h3: t("rte.h3"), link: t("rte.link"), unlink: t("rte.unlink"), promptLink: t("rte.linkPrompt") },
+          segnaposto: t("mk.newsMsgPh"),
+          aria: t("mk.messageReq"),
+        })} />
 
         <label class="f-lab">{t("mk.btnOpt")}</label>
         <div class="f-row">
@@ -983,6 +993,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { collegaRte } from "../../lib/admin/rte";
+      import { testoNudo } from "../../lib/htmlRicco";
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
@@ -1591,7 +1603,30 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const nRemaining = document.getElementById("n-remaining") as HTMLDivElement;
         const nRecipients = document.getElementById("n-recipients") as HTMLDivElement;
         const nSubject = document.getElementById("n-subject") as HTMLInputElement;
-        const nMsg = document.getElementById("n-msg") as HTMLTextAreaElement;
+        /* ⚠️ IL MESSAGGIO NON E' PIU' UNA TEXTAREA. Era letto e scritto in
+           sette punti: il carico, due azzeramenti, il rilancio da storico, la
+           ripresa di una bozza e due controlli di «campo vuoto». Passano
+           tutti da qui, cosi' il giorno che l'editor cambia c'e' un posto
+           solo da toccare.
+           ⚠️ E il «vuoto» si misura sul TESTO, non sull'HTML: dopo aver
+           cancellato tutto, l'editor lascia dentro `<p><br></p>`, che non e'
+           una stringa vuota ma per chi guarda lo schermo e' un campo vuoto.
+           Misurarlo sull'HTML farebbe partire newsletter senza messaggio. */
+        const riquadroMsg = document.querySelector("#n-msg-rte .rte-ed") as HTMLElement;
+        const msgVuoto = () => (riquadroMsg.textContent ?? "").trim() === "";
+        const leggiMsg = () => (msgVuoto() ? "" : riquadroMsg.innerHTML.trim());
+        /* ⚠️ Scrivere: le newsletter in archivio sono testo con a-capo (il
+           campo era una textarea). Infilarle come HTML le appiattirebbe in un
+           blocco solo, e ricompaiono a ogni rilancio di un invio passato. */
+        function scriviMsg(v: string) {
+          const s = String(v ?? "");
+          riquadroMsg.innerHTML = !s
+            ? ""
+            : /<(p|br|h2|h3|ul|ol|li|b|strong|i|em|u|a)\b[^>]*>/i.test(s)
+              ? s
+              : s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                  .split(/\r?\n/).map((r) => `<p>${r || "<br>"}</p>`).join("");
+        }
         const nImg = document.getElementById("n-img") as HTMLInputElement;
         const nBtnl = document.getElementById("n-btnl") as HTMLInputElement;
         const nBtnu = document.getElementById("n-btnu") as HTMLInputElement;
@@ -1625,7 +1660,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           // Modale PULITO: nuova newsletter = niente residui né brouillon agganciato
           draftId = null;
           nSubject.value = "";
-          nMsg.value = "";
+          scriviMsg("");
           nImg.value = "";
           renderFotoNews();
           nBtnl.value = "";
@@ -1682,7 +1717,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
                     timeZone: (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels",
                   });
                   const foto = h.image_url ? `<img class="nn-img" src="${esc(h.image_url)}" alt="" loading="lazy" />` : "";
-                  return `<div class="nn-card is-click" data-i="${i}" title="${tr("mk.relaunchNews")}">${foto}<div class="nn-tit">${esc(h.subject)}</div>${h.message ? `<div class="nn-msg">${esc(h.message)}</div>` : ""}${h.segment ? segPills(h.segment) : ""}<div class="nn-foot"><span class="nn-quando">${d}</span><span>${h.count} ${tr("mk.emails")}</span></div></div>`;
+                  return `<div class="nn-card is-click" data-i="${i}" title="${tr("mk.relaunchNews")}">${foto}<div class="nn-tit">${esc(h.subject)}</div>${h.message ? `<div class="nn-msg">${esc(testoNudo(h.message))}</div>` : ""}${h.segment ? segPills(h.segment) : ""}<div class="nn-foot"><span class="nn-quando">${d}</span><span>${h.count} ${tr("mk.emails")}</span></div></div>`;
                 })
                 .join("")}</div>`;
             }
@@ -1695,7 +1730,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           return {
             segment: `${langScelta}:${segScelto}`,
             subject: nSubject.value,
-            message: nMsg.value,
+            message: leggiMsg(),
             image_url: nImg.value,
             btn_label: nBtnl.value,
             btn_url: nBtnu.value,
@@ -1705,6 +1740,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         }
 
         // Upload immagine newsletter (stesso endpoint dei pop-up)
+        collegaRte(document.getElementById("n-msg-rte") as HTMLElement, {
+          bold: tr("rte.bold"), italic: tr("rte.italic"), h2: tr("rte.h2"), h3: tr("rte.h3"),
+          link: tr("rte.link"), unlink: tr("rte.unlink"), promptLink: tr("rte.linkPrompt"),
+        });
+
         const nUpload = document.getElementById("n-upload") as HTMLButtonElement;
         const nFile = document.getElementById("n-file") as HTMLInputElement;
         const nUploadState = document.getElementById("n-upload-state") as HTMLElement;
@@ -1863,7 +1903,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               draftId = null;
             }
             nSubject.value = "";
-            nMsg.value = "";
+            scriviMsg("");
             nImg.value = "";
             renderFotoNews();
             nBtnl.value = "";
@@ -1971,7 +2011,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         async function programmaNews() {
           nErr.textContent = "";
           if (!nSubject.value.trim()) { nErr.textContent = tr("mk.subjectRequired"); return; }
-          if (!nMsg.value.trim()) { nErr.textContent = tr("mk.messageRequired"); return; }
+          if (msgVuoto()) { nErr.textContent = tr("mk.messageRequired"); return; }
           const body: Record<string, unknown> = { ...payloadNews(), heure: Number(npHeure.value) };
           if (quando === "date") {
             if (!npDate.dataset.iso) { nErr.textContent = tr("mk.chooseDate"); return; }
@@ -2018,7 +2058,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           draftId = null;
           nErr.textContent = "";
           nSubject.value = h.subject ?? "";
-          nMsg.value = h.message ?? "";
+          scriviMsg(h.message ?? "");
           nImg.value = h.image_url ?? "";
           renderFotoNews();
           nBtnl.value = h.btn_label ?? "";
@@ -2037,7 +2077,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
         async function salvaBrouillon() {
           nErr.textContent = "";
-          if (!nSubject.value.trim() && !nMsg.value.trim()) {
+          if (!nSubject.value.trim() && msgVuoto()) {
             nErr.textContent = tr("mk.nothingToSave");
             return;
           }
@@ -2067,7 +2107,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           draftId = r.id;
           nErr.textContent = "";
           nSubject.value = r.subject === "(brouillon)" ? "" : r.subject;
-          nMsg.value = r.message ?? "";
+          scriviMsg(r.message ?? "");
           nImg.value = r.image_url ?? "";
           renderFotoNews();
           nBtnl.value = r.btn_label ?? "";
@@ -2122,7 +2162,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             dtit.style.display = draftsCache.length ? "" : "none";
             dbox.innerHTML = draftsCache.length
               ? `<div class="nn-grid">${draftsCache
-                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="${tr("mk.resumeDraft")}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${tr("mk.draft")}</span><button class="np-del" type="button" title="${tr("common.delete")}">×</button></div></div>`)
+                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="${tr("mk.resumeDraft")}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(testoNudo(r.message))}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${tr("mk.draft")}</span><button class="np-del" type="button" title="${tr("common.delete")}">×</button></div></div>`)
                   .join("")}</div>`
               : "";
             const tit = document.getElementById("np-tit") as HTMLElement;
@@ -2141,7 +2181,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
                 } else {
                   quandoTxt = `${tr("mk.monthlyDay").replace("{d}", String(r.recur_day))} ${tr("home.at")} ${hh}`;
                 }
-                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><button class="np-del" type="button" title="${tr("common.delete")}">×</button></div></div>`;
+                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(testoNudo(r.message))}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><button class="np-del" type="button" title="${tr("common.delete")}">×</button></div></div>`;
               })
               .join("") + "</div>" : "";
           } catch { /* lista invariata */ }

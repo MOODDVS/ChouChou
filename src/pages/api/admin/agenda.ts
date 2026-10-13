@@ -4,6 +4,7 @@ import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../.
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { pulisciHtml } from "../../../lib/htmlRicco";
 export const prerender = false;
 
 
@@ -96,48 +97,10 @@ function pulisciI18n(v: unknown, maxLen: number): Record<string, string> {
   return out;
 }
 // --- Sanitizzazione HTML (descrizione lunga, rich text) -----------------
-// Whitelist volutamente minima: grassetto, corsivo, titoli h2/h3, paragrafi,
-// a-capo, liste e link. Ogni altro tag viene rimosso (il testo resta), tutti
-// gli attributi vengono eliminati tranne href sui link (solo schemi sicuri),
-// e i link ricevono target/rel di sicurezza. Difesa contro XSS stored.
-const TAG_HTML_OK = new Set(["b", "strong", "i", "em", "u", "h2", "h3", "p", "br", "ul", "ol", "li", "a"]);
-
-function schemaHrefSicuro(href: string): string | null {
-  const h = href.trim();
-  if (/^(https?:|mailto:|tel:)/i.test(h)) return h;   // schemi consentiti
-  if (/^\/\//.test(h)) return "https:" + h;           // protocol-relative → https
-  if (/^\/(?!\/)/.test(h)) return h;                  // path relativo del sito
-  return null;                                         // javascript:, data:, ecc. → scartato
-}
-
-function pulisciHtml(grezzo: unknown, maxLen: number): string {
-  let s = String(grezzo ?? "");
-  if (!s) return "";
-  s = s.replace(/\u0000/g, "");
-  s = s.replace(/<!--[\s\S]*?-->/g, "");                       // commenti
-  s = s.replace(/<(script|style|iframe|object|embed)\b[\s\S]*?<\/\1\s*>/gi, ""); // elementi pericolosi (con contenuto)
-  s = s.replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, ""); // eventuali tag pericolosi residui
-  s = s.replace(/<[^>]*>/g, (tag) => {
-    const m = /^<\s*(\/?)\s*([a-zA-Z0-9]+)([^>]*)>$/.exec(tag);
-    if (!m) return "";
-    const chiuso = m[1] === "/";
-    const nome = m[2].toLowerCase();
-    if (!TAG_HTML_OK.has(nome)) return "";                     // tag non consentito → via (testo resta)
-    if (chiuso) return `</${nome}>`;
-    if (nome === "br") return "<br>";
-    if (nome === "a") {
-      const hm = /href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[3]);
-      const raw = hm ? (hm[2] ?? hm[3] ?? hm[4] ?? "") : "";
-      const safe = schemaHrefSicuro(raw);
-      if (!safe) return "";                                    // link non valido → rimuovi apertura
-      const href = safe.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">`;
-    }
-    return `<${nome}>`;                                        // consentito: nessun attributo
-  });
-  return s.trim().slice(0, maxLen);
-}
-
+// ⚠️ Era qui dentro, con la sua lista bianca e nessuna prova. Dal
+// 13/10/2026 vive in `lib/htmlRicco.ts`, perche' la newsletter usa lo stesso
+// editor e due liste bianche che si allontanano a ogni correzione sono un
+// buco. Le prove stanno in `tests/htmlRicco.test.mjs`.
 /** Come pulisciI18n ma con sanitizzazione HTML (rich text) per ogni valore. */
 function pulisciI18nHtml(v: unknown, maxLen: number): Record<string, string> {
   if (v === undefined || v === null || typeof v !== "object" || Array.isArray(v)) return {};

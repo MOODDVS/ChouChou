@@ -18,6 +18,13 @@ import {
 // vive in `esitoEmail.ts` e la usano anche le email transazionali.
 import { motivoInvio } from "./esitoEmail";
 import { temaEmail, type TemaEmail } from "./temaBrand";
+/* ⚠️ Il messaggio adesso puo' avere del formato (grassetto, paragrafi,
+   titoli, liste, link): l'editor del pannello e' lo stesso degli eventi.
+   `messaggioEmail` fa due cose che non si possono saltare — ripassa dalla
+   lista bianca, ed esce con gli STILI IN LINEA, perche' Gmail butta via i
+   blocchi <style> e Outlook ignora quasi tutto il resto. Un `<p>` senza
+   margin esplicito, in Outlook, incolla i paragrafi fra loro. */
+import { messaggioEmail } from "./htmlRicco";
 
 // Motore d'invio della newsletter, condiviso tra:
 // - /api/admin/newsletter        (invio immediato dall'admin)
@@ -262,7 +269,7 @@ export function htmlNewsletter(
       <tr>
         <td style="padding:24px 40px 0;text-align:center;">
           <h1 style="margin:0;color:${tema.title};font-size:28px;letter-spacing:1px;font-weight:bold;">${esc(input.subject)}</h1>
-          <p style="margin:16px 0 22px;color:${tema.text};font-size:15px;line-height:1.7;white-space:pre-line;text-align:left;">${esc(input.message)}</p>
+          ${messaggioEmail(input.message, { testo: tema.text, accento: tema.accent })}
         </td>
       </tr>
       ${btn}

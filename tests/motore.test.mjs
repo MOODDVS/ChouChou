@@ -336,7 +336,7 @@ test("i componenti condivisi li carica AdminHead, non le pagine a memoria", () =
   // perche' la pagina non lo importava. Il CSS mancante non si rompe: si
   // vede, e solo se qualcuno guarda.
   const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
-  for (const f of ["modal", "switch", "toast", "field", "button", "prep", "filters"]) {
+  for (const f of ["modal", "switch", "toast", "field", "button", "prep", "filters", "rte"]) {
     assert.ok(head.includes(`styles/${f}.css`), `AdminHead non importa piu' styles/${f}.css: le pagine lo perdono tutte insieme`);
   }
 
