@@ -1718,6 +1718,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { authFresh } from "../../lib/admin/auth";
       import { collegaLogout } from "../../lib/admin/logout";
       import { nomeServizio } from "../../lib/reservationI18n";
@@ -1778,13 +1779,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       // sarebbe stato un ReferenceError al primo cambio di stato, cioe' uno
       // stato che non si salva e nessun messaggio che spieghi perche'.
       const toastEl = document.getElementById("toast") as HTMLDivElement | null;
-      let toastTimer: number | undefined;
       function toast(msg: string, errore = false) {
-        if (!toastEl) return;
-        toastEl.textContent = msg;
-        toastEl.className = "toast is-on" + (errore ? " is-error" : " is-ok");
-        window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2500);
+        mostraToast(toastEl, msg, { errore, durata: 2500 });
       }
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };

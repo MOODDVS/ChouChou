@@ -523,6 +523,7 @@ const pubLangsJson = JSON.stringify({
     <AdminNav current="agenda" />
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
@@ -614,13 +615,11 @@ const pubLangsJson = JSON.stringify({
           return { Authorization: `Bearer ${data.session?.access_token ?? session?.access_token ?? ""}`, "Content-Type": "application/json" };
         }
 
-        let toastTimer: number | undefined;
+        /* Il guscio resta: le chiamate in questa pagina non si toccano.
+           Il comportamento (compreso «sopra il modale») vive una volta sola
+           in `lib/admin/toast.ts`. */
         function toast(msg: string, isErr = false) {
-          toastEl.textContent = msg;
-          toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-on");
-          window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
+          mostraToast(toastEl, msg, { errore: isErr });
         }
 
         // ---------- Lista ----------

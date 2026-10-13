@@ -1742,7 +1742,10 @@ const DIZIONARIO: Dizionario = {
   "mk.ofWhichCredits": { fr: "dont {n} crédits achetés", en: "of which {n} purchased credits", it: "di cui {n} crediti acquistati", nl: "waarvan {n} gekochte credits", es: "de los cuales {n} créditos comprados" },
   "mk.relaunchNews": { fr: "Relancer cette newsletter", en: "Relaunch this newsletter", it: "Rilancia questa newsletter", nl: "Deze nieuwsbrief opnieuw versturen", es: "Relanzar esta newsletter" },
   "mk.emails":       { fr: "emails", en: "emails", it: "email", nl: "e-mails", es: "correos" },
-  "mk.testSentTo":   { fr: "Test envoyé à", en: "Test sent to", it: "Test inviato a", nl: "Test verzonden naar", es: "Prueba enviada a" },
+  // ⚠️ L'indirizzo NON e' un ornamento: il test va alla casella
+  // dell'account con cui si e' entrati, che non sempre e' quella che la
+  // persona legge. Dirglielo qui evita di cercare l'email altrove.
+  "mk.testSentTo":   { fr: "E-mail de test envoyée à", en: "Test e-mail sent to", it: "E-mail di test inviata a", nl: "Test-e-mail verzonden naar", es: "Correo de prueba enviado a" },
   "mk.confirmSend":  { fr: "Confirmer l'envoi à {n} clients ?", en: "Confirm sending to {n} customers?", it: "Confermare l'invio a {n} clienti?", nl: "Verzending naar {n} klanten bevestigen?", es: "¿Confirmar el envío a {n} clientes?" },
   "mk.sending":      { fr: "Envoi…", en: "Sending…", it: "Invio…", nl: "Verzenden…", es: "Enviando…" },
   "mk.newsSentTo":   { fr: "Newsletter envoyée à {n} clients", en: "Newsletter sent to {n} customers", it: "Newsletter inviata a {n} clienti", nl: "Nieuwsbrief verzonden naar {n} klanten", es: "Newsletter enviada a {n} clientes" },

@@ -983,6 +983,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
@@ -1107,13 +1108,13 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}`, "Content-Type": "application/json" };
         });
 
-        let toastTimer: number | undefined;
-        function toast(msg: string, isErr = false) {
-          toastEl.textContent = msg;
-          toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-on");
-          window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
+        /* ⚠️ Questa pagina e' quella da cui il difetto e' uscito: il
+           compositore della newsletter e' un modale, e il toast del test
+           finiva dietro il velo. Il guscio resta per non toccare le
+           quarantuno chiamate; il comportamento sta in
+           `lib/admin/toast.ts`. */
+        function toast(msg: string, isErr = false, durata?: number) {
+          mostraToast(toastEl, msg, { errore: isErr, durata });
         }
 
         // ---------- Lista ----------
@@ -1812,7 +1813,12 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               nErr.textContent = j.error ?? tr("ord.errShort");
               return;
             }
-            toast(`${tr("mk.testSentTo")} ${j.to}`);
+            /* ⚠️ Cinque secondi, non due e mezzo: questo messaggio contiene
+               un INDIRIZZO da leggere, e due secondi e mezzo bastano per
+               «salvato», non per un'informazione da confrontare con la
+               propria casella. */
+            nErr.textContent = "";
+            toast(`${tr("mk.testSentTo")} ${j.to}`, false, 5000);
           } catch {
             nErr.textContent = tr("res.connErr");
           } finally {

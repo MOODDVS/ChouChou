@@ -1184,6 +1184,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <script>
       import { iconaDiSorgente } from "../../lib/sorgenteRegole";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { SERVIZI_WIDGET, nomeServizio, LINGUE_WIDGET } from "../../lib/reservationI18n";
@@ -1305,15 +1306,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
-      let toastTimer: number | undefined;
       function toast(msg: string, tipo: "" | "ok" | "err" = "") {
-        toastEl.textContent = msg;
         // `tipo` resta "ok"/"err" per chi chiama — sono venti punti nel file.
-        // La traduzione nelle classi del componente si fa QUI, una volta.
-        const stile = tipo === "err" ? " is-error" : tipo === "ok" ? " is-ok" : "";
-        toastEl.className = "toast is-on" + stile;
-        window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2500);
+        // La traduzione si fa QUI, una volta.
+        mostraToast(toastEl, msg, { errore: tipo === "err", durata: 2500 });
       }
 
       // ----- Giorno corrente (fuso Bruxelles) -----

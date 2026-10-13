@@ -659,6 +659,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { PREFISSI, separaPrefisso, collegaPrefissoTel } from "../../lib/prefissi";
@@ -922,7 +923,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         let sortKey: SortKey = "total";
         let sortAsc = false;
         let filtro = "";
-        let tCancella = 0;
 
         /* ---- Colonne: preferenza dell'utente + larghezza + modulo ordini ----
            Un'unica sorgente: le larghezze non stanno piu nei @media ma qui,
@@ -1079,10 +1079,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         applicaColonne();
 
         function toast(msg: string, err = false) {
-          toastEl.textContent = msg;
-          toastEl.className = "toast is-on" + (err ? " is-error" : "");
-          clearTimeout(tCancella);
-          tCancella = window.setTimeout(() => (toastEl.className = "toast"), 2600);
+          mostraToast(toastEl, msg, { errore: err });
         }
 
         function compare(a: Client, b: Client): number {
