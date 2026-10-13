@@ -95,7 +95,7 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       .rw-p { min-width: 44px; padding: 0.45rem 0.6rem; background: var(--rw-bg2,#1c1819); border: 1px solid var(--rw-line,#3a3335); color: #fff; border-radius: var(--rw-rbox); font-size: 0.85rem; cursor: pointer; text-align: center; font-family: var(--font-body); }
       .rw-p:hover { border-color: var(--rw-accent,#dfab4e); }
       .rw-p.is-on { background: var(--rw-accent,#dfab4e); border-color: var(--rw-accent,#dfab4e); color: var(--rw-bg,#231f20); font-weight: 700; }
-      .rw-alert { margin: 0.5rem 0 0; padding: 0.6rem 0.8rem; font-size: 0.8rem; line-height: 1.5; background: rgba(223, 171, 78, 0.12); border: 1px solid var(--rw-accent,#dfab4e); color: var(--rw-accent,#dfab4e); border-radius: var(--rw-rbox); }
+      .rw-alert { margin: 0.7rem 0 0.15rem; padding: 0.95rem 1.05rem; font-size: 0.92rem; line-height: 1.65; background: rgba(223, 171, 78, 0.12); border: 1px solid var(--rw-accent,#dfab4e); color: var(--rw-accent,#dfab4e); border-radius: var(--rw-rbox); }
       .rw-zones { display: flex; gap: 0.4rem; flex-wrap: wrap; }
       .rw-zone { background: var(--rw-bg2,#1c1819); border: 1px solid var(--rw-line,#3a3335); color: var(--rw-muted,#b3aca6); padding: 0.4rem 0.9rem; border-radius: var(--rw-rpill); font-size: 0.82rem; cursor: pointer; }
       .rw-zone.is-on { background: var(--rw-accent,#dfab4e); border-color: var(--rw-accent,#dfab4e); color: var(--rw-bg,#231f20); }
@@ -350,6 +350,11 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       let closedSet = new Set<string>();
       let openSet = new Set<string>();
       let fullSet = new Set<string>(); // giorni "complet": cliccabili ma pieni
+      /* ⚠️ IL SERVIZIO scelto e' pieno, non il giorno: il pranzo e'
+         completo e la cena no. Serve fuori da `render()` perche' lo guarda
+         anche il bottone, che in quel caso deve chiamare invece di
+         prenotare. */
+      let servizioPieno = false;
       let modifyToken = "";   // ?token= → modalità modifica
       let excludeToken = "";  // esclude la prenotazione stessa dalla disponibilità
 
@@ -499,6 +504,9 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
         // Giorno "complet" (capienza esaurita o tutti i services chiusi):
         // niente scelta persone/sezione/orari — messaggio e Téléphoner
         const giornoPieno = fullSet.has(isoSel);
+        /* ⚠️ Azzerato a ogni passata: lo rileggono i bottoni, e un «pieno»
+           rimasto dal giorno prima farebbe telefonare chi poteva prenotare. */
+        servizioPieno = false;
         const accPers = document.querySelector<HTMLElement>('.rw-acc[data-acc="personnes"]');
         const accHeure = document.querySelector<HTMLElement>('.rw-acc[data-acc="heure"]');
         if (giornoPieno) {
@@ -597,6 +605,26 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
         $("rw-val-zone").textContent = $("rw-zones").querySelector(".is-on")?.textContent ?? "";
         const oraSel = $("rw-slots").querySelector(".is-on")?.textContent ?? "";
         $("rw-val-heure").textContent = att && oraSel && svs.length > 1 ? `${att.label} · ${oraSel}` : oraSel;
+
+        /* ⚠️ SERVIZIO PIENO, GIORNO NO. Difetto vero (13/10/2026): col
+           pranzo completo e la cena libera, al posto degli orari compariva
+           «complet» ma il bottone restava «Réserver» — e premendolo
+           riapriva una lista di orari vuota. Un vicolo cieco senza nemmeno
+           un messaggio che dicesse cosa fare.
+           ⚠️ Il messaggio e' SUO, non quello del giorno pieno: dire «siamo
+           completi quel giorno» manderebbe via qualcuno che a cena un
+           tavolo l'avrebbe trovato. */
+        servizioPieno = !!att && tuttiPieni;
+        if (!troppi && !fullSet.has(isoSel)) {
+          if (servizioPieno) {
+            $("rw-alert").textContent = T().serviceComplet;
+            $("rw-alert").style.display = "";
+            $("rw-cta").textContent = T().telephoner;
+          } else {
+            $("rw-alert").style.display = "none";
+            $("rw-cta").textContent = T().reserver;
+          }
+        }
       }
 
       async function impostaData(iso: string) {
@@ -997,7 +1025,7 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
 
         // CTA step1 → step2 (o téléphoner)
         $("rw-cta").addEventListener("click", () => {
-          if (troppi || fullSet.has(isoSel)) {
+          if (troppi || fullSet.has(isoSel) || servizioPieno) {
             const tel = (document.getElementById("rw") as HTMLElement | null)?.dataset.tel || CLIENT.telefono;
             window.location.href = "tel:" + tel.replace(/[^+\d]/g, "");
             return;
