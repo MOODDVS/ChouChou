@@ -18,13 +18,14 @@ import { markupRte } from "../src/lib/admin/rte.ts";
 
 const TITOLI = {
   bold: "Gras", italic: "Italique", h2: "Titre", h3: "Sous-titre",
+  lista: "Liste \u00e0 puces", listaNum: "Liste num\u00e9rot\u00e9e", centra: "Centrer",
   link: "Lien", unlink: "Retirer le lien", promptLink: "URL du lien :",
 };
 const MOD = readFileSync("src/lib/admin/rte.ts", "utf8");
 
-test("i sei tasti ci sono, col loro titolo tradotto", () => {
+test("i nove tasti ci sono, col loro titolo tradotto", () => {
   const html = markupRte({ titoli: TITOLI, segnaposto: "Scrivi…" });
-  for (const cmd of ["bold", "italic", "h2", "h3", "link", "unlink"]) {
+  for (const cmd of ["bold", "italic", "h2", "h3", "lista", "listaNum", "centra", "link", "unlink"]) {
     assert.match(html, new RegExp(`data-cmd="${cmd}"`), `manca il tasto ${cmd}`);
   }
   assert.match(html, /title="Gras"/);
@@ -96,4 +97,28 @@ test("⚠️ nessuna pagina si riscrive l'editor in casa", () => {
     if (/^\s*\.rte[-\s{]/m.test(src)) colpevoli.push(`${f}: si riscrive lo stile .rte`);
   }
   assert.deepEqual(colpevoli, [], "l'editor e' tornato a vivere in due posti");
+});
+
+test("⚠️ il centrato NON passa da `justifyCenter`", () => {
+  // `justifyCenter` scrive `style="text-align:center"` (o un <div>, secondo
+  // il browser) e lo `style` la lista bianca lo butta via: a schermo il
+  // testo si centrerebbe, salvando tornerebbe a sinistra, e nessuno
+  // capirebbe perche'. Si scrive `align`, l'unico attributo ammesso.
+  // Senza i commenti: nel modulo `justifyCenter` e' CITATO, per spiegare
+  // perche' non si usa. Una prova che non distingue le due cose fallisce
+  // sulla spiegazione invece che sul codice — ed e' gia' successo col toast.
+  const codice = MOD.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(codice, /justifyCenter|justifyLeft|justifyFull/, "il centrato e' tornato a execCommand: non sopravvive al salvataggio");
+  assert.match(MOD, /setAttribute\("align", "center"\)/);
+  assert.match(MOD, /removeAttribute\("align"\)/, "il tasto e' di sola andata: non si puo' togliere il centrato");
+});
+
+test("gli elenchi usano i comandi che rendono <ul>/<ol>, gia' ammessi", () => {
+  assert.match(MOD, /insertUnorderedList/);
+  assert.match(MOD, /insertOrderedList/);
+});
+
+test("⚠️ cercando il blocco ci si ferma al riquadro", () => {
+  // Salendo oltre si finirebbe ad allineare il modale che lo contiene.
+  assert.match(MOD, /while \(n && n !== ed\)/, "la risalita non si ferma piu' al riquadro dell'editor");
 });

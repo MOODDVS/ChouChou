@@ -29,6 +29,30 @@
  */
 const TAG_HTML_OK = new Set(["b", "strong", "i", "em", "u", "h2", "h3", "p", "br", "ul", "ol", "li", "a"]);
 
+/**
+ * ⚠️ L'UNICO ATTRIBUTO CHE SOPRAVVIVE OLTRE A `href`, e solo su un blocco.
+ *
+ * Centrare il testo vuol dire salvare da qualche parte «questo blocco e'
+ * centrato», e la regola di sopra butta via tutti gli attributi. Delle due
+ * strade possibili:
+ *  - `style="text-align:center"`: vorrebbe far passare `style`, cioe' la
+ *    porta da cui entrano `background:url(javascript:...)` e compagnia;
+ *  - `align="center"`: un attributo deprecato in HTML, che pero' prende UN
+ *    SOLO valore da un elenco chiuso e non puo' contenere altro.
+ * Vince il secondo, ed e' anche quello che Outlook (motore Word) rispetta
+ * meglio: `messaggioEmail` lo traduce comunque in `text-align` in linea per
+ * tutti gli altri.
+ */
+const ALLINEAMENTI = new Set(["left", "center", "right"]);
+const TAG_ALLINEABILI = new Set(["p", "h2", "h3", "ul", "ol", "li"]);
+
+/** L'allineamento di un tag, se e' uno dei tre ammessi. */
+export function allineamentoDi(attributi: string): string | null {
+  const m = /align\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attributi);
+  const v = (m ? (m[2] ?? m[3] ?? m[4] ?? "") : "").trim().toLowerCase();
+  return ALLINEAMENTI.has(v) ? v : null;
+}
+
 /** Solo schemi che non eseguono niente: `javascript:` e `data:` fuori. */
 export function schemaHrefSicuro(href: string): string | null {
   const h = href.trim();
@@ -67,7 +91,11 @@ export function pulisciHtml(grezzo: unknown, maxLen: number): string {
       const href = safe.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       return `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">`;
     }
-    return `<${nome}>`;                                        // consentito: nessun attributo
+    if (TAG_ALLINEABILI.has(nome)) {
+      const all = allineamentoDi(m[3]);
+      if (all) return `<${nome} align="${all}">`;              // l'unico attributo che resta
+    }
+    return `<${nome}>`;                                        // consentito: nessun altro attributo
   });
   return s.trim().slice(0, maxLen);
 }
@@ -152,9 +180,17 @@ export function messaggioEmail(grezzo: unknown, colori: ColoriMessaggio): string
   };
 
   const corpo = pulito.replace(/<([a-z0-9]+)((?:\s[^>]*)?)>/gi, (intero, nome: string, resto: string) => {
-    const stile = STILI[nome.toLowerCase()];
+    const tag = nome.toLowerCase();
+    const stile = STILI[tag];
     if (!stile) return intero;
-    return `<${nome.toLowerCase()}${resto} style="${stile}">`;
+    /* ⚠️ Centrato: `align="center"` resta (Outlook lo rispetta), e in piu'
+       si riscrive `text-align` nello stile in linea. Senza la seconda meta',
+       lo stile scritto dopo vincerebbe sull'attributo e il blocco tornerebbe
+       a sinistra nei client che leggono il CSS — cioe' quasi tutti. */
+    const all = allineamentoDi(resto);
+    const conAllineamento = all ? stile.replace(/text-align:[a-z]+;/, `text-align:${all};`) : stile;
+    const finale = all && !/text-align:/.test(conAllineamento) ? `${conAllineamento}text-align:${all};` : conAllineamento;
+    return `<${tag}${resto} style="${finale}">`;
   });
 
   // Un testo che inizia senza paragrafo (l'editor a volte rende la prima

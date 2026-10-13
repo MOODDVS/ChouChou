@@ -16,7 +16,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { pulisciHtml, testoNudo, messaggioEmail, schemaHrefSicuro } from "../src/lib/htmlRicco.ts";
+import { pulisciHtml, testoNudo, messaggioEmail, schemaHrefSicuro, allineamentoDi } from "../src/lib/htmlRicco.ts";
 
 const COLORI = { testo: "#222222", accento: "#dfab4e" };
 
@@ -125,4 +125,50 @@ test("un messaggio vuoto non lascia un blocco vuoto nell'email", () => {
   assert.equal(messaggioEmail("", COLORI), "");
   assert.equal(messaggioEmail("   ", COLORI), "");
   assert.equal(messaggioEmail(null, COLORI), "");
+});
+
+/* ------------------------- L'ALLINEAMENTO -------------------------------- */
+
+test("⚠️ `align` passa, ma SOLO con uno dei tre valori", () => {
+  // E' l'unico attributo che la lista bianca lascia entrare oltre a `href`:
+  // vale la pena guardarlo da vicino.
+  assert.equal(allineamentoDi(' align="center"'), "center");
+  assert.equal(allineamentoDi(" align=right"), "right");
+  assert.equal(allineamentoDi(" ALIGN='LEFT'"), "left");
+  assert.equal(allineamentoDi(' align="justify"'), null, "un valore fuori elenco non deve passare");
+  assert.equal(allineamentoDi(' align="center; background:url(javascript:alert(1))"'), null);
+  assert.equal(allineamentoDi(' class="x"'), null);
+});
+
+test("⚠️ il centrato sopravvive al salvataggio", () => {
+  // Il difetto che questa prova impedisce: `execCommand(\"justifyCenter\")`
+  // scrive `style=\"text-align:center\"`, lo `style` viene buttato via, e il
+  // testo si centra a schermo ma torna a sinistra appena si salva.
+  assert.equal(pulisciHtml('<p align="center">Ciao</p>', 5000), '<p align="center">Ciao</p>');
+  assert.equal(pulisciHtml('<h2 align="center">Titolo</h2>', 5000), '<h2 align="center">Titolo</h2>');
+});
+
+test("⚠️ `align` non diventa una porta per gli altri attributi", () => {
+  assert.equal(pulisciHtml('<p align="center" onclick="alert(1)">X</p>', 5000), '<p align="center">X</p>');
+  assert.equal(pulisciHtml('<p align="center" style="background:red">X</p>', 5000), '<p align="center">X</p>');
+  // E su un tag che non e' un blocco non serve a niente, quindi non passa.
+  assert.equal(pulisciHtml('<b align="center">X</b>', 5000), "<b>X</b>");
+});
+
+test("⚠️ nell'email il centrato c'e' due volte: attributo E stile", () => {
+  // `align` perche' Outlook (motore Word) lo rispetta; `text-align` in linea
+  // perche' nei client che leggono il CSS lo stile scritto dopo vincerebbe
+  // sull'attributo, e il blocco tornerebbe a sinistra.
+  const out = messaggioEmail('<p align="center">Ciao</p>', COLORI);
+  assert.match(out, /align="center"/);
+  assert.match(out, /style="[^"]*text-align:center/);
+  assert.doesNotMatch(out, /text-align:left/, "lo stile a sinistra e' rimasto e vince su align");
+});
+
+test("gli elenchi arrivano nell'email col loro rientro", () => {
+  const out = messaggioEmail("<ul><li>Pizza</li><li>Pasta</li></ul>", COLORI);
+  assert.match(out, /<ul style="[^"]*padding:0 0 0 22px/, "senza padding esplicito Outlook perde il rientro");
+  assert.match(out, /<li style="[^"]*margin:0 0 6px/);
+  const num = messaggioEmail("<ol><li>Primo</li></ol>", COLORI);
+  assert.match(num, /<ol style="/);
 });

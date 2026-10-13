@@ -639,7 +639,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             grassetto, corsivo, titoli e link. Il markup si costruisce qui,
             lato server, cosi' il riquadro c'e' anche prima che parta il JS. */}
         <div id="n-msg-rte" set:html={markupRte({
-          titoli: { bold: t("rte.bold"), italic: t("rte.italic"), h2: t("rte.h2"), h3: t("rte.h3"), link: t("rte.link"), unlink: t("rte.unlink"), promptLink: t("rte.linkPrompt") },
+          titoli: { bold: t("rte.bold"), italic: t("rte.italic"), h2: t("rte.h2"), h3: t("rte.h3"),
+            lista: t("rte.lista"), listaNum: t("rte.listaNum"), centra: t("rte.centra"),
+            link: t("rte.link"), unlink: t("rte.unlink"), promptLink: t("rte.linkPrompt") },
           segnaposto: t("mk.newsMsgPh"),
           aria: t("mk.messageReq"),
         })} />
@@ -1742,6 +1744,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         // Upload immagine newsletter (stesso endpoint dei pop-up)
         collegaRte(document.getElementById("n-msg-rte") as HTMLElement, {
           bold: tr("rte.bold"), italic: tr("rte.italic"), h2: tr("rte.h2"), h3: tr("rte.h3"),
+          lista: tr("rte.lista"), listaNum: tr("rte.listaNum"), centra: tr("rte.centra"),
           link: tr("rte.link"), unlink: tr("rte.unlink"), promptLink: tr("rte.linkPrompt"),
         });
 

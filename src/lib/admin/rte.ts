@@ -26,6 +26,12 @@ export interface TitoliRte {
   italic: string;
   h2: string;
   h3: string;
+  /** Elenco puntato. */
+  lista: string;
+  /** Elenco numerato. */
+  listaNum: string;
+  /** Centra il blocco (e lo rimette a sinistra se gia' centrato). */
+  centra: string;
   link: string;
   unlink: string;
   /** La domanda quando si chiede l'indirizzo di un link. */
@@ -69,12 +75,32 @@ export function markupRte(o: {
         b("italic", t.italic, "<i>I</i>") +
         b("h2", t.h2, "H2") +
         b("h3", t.h3, "H3") +
+        b("lista", t.lista, "•─") +
+        b("listaNum", t.listaNum, "1─") +
+        b("centra", t.centra, "≡") +
         b("link", t.link, "🔗") +
         b("unlink", t.unlink, "⤫") +
       `</div>` +
       `<div class="rte-ed${o.classi ? " " + o.classi : ""}" contenteditable="true" role="textbox" aria-multiline="true"${o.aria ? ` aria-label="${escAttr(o.aria)}"` : ""}${dati} data-ph="${escAttr(o.segnaposto)}"></div>` +
     `</div>`
   );
+}
+
+/**
+ * Il blocco in cui sta il cursore — paragrafo, titolo o voce di elenco.
+ *
+ * ⚠️ Ci si ferma al riquadro: salendo oltre si finirebbe ad allineare il
+ * modale che lo contiene.
+ */
+const BLOCCHI = new Set(["P", "H2", "H3", "LI", "UL", "OL", "DIV"]);
+function bloccoCorrente(ed: HTMLElement): HTMLElement | null {
+  const sel = window.getSelection();
+  let n: Node | null = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startContainer : null;
+  while (n && n !== ed) {
+    if (n.nodeType === 1 && BLOCCHI.has((n as HTMLElement).tagName)) return n as HTMLElement;
+    n = n.parentNode;
+  }
+  return null;
 }
 
 function esegui(ed: HTMLElement, cmd: string, promptLink: string): void {
@@ -93,6 +119,33 @@ function esegui(ed: HTMLElement, cmd: string, promptLink: string): void {
     // Premuto su un titolo che c'e' gia': lo si toglie. Senza questo, i tasti
     // H2/H3 sarebbero di sola andata.
     document.execCommand("formatBlock", false, blocco === cmd ? "P" : cmd.toUpperCase());
+    return;
+  }
+  if (cmd === "lista") {
+    // Rende <ul><li>: tag gia' nella lista bianca, niente da aggiungere.
+    document.execCommand("insertUnorderedList", false);
+    return;
+  }
+  if (cmd === "listaNum") {
+    document.execCommand("insertOrderedList", false);
+    return;
+  }
+  if (cmd === "centra") {
+    /* ⚠️ NON `execCommand("justifyCenter")`. Quello scrive
+       `style="text-align:center"` (o un `<div>`, secondo il browser), e lo
+       `style` la lista bianca lo butta via: a schermo il testo si centrava,
+       salvando tornava a sinistra, e nessuno capiva perche'. Qui si scrive
+       `align`, che e' l'unico attributo che la ripulitura lascia passare
+       (vedi `lib/htmlRicco.ts`). */
+    let blocco = bloccoCorrente(ed);
+    if (!blocco) {
+      document.execCommand("formatBlock", false, "P");
+      blocco = bloccoCorrente(ed);
+    }
+    if (!blocco) return;
+    // Premuto su un blocco gia' centrato: lo rimette a sinistra.
+    if (blocco.getAttribute("align") === "center") blocco.removeAttribute("align");
+    else blocco.setAttribute("align", "center");
     return;
   }
   if (cmd === "unlink") {

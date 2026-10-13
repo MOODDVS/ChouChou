@@ -25,3 +25,12 @@
 .rte-ed p { margin: 0 0 0.6rem; }
 .rte-ed a { color: var(--c-accent); text-decoration: underline; }
 .rte-ed ul, .rte-ed ol { margin: 0 0 0.6rem 1.2rem; }
+
+/* ⚠️ Il riquadro deve far vedere quello che l'email fara': `align` e' un
+   attributo deprecato e i browser lo rispettano ancora sui blocchi, ma non
+   su `ul`/`ol` — dove senza questa riga il testo resterebbe a sinistra
+   mentre nell'email risulta centrato. Un editor che mostra una cosa diversa
+   da quella che parte e' peggio di un editor senza il tasto. */
+.rte-ed [align="center"] { text-align: center; }
+.rte-ed [align="right"] { text-align: right; }
+.rte-ed ul[align="center"], .rte-ed ol[align="center"] { list-style-position: inside; margin-left: 0; }
