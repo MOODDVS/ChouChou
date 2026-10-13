@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { motivoInvio } from "../esitoEmail";
 import { DateTime } from "luxon";
 import { CLIENT } from "../../config/client";
 import { nomeServizio } from "../reservationI18n";
@@ -540,13 +541,22 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
   </html>`;
 
   try {
-    await resend.emails.send({
+    // ⚠️ L'esito si guarda: il client di Resend non lancia niente quando
+    // l'API rifiuta (vedi `lib/esitoEmail.ts`). Senza questo, un recap
+    // rifiutato veniva segnato come inviato — e il «gia' inviata oggi» qui
+    // sotto spegneva anche il tentativo del giorno.
+    const esito = await resend.emails.send({
       from: RESEND_FROM,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: "enquiries@moodd.online",
       subject: B.subject(dataLunga),
       html,
     });
+    const motivo = motivoInvio(esito);
+    if (motivo) {
+      console.error("[dailyBrief] refus\u00e9 par Resend:", motivo);
+      return { sent: false, reason: motivo };
+    }
   } catch {
     return { sent: false, reason: "invio Resend fallito" };
   }

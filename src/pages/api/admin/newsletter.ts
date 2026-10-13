@@ -120,8 +120,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (body.test === true) {
     const dest = staff.email ?? "";
     if (!dest) return json({ error: await msg("err.staffEmail") }, 400);
-    const ok = await inviaTest(dest, contenuto);
-    if (!ok) return json({ error: await msg("err.testSend") }, 502);
+    const esito = await inviaTest(dest, contenuto);
+    // ⚠️ IL MOTIVO ARRIVA A SCHERMO. «Envoi du test impossible» da solo ha
+    // tenuto un cliente fermo un giorno: il motivo vero (mittente fuori dal
+    // dominio verificato su Resend) lo sistema lui in trenta secondi dai
+    // Réglages, se glielo diciamo.
+    if (!esito.ok) return json({ error: `${await msg("err.testSend")} : ${esito.motivo}` }, 502);
     return json({ ok: true, test: true, to: dest });
   }
 

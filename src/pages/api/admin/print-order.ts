@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, type Ambito } from "../../../lib/admin/sede";
 import Stripe from "stripe";
 import { Resend } from "resend";
+import { motivoInvio } from "../../../lib/esitoEmail";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { CLIENT } from "../../../config/client";
@@ -105,12 +106,17 @@ async function avvisaMoodd(o: { label: string; qty: number; amount_cents: number
     </table>
   </div>`;
   try {
-    await resend.emails.send({
+    // ⚠️ L'esito si guarda: e' l'ordine di stampa che arriva a MOODD, e
+    // se non arriva nessuno stampa niente. Il client di Resend non lancia
+    // niente quando l'API rifiuta (vedi `lib/esitoEmail.ts`).
+    const esito = await resend.emails.send({
       from: RESEND_FROM,
       to: MOODD_ORDERS_EMAIL,
       subject: `Nouvelle commande Print — ${CLIENT.nome} · ${o.qty}× ${o.label}`,
       html,
     });
+    const motivo = motivoInvio(esito);
+    if (motivo) console.error("[print-order] notifica MOODD refus\u00e9e par Resend:", motivo);
   } catch (e) {
     console.error("[print-order] notifica MOODD fallita:", e);
   }
