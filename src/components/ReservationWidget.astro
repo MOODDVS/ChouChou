@@ -854,7 +854,33 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
           const r = rwDateEl.getBoundingClientRect();
           const pw = dpPanel.offsetWidth || 308;
           dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
-          dpPanel.style.top = `${r.bottom + 6}px`;
+
+          /* ⚠️ IL CALENDARIO DEVE STARE DENTRO LA FINESTRA CHE LO OSPITA.
+             Difetto vero (13/10/2026, L'Aperitivo): il widget vive dentro un
+             IFRAME alto quanto il modale, e `position: fixed` qui dentro e'
+             fisso rispetto a QUELLA finestra, non alla pagina. Messo sempre
+             sotto il campo, il calendario finiva oltre il bordo dell'iframe:
+             si vedevano due righe di giorni e il resto no — e non c'era
+             nessuno scorrimento da fare, perche' fuori dall'iframe non
+             esiste niente. Nessun errore da nessuna parte: semplicemente
+             non si poteva piu' prenotare.
+             Quindi: sotto se ci sta, sopra se ci sta, altrimenti in alto con
+             un'altezza massima e lo scorrimento suo. */
+          const vh = window.innerHeight;
+          dpPanel.style.maxHeight = "";
+          dpPanel.style.overflowY = "";
+          const ph = dpPanel.offsetHeight;
+          const sotto = vh - r.bottom - 14;
+          const sopra = r.top - 14;
+          if (ph <= sotto) {
+            dpPanel.style.top = `${r.bottom + 6}px`;
+          } else if (ph <= sopra) {
+            dpPanel.style.top = `${Math.max(8, r.top - ph - 6)}px`;
+          } else {
+            dpPanel.style.top = "8px";
+            dpPanel.style.maxHeight = `${Math.max(200, vh - 16)}px`;
+            dpPanel.style.overflowY = "auto";
+          }
         }
         const dpChiudi = () => { dpPanel.style.display = "none"; };
         dpPanel.addEventListener("click", async (e) => {
