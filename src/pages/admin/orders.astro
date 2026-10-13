@@ -1080,7 +1080,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         <button type="button" class="md-btn md-btn-primary" id="nc-send" style="display:none">{t("ord.createSend")}</button>
       </Fragment>
     </Modal>
-    <div class="toast is-sopra" id="nc-toast"></div>
+    <!-- `is-sopra` non si scrive piu' qui: lo decide `lib/admin/toast.ts`
+         guardando se c'e' una finestra aperta. -->
+    <div class="toast" id="nc-toast"></div>
 
     <AdminNav current="orders" />
 
@@ -1089,6 +1091,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { collegaLogout } from "../../lib/admin/logout";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -2404,16 +2407,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // ---- Nouvelle commande MANUALE (link di pagamento Stripe via email) ----
         const ncOverlay = document.getElementById("nc-overlay") as HTMLDivElement;
         const ncToastEl = document.getElementById("nc-toast") as HTMLDivElement;
-        let ncToastTimer = 0;
         // ⚠️ `ms` esiste perche' un messaggio si legge in tempi diversi: tre
         // secondi e mezzo bastano per «salvato», non per una frase che chiede
         // di andare a controllare i webhook di Stripe.
         function ncToast(msg: string, err = false, ms = 3500) {
-          ncToastEl.textContent = msg;
-          ncToastEl.classList.toggle("is-error", err);
-          ncToastEl.classList.add("is-on");
-          window.clearTimeout(ncToastTimer);
-          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("is-on"), ms);
+          mostraToast(ncToastEl, msg, { errore: err, durata: ms });
         }
 
         // ---- GUARIGIONE: i pagamenti che il webhook non ha mai portato ----

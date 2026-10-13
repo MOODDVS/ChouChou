@@ -14,7 +14,17 @@ import {
   filtraRubrica, parseSegment, LINGUE, GRUPPI,
   type LinguaNews, type GruppoNews, type Profilo,
 } from "./newsletterRegole";
+// Il motivo di un rifiuto e' una regola di Resend, non della newsletter:
+// vive in `esitoEmail.ts` e la usano anche le email transazionali.
+import { motivoInvio } from "./esitoEmail";
 import { temaEmail, type TemaEmail } from "./temaBrand";
+/* ⚠️ Il messaggio adesso puo' avere del formato (grassetto, paragrafi,
+   titoli, liste, link): l'editor del pannello e' lo stesso degli eventi.
+   `messaggioEmail` fa due cose che non si possono saltare — ripassa dalla
+   lista bianca, ed esce con gli STILI IN LINEA, perche' Gmail butta via i
+   blocchi <style> e Outlook ignora quasi tutto il resto. Un `<p>` senza
+   margin esplicito, in Outlook, incolla i paragrafi fra loro. */
+import { messaggioEmail } from "./htmlRicco";
 
 // Motore d'invio della newsletter, condiviso tra:
 // - /api/admin/newsletter        (invio immediato dall'admin)
@@ -259,7 +269,7 @@ export function htmlNewsletter(
       <tr>
         <td style="padding:24px 40px 0;text-align:center;">
           <h1 style="margin:0;color:${tema.title};font-size:28px;letter-spacing:1px;font-weight:bold;">${esc(input.subject)}</h1>
-          <p style="margin:16px 0 22px;color:${tema.text};font-size:15px;line-height:1.7;white-space:pre-line;text-align:left;">${esc(input.message)}</p>
+          ${messaggioEmail(input.message, { testo: tema.text, accento: tema.accent })}
         </td>
       </tr>
       ${btn}
@@ -289,27 +299,54 @@ export function htmlNewsletter(
 </html>`;
 }
 
-/** Un solo invio di test all'email dello staff. */
-export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise<boolean> {
-  if (!resend || !RESEND_FROM) return false;
-  // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
-  // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
-  // Schaerbeek e prenotato a Stockel e' una persona sola e riceve una copia
-  // sola. Quindi nome, indirizzo e mittente sono quelli dell'installazione:
-  // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
-  const dati = await datiRistorante(SEDE_UNICA);
-  const tema = await temaEmail();
-  const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
+/** L'esito di un invio: o e' partita, o si sa perche' no. */
+export type EsitoTest = { ok: true } | { ok: false; motivo: string };
+
+/**
+ * UN SOLO INVIO DI TEST, all'email dello staff che ha premuto il bottone.
+ *
+ * ⚠️ DIFETTO VERO (13/10/2026): un cliente ha provato a mandarsi il test
+ * prima della newsletter e «non funzionava». Non funzionava in silenzio:
+ *  1. l'esito di Resend veniva buttato via (vedi `motivoInvio`), per cui il
+ *     pannello scriveva «Test envoyé à …» anche quando Resend aveva
+ *     rifiutato l'email, e nessuno sapeva ne' che era stata rifiutata ne'
+ *     perche';
+ *  2. le letture qui sotto (dati del locale, tema, logo, social) stavano
+ *     FUORI dal try: se una di loro saltava, l'eccezione uscisse dall'API
+ *     come 500 con una pagina HTML, e il pannello mostrava «errore di
+ *     connessione» — che manda a cercare il guasto nella rete.
+ * Ora chi preme il bottone legge il motivo, ed e' quasi sempre un motivo che
+ * puo' sistemare da se' (il mittente fuori dal dominio verificato).
+ */
+export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise<EsitoTest> {
+  if (!resend || !RESEND_FROM) {
+    return { ok: false, motivo: "Resend non configuré (RESEND_API_KEY / RESEND_FROM)" };
+  }
   try {
-    await resend.emails.send({
-      from: await mittenteNewsletter(),
+    // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
+    // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
+    // Schaerbeek e prenotato a Stockel e' una persona sola e riceve una copia
+    // sola. Quindi nome, indirizzo e mittente sono quelli dell'installazione:
+    // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
+    const dati = await datiRistorante(SEDE_UNICA);
+    const tema = await temaEmail();
+    const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
+    const mittente = await mittenteNewsletter();
+    const esito = await resend.emails.send({
+      from: mittente,
       to: dest,
       subject: `[TEST] ${contenuto.subject}`,
       html: htmlNewsletter(dati, { ...contenuto, email: dest, logoUrl, social }, tema),
     });
-    return true;
-  } catch {
-    return false;
+    const motivo = motivoInvio(esito);
+    if (motivo) {
+      console.error("[newsletter] test refusé par Resend:", { de: mittente, a: dest, motivo });
+      return { ok: false, motivo };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error("[newsletter] test interrompu:", e);
+    return { ok: false, motivo: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -360,8 +397,12 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
         subject: contenuto.subject,
         html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }, tema),
       }));
-      const { error } = await resend.batch.send(lotto);
-      if (error) throw error;
+      const esito = await resend.batch.send(lotto);
+      // ⚠️ Lo stesso motivo del test: il client di Resend non lancia niente,
+      // rende `{ data, error }`. Senza questo controllo un lotto rifiutato
+      // contava come partito, scalava la quota e non arrivava a nessuno.
+      const motivo = motivoInvio(esito);
+      if (motivo) throw new Error(motivo);
       inviateOra += lotto.length;
       if (i + 100 < dest.length) await new Promise((r) => setTimeout(r, 700));
     }

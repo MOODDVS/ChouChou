@@ -4,6 +4,7 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { statoQuota } from "../../../lib/admin/newsletterQuota";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { pulisciHtml } from "../../../lib/htmlRicco";
 import {
   parseSegment,
   contatoriSegmenti,
@@ -101,7 +102,15 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const subject = (body.subject ?? "").trim();
-  const message = (body.message ?? "").trim();
+  /* ⚠️ Il messaggio e' TESTO RICCO da un editor: si ripulisce QUI, cioe'
+       all'ingresso, e non solo al momento di spedire. Due motivi:
+        - quello che si salva nel database e' gia' pulito, per cui nessuna
+          lettura successiva (bozze, storico, rilanci) deve ricordarsi di
+          ripulirlo — e una di quelle, prima o poi, si dimentica;
+        - una bozza non e' detto che la spedisca lo stesso codice di oggi.
+       `messaggioEmail` ripassa comunque dalla lista bianca: due reti, perche'
+       questa roba finisce in un'email a tutta la rubrica. */
+  const message = pulisciHtml(body.message, 20000);
   if (!subject) return json({ error: await msg("err.subjectRequired") }, 400);
   if (!message) return json({ error: await msg("err.messageRequired") }, 400);
 
@@ -120,8 +129,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (body.test === true) {
     const dest = staff.email ?? "";
     if (!dest) return json({ error: await msg("err.staffEmail") }, 400);
-    const ok = await inviaTest(dest, contenuto);
-    if (!ok) return json({ error: await msg("err.testSend") }, 502);
+    const esito = await inviaTest(dest, contenuto);
+    // ⚠️ IL MOTIVO ARRIVA A SCHERMO. «Envoi du test impossible» da solo ha
+    // tenuto un cliente fermo un giorno: il motivo vero (mittente fuori dal
+    // dominio verificato su Resend) lo sistema lui in trenta secondi dai
+    // Réglages, se glielo diciamo.
+    if (!esito.ok) return json({ error: `${await msg("err.testSend")} : ${esito.motivo}` }, 502);
     return json({ ok: true, test: true, to: dest });
   }
 

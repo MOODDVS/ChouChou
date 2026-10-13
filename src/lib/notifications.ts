@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { motivoInvio } from "./esitoEmail";
 import { DateTime } from "luxon";
 import { datiRistorante } from "./ristorante";
 import { temaEmail, type TemaEmail } from "./temaBrand";
@@ -43,6 +44,47 @@ const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL 
 const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+
+/** Le opzioni e l'esito di un invio, come li definisce il client di Resend. */
+type OpzioniEmail = Parameters<Resend["emails"]["send"]>[0];
+type EsitoEmail = Awaited<ReturnType<Resend["emails"]["send"]>>;
+
+/**
+ * OGNI EMAIL PASSA DA QUI, e un rifiuto finisce nel log col suo motivo.
+ *
+ * ⚠️ PERCHE' ESISTE (13/10/2026). Il client di Resend NON LANCIA
+ * ECCEZIONI quando l'API rifiuta un'email: rende `{ data, error }`. Tutte e
+ * ventuno le email di questo file chiamavano l'invio dentro un `try/catch`
+ * e tiravano avanti — il `catch` non vedeva niente e l'`error` non lo
+ * guardava nessuno.
+ *
+ * ⚠️ Quindi: con la configurazione Resend di un cliente rotta (il caso
+ * normale e' il mittente fuori dal dominio verificato), le sue CONFERME DI
+ * PRENOTAZIONE non partivano e da nessuna parte — ne' nel pannello ne' nei
+ * log — risultava che non erano partite. Il ristoratore aspetta clienti che
+ * non sanno di avere un tavolo, e nessuno ha un motivo per andare a
+ * guardare. Si e' scoperto dal bottone di test della newsletter, che era
+ * l'unico posto dove qualcuno ha pensato di controllare.
+ *
+ * ⚠️ `cosa` non e' decorazione: in un log di produzione «refusé par
+ * Resend» senza il nome dell'email costringe a indovinare quale delle
+ * ventuno. Il comportamento visibile non cambia: un'email che oggi parte
+ * parte uguale — cambia solo che un fallimento adesso si vede.
+ */
+async function spedisci(cosa: string, opzioni: OpzioniEmail): Promise<EsitoEmail> {
+  if (!resend) {
+    const motivo = "Resend non configuré (RESEND_API_KEY)";
+    console.error(`[email] ${cosa}: ${motivo}`);
+    return { data: null, error: { message: motivo, name: "application_error", statusCode: null } } as unknown as EsitoEmail;
+  }
+  const esito = await resend.emails.send(opzioni);
+  const motivo = motivoInvio(esito);
+  if (motivo) {
+    const o = opzioni as { from?: unknown; to?: unknown };
+    console.error(`[email] ${cosa} refusé par Resend:`, { de: o.from, a: o.to, motivo });
+  }
+  return esito;
+}
 
 /**
  * Email cucina: prima da app_config (modificabile dall'admin),
@@ -482,7 +524,7 @@ async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promis
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("annulation client", {
       from,
       to: o.customer_email,
       bcc: BCC,
@@ -575,7 +617,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("confirmation commande client", {
       from,
       to: o.customer_email,
       subject: t.subject(o.numero, ora),
@@ -813,7 +855,7 @@ async function emailModificaCliente(
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("modification commande client", {
       from,
       to: o.customer_email,
       subject: t.subject(o.numero, ora),
@@ -965,7 +1007,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("lien de paiement", {
       from,
       to: o.customer_email,
       subject: t.subject(o.numero),
@@ -1061,7 +1103,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("nouvelle commande cuisine", {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
@@ -1145,7 +1187,7 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("annulation cuisine", {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
@@ -1353,7 +1395,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("demande d'avis commande", {
       from,
       to: o.customer_email,
       subject: t.subject(nome),
@@ -1556,7 +1598,7 @@ export async function inviaFeedbackCliente(fb: {
   `;
 
   try {
-    await resend.emails.send({
+    await spedisci("feedback client", {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
@@ -1655,7 +1697,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
     </table>
 `;
   try {
-    const { data } = await resend.emails.send({
+    const { data } = await spedisci("avis réservation (programmé)", {
       from: RESEND_FROM,
       to: email,
       subject: t.subject(nome),
@@ -2176,7 +2218,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("CONFIRMATION réservation", {
       from,
       to: r.email,
       subject: t.confSubject(dati.nome),
@@ -2242,7 +2284,7 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("rappel réservation", {
       from,
       to: r.email,
       subject: tr.subject(dati.nome),
@@ -2317,7 +2359,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("demande de réservation reçue", {
       from,
       to: r.email,
       subject: t.pendSubject(dati.nome),
@@ -2386,7 +2428,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("réservation annulée", {
       from,
       to: r.email,
       subject: t.cancSubject(dati.nome),
@@ -2451,7 +2493,7 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("service complet / fermeture", {
       from,
       to: r.email,
       subject: t.fermSubject(dati.nome),
@@ -2628,7 +2670,7 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("notification réservation (resto)", {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
@@ -2684,7 +2726,7 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("notification annulation (resto)", {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
@@ -2860,7 +2902,7 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
     </table>
 `;
   try {
-    await resend.emails.send({
+    await spedisci("bon cadeau (client)", {
       from: RESEND_FROM,
       to: dest,
       bcc: BCC,
@@ -2958,7 +3000,7 @@ export async function emailBonRistoratore(bon: BonEmail, ambito: Ambito): Promis
     </table>
 `;
   try {
-    await resend.emails.send({ from: RESEND_FROM, to: dest, bcc: BCC, subject: L.subject(bon.code), html: avvolgiTema(html, tema) });
+    await spedisci("bon cadeau (resto)", { from: RESEND_FROM, to: dest, bcc: BCC, subject: L.subject(bon.code), html: avvolgiTema(html, tema) });
   } catch (e) {
     console.error("Errore email bon ristoratore:", e);
   }
@@ -3008,7 +3050,7 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("notification modification (resto)", {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
@@ -3168,7 +3210,7 @@ export async function emailNoShowResa(r: ResaEmail): Promise<void> {
   });
 
   try {
-    await resend.emails.send({
+    await spedisci("no-show", {
       from,
       to: r.email,
       subject: t.subject(dati.nome),
@@ -3277,7 +3319,7 @@ export async function emailNotaAssegnata(n: {
       indirizzo: dati.indirizzo,
       contatti: `${dati.tel} · ${dati.email}`,
     });
-    await resend.emails.send({
+    await spedisci("note assignée", {
       from,
       to: n.a,
       subject: t.subject(dati.nome),

@@ -695,6 +695,7 @@ const t = adminT(lang);
     <AdminNav current="google" />
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -776,13 +777,8 @@ const t = adminT(lang);
           return { Authorization: `Bearer ${data.session?.access_token ?? session?.access_token ?? ""}`, "Content-Type": "application/json" };
         }
 
-        let toastTimer: number | undefined;
         function toast(msg: string, isErr = false) {
-          toastEl.textContent = msg;
-          toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-on");
-          window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
+          mostraToast(toastEl, msg, { errore: isErr });
         }
 
         let recensioni: Rec[] = [];

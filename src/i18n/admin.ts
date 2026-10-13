@@ -84,13 +84,18 @@ const DIZIONARIO: Dizionario = {
   "ag.image":       { fr: "Image principale",    en: "Main image",          it: "Immagine principale",  nl: "Hoofdafbeelding",       es: "Imagen principal" },
   "ag.text":        { fr: "Brève description",   en: "Short description",   it: "Breve descrizione",    nl: "Korte beschrijving",    es: "Descripción breve" },
   "ag.textPh":      { fr: "Décrivez l'événement…", en: "Describe the event…", it: "Descrivi l'evento…", nl: "Beschrijf het evenement…", es: "Describe el evento…" },
-  "ag.rteBold":     { fr: "Gras", en: "Bold", it: "Grassetto", nl: "Vet", es: "Negrita" },
-  "ag.rteItalic":   { fr: "Italique", en: "Italic", it: "Corsivo", nl: "Cursief", es: "Cursiva" },
-  "ag.rteH2":       { fr: "Titre", en: "Heading", it: "Titolo", nl: "Kop", es: "Título" },
-  "ag.rteH3":       { fr: "Sous-titre", en: "Subheading", it: "Sottotitolo", nl: "Subkop", es: "Subtítulo" },
-  "ag.rteLink":     { fr: "Lien", en: "Link", it: "Link", nl: "Link", es: "Enlace" },
-  "ag.rteUnlink":   { fr: "Retirer le lien", en: "Remove link", it: "Rimuovi link", nl: "Link verwijderen", es: "Quitar enlace" },
-  "ag.rteLinkPrompt": { fr: "URL du lien :", en: "Link URL:", it: "URL del link:", nl: "Link-URL:", es: "URL del enlace:" },
+  // ⚠️ L'editor di testo ricco lo usano agenda E newsletter: le chiavi
+  // non portano piu' il prefisso di una pagina sola.
+  "rte.bold":       { fr: "Gras", en: "Bold", it: "Grassetto", nl: "Vet", es: "Negrita" },
+  "rte.italic":     { fr: "Italique", en: "Italic", it: "Corsivo", nl: "Cursief", es: "Cursiva" },
+  "rte.h2":         { fr: "Titre", en: "Heading", it: "Titolo", nl: "Kop", es: "Título" },
+  "rte.h3":         { fr: "Sous-titre", en: "Subheading", it: "Sottotitolo", nl: "Subkop", es: "Subtítulo" },
+  "rte.lista":      { fr: "Liste à puces", en: "Bulleted list", it: "Elenco puntato", nl: "Opsommingslijst", es: "Lista con viñetas" },
+  "rte.listaNum":   { fr: "Liste numérotée", en: "Numbered list", it: "Elenco numerato", nl: "Genummerde lijst", es: "Lista numerada" },
+  "rte.centra":     { fr: "Centrer", en: "Centre", it: "Centra", nl: "Centreren", es: "Centrar" },
+  "rte.link":       { fr: "Lien", en: "Link", it: "Link", nl: "Link", es: "Enlace" },
+  "rte.unlink":     { fr: "Retirer le lien", en: "Remove link", it: "Rimuovi link", nl: "Link verwijderen", es: "Quitar enlace" },
+  "rte.linkPrompt": { fr: "URL du lien :", en: "Link URL:", it: "URL del link:", nl: "Link-URL:", es: "URL del enlace:" },
   "ag.gallery":     { fr: "Galerie",             en: "Gallery",             it: "Galleria",             nl: "Galerij",               es: "Galería" },
   "ag.galleryAdd":  { fr: "Ajouter des images",  en: "Add images",          it: "Aggiungi immagini",    nl: "Afbeeldingen toevoegen", es: "Añadir imágenes" },
   "ag.dates":       { fr: "Date",                en: "Date",                it: "Data",                 nl: "Datum",                 es: "Fecha" },
@@ -1742,7 +1747,10 @@ const DIZIONARIO: Dizionario = {
   "mk.ofWhichCredits": { fr: "dont {n} crédits achetés", en: "of which {n} purchased credits", it: "di cui {n} crediti acquistati", nl: "waarvan {n} gekochte credits", es: "de los cuales {n} créditos comprados" },
   "mk.relaunchNews": { fr: "Relancer cette newsletter", en: "Relaunch this newsletter", it: "Rilancia questa newsletter", nl: "Deze nieuwsbrief opnieuw versturen", es: "Relanzar esta newsletter" },
   "mk.emails":       { fr: "emails", en: "emails", it: "email", nl: "e-mails", es: "correos" },
-  "mk.testSentTo":   { fr: "Test envoyé à", en: "Test sent to", it: "Test inviato a", nl: "Test verzonden naar", es: "Prueba enviada a" },
+  // ⚠️ L'indirizzo NON e' un ornamento: il test va alla casella
+  // dell'account con cui si e' entrati, che non sempre e' quella che la
+  // persona legge. Dirglielo qui evita di cercare l'email altrove.
+  "mk.testSentTo":   { fr: "E-mail de test envoyée à", en: "Test e-mail sent to", it: "E-mail di test inviata a", nl: "Test-e-mail verzonden naar", es: "Correo de prueba enviado a" },
   "mk.confirmSend":  { fr: "Confirmer l'envoi à {n} clients ?", en: "Confirm sending to {n} customers?", it: "Confermare l'invio a {n} clienti?", nl: "Verzending naar {n} klanten bevestigen?", es: "¿Confirmar el envío a {n} clientes?" },
   "mk.sending":      { fr: "Envoi…", en: "Sending…", it: "Invio…", nl: "Verzenden…", es: "Enviando…" },
   "mk.newsSentTo":   { fr: "Newsletter envoyée à {n} clients", en: "Newsletter sent to {n} customers", it: "Newsletter inviata a {n} clienti", nl: "Nieuwsbrief verzonden naar {n} klanten", es: "Newsletter enviada a {n} clientes" },

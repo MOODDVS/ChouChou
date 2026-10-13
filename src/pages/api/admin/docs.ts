@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { Resend } from "resend";
+import { motivoInvio } from "../../../lib/esitoEmail";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { datiRistorante } from "../../../lib/ristorante";
@@ -406,13 +407,23 @@ export const POST: APIRoute = async ({ request }) => {
       lang: langLettera,
     });
     try {
-      await resend.emails.send({
+      // ⚠️ L'esito si guarda. Questa e' una LETTERA DI DISDETTA a un
+      // fornitore, e subito sotto il documento viene segnato come
+      // «resilie»: un rifiuto non visto lasciava il ristorante convinto di
+      // aver disdetto un contratto che e' ancora attivo. Il client di Resend
+      // non lancia niente quando l'API rifiuta (vedi `lib/esitoEmail.ts`).
+      const esito = await resend.emails.send({
         from: RESEND_FROM as string,
         to: dest,
         replyTo: dati.email, // la risposta del fornitore arriva al ristorante
         subject: LL.oggetto(societa, name),
         html,
       });
+      const motivo = motivoInvio(esito);
+      if (motivo) {
+        console.error("[docs] lettre de r\u00e9siliation refus\u00e9e par Resend:", { a: dest, motivo });
+        return json({ error: `${await msg("err.send")} : ${motivo}` }, 502);
+      }
     } catch {
       return json({ error: await msg("err.send") }, 502);
     }

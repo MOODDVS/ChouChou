@@ -1199,6 +1199,7 @@ const prI18n = {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { esc } from "../../lib/esc";
       import { collegaLogout } from "../../lib/admin/logout";
@@ -1276,13 +1277,8 @@ const prI18n = {
           if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}`, "Content-Type": "application/json" };
         });
 
-        let toastTimer: number | undefined;
         function toast(msg: string, isErr = false) {
-          toastEl.textContent = msg;
-          toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-on");
-          window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2200);
+          mostraToast(toastEl, msg, { errore: isErr, durata: 2200 });
         }
 
         // Testi tradotti passati dal server (JSON in pagina).

@@ -61,6 +61,10 @@ export interface TestiWidget {
   choisirDate: string;
   aucuneHeure: string;
   completAppelez: string;
+  /** Un SERVIZIO pieno (il pranzo) mentre l'altro e' libero: non e' lo
+   *  stesso messaggio del giorno intero, e dirlo cosi' manderebbe via
+   *  qualcuno che a cena un tavolo l'avrebbe trovato. */
+  serviceComplet: string;
   complet: string;
   erreurEnvoi: string;
   creneauPris: string;
@@ -119,6 +123,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "Ou choisir une date…",
     aucuneHeure: "Aucune heure disponible ce jour",
     completAppelez: "Nous sommes complets ce jour-là — mais essayez toujours de nous appeler, au cas où il y aurait un désistement.",
+    serviceComplet: "Ce service est complet — essayez un autre horaire, ou appelez-nous au cas où il y aurait un désistement.",
     complet: "Complet — plus de place pour ce nombre de personnes",
     erreurEnvoi: "Une erreur est survenue — veuillez réessayer dans un instant.",
     creneauPris: "Ce créneau vient d'être complet. Merci de choisir un autre horaire.",
@@ -165,6 +170,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "Or pick a date…",
     aucuneHeure: "No times available on this day",
     completAppelez: "We are fully booked that day — but do try calling us, in case of a cancellation.",
+    serviceComplet: "This service is fully booked — try another time, or call us in case of a cancellation.",
     complet: "Fully booked for this party size",
     erreurEnvoi: "An error occurred — please try again in a moment.",
     creneauPris: "This time slot has just filled up. Please pick another time.",
@@ -211,6 +217,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "O elegir una fecha…",
     aucuneHeure: "No hay horarios disponibles este día",
     completAppelez: "Estamos completos ese día — pero pruebe a llamarnos, por si hubiera alguna cancelación.",
+    serviceComplet: "Este servicio está completo — pruebe otro horario o llámenos, por si hubiera alguna cancelación.",
     complet: "Completo para este número de personas",
     erreurEnvoi: "Se ha producido un error — inténtelo de nuevo en un momento.",
     creneauPris: "Este horario se acaba de completar. Elija otro horario.",
@@ -257,6 +264,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "O scegli una data…",
     aucuneHeure: "Nessun orario disponibile per questo giorno",
     completAppelez: "Siamo al completo per quel giorno — ma prova comunque a chiamarci, in caso di disdetta.",
+    serviceComplet: "Questo servizio e' al completo — prova un altro orario, o chiamaci in caso di disdetta.",
     complet: "Completo per questo numero di persone",
     erreurEnvoi: "Si è verificato un errore — riprova tra un istante.",
     creneauPris: "Questo orario si è appena riempito. Scegli un altro orario.",
@@ -303,6 +311,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "Of kies een datum…",
     aucuneHeure: "Geen tijden beschikbaar op deze dag",
     completAppelez: "We zijn die dag volgeboekt — maar bel ons gerust, voor het geval er een annulering is.",
+    serviceComplet: "Deze service is volgeboekt — probeer een ander tijdstip of bel ons, voor het geval er een annulering is.",
     complet: "Volgeboekt voor dit aantal personen",
     erreurEnvoi: "Er is een fout opgetreden — probeer het zo dadelijk opnieuw.",
     creneauPris: "Dit tijdslot is zojuist volgeboekt. Kies een ander tijdstip.",
@@ -349,6 +358,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "Oder Datum wählen…",
     aucuneHeure: "An diesem Tag sind keine Uhrzeiten verfügbar",
     completAppelez: "Wir sind an diesem Tag ausgebucht — versuchen Sie es aber gerne telefonisch, falls etwas frei wird.",
+    serviceComplet: "Dieser Service ist ausgebucht — versuchen Sie eine andere Uhrzeit oder rufen Sie uns an, falls etwas frei wird.",
     complet: "Ausgebucht für diese Personenzahl",
     erreurEnvoi: "Ein Fehler ist aufgetreten — bitte versuchen Sie es gleich erneut.",
     creneauPris: "Dieser Zeitpunkt ist soeben ausgebucht. Bitte wählen Sie eine andere Uhrzeit.",
@@ -395,6 +405,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "Или выберите дату…",
     aucuneHeure: "В этот день нет доступного времени",
     completAppelez: "В этот день всё забронировано — но попробуйте позвонить нам: иногда бронь отменяется.",
+    serviceComplet: "Этот сеанс полностью забронирован — попробуйте другое время или позвоните нам: иногда бронь отменяется.",
     complet: "Мест нет для такого числа гостей",
     erreurEnvoi: "Произошла ошибка — пожалуйста, повторите попытку чуть позже.",
     creneauPris: "Это время только что заняли. Пожалуйста, выберите другое время.",
@@ -441,6 +452,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "أو اختر تاريخاً…",
     aucuneHeure: "لا توجد أوقات متاحة في هذا اليوم",
     completAppelez: "نحن محجوزون بالكامل في ذلك اليوم — لكن جرّب الاتصال بنا، فقد يُلغى حجز ما.",
+    serviceComplet: "هذه الخدمة محجوزة بالكامل — جرّب وقتًا آخر أو اتصل بنا، فقد يُلغى حجز ما.",
     complet: "مكتمل لهذا العدد من الأشخاص",
     erreurEnvoi: "حدث خطأ — يرجى المحاولة مرة أخرى بعد قليل.",
     creneauPris: "هذا الموعد اكتمل للتو. يرجى اختيار وقت آخر.",
@@ -487,6 +499,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "或选择日期…",
     aucuneHeure: "当天没有可预订的时间",
     completAppelez: "当天已订满——但欢迎致电咨询，或许会有人取消。",
+    serviceComplet: "该时段已订满——请选择其他时间，或致电咨询，或许会有人取消。",
     complet: "该人数已订满",
     erreurEnvoi: "发生错误，请稍后重试。",
     creneauPris: "该时段刚刚被订满，请选择其他时间。",
@@ -532,6 +545,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     choisirDate: "または日付を選択…",
     aucuneHeure: "この日にご予約いただける時間はありません",
     completAppelez: "その日は満席ですが、キャンセルが出る場合もございますのでお電話でお問い合わせください。",
+    serviceComplet: "この時間帯は満席です。他の時間をお試しいただくか、キャンセルが出る場合もございますのでお電話でお問い合わせください。",
     complet: "この人数では満席です",
     erreurEnvoi: "エラーが発生しました。しばらくしてからもう一度お試しください。",
     creneauPris: "この時間帯はただいま満席になりました。別の時間をお選びください。",

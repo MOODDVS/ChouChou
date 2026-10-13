@@ -863,6 +863,7 @@ const varianti = boot.features.includes("variants");
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
@@ -936,12 +937,8 @@ const varianti = boot.features.includes("variants");
       const euro = (cents: number): string => euroDa(cents, LOC);
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
-      let toastTimer: number | undefined;
       function toast(msg: string, err = false) {
-        toastEl.textContent = msg;
-        toastEl.className = "toast is-on" + (err ? " is-error" : "");
-        window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2500);
+        mostraToast(toastEl, msg, { errore: err, durata: 2500 });
       }
 
       // ---------- Rendering ----------

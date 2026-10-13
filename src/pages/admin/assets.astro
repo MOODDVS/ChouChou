@@ -290,6 +290,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
@@ -350,12 +351,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       }
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
-      let toastTimer: number | undefined;
       function toast(msg: string, err = false) {
-        toastEl.textContent = msg;
-        toastEl.className = "toast is-on" + (err ? " is-error" : "");
-        window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 3000);
+        mostraToast(toastEl, msg, { errore: err, durata: 3000 });
       }
 
       const gridEl = document.getElementById("grid") as HTMLDivElement;

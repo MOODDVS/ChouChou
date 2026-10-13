@@ -1,0 +1,36 @@
+/* ============================================================
+   EDITOR DI TESTO RICCO (.rte) — lo stile, in un posto solo.
+
+   ⚠️ Era dentro lo <style> di `agenda.astro`. Quando la newsletter ha
+   avuto bisogno dello stesso editor (13/10/2026), copiarlo avrebbe voluto
+   dire due editor che si somigliano oggi e si allontanano domani: la stessa
+   strada che ha prodotto sei teste SEO diverse.
+
+   ⚠️ Lo carica `AdminHead`, non le pagine: un foglio che ogni pagina deve
+   ricordarsi di importare non e' condiviso, e' un file che qualcuno un
+   giorno dimentica. Ed e' gia' successo con `filters.css` — quattro bottoni
+   grigi di sistema sulla Accueil, senza un errore da nessuna parte.
+
+   Il comportamento (i tasti, l'incolla) sta in `lib/admin/rte.ts`.
+   ============================================================ */
+
+.rte { border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-card); overflow: hidden; }
+.rte-tb { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.4rem; border-bottom: 1px solid var(--c-line); background: color-mix(in srgb, var(--c-line) 22%, transparent); }
+.rte-b { min-width: 30px; height: 30px; padding: 0 0.5rem; border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); border-radius: 6px; cursor: pointer; font-size: 0.85rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-body); }
+.rte-b:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.rte-ed { min-height: 180px; padding: 0.65rem 0.85rem; color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; line-height: 1.6; outline: none; overflow-y: auto; }
+.rte-ed:empty::before { content: attr(data-ph); color: var(--c-muted); opacity: 0.7; }
+.rte-ed h2 { font-family: var(--font-title); font-size: 1.25rem; letter-spacing: 0.02em; margin: 0.7rem 0 0.3rem; }
+.rte-ed h3 { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.02em; margin: 0.6rem 0 0.25rem; }
+.rte-ed p { margin: 0 0 0.6rem; }
+.rte-ed a { color: var(--c-accent); text-decoration: underline; }
+.rte-ed ul, .rte-ed ol { margin: 0 0 0.6rem 1.2rem; }
+
+/* ⚠️ Il riquadro deve far vedere quello che l'email fara': `align` e' un
+   attributo deprecato e i browser lo rispettano ancora sui blocchi, ma non
+   su `ul`/`ol` — dove senza questa riga il testo resterebbe a sinistra
+   mentre nell'email risulta centrato. Un editor che mostra una cosa diversa
+   da quella che parte e' peggio di un editor senza il tasto. */
+.rte-ed [align="center"] { text-align: center; }
+.rte-ed [align="right"] { text-align: right; }
+.rte-ed ul[align="center"], .rte-ed ol[align="center"] { list-style-position: inside; margin-left: 0; }
