@@ -968,8 +968,13 @@ const DIZIONARIO: Dizionario = {
   "ord.resendEmail": { fr: "Renvoyer l'email de paiement", en: "Resend payment email", it: "Rinvia l'email di pagamento", nl: "Betaalmail opnieuw versturen", es: "Reenviar el correo de pago" },
   "ord.resendShort": { fr: "Ren. email", en: "Resend", it: "Rinvia", nl: "Opnieuw", es: "Reenviar" },
   "ord.reprint":     { fr: "Ré-imprimer le ticket", en: "Reprint the ticket", it: "Ristampa il biglietto", nl: "Ticket opnieuw afdrukken", es: "Reimprimir el ticket" },
+  "ord.reprintOk":   { fr: "Ticket renvoyé à l'imprimante", en: "Ticket sent to the printer", it: "Biglietto rimandato alla stampante", nl: "Ticket opnieuw verzonden", es: "Ticket reenviado a la impresora" },
   "ord.putBack":     { fr: "Remettre en cours", en: "Put back in progress", it: "Rimetti in corso", nl: "Terug naar bezig", es: "Volver a en curso" },
   "ord.refunded":    { fr: "Remboursé", en: "Refunded", it: "Rimborsato", nl: "Terugbetaald", es: "Reembolsado" },
+  // ⚠️ Il rimborso TOTALE non porta l'importo — l'etichetta deve dire da sola
+  //    che non resta niente, se no «Remboursé» nudo sembra un rimborso parziale
+  //    a cui manca il numero.
+  "ord.refundedAll": { fr: "Tout remboursé", en: "Fully refunded", it: "Rimborsato tutto", nl: "Volledig terugbetaald", es: "Reembolsado todo" },
   "ord.closed":      { fr: "Fermé", en: "Closed", it: "Chiuso", nl: "Gesloten", es: "Cerrado" },
   "ord.errShort":    { fr: "Erreur", en: "Error", it: "Errore", nl: "Fout", es: "Error" },
   "ord.search":      { fr: "Recherche", en: "Search", it: "Ricerca", nl: "Zoeken", es: "Búsqueda" },
@@ -2455,6 +2460,17 @@ const DIZIONARIO: Dizionario = {
   "err.options":               { fr: "Options invalides", en: "Invalid options", it: "Opzioni non valide", nl: "Ongeldige opties", es: "Opciones no válidas" },
   "err.orderEmpty":            { fr: "Commande vide", en: "Empty order", it: "Ordine vuoto", nl: "Lege bestelling", es: "Pedido vacío" },
   "err.orderNotFound":         { fr: "Commande introuvable", en: "Order not found", it: "Ordine non trovato", nl: "Bestelling niet gevonden", es: "Pedido no encontrado" },
+  // ⚠️ Quattro motivi e quattro frasi, non un «ça n'a pas marché» per tutti:
+  //    «imprimante non configurée» lo risolve il ristoratore in due minuti,
+  //    «l'impression n'est pas partie» vuol dire chiamare noi. Una frase sola
+  //    per i due casi manda a chiamare noi anche quando non serve.
+  "err.printNoService":        { fr: "Service d'impression non configuré", en: "Printing service not configured", it: "Servizio di stampa non configurato", nl: "Afdrukservice niet geconfigureerd", es: "Servicio de impresión no configurado" },
+  "err.printNoPrinter":        { fr: "Aucune imprimante configurée", en: "No printer configured", it: "Nessuna stampante configurata", nl: "Geen printer geconfigureerd", es: "Ninguna impresora configurada" },
+  "err.printNotPrintable":     { fr: "Cette commande ne s'imprime pas", en: "This order is not printable", it: "Questo ordine non si stampa", nl: "Deze bestelling wordt niet afgedrukt", es: "Este pedido no se imprime" },
+  "err.printFailed":           { fr: "L'impression n'est pas partie", en: "The print job did not start", it: "La stampa non è partita", nl: "De afdruk is niet verstuurd", es: "La impresión no salió" },
+  // ⚠️ La rete assente non e' la stampante rotta: chi legge deve sapere se
+  //    riprovare fra un minuto o chiamare qualcuno.
+  "err.network":               { fr: "Pas de réseau — réessayez", en: "No network — try again", it: "Rete assente — riprova", nl: "Geen netwerk — probeer opnieuw", es: "Sin red — inténtalo de nuevo" },
   "err.orderNotFoundOrPaid":   { fr: "Commande introuvable ou déjà payée", en: "Order not found, or already paid", it: "Ordine non trovato o già pagato", nl: "Bestelling niet gevonden of al betaald", es: "Pedido no encontrado o ya pagado" },
   "err.origin":                { fr: "Origine invalide", en: "Invalid source", it: "Origine non valida", nl: "Ongeldige herkomst", es: "Origen no válido" },
   "err.overBalance":           { fr: "Montant supérieur au solde", en: "Amount higher than the balance", it: "Importo superiore al saldo", nl: "Bedrag hoger dan het saldo", es: "Importe superior al saldo" },

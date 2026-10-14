@@ -157,6 +157,11 @@ export const API_PAGINA: Record<string, string> = {
   "orders": "orders",
   "refund": "orders",
   "orders-recupero": "orders",   // la guarigione dei pagamenti non registrati
+  // ⚠️ La ristampa del ticket di cucina appartiene a ORDERS, non alla pagina
+  //    «print» dei buoni fisici: il bottone sta sulla card dell'ordine, e il
+  //    permesso che conta e' «puo' vedere gli ordini». Il nome del file dice
+  //    `print-ticket` apposta: `print` da solo si confondeva con quella pagina.
+  "print-ticket": "orders",
   // --- Prenotazioni -----------------------------------------------------
   "reservations": "reservations",
   "service-closures": "reservations",

@@ -412,11 +412,36 @@ test("il ticket parte dallo stesso punto dell'avviso alla cucina", () => {
 
 test("la stampa non puo' far fallire un ordine", () => {
   // ⚠️ Un ticket che non esce e' un fastidio; un ordine che non si registra
-  // perche' la stampante e' spenta e' una perdita. Si chiama con `void`, come
-  // le email, e ogni errore muore qui dentro.
+  // perche' la stampante e' spenta e' una perdita.
+  //
+  // ⚠️ QUESTA PROVA E' CAMBIATA IL 14/10/2026, e vale la pena dire perche'.
+  // Diceva `Promise<void>`: un modo indiretto di garantire che nessuno si
+  // mettesse ad aspettare la stampa. Da quando esiste la RISTAMPA a mano, il
+  // tipo non puo' piu' essere `void` — chi preme il bottone deve sapere se e'
+  // uscito qualcosa, e perche' no. L'invariante vera non era il tipo: era che
+  // `accodaTicket` NON LANCIA MAI, e che chi registra un ordine la chiama e
+  // tira dritto. Quelle due cose si guardano qui, direttamente.
   const coda = leggi("src/lib/stampaCoda.ts");
   assert.match(coda, /\} catch \(e\) \{/, "accodaTicket puo' propagare un errore a chi registra l'ordine");
-  assert.match(coda, /Promise<void>/, "accodaTicket rende qualcosa: qualcuno si mettera' ad aspettarla");
+  // Il `catch` RENDE un esito invece di rilanciare: se un giorno ci finisse
+  // dentro un `throw`, l'ordine tornerebbe a dipendere dalla stampante.
+  const dentroCatch = coda.slice(coda.indexOf("} catch (e) {"));
+  assert.doesNotMatch(dentroCatch.slice(0, 400), /throw/,
+    "il catch rilancia: una stampante spenta farebbe fallire la registrazione dell'ordine");
+
+  // ⚠️ E chi registra un ordine chiama con `void`: la stampa fa un giro lungo
+  // (server, servizio, tablet in cucina) e aspettarla vorrebbe dire far
+  // aspettare il cliente davanti alla cassa.
+  for (const f of ["src/lib/confermaOrdine.ts", "src/pages/api/admin/orders.ts", "src/pages/api/checkout.ts"]) {
+    assert.match(leggi(f), /void accodaTicket\(/,
+      `${f}: il ticket non parte piu' «e via», e un ordine puo' restare appeso alla stampante`);
+  }
+
+  // La ristampa a mano invece l'esito SE LO ASPETTA: e' tutto il suo senso.
+  const rotta = leggi("src/pages/api/admin/print-ticket.ts");
+  assert.match(rotta, /await accodaTicket\(/, "la ristampa non aspetta piu' l'esito: il bottone tornerebbe muto");
+  assert.match(rotta, /origine:\s*"manual"/,
+    "la ristampa non si dichiara manuale: l'indice unico parziale la rifiuterebbe e non uscirebbe niente");
 });
 
 test("il doppio ticket lo impedisce il database, non un controllo", () => {
