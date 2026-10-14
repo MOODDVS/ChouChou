@@ -328,6 +328,30 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         font-size: 0.9rem; line-height: 1.65;
         flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin;
       }
+      /* ⚠️ SULLO STRETTO L'ALTEZZA DELLA COLONNA E' SPENTA (`--j-col-h: auto`,
+         media query dei 1100px): le colonne si impilano e crescono col loro
+         contenuto. Quindi qui «lo spazio che avanza» non esiste, `flex: 1` non
+         ha niente da cui ritagliare, e la citazione torna alta quanto il testo
+         — cioe' il carosello, che cambia avis ogni sette secondi, fa ballare in
+         su e in giu' i tre numeri della scheda e tutto quello che segue. E' lo
+         stesso salto gia' risolto sul desktop, mai arrivato allo stretto.
+         ⚠️ L'altezza e' detta in RIGHE, non in pixel: la misura del testo
+         (`font-size` x `line-height`) per quante se ne vogliono leggere senza
+         scorrere. Cambiare il corpo del testo non lascia indietro questo
+         numero. Cinque righe: il resto si legge scorrendo DENTRO la citazione.
+         ⚠️ `flex: none` non e' di contorno — senza, `flex: 1` di sopra resta e
+         la base flessibile vince sull'altezza, che viene ignorata. */
+      @media (max-width: 1100px) {
+        .j-quote { flex: none; height: calc(0.9rem * 1.65 * 5); }
+      }
+      /* ⚠️ Sul TABLET questa altezza si rispegne, e la riga che lo fa NON sta
+         qui: sta nella media query del bancone, piu' in basso, accanto a
+         `.j-marchio`. Non e' pigrizia — `tests/tablet.test.mjs` legge la PRIMA
+         media query del tablet di questo foglio e ci cerca dentro il bancone:
+         aprirne una nuova quassu' gliela mette davanti e il test fallisce,
+         dicendo che le sezioni non stanno piu' su una riga. Una regola del
+         tablet si aggiunge a quelle che ci sono, non se ne apre una nuova
+         prima. */
       /* --- chi ha scritto: sopra la citazione, e fuori dalla sua riga --- */
       .j-aut { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.3rem; min-width: 0; }
       .j-aut-x { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
@@ -1018,6 +1042,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
         .j-marchio { grid-column: auto; }
         .j-marchio i { width: 150px; }
+        /* ⚠️ La citazione torna a prendersi lo spazio che avanza: qui la
+           colonna ha di nuovo un'altezza sua (`--j-col-h`), quindi «quel che
+           resta» e' una misura che esiste, sempre uguale, e le cinque righe
+           fisse dello stretto lascerebbero mezza colonna vuota sotto. */
+        .j-quote { flex: 1; height: auto; }
       }
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
@@ -4035,6 +4064,33 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         // accendono una per una, quando i loro dati arrivano.
         const jourEl = document.getElementById("jour");
         if (jourEl) jourEl.style.display = "";
+        /* ⚠️ LA FASCIA DEVE PARTIRE DALLA PRIMA COLONNA. Le colonne nascono
+           `display:none` e si accendono una per una quando arrivano i loro
+           dati — tranne Notes, che c'e' da subito. Sul tablet la fascia e' un
+           bancone che si tira di lato con `scroll-snap`: al primo disegno
+           l'unico aggancio e' Notes, e quando le colonne che la precedono
+           compaiono il browser tiene LEI dov'e' invece di tornare a sinistra.
+           Risultato: si apre la Accueil e si vedono Notes e Jours speciaux, con
+           la giornata gia' fuori schermo a sinistra.
+           ⚠️ Si riporta a zero solo finche' NESSUNO l'ha toccata: dopo un dito,
+           una rotella o una freccia la posizione e' una scelta di chi guarda, e
+           riportarla indietro mentre arriva l'ultima colonna sarebbe peggio del
+           difetto che si corregge.
+           ⚠️ E si smette: i dati arrivano in pochi secondi, ma la Accueil resta
+           aperta tutto il servizio: un osservatore appeso per sempre a una
+           pagina che nessuno ricarica e' un costo senza scadenza. */
+        if (jourEl) {
+          let toccata = false;
+          const miaMano = () => { toccata = true; };
+          jourEl.addEventListener("pointerdown", miaMano, { passive: true });
+          jourEl.addEventListener("wheel", miaMano, { passive: true });
+          jourEl.addEventListener("keydown", miaMano);
+          const aSinistra = new MutationObserver(() => {
+            if (!toccata && jourEl.scrollLeft !== 0) jourEl.scrollLeft = 0;
+          });
+          aSinistra.observe(jourEl, { attributes: true, attributeFilter: ["style"], subtree: true });
+          window.setTimeout(() => { aSinistra.disconnect(); jourEl.removeEventListener("pointerdown", miaMano); jourEl.removeEventListener("wheel", miaMano); jourEl.removeEventListener("keydown", miaMano); }, 15000);
+        }
 
         // Organiser: solo su schermi larghi (su mobile le tuiles sono impilate)
         // ⚠️ E solo se c'e' almeno un'ISOLA da organizzare. Da quando tutto e'
