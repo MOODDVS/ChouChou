@@ -18,6 +18,9 @@ import {
 import { colonneDi } from "../src/lib/escpos.ts";
 
 const leggi = (f) => readFileSync(f, "utf8");
+// ⚠️ Via i commenti PRIMA di cercare: una regola citata in una nota non e
+// codice, e una prova che si accontenta di leggerla non prova niente.
+const nudo = (f) => leggi(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 test("chi non ha la stampante si comporta come ieri", () => {
   // ⚠️ La stampa automatica spenta di ripiego: un cliente che non ha comprato
@@ -53,6 +56,27 @@ test("anche l'ordine da incassare va in cucina", () => {
   assert.equal(daStampare("pending", null), false);
   assert.equal(daStampare("cancelled", "card"), false);
   assert.equal(daStampare("done", "card"), false);
+});
+
+test("l'ordine da pagare al banco arriva in cucina da solo", () => {
+  // ⚠️ IL GUASTO CHE QUESTA PROVA TIENE CHIUSO, visto il 14/10/2026: la regola
+  // sopra diceva di stampare l'ordine `pending`+`onsite`, e NESSUNO la
+  // chiamava. Senza Stripe non c'e' webhook, quindi `confermaOrdine` — l'unico
+  // altro punto che accoda — da quella strada non passa mai. Su BROS, che
+  // incassa al banco, dal forno non usciva niente e l'ordine si scopriva
+  // quando il cliente si presentava.
+  const src = nudo("src/pages/api/checkout.ts");
+  const ramo = src.split("if (inCassa)")[1]?.split("return new Response")[0] ?? "";
+  assert.match(ramo, /accodaTicket\s*\(/,
+    "il checkout pubblico non accoda piu' il ticket in cassa: gli ordini da pagare al ritiro non escono in cucina");
+  assert.match(ramo, /payment_method:\s*"onsite"/,
+    "il ticket in cassa non si dichiara `onsite`: `daStampare` lo scarta e non stampa niente");
+  // E NON fuori dal ramo: con la carta il ticket lo accoda `confermaOrdine`
+  // quando il pagamento arriva davvero. Accodarlo anche qui vorrebbe dire una
+  // comanda per ogni carrello, pagato o no.
+  const prima = src.split("if (inCassa)")[0];
+  assert.doesNotMatch(prima, /accodaTicket\s*\(/,
+    "si accoda un ticket prima di sapere come si paga: comande per carrelli mai pagati");
 });
 
 test("i tentativi si allargano invece di martellare", () => {

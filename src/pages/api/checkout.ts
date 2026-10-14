@@ -14,6 +14,7 @@ import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { modiDiPagamento } from "../../lib/ordiniOpzioni";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
+import { accodaTicket } from "../../lib/stampaCoda";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
@@ -391,6 +392,28 @@ export const POST: APIRoute = async ({ request }) => {
   // per il ristorante quell'ordine e' vero esattamente come l'altro. Cio' che
   // NON succede e' il passaggio a `paid`: quello aspetta la cassa.
   if (inCassa) {
+    /* ⚠️ IL TICKET IN CUCINA, e qui non lo accoda nessun altro. Senza Stripe
+       non c'e' webhook, e `confermaOrdine` — l'unico altro punto che mette in
+       coda — da questa strada non passa mai: un ordine da pagare al ritiro
+       restava `pending` finche' qualcuno non lo incassava, e in cucina non
+       usciva niente. La regola c'era gia' e diceva di stamparlo
+       (`daStampare`: `pending` + `onsite` -> si stampa, con tanto di prova in
+       `tests/stampaTicket.test.mjs`); a chiamarla non c'era nessuno. Visto su
+       BROS, che non ha Stripe e incassa al banco.
+       ⚠️ SI STAMPA QUANDO L'ORDINE ARRIVA, non quando si incassa: il cliente
+       paga ritirando, e una comanda che aspettasse la cassa farebbe cominciare
+       la cucina quando lui e' gia' al banco.
+       ⚠️ Due comande non sono un rischio: l'indice unico `(order_id, kind,
+       dest)` rifiuta la seconda riga. Se un domani l'incasso passasse anche da
+       `confermaOrdine`, dal forno non uscirebbe niente di doppio.
+       ⚠️ `void`, come l'annuncio: una stampante spenta non deve far fallire un
+       ordine che e' gia' nel database. */
+    void accodaTicket({
+      id: ordine.id,
+      status: "pending",
+      payment_method: "onsite",
+      location_id: ordine.location_id ?? null,
+    });
     try {
       await annunciaOrdine(ordine, true);
     } catch (e) {
