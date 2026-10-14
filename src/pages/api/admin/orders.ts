@@ -14,9 +14,9 @@ import {
   ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
 } from "../../../lib/admin/sede";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
-import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA } from "../../../lib/ordiniRegole";
+import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA, avvisaChePronto } from "../../../lib/ordiniRegole";
 import { applicaStatoSede } from "../../../lib/menuStato";
-import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
+import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine, emailOrdinePronto } from "../../../lib/notifications";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -712,6 +712,40 @@ export const PATCH: APIRoute = async ({ request }) => {
     // (Stesso trattamento di `inviaNotifiche` alla creazione dell'ordine.)
     void inviaAnnullaOrdine(notif, { refundMode, refund_cents: residuo }).catch(() => {
       /* l'annullamento resta valido anche se l'email fallisce */
+    });
+  }
+
+  /* «VOTRE COMMANDE EST PRETE» — e solo quando vuol dire davvero quello.
+     ⚠️ Tre condizioni, e nessuna e' di contorno:
+     · la TRANSIZIONE (`prima.status !== "done"`): ripremere un bottone gia'
+       premuto non deve far partire una seconda email;
+     · l'EMAIL, che un ordine preso al banco puo' non avere;
+     · la FINESTRA (`avvisaChePronto`): oltre mezz'ora dall'ora di ritiro,
+       «Terminée» non vuol dire «e' pronto» ma «il cliente e' passato e
+       nessuno aveva cambiato lo stato». Scrivergli che il suo ordine e'
+       pronto, col sacchetto gia' a casa sua, e' peggio del silenzio.
+     ⚠️ E sta QUI, nella rotta che il pannello chiama: il cron che chiude gli
+     ordini rimasti aperti aggiorna la riga per conto suo e non passa di qua.
+     Un'email partita da sola alle tre di notte non la spiega nessuno. */
+  if (
+    status === "done" &&
+    prima &&
+    prima.status !== "done" &&
+    String(prima.customer_email ?? "").trim() &&
+    avvisaChePronto(prima.pickup_time)
+  ) {
+    void emailOrdinePronto({
+      location_id: contoAnn.modo === "sede" ? contoAnn.id : null,
+      numero: String(prima.id).slice(0, 8),
+      customer_name: String(prima.customer_name ?? ""),
+      customer_email: String(prima.customer_email ?? ""),
+      customer_phone: (prima.customer_phone as string | null) ?? null,
+      pickup_time: String(prima.pickup_time ?? new Date().toISOString()),
+      items: [],
+      total_cents: Number(prima.total_cents ?? 0),
+      lang: String(prima.lang ?? "fr"),
+    }).catch(() => {
+      /* l'ordine e' chiuso lo stesso: l'email e' un di piu' */
     });
   }
 

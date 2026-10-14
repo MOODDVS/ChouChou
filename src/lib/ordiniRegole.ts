@@ -118,3 +118,46 @@ export const METODI_CASSA_SCELTA = ["cash", "card"];
 export function metodoCambiabile(metodo: unknown): boolean {
   return inCassa(metodo);
 }
+
+/* ==========================================================================
+   QUANDO SI AVVISA IL CLIENTE CHE E' PRONTO
+   --------------------------------------------------------------------------
+   ⚠️ «Terminée» vuol dire due cose diverse a due ore diverse. Premuto
+   all'ora del ritiro significa «e' pronto, vieni a prenderlo». Premuto a fine
+   serata su un ordine delle 19:45 significa «il cliente e' passato da un
+   pezzo e nessuno aveva cambiato lo stato»: mandargli un'email che dice che
+   e' pronto, con il sacchetto gia' a casa sua, e' peggio del silenzio.
+
+   La riga si taglia MEZZ'ORA DOPO l'ora di ritiro. Prima no: se la cucina
+   finisce in anticipo e lo dice, e' una buona notizia.
+
+   ⚠️ E vale solo per chi PREME. Il cron che chiude gli ordini rimasti aperti
+   (`api/cron/auto-complete-orders`) non passa di qui e non deve: un'email
+   partita da sola alle tre di notte non la spiega nessuno.
+   ========================================================================== */
+
+/** La mezz'ora, in un posto solo. */
+export const FINESTRA_PRONTO_MIN = 30;
+
+/**
+ * Si avvisa il cliente che l'ordine e' pronto?
+ * @param pickupIso l'ora di ritiro dell'ordine
+ * @param adessoMs  l'istante in cui si preme (parametro apposta: una regola
+ *                  che legge l'orologio da sola non si puo' provare)
+ */
+export function avvisaChePronto(pickupIso: unknown, adessoMs: number = Date.now()): boolean {
+  const t = new Date(String(pickupIso ?? "")).getTime();
+  // ⚠️ Una data illeggibile non e' «adesso»: senza questa riga `NaN` farebbe
+  // fallire il confronto e l'email partirebbe sempre, anche a mezzanotte.
+  if (!Number.isFinite(t)) return false;
+  return adessoMs <= t + FINESTRA_PRONTO_MIN * 60_000;
+}
+
+/** I ritardi che il pannello propone. ⚠️ Un elenco chiuso, non un campo
+ *  libero: a mezzanotte, con la cucina piena, si preme un bottone — non si
+ *  scrive un numero. E il server rifiuta tutto il resto. */
+export const RITARDI_MIN = [5, 10, 15, 20] as const;
+
+export function ritardoAmmesso(min: unknown): boolean {
+  return (RITARDI_MIN as readonly number[]).includes(Math.round(Number(min)));
+}

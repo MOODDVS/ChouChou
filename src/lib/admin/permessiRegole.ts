@@ -162,6 +162,7 @@ export const API_PAGINA: Record<string, string> = {
   //    permesso che conta e' «puo' vedere gli ordini». Il nome del file dice
   //    `print-ticket` apposta: `print` da solo si confondeva con quella pagina.
   "print-ticket": "orders",
+  "order-delay": "orders",       // spostare l'ora di ritiro e avvisare il cliente
   // --- Prenotazioni -----------------------------------------------------
   "reservations": "reservations",
   "service-closures": "reservations",

@@ -969,6 +969,19 @@ const DIZIONARIO: Dizionario = {
   "ord.resendShort": { fr: "Ren. email", en: "Resend", it: "Rinvia", nl: "Opnieuw", es: "Reenviar" },
   "ord.reprint":     { fr: "Ré-imprimer le ticket", en: "Reprint the ticket", it: "Ristampa il biglietto", nl: "Ticket opnieuw afdrukken", es: "Reimprimir el ticket" },
   "ord.reprintOk":   { fr: "Ticket renvoyé à l'imprimante", en: "Ticket sent to the printer", it: "Biglietto rimandato alla stampante", nl: "Ticket opnieuw verzonden", es: "Ticket reenviado a la impresora" },
+  // --- Ritardare un ordine ---------------------------------------------
+  "ord.delay":       { fr: "Retarder la commande", en: "Delay the order", it: "Ritarda l'ordine", nl: "Bestelling uitstellen", es: "Retrasar el pedido" },
+  "ord.delayTitle":  { fr: "Retarder la commande", en: "Delay the order", it: "Ritarda l'ordine", nl: "Bestelling uitstellen", es: "Retrasar el pedido" },
+  "ord.delayPlanned":{ fr: "Retrait prévu", en: "Pickup due", it: "Ritiro previsto", nl: "Afhaling voorzien", es: "Recogida prevista" },
+  // ⚠️ La frase dice l'ORA, non i minuti: e' quella che il cliente leggera'.
+  "ord.delayWillMail": { fr: "Le client recevra un e-mail : sa commande est décalée à {h}.", en: "The customer will get an email: their order is moved to {h}.", it: "Il cliente riceverà un'email: il suo ordine è spostato alle {h}.", nl: "De klant krijgt een e-mail: zijn bestelling is verzet naar {h}.", es: "El cliente recibirá un correo: su pedido se aplaza a las {h}." },
+  // ⚠️ Senza email non si promette un avviso che non partira'.
+  "ord.delayNoMail": { fr: "Cette commande n'a pas d'e-mail : personne ne sera prévenu.", en: "This order has no email: nobody will be notified.", it: "Questo ordine non ha email: nessuno verrà avvisato.", nl: "Deze bestelling heeft geen e-mail: niemand wordt verwittigd.", es: "Este pedido no tiene correo: nadie será avisado." },
+  "ord.delayConfirm":{ fr: "Retarder à {h} et prévenir", en: "Move to {h} and notify", it: "Sposta alle {h} e avvisa", nl: "Verzetten naar {h} en verwittigen", es: "Aplazar a las {h} y avisar" },
+  "ord.delayConfirmNoMail": { fr: "Retarder à {h}", en: "Move to {h}", it: "Sposta alle {h}", nl: "Verzetten naar {h}", es: "Aplazar a las {h}" },
+  "ord.delayOk":     { fr: "Retrait décalé à {h} — client prévenu", en: "Pickup moved to {h} — customer notified", it: "Ritiro spostato alle {h} — cliente avvisato", nl: "Afhaling verzet naar {h} — klant verwittigd", es: "Recogida aplazada a las {h} — cliente avisado" },
+  "ord.delayOkNoMail": { fr: "Retrait décalé à {h}", en: "Pickup moved to {h}", it: "Ritiro spostato alle {h}", nl: "Afhaling verzet naar {h}", es: "Recogida aplazada a las {h}" },
+  "ord.min":         { fr: "min", en: "min", it: "min", nl: "min", es: "min" },
   "ord.putBack":     { fr: "Remettre en cours", en: "Put back in progress", it: "Rimetti in corso", nl: "Terug naar bezig", es: "Volver a en curso" },
   "ord.refunded":    { fr: "Remboursé", en: "Refunded", it: "Rimborsato", nl: "Terugbetaald", es: "Reembolsado" },
   // ⚠️ Il rimborso TOTALE non porta l'importo — l'etichetta deve dire da sola
@@ -2471,6 +2484,12 @@ const DIZIONARIO: Dizionario = {
   // ⚠️ La rete assente non e' la stampante rotta: chi legge deve sapere se
   //    riprovare fra un minuto o chiamare qualcuno.
   "err.network":               { fr: "Pas de réseau — réessayez", en: "No network — try again", it: "Rete assente — riprova", nl: "Geen netwerk — probeer opnieuw", es: "Sin red — inténtalo de nuevo" },
+  "err.delayMinutes":          { fr: "Délai non autorisé", en: "Delay not allowed", it: "Ritardo non ammesso", nl: "Uitstel niet toegestaan", es: "Retraso no permitido" },
+  "err.delayClosed":           { fr: "Commande déjà terminée ou annulée", en: "Order already finished or cancelled", it: "Ordine già terminato o annullato", nl: "Bestelling al afgerond of geannuleerd", es: "Pedido ya terminado o anulado" },
+  "err.delayNoTime":           { fr: "Cette commande n'a pas d'heure de retrait", en: "This order has no pickup time", it: "Questo ordine non ha un'ora di ritiro", nl: "Deze bestelling heeft geen afhaaluur", es: "Este pedido no tiene hora de recogida" },
+  // ⚠️ Due ritardi premuti insieme: il secondo non deve sovrascrivere il primo
+  //    in silenzio, perche' sommerebbero due volte partendo dalla stessa ora.
+  "err.delayRace":             { fr: "L'heure vient de changer — rouvrez la commande", en: "The time just changed — reopen the order", it: "L'ora è appena cambiata — riapri l'ordine", nl: "Het uur is net gewijzigd — open de bestelling opnieuw", es: "La hora acaba de cambiar — vuelve a abrir el pedido" },
   "err.orderNotFoundOrPaid":   { fr: "Commande introuvable ou déjà payée", en: "Order not found, or already paid", it: "Ordine non trovato o già pagato", nl: "Bestelling niet gevonden of al betaald", es: "Pedido no encontrado o ya pagado" },
   "err.origin":                { fr: "Origine invalide", en: "Invalid source", it: "Origine non valida", nl: "Ongeldige herkomst", es: "Origen no válido" },
   "err.overBalance":           { fr: "Montant supérieur au solde", en: "Amount higher than the balance", it: "Importo superiore al saldo", nl: "Bedrag hoger dan het saldo", es: "Importe superior al saldo" },

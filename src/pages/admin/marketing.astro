@@ -384,18 +384,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       /* L'errore spinge i bottoni a destra; da vuoto non occupa spazio. */
       #c-overlay .md-foot .m-err { margin-right: auto; }
       #c-overlay .md-foot .m-err:empty { display: none; }
-      .c-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
-      .c-pack {
-        display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        padding: 1.1rem 0.8rem; cursor: pointer; border-radius: 12px;
-        transition: border-color 0.15s, transform 0.15s;
-      }
-      .c-pack:hover { border-color: var(--c-accent); transform: scale(0.98); }
-      .c-pack.is-on { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
-      .c-pack:disabled { opacity: 0.5; cursor: wait; }
-      .c-pack-n { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
-      .c-pack-p { font-size: 0.9rem; font-weight: 700; }
+      /* I riquadri dei pacchetti vivono in `styles/packs.css`: li usa anche il
+         modale del ritardo nella pagina Commandes. */
       .n-htitle { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 0.8rem; }
       .n-row { display: flex; align-items: baseline; gap: 0.9rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 0.8rem 1.2rem; margin-bottom: 0.4rem; }
       .n-row-subject { flex: 1; font-weight: 700; }

@@ -463,6 +463,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .btn-print:hover { border-color: var(--c-text); background: color-mix(in srgb, var(--c-text) 8%, transparent); }
       .btn-print:disabled { opacity: 0.45; cursor: wait; }
       .btn-print svg { width: 21px; height: 21px; }
+      /* Il modale del ritardo. ⚠️ Quattro colonne e non due: i crediti hanno
+         quattro pacchetti lunghi («+1000», «9,99 €»), qui ci stanno «+10» e
+         un orario — e una griglia a due righe farebbe sembrare le prime due
+         scelte piu' importanti delle altre. */
+      .rit-packs { grid-template-columns: repeat(4, 1fr); }
+      .rit-ora { color: var(--c-muted); font-size: 0.9rem; margin: 0 0 1rem; }
+      .rit-ora b { color: var(--c-text); }
+      .rit-avviso { margin: 1.1rem 0 0; font-size: 0.82rem; color: var(--c-muted); line-height: 1.55; }
+      .rit-avviso b { color: var(--c-text); }
       /* Stato rimborso: il tag in alto (il bottone e' diventato un tondo). */
       .tag-refund {
         border: 1px solid var(--c-accent); color: var(--c-accent);
@@ -982,6 +991,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       </Fragment>
     </Modal>
 
+    {/* Ritardare il ritiro, e dirlo al cliente.
+        ⚠️ I riquadri sono gli STESSI dei crediti della newsletter
+        (`styles/packs.css`): la stessa domanda — «quale di questi quattro?» —
+        non deve avere due vestiti in due pagine.
+        ⚠️ Ogni riquadro mostra L'ORA CHE RISULTA, non solo i minuti: e' quella
+        che il cliente leggera' nell'email, ed e' l'unica cosa che il
+        ristoratore deve poter confrontare con l'orologio della cucina. */}
+    <Modal id="rit-overlay" title={t("ord.delayTitle")} titleId="rit-title" width="460px">
+      <p class="rit-ora" id="rit-sub"></p>
+      <div class="c-packs rit-packs" id="rit-scelte"></div>
+      <p class="rit-avviso" id="rit-avviso"></p>
+      <Fragment slot="foot">
+        <span class="m-err" id="rit-msg"></span>
+        <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" type="button" id="rit-ok" disabled></button>
+      </Fragment>
+    </Modal>
+
     <!-- Nouvelle commande (manuale con link di pagamento) -->
     <button class="fab-add fab-pill" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
     <Modal id="nc-overlay" title={t("ord.newOrder")} titleId="nc-title" width="960px">
@@ -1119,6 +1146,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ⚠️ La stessa regola della stampa automatica, non una copia: il bottone
          della ristampa deve comparire ESATTAMENTE dove un ticket ha senso. */
       import { daStampare } from "../../lib/stampaRegole";
+      /* ⚠️ L'elenco dei ritardi NON si riscrive qui: il server rifiuta tutto
+         quello che non e' in questa lista, e due liste divergenti vorrebbero
+         dire un bottone che esiste e una rotta che lo rifiuta. */
+      import { RITARDI_MIN } from "../../lib/ordiniRegole";
       import { leggiVariantiDb, etichettaVariante, prezzoEffettivo } from "../../lib/pricing";
       import { metodoCambiabile, METODI_CASSA_SCELTA } from "../../lib/ordiniRegole";
 
@@ -1210,6 +1241,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          starebbe nel bottone accanto. */
       /* ⚠️ Il rimborso si annuncia con il SIMBOLO DELLA VALUTA, non con un
          disegno: vedi `lib/valuta.ts` per il perche' della misura. */
+      /* Orologio del ritardo. ⚠️ Un quadrante, non una clessidra ne' una
+         freccia: il gesto e' «sposta l'ora», e l'ora e' un orologio. */
+      const ICON_RITARDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`;
       const ICON_REFUND = iconaValuta(valutaDelMotore());
       const ICON_COINS = `<svg viewBox="0 0 314.965 314.965" fill="currentColor" aria-hidden="true"><path d="M104.982,104.987c60.086,0,104.983-23.753,104.983-44.992c0-21.237-44.898-44.991-104.983-44.991S0,38.758,0,59.995C0,81.234,44.896,104.987,104.982,104.987z"/><path d="M104.982,284.961c8.77,0,17.211-0.51,25.24-1.439c-6.768-8.698-12.365-18.35-16.558-28.716c-2.881,0.097-5.772,0.164-8.683,0.164c-34.333,0-66.847-6.803-91.55-19.155C8.567,233.383,4.091,230.77,0,228.004v11.966C0,261.207,44.896,284.961,104.982,284.961z"/><path d="M104.982,224.97c0.308,0,0.611-0.005,0.918-0.006c-0.615-4.916-0.936-9.923-0.936-15.003c0-5.078,0.32-10.082,0.936-14.994c-0.307,0-0.611,0.011-0.918,0.011c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.432-9.342-5.045-13.433-7.81v11.965C0,201.216,44.896,224.97,104.982,224.97z"/><path d="M104.982,164.977c2.976,0,5.912-0.06,8.811-0.174c4.656-11.423,11.019-21.974,18.777-31.331c-8.982,0.99-18.213,1.515-27.588,1.515c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.433-9.342-5.045-13.433-7.811v11.966C0,141.225,44.896,164.977,104.982,164.977z"/><path d="M149.982,160.244c-6.49,9.757-11.127,20.846-13.408,32.762c-1.053,5.493-1.609,11.16-1.609,16.955c0,4.357,0.318,8.641,0.919,12.834c1.477,10.301,4.704,20.041,9.37,28.914c4.896,9.311,11.373,17.666,19.076,24.701c16.008,14.621,37.298,23.551,60.635,23.551c49.626,0,90-40.374,90-90c0-49.627-40.374-90-90-90c-5.129,0-10.158,0.438-15.056,1.266C184.961,125.446,163.473,139.965,149.982,160.244z"/></svg>`;
       const ICON_CARD = `<svg viewBox="0 0 48 48" fill="currentColor" aria-hidden="true"><path d="m42.24 9.6c0-1.58813-1.29188-2.88-2.88-2.88h-36.48c-1.58812 0-2.88 1.29188-2.88 2.88v2.88h42.24z"/><path d="m42.24 32.64v-11.52h-42.24v11.52c0 1.58813 1.29188 2.88 2.88 2.88h36.48c1.58812 0 2.88-1.29188 2.88-2.88zm-31.81266-4.32h-4.66734c-.53016 0-.96-.42984-.96-.96s.42984-.96.96-.96h4.66734c.53016 0 .96.42984.96.96s-.42984.96-.96.96zm8.64 0h-4.66734c-.53016 0-.96-.42984-.96-.96s.42984-.96.96-.96h4.66734c.53016 0 .96.42984.96.96s-.42984.96-.96.96z"/><path d="m0 14.4h42.24v4.8h-42.24z"/><path d="m45.12 12.48h-.96v20.16c0 2.64656-2.15344 4.8-4.8 4.8h-33.6v.96c0 1.58813 1.29187 2.88 2.88 2.88h36.48c1.58813 0 2.88-1.29188 2.88-2.88v-23.04c0-1.58813-1.29187-2.88-2.88-2.88z"/></svg>`;
@@ -1348,6 +1382,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           o.status === "paid"
             ? `<div class="actions">
                  <button class="btn-done" type="button" data-id="${o.id}" data-act="done" title="${tr("ord.terminee")}"><span class="b-lab">✓ ${tr("ord.terminee")}</span></button>
+                 <button class="btn-edit btn-ritardo" type="button" data-id="${o.id}" data-act="ritardo" title="${tr("ord.delay")}" aria-label="${tr("ord.delay")}">${ICON_RITARDO}</button>
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`
@@ -1371,13 +1406,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                      </div>`
                   : `<div class="actions">
                    <button class="btn-done" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>
-                   <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                   <button class="btn-edit btn-ritardo" type="button" data-id="${o.id}" data-act="ritardo" title="${tr("ord.delay")}" aria-label="${tr("ord.delay")}">${ICON_RITARDO}</button>
+                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                    <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                  </div>`
             : o.status === "pending"
               ? `<div class="actions">
                    <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}"><span class="b-lab">${tr("ord.resendShort")}</span></button>
-                   <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                   <button class="btn-edit btn-ritardo" type="button" data-id="${o.id}" data-act="ritardo" title="${tr("ord.delay")}" aria-label="${tr("ord.delay")}">${ICON_RITARDO}</button>
+                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                    <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                  </div>`
               : "";
@@ -2108,6 +2145,90 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
         }
 
+        /* ---------- RITARDARE UN ORDINE ----------
+           ⚠️ L'ora nuova la calcola il SERVER e la rende indietro: qui si
+           mostra solo una previsione. Contarla nel browser e rimetterla nella
+           card vorrebbe dire due orologi — e quello che conta e' il suo. */
+        const ritOverlay = document.getElementById("rit-overlay") as HTMLDivElement;
+        const ritSub = document.getElementById("rit-sub") as HTMLParagraphElement;
+        const ritScelte = document.getElementById("rit-scelte") as HTMLDivElement;
+        const ritAvviso = document.getElementById("rit-avviso") as HTMLParagraphElement;
+        const ritMsg = document.getElementById("rit-msg") as HTMLSpanElement;
+        const ritOk = document.getElementById("rit-ok") as HTMLButtonElement;
+        let ritId = "";
+        let ritMin = 0;
+        let ritConMail = false;
+
+        /** L'ora che risulta, nel fuso del ristorante. */
+        function oraPiu(iso: string, min: number): string {
+          return oraBrussels(new Date(new Date(iso).getTime() + min * 60000).toISOString());
+        }
+        function ritTesto(chiave: string, h: string): string {
+          return tr(chiave).replace("{h}", h);
+        }
+        function ritSegna(min: number) {
+          ritMin = min;
+          const ord = ordini.find((o) => o.id === ritId);
+          if (!ord) return;
+          const h = oraPiu(ord.pickup_time, min);
+          ritScelte.querySelectorAll<HTMLButtonElement>(".c-pack").forEach((b) => {
+            b.classList.toggle("is-on", Number(b.dataset.min) === min);
+          });
+          ritAvviso.innerHTML = ritConMail
+            ? ritTesto("ord.delayWillMail", `<b>${h}</b>`)
+            : `<b>${tr("ord.delayNoMail")}</b>`;
+          ritOk.textContent = ritTesto(ritConMail ? "ord.delayConfirm" : "ord.delayConfirmNoMail", h);
+          ritOk.disabled = false;
+        }
+        function apriRitardo(id: string) {
+          const ord = ordini.find((o) => o.id === id);
+          if (!ord) return;
+          ritId = id;
+          ritMin = 0;
+          ritConMail = Boolean(String(ord.customer_email ?? "").trim());
+          ritMsg.textContent = "";
+          ritSub.innerHTML = `${tr("ord.delayPlanned")} <b>${esc(oraBrussels(ord.pickup_time))}</b> &nbsp;·&nbsp; ${esc(ord.customer_name)}`;
+          ritScelte.innerHTML = RITARDI_MIN.map((m) =>
+            `<button type="button" class="c-pack" data-min="${m}"><span class="c-pack-n">+${m}</span><span class="c-pack-p">${esc(oraPiu(ord.pickup_time, m))}</span></button>`,
+          ).join("");
+          ritAvviso.innerHTML = "";
+          ritOk.textContent = tr("ord.delayTitle");
+          ritOk.disabled = true;
+          ritOverlay.hidden = false;
+        }
+        function chiudiRitardo() { ritOverlay.hidden = true; }
+        ritOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiRitardo));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !ritOverlay.hidden) chiudiRitardo(); });
+        ritScelte.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest<HTMLButtonElement>(".c-pack");
+          if (b) ritSegna(Number(b.dataset.min));
+        });
+
+        ritOk.addEventListener("click", async () => {
+          if (!ritMin) return;
+          ritOk.disabled = true;
+          ritMsg.textContent = "";
+          try {
+            const r = await fetch("/api/admin/order-delay", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id: ritId, minuti: ritMin }),
+            });
+            const j = (await r.json().catch(() => ({}))) as { error?: string; pickup_time?: string };
+            if (!r.ok || !j.pickup_time) { ritMsg.textContent = j.error || tr("err.update"); ritOk.disabled = false; return; }
+            // ⚠️ Si riscrive l'ora DEL SERVER, non quella prevista qui: se
+            // qualcun altro l'aveva gia' spostata, la card deve dire la sua.
+            const ord = ordini.find((o) => o.id === ritId);
+            if (ord) ord.pickup_time = j.pickup_time;
+            chiudiRitardo();
+            render();
+            ncToast(ritTesto(ritConMail ? "ord.delayOk" : "ord.delayOkNoMail", oraBrussels(j.pickup_time)));
+          } catch {
+            ritMsg.textContent = tr("err.network");
+            ritOk.disabled = false;
+          }
+        });
+
         gridEl.addEventListener("click", (e) => {
           const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
           if (!btn || btn.disabled) return;
@@ -2115,6 +2236,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
           if (btn.dataset.act === "print") {
             void ristampaTicket(id, btn);
+            return;
+          }
+
+          if (btn.dataset.act === "ritardo") {
+            apriRitardo(id);
             return;
           }
           if (btn.dataset.act === "done") {
