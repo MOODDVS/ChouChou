@@ -519,6 +519,7 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
      con tre punti puo' averne uno con i tavoli e due di solo asporto. Al
      marchio, un QR sul tavolo comparirebbe anche a chi i tavoli non ce li ha. */
   orders_table: "sede",
+  orders_table_notify: "sede",
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",

@@ -475,3 +475,35 @@ export async function getMenuOrderable(ambito: Ambito): Promise<MenuCategoria[]>
   return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), categorie);
 }
 
+/**
+ * Menu DELLA SALA: chi ordina col QR dal suo tavolo.
+ *
+ * ⚠️ NE’ L’UNO NE’ L’ALTRO DEI DUE QUI SOPRA, ed e’ il motivo per cui questa
+ * funzione esiste invece di riusarne una:
+ *
+ *   · `soloOrdinabili: false` — in sala si ordina tutto quello che e’
+ *     VISIBILE. «Ordinabile» vuol dire «ordinabile ONLINE» (vedi il commento
+ *     in `pricing.ts`): il piatto che il ristoratore non vuole far partire in
+ *     un sacchetto — il souffle’, il piatto che si mangia caldo — in sala si
+ *     serve, ed e’ proprio quello che ha senso ordinare da seduti.
+ *
+ *   · `online: true` per i PREZZI, e questa e’ la meta’ che non si puo’
+ *     sbagliare. `getMenu` applica solo gli sconti con scope «tutto», mentre
+ *     `/api/checkout` applica SEMPRE tutti gli sconti (`prezzoEffettivo`,
+ *     senza condizioni). Mostrando i prezzi della vetrina, il cliente
+ *     vedrebbe 14,00 e sulla carta gli uscirebbe 12,00: non un furto — il
+ *     contrario — ma due numeri diversi per la stessa cena, e nessuno dei due
+ *     sbagliato abbastanza da far sospettare dove sia il guasto.
+ *
+ * ⚠️ LIMITE NOTO, scritto perche’ si veda: con `online: true` un piatto che
+ * ha dei FORMATI tiene solo quelli ordinabili online, e se non ne ha nessuno
+ * sparisce anche dalla sala (la riga `if (online && haVarianti(...))` in
+ * `raggruppa`). Finche’ `leggiVarianti` non sa distinguere «sala» da
+ * «online», quei formati vanno segnati ordinabili. Riguarda i soli piatti a
+ * formati, non il menu intero.
+ */
+export async function getMenuSala(ambito: Ambito): Promise<MenuCategoria[]> {
+  const { visibili, categorie } = await definizioneMenu(false, ambito);
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), categorie);
+}
+

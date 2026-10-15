@@ -64,6 +64,16 @@ export interface OpzioniOrdini {
   couponInCassa: boolean;
   /** Si puo' ordinare dal tavolo col QR. */
   tavolo: boolean;
+  /**
+   * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
+   * "0", o vuoto = non ha scelto.
+   *
+   * ⚠️ Non e’ un `boolean` perche’ i tre stati sono tre cose diverse, e il
+   * terzo serve: «non ho scelto» si decide guardando se la sala ha dei
+   * tavoli, e questo file non puo’ interrogare il database. La traduzione in
+   * sì/no la fa `avvisaIlCliente`.
+   */
+  avvisoScelto: string;
 }
 
 /** Le chiavi, con il valore che vale quando la riga non c'e'. */
@@ -79,7 +89,25 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
   orders_table: "0",
 };
 
-export const CHIAVI_ORDINI = Object.keys(RIPIEGO_ORDINI);
+/**
+ * Chiavi a TRE stati: "1", "0", oppure vuota = «il ristoratore non ha
+ * scelto», e chi legge decide con una regola sua.
+ *
+ * ⚠️ STANNO A PARTE da `RIPIEGO_ORDINI`, e non e’ pedanteria: `acceso()`
+ * sa leggere solo due stati, e su una chiave come questa renderebbe `false`
+ * — cioe’ «non avvisare» — in silenzio, che e’ esattamente il danno da
+ * evitare: un cliente che aspetta al banco senza sapere niente. Tenute in un
+ * elenco diverso, chiamare `acceso()` su una di loro non compila nemmeno per
+ * sbaglio: non c’e’ nessun ripiego "1"/"0" da trovare.
+ */
+export const RIPIEGO_ORDINI_SCELTA: Record<string, ""> = {
+  orders_table_notify: "",
+};
+
+export const CHIAVI_ORDINI = [
+  ...Object.keys(RIPIEGO_ORDINI),
+  ...Object.keys(RIPIEGO_ORDINI_SCELTA),
+];
 
 /** Un valore di `app_config` letto come interruttore, col suo ripiego. */
 export function acceso(valore: unknown, chiave: string): boolean {
@@ -152,17 +180,48 @@ export const FINESTRA_PRONTO_MIN = 30;
  * @param adessoMs  l'istante in cui si preme (parametro apposta: una regola
  *                  che legge l'orologio da sola non si puo' provare)
  */
+/**
+ * AVVISIAMO IL CLIENTE QUANDO E’ PRONTO?
+ *
+ * Tre stati, e il terzo e’ quello che fa il lavoro:
+ *   "1" → sì, "0" → no, vuoto → lo decide la sala.
+ *
+ * ⚠️ IL RIPIEGO GUARDA I TAVOLI, e non e’ un indovinello: due locali con gli
+ * STESSI dati vogliono il contrario l’uno dell’altro — il bistrot senza
+ * numeri sui tavoli ha il cameriere e l’email non la vuole, lo snack al banco
+ * non ha nessuno che porti e l’email e’ l’unico modo di dirlo. Per questo
+ * l’interruttore esiste. Ma finche’ nessuno lo tocca, il ripiego sbaglia
+ * nella direzione meno costosa: dove NON ci sono tavoli si avvisa, perche’ il
+ * danno di non avvisare chi aspetta al banco e’ peggiore del fastidio di
+ * un’email in piu’ a chi e’ servito al tavolo.
+ *
+ * @param valore  il valore grezzo di `orders_table_notify`
+ * @param ciSonoTavoli  la sala ha almeno un tavolo in `restaurant_tables`
+ */
+export function avvisaIlCliente(valore: unknown, ciSonoTavoli: boolean): boolean {
+  const v = String(valore ?? "").trim();
+  if (v === "1") return true;
+  if (v === "0") return false;
+  return !ciSonoTavoli;
+}
+
 export function avvisaChePronto(
   pickupIso: unknown,
   adessoMs: number = Date.now(),
   servizio: unknown = "pickup",
+  avvisaInSala: boolean = false,
 ): boolean {
   /* ⚠️ A CHI E' SEDUTO A TRE METRI NON SI MANDA UN'EMAIL. «Votre commande est
      prete» ha senso per chi deve mettersi in macchina; per un tavolo il
      piatto arriva in mano, e l'email diventa rumore — o peggio, arriva dopo
      che il cameriere ha gia' servito. Il ripiego e' `pickup` perche' le righe
      scritte prima della migrazione #82 non hanno il servizio. */
-  if (alTavolo(servizio)) return false;
+  /* ⚠️ «In sala» non vuol dire piu’ «qualcuno ti porta il piatto». Un
+     chiosco o uno snack prende gli ordini dal QR e poi CHIAMA al banco: li’
+     l’email e’ l’unico modo di dire che e’ pronto, e tacere vorrebbe dire un
+     cliente che fissa il bancone. Chi invece ha i camerieri resta col
+     silenzio di prima. */
+  if (alTavolo(servizio) && !avvisaInSala) return false;
   const t = new Date(String(pickupIso ?? "")).getTime();
   // ⚠️ Una data illeggibile non e' «adesso»: senza questa riga `NaN` farebbe
   // fallire il confronto e l'email partirebbe sempre, anche a mezzanotte.
@@ -231,4 +290,65 @@ export type ModoServizio = "per_giro" | "conto";
 
 export function modoServizio(): ModoServizio {
   return "per_giro";
+}
+
+/* ==========================================================================
+   SI PUO' ORDINARE DAL TAVOLO ADESSO?
+   --------------------------------------------------------------------------
+   ⚠️ Serve perche' il QR e' un pezzo di carta che resta sul tavolo ANCHE
+   QUANDO IL LOCALE E' CHIUSO, e il QR generico (quello senza il numero
+   stampato sopra) si puo' inquadrare da una foto, da casa, alle tre di notte.
+   Senza questa porta, qualcuno ordinerebbe «al tavolo 7» mentre la cucina e'
+   spenta: un incasso vero, un ticket che non esce, e nessuno che se ne
+   accorge fino al mattino.
+
+   ⚠️ FUNZIONE PURA, e l'ora si passa. Una regola che legge l'orologio da sola
+   non si puo' provare, e questa va provata proprio sui bordi — l'apertura,
+   la chiusura, e la cena che finisce dopo mezzanotte.
+   ========================================================================== */
+
+/** Quel poco della configurazione del giorno che serve a questa domanda. */
+export interface OrariDelGiorno {
+  lunch_active?: boolean | null;
+  lunch_open?: string | null;
+  lunch_close?: string | null;
+  dinner_active?: boolean | null;
+  dinner_open?: string | null;
+  dinner_close?: string | null;
+}
+
+/** "HH:MM" → minuti dalla mezzanotte. Un'ora illeggibile rende `null`, che
+ *  chi chiama tratta come «non lo so», mai come «mezzanotte». */
+function minuti(hhmm: unknown): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm ?? "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  if (h > 23 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+/**
+ * Il servizio in corso a quell'ora, o `null` se e' chiuso.
+ * @returns "midi" | "soir" | null — la stessa `service_key` delle prenotazioni.
+ */
+export function servizioInCorso(cfg: OrariDelGiorno | null | undefined, hhmm: string): "midi" | "soir" | null {
+  const ora = minuti(hhmm);
+  if (ora === null || !cfg) return null;
+
+  const dentro = (apre: unknown, chiude: unknown): boolean => {
+    const a = minuti(apre);
+    const c = minuti(chiude);
+    if (a === null || c === null) return false;
+    /* ⚠️ LA CENA FINISCE DOPO MEZZANOTTE. «19:00 – 01:00» non e' un intervallo
+       crescente: con un confronto normale sarebbe sempre falso, e alle 23:30
+       il locale risulterebbe chiuso mentre la sala e' piena. Quando l'ora di
+       chiusura e' PRIMA di quella di apertura, l'intervallo scavalca la
+       mezzanotte e si guarda da tutte e due le parti. */
+    return c >= a ? ora >= a && ora < c : ora >= a || ora < c;
+  };
+
+  if (cfg.dinner_active !== false && dentro(cfg.dinner_open, cfg.dinner_close)) return "soir";
+  if (cfg.lunch_active !== false && dentro(cfg.lunch_open, cfg.lunch_close)) return "midi";
+  return null;
 }

@@ -12,7 +12,8 @@ import { configGiornoEffettiva } from "../../lib/schedule";
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
-import { modiDiPagamento } from "../../lib/ordiniOpzioni";
+import { modiDiPagamento, opzioniTavolo, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
+import { servizioDi, alTavolo, servizioInCorso } from "../../lib/ordiniRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
@@ -50,12 +51,24 @@ interface CheckoutRequest {
   pay?: "online" | "onsite";
   customer: {
     name: string;
-    surname: string;
-    phone: string;
-    email: string;
+    /** ⚠️ Facoltativi perche' AL TAVOLO non si chiedono: cognome e telefono a
+     *  chi e' seduto a tre metri sono attrito per un dato che non serve, e
+     *  l'email e' una scelta del cliente. Da asporto restano obbligatori, e
+     *  lo impongono le validazioni qui sotto — non il tipo. */
+    surname?: string;
+    phone?: string;
+    email?: string;
   };
   /** Lingua della pagina pubblica da cui arriva l'ordine (5 lingue). */
   lang?: string;
+  /** Da asporto (assente) o al tavolo. Qualunque altra cosa e' da asporto. */
+  service?: string;
+  /** Il tavolo e la prenotazione aperta, come li ha resi `/api/table-session`.
+   *  ⚠️ NON SI CREDE A NESSUNO DEI DUE: arrivano dal browser, e qui sotto si
+   *  rileggono dal database. Credendoci, un ordine si potrebbe attaccare al
+   *  tavolo di qualcun altro cambiando un id in una richiesta. */
+  table_id?: string;
+  reservation_id?: string;
 }
 
 function isPizza(categoryOrder: number): boolean {
@@ -73,14 +86,43 @@ export const POST: APIRoute = async ({ request }) => {
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return err(400, "Carrello vuoto");
   }
+  /* ⚠️ QUALE SERVIZIO — si decide subito, perche' cambia cosa e' obbligatorio.
+     `servizioDi` e' la regola pura: tutto cio' che non e' "table" e' da
+     asporto, compreso un valore mai visto. Le righe scritte prima della #82
+     non hanno la colonna e restano da asporto, come sono sempre state. */
+  const servizio = servizioDi(body.service);
+  const aTavolo = alTavolo(servizio);
+
   // Il form pubblico (OrderApp) esige nome, cognome, telefono ed email: qui si
   // ricontrolla, perche' l'API e' raggiungibile anche senza passare dal form e
   // un ordine senza telefono lascia il ristoratore senza modo di richiamare.
-  if (!body.slot || !body.customer?.email || !body.customer?.name) {
+  if (!body.customer?.name) {
     return err(400, "Dati mancanti");
   }
-  if (!String(body.customer.surname ?? "").trim() || !String(body.customer.phone ?? "").trim()) {
-    return err(400, "Dati mancanti");
+  if (!aTavolo) {
+    if (!body.slot || !body.customer?.email) {
+      return err(400, "Dati mancanti");
+    }
+    if (!String(body.customer.surname ?? "").trim() || !String(body.customer.phone ?? "").trim()) {
+      return err(400, "Dati mancanti");
+    }
+  } else {
+    /* ⚠️ AL TAVOLO SI CHIEDE MENO, E NON E' UNA SVISTA. Cognome, telefono e
+       ora di ritiro non esistono: il cliente e' seduto a tre metri e il nome
+       serve solo a chiamarlo. L'email e' FACOLTATIVA — e' l'unica prova che
+       resta a chi chiude la pagina dopo aver pagato, ma pretenderla al tavolo
+       perderebbe ordini. Tutte le email al cliente saltano gia' da sole
+       quando manca (`if (!o.customer_email?.trim()) return`).
+       Obbligatori sono invece il tavolo e la prenotazione: senza, l'incasso
+       non si sa a chi portarlo. */
+    /* ⚠️ Qui si pretende SOLO la sessione. Il tavolo e l'email dipendono da
+       com'e' fatta questa sala — se ha dei tavoli, se qualcuno porta i piatti
+       — e quelle sono due letture dal database: si controllano piu' sotto,
+       appena si sa. Pretendere il tavolo qui vorrebbe dire rifiutare l'ordine
+       di uno snack che di tavoli non ne ha nessuno. */
+    if (!String(body.reservation_id ?? "").trim()) {
+      return err(400, "Dati mancanti");
+    }
   }
 
   // Lingua del CLIENTE: quella della pagina da cui ordina. Va salvata intera
@@ -137,6 +179,36 @@ export const POST: APIRoute = async ({ request }) => {
   if (modi.nessuno) {
     return err(503, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
   }
+  /* ⚠️ L'INTERRUTTORE DELLA SALA VALE ANCHE QUI, non solo in
+     `/api/table-session`. Quella rotta apre il tavolo, questa prende i soldi:
+     chiudere solo la prima lascerebbe aperta la seconda a chi manda la
+     richiesta a mano, e un incasso «al tavolo 7» in un locale che fa solo
+     asporto non lo guarderebbe nessuno. */
+  /* ⚠️ Si legge SOLO per un ordine dal locale: un ordine da asporto non deve
+     pagare una lettura in piu' per una sala che non lo riguarda. */
+  let sala: OpzioniTavolo | null = null;
+  if (aTavolo) {
+    sala = await opzioniTavolo(ambitoPub);
+    if (!sala.attivo) {
+      return err(403, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
+    }
+    /* ⚠️ IL TAVOLO E' OBBLIGATORIO SOLO DOVE ESISTE. Con la mappa della sala
+       e' l'unico dato che dice dove portare il piatto, e saltarlo renderebbe
+       la comanda inutilizzabile; senza mappa non c'e' niente da chiedere, e
+       pretenderlo bloccherebbe ogni ordine di quel locale. */
+    if (sala.conTavoli && !String(body.table_id ?? "").trim()) {
+      return err(400, "Dati mancanti");
+    }
+    /* ⚠️ E L'EMAIL DIVENTA OBBLIGATORIA QUANDO E' L'UNICO MODO DI AVVISARE.
+       Dove nessuno porta il piatto, l'email «c'e' pronto» e' il solo canale
+       verso il cliente: un ordine senza indirizzo sarebbe una persona che
+       aspetta al banco senza che niente possa dirle di venire. Il modulo la
+       chiede spiegando perche'; qui si ricontrolla, perche' questa rotta e'
+       raggiungibile anche senza passare dal modulo. */
+    if (sala.avvisa && !String(body.customer.email ?? "").trim()) {
+      return err(400, "Dati mancanti");
+    }
+  }
 
   const fuso = await fusoDi(ambitoPub);
   const ora = DateTime.now().setZone(fuso);
@@ -151,10 +223,23 @@ export const POST: APIRoute = async ({ request }) => {
     return err(503, "Configurazione orari non disponibile");
   }
 
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
-  const slotValidi = [...lunch, ...dinner];
-  if (!slotValidi.includes(body.slot)) {
-    return err(409, "Orario di ritiro non più disponibile");
+  /* ⚠️ DUE DOMANDE DIVERSE SULLO STESSO OROLOGIO.
+     Da asporto: «lo slot scelto esiste ancora?» — una lista di orari.
+     Al tavolo: «la cucina e' aperta ADESSO?» — perche' non c'e' nessuno slot
+     da scegliere, ma il QR resta incollato al tavolo anche a locale chiuso e
+     quello generico si puo' inquadrare da una foto. Senza questa porta si
+     incassa con la cucina spenta: un ticket che non esce, e nessuno che se ne
+     accorge fino al mattino. */
+  if (aTavolo) {
+    if (!servizioInCorso(config, ora.toFormat("HH:mm"))) {
+      return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+    }
+  } else {
+    const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
+    const slotValidi = [...lunch, ...dinner];
+    if (!slotValidi.includes(body.slot)) {
+      return err(409, "Orario di ritiro non più disponibile");
+    }
   }
 
   const ids = body.items.map((i) => i.id);
@@ -317,7 +402,7 @@ export const POST: APIRoute = async ({ request }) => {
     // riservato a un punto vale li' e basta.
     const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, ambitoPub, lang);
     if (ris.error) return err(409, ris.error);
-    const limite = await verificaLimitiUso(coupon as CouponRow, body.customer.email, supabaseAdmin, lang);
+    const limite = await verificaLimitiUso(coupon as CouponRow, body.customer.email ?? "", supabaseAdmin, lang);
     if (limite) return err(409, limite);
     scontoCents = Math.min(ris.discount_cents, totalCents);
     couponId = (coupon as CouponRow).id;
@@ -326,8 +411,58 @@ export const POST: APIRoute = async ({ request }) => {
 
   const totaleIncassato = Math.max(0, totalCents - scontoCents);
 
-  const [h, m] = body.slot.split(":").map((n) => parseInt(n, 10));
-  const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+  /* ⚠️ AL TAVOLO `pickup_time` E' L'ISTANTE IN CUI L'ORDINE ENTRA, non `null`.
+     Sembrerebbe piu' pulito lasciarla vuota — al tavolo non si ritira niente
+     — e sarebbe il difetto peggiore di tutti: la lista Commandes filtra con
+     `.gte("pickup_time", ...)` e ordina su quella colonna, e in Postgres un
+     `null` non passa nessun confronto. L'ordine del tavolo 7 semplicemente
+     NON comparirebbe in cucina. Con l'ora d'arrivo, invece, tutto cio' che
+     legge quella colonna (lista, statistiche, affluenza, cron) continua a
+     funzionare senza sapere niente di nuovo.
+     ⚠️ E' `service`, non un buco nella colonna, che fa tacere il semaforo dei
+     ritardatari: vedi la #82 e `ncLivelloRitardo`. */
+  let pickup = ora;
+  if (!aTavolo) {
+    const [h, m] = body.slot.split(":").map((n) => parseInt(n, 10));
+    pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+  }
+
+  /* ⚠️ IL TAVOLO E LA PRENOTAZIONE SI RILEGGONO DAL DATABASE. Dal browser
+     arrivano due id, e due id si cambiano. Si pretende che la prenotazione sia
+     di OGGI, ancora `seated`, e che quel tavolo sia davvero fra i suoi: senza,
+     un ordine si attaccherebbe al tavolo di qualcun altro, o alla cena di
+     ieri. E il NOME del tavolo lo scrive il server — quello che il cliente
+     dice di avere non conta. */
+  let tavoloId: string | null = null;
+  let tavoloNome = "";
+  if (aTavolo) {
+    const { data: resaRaw } = await leggi("reservations", ambitoPub, "id, date, status, tables")
+      .eq("id", String(body.reservation_id))
+      .maybeSingle();
+    const resa = resaRaw as unknown as
+      | { id: string; date: string; status: string; tables: string[] | null }
+      | null;
+    if (!resa || resa.status !== "seated" || resa.date !== ora.toFormat("yyyy-MM-dd")) {
+      return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+    }
+    const chiesto = String(body.table_id ?? "").trim();
+    if (chiesto) {
+      /* ⚠️ Il tavolo deve essere fra quelli di QUELLA sessione. Senza questo
+         confronto basterebbe cambiare un id nella richiesta per far comparire
+         l'ordine su un altro tavolo — e i piatti partirebbero per il posto
+         sbagliato. */
+      if (!Array.isArray(resa.tables) || !resa.tables.includes(chiesto)) {
+        return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+      }
+      const { data: tavRaw } = await leggi("restaurant_tables", ambitoPub, "id, name")
+        .eq("id", chiesto)
+        .maybeSingle();
+      const tav = tavRaw as unknown as { id: string; name: string } | null;
+      if (!tav) return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+      tavoloId = tav.id;
+      tavoloNome = String(tav.name ?? "");
+    }
+  }
 
   // Le colonne coupon_* si scrivono SOLO se un coupon è stato applicato: così
   // gli ordini normali funzionano anche se la migration 014_coupons.sql non è
@@ -343,9 +478,25 @@ export const POST: APIRoute = async ({ request }) => {
     // salta i primi perche' non hanno nessuna sessione da verificare.
     ...(inCassa ? { payment_method: "onsite" } : {}),
     pickup_time: pickup.toISO(),
-    customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname}`),
-    customer_email: body.customer.email,
-    customer_phone: body.customer.phone,
+    /* ⚠️ Le quattro colonne della #82 si scrivono SOLO al tavolo. Un ordine da
+       asporto non le porta affatto: `service` ha `default 'pickup'` in SQL, e
+       cosi' i nove clienti di oggi — compreso chi non ha ancora passato la
+       migrazione — continuano a inserire esattamente le colonne di prima.
+       ⚠️ E al tavolo NON c'e' ripiego: se la #82 manca, l'inserimento fallisce
+       e il cliente non paga. Un ripiego che togliesse queste colonne
+       incasserebbe i soldi e perderebbe il numero del tavolo — una comanda
+       senza destinazione, cioe' il contrario di un ordine. */
+    ...(aTavolo
+      ? {
+          service: "table",
+          table_id: tavoloId,
+          table_label: tavoloNome,
+          reservation_id: String(body.reservation_id),
+        }
+      : {}),
+    customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname ?? ""}`),
+    customer_email: body.customer.email ?? "",
+    customer_phone: body.customer.phone ?? "",
     items: itemsOrdine,
     total_cents: totaleIncassato,
     lang,

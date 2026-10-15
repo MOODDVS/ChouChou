@@ -1,0 +1,219 @@
+---
+/**
+ * ORDINARE DAL PROPRIO TAVOLO — la pagina del QR.
+ *
+ * Il cliente inquadra il cartoncino sul tavolo, dice chi e' e in quanti sono,
+ * e ordina dal menu della sala. Due QR possibili, e questa pagina li regge
+ * entrambi:
+ *   /table           il QR generico (volantino, bancone): il tavolo si scegle
+ *   /table?table=7   il QR stampato PER quel tavolo: arriva gia' scelto
+ *
+ * ⚠️ QUESTA PAGINA E' DEL CLIENTE (`src/pages/**` sta in `.gitattributes`
+ * come `merge=ours`). Il motore la consegna funzionante e non la riscrive
+ * mai piu': un cliente che la rifa' col suo disegno tiene la sua a ogni
+ * merge, e non si prende un conflitto a ogni giro. Cio' che resta del motore
+ * e' quello che conta — `TableOrder`, `OrderApp`, `/api/table-session`,
+ * `/api/checkout` — e quello si aggiorna da solo.
+ *
+ * ⚠️ LO STILE E' QUELLO DEL SITO. Qui sotto c'e' solo il vestito delle classi
+ * `tbl-*`, che sono nuove e nessun cliente ha ancora. Il menu e il carrello
+ * usano le classi `order-*`, che il sito pubblico veste gia' per /order: su
+ * un'installazione che quel CSS non ce l'ha, la pagina FUNZIONA e si vede
+ * spoglia — che e' il modo giusto di sbagliare.
+ */
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
+import { opzioniTavolo, modiDiPagamento } from "../lib/ordiniOpzioni";
+import { getMenuSala } from "../lib/db";
+import { getLangFromUrl, useTranslations } from "../i18n/ui";
+import TableOrder from "../components/TableOrder";
+import type { TestiSessione } from "../components/TableOrder";
+import Fonts from "../components/Fonts.astro";
+import { CLIENT } from "../config/client";
+
+export const prerender = false;
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const sede = (Astro.url.searchParams.get("sede") ?? "").trim();
+const tavoloDaUrl = (Astro.url.searchParams.get("table") ?? "").trim().slice(0, 40);
+
+const ambito = await ambitoPubblicoChiesto(Astro.request);
+const sala = await opzioniTavolo(ambito);
+/* ⚠️ Sala spenta → 404, non una pagina che spiega. Il QR resta incollato al
+   tavolo per mesi: se un ristoratore spegne gli ordini dal locale, chi
+   inquadra deve trovare «questa pagina non c'e'», non un modulo che poi
+   rifiuta l'ordine dopo che ha composto la cena. */
+if (!sala.attivo) return new Response(null, { status: 404 });
+
+const [menu, pagamento] = await Promise.all([
+  getMenuSala(ambito),
+  modiDiPagamento(ambito),
+]);
+
+/**
+ * LE PAROLE DELLA PRIMA SCHERMATA, qui e non nel dizionario pubblico.
+ *
+ * ⚠️ E’ UNA SCELTA, e ha un motivo preciso: `src/i18n/**` e’ del cliente
+ * (`merge=ours`), quindi una chiave nuova messa in `fr.json` dal motore NON
+ * arriverebbe mai a nessuno — `t("...")` renderebbe la chiave, e sul tavolo
+ * si leggerebbe «table.intro». Stando nella pagina, le parole viaggiano col
+ * file che le usa: arrivano insieme, o non arriva nessuno dei due.
+ *
+ * Cinque lingue perche’ tante sono quelle pubbliche del motore; un sito che
+ * ne ha due usa le sue due, e qualunque altra ripiega sul francese.
+ */
+const TESTI: Record<string, TestiSessione> = {
+  fr: {
+    titolo: "Commander \u00e0 table", intro: "Dites-nous qui vous \u00eates, et la carte s\u2019ouvre.",
+    tavolo: "Votre table", tavoloAiuto: "Le num\u00e9ro inscrit sur la table",
+    nome: "Votre pr\u00e9nom", persone: "Vous \u00eates combien ?", email: "E-mail",
+    emailAiuto: "Facultatif \u2014 pour recevoir le re\u00e7u",
+    emailObbligatoria: "Pour vous pr\u00e9venir quand c\u2019est pr\u00eat",
+    apri: "Voir la carte", apertura: "Un instant\u2026",
+    errCampi: "V\u00e9rifiez les champs.", errChiuso: "Le service est ferm\u00e9 pour le moment.",
+    errTavolo: "Cette table n\u2019existe pas. V\u00e9rifiez le num\u00e9ro.",
+    errGenerico: "Impossible d\u2019ouvrir la table. R\u00e9essayez.",
+  },
+  en: {
+    titolo: "Order from your table", intro: "Tell us who you are and the menu opens.",
+    tavolo: "Your table", tavoloAiuto: "The number written on the table",
+    nome: "Your first name", persone: "How many of you?", email: "E-mail",
+    emailAiuto: "Optional \u2014 to get the receipt",
+    emailObbligatoria: "So we can tell you when it\u2019s ready",
+    apri: "See the menu", apertura: "One moment\u2026",
+    errCampi: "Please check the fields.", errChiuso: "Service is closed at the moment.",
+    errTavolo: "That table doesn\u2019t exist. Check the number.",
+    errGenerico: "Could not open the table. Please try again.",
+  },
+  it: {
+    titolo: "Ordina dal tavolo", intro: "Dicci chi sei e il men\u00f9 si apre.",
+    tavolo: "Il tuo tavolo", tavoloAiuto: "Il numero scritto sul tavolo",
+    nome: "Il tuo nome", persone: "In quanti siete?", email: "E-mail",
+    emailAiuto: "Facoltativa \u2014 per ricevere la ricevuta",
+    emailObbligatoria: "Per avvisarti quando \u00e8 pronto",
+    apri: "Vedi il men\u00f9", apertura: "Un attimo\u2026",
+    errCampi: "Controlla i campi.", errChiuso: "Il servizio \u00e8 chiuso in questo momento.",
+    errTavolo: "Questo tavolo non esiste. Controlla il numero.",
+    errGenerico: "Non riesco ad aprire il tavolo. Riprova.",
+  },
+  nl: {
+    titolo: "Bestellen aan tafel", intro: "Zeg ons wie u bent en de kaart gaat open.",
+    tavolo: "Uw tafel", tavoloAiuto: "Het nummer op de tafel",
+    nome: "Uw voornaam", persone: "Hoeveel bent u?", email: "E-mail",
+    emailAiuto: "Optioneel \u2014 om het bewijs te ontvangen",
+    emailObbligatoria: "Om u te verwittigen als het klaar is",
+    apri: "Bekijk de kaart", apertura: "Een moment\u2026",
+    errCampi: "Controleer de velden.", errChiuso: "De service is momenteel gesloten.",
+    errTavolo: "Die tafel bestaat niet. Controleer het nummer.",
+    errGenerico: "Kan de tafel niet openen. Probeer opnieuw.",
+  },
+  es: {
+    titolo: "Pedir en la mesa", intro: "D\u00edganos qui\u00e9n es y se abre la carta.",
+    tavolo: "Su mesa", tavoloAiuto: "El n\u00famero escrito en la mesa",
+    nome: "Su nombre", persone: "\u00bfCu\u00e1ntos son?", email: "Correo",
+    emailAiuto: "Opcional \u2014 para recibir el recibo",
+    emailObbligatoria: "Para avisarle cuando est\u00e9 listo",
+    apri: "Ver la carta", apertura: "Un momento\u2026",
+    errCampi: "Revise los campos.", errChiuso: "El servicio est\u00e1 cerrado en este momento.",
+    errTavolo: "Esa mesa no existe. Revise el n\u00famero.",
+    errGenerico: "No se puede abrir la mesa. Int\u00e9ntelo de nuevo.",
+  },
+};
+
+/* ⚠️ Le persone e il nome stanno sotto `book.*`, non `order.*`: sono le
+   stesse parole del widget prenotazioni, e il dizionario pubblico le ha
+   solo la'. Inventarne di nuove vorrebbe dire due traduzioni della stessa
+   parola, e il giorno che il cliente cambia una delle due la pagina
+   mostrerebbe l'altra. */
+const testiOrdine = {
+  cartTitle: t("order.cartTitle"),
+  cartEmpty: t("order.cartEmpty"),
+  recap: t("order.recap"),
+  yourInfo: t("order.yourInfo"),
+  pickupTime: t("order.pickupTime"),
+  notes: t("order.notes"),
+  notesPlaceholder: t("order.notesPlaceholder"),
+  coupon: t("order.coupon"),
+  couponPlaceholder: t("order.couponPlaceholder"),
+  couponApply: t("order.couponApply"),
+  couponRemove: t("order.couponRemove"),
+  couponInvalid: t("order.couponInvalid"),
+  subtotal: t("order.subtotal"),
+  discount: t("order.discount"),
+  total: t("order.total"),
+  items: t("order.items"),
+  toCheckout: t("order.toCheckout"),
+  pay: t("order.pay"),
+  paying: t("order.paying"),
+  backToMenu: t("order.backToMenu"),
+  seeCart: t("order.seeCart"),
+  fillAll: t("order.fillAll"),
+  errPayment: t("order.errPayment"),
+  errConnection: t("order.errConnection"),
+  firstName: t("book.firstName"),
+  lastName: t("book.lastName"),
+  phone: t("book.phone"),
+  email: t("book.email"),
+  ariaIncrease: t("order.aria.increase"),
+  ariaDecrease: t("order.aria.decrease"),
+  ariaRemove: t("order.aria.remove"),
+  ariaAdd: t("order.aria.add"),
+  tabBoissons: t("order.tab.boissons"),
+  /* ⚠️ Non si usano, e ci sono: `closedToday` la pagina non la accende mai
+     — l'orario lo controlla `/api/table-session`, che rifiuta prima che il
+     menu si veda — ma la prop e' obbligatoria e una stringa vuota in
+     un'interfaccia e' peggio di una parola giusta mai mostrata. */
+  closedToday: t("slot.closed"),
+  reopenInfo: "",
+  consentPre: t("book.consentPre"),
+  consentLink: t("book.consentLink"),
+  privacyHref: t("footer.privacy"),
+  emailWhyRequired: TESTI[lang]?.emailObbligatoria ?? TESTI.fr.emailObbligatoria,
+};
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* ⚠️ `noindex`: la pagina del QR non deve finire su Google. Chi la
+        trovasse cercando il ristorante aprirebbe un tavolo da casa. */}
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{CLIENT.nome}</title>
+    <Fonts />
+  </head>
+  <body>
+    <main class="tbl-main">
+      <TableOrder
+        client:load
+        menu={menu}
+        testiOrdine={testiOrdine}
+        testi={TESTI[lang] ?? TESTI.fr}
+        lang={lang}
+        sede={sede}
+        conTavoli={sala.conTavoli}
+        avvisa={sala.avvisa}
+        tavoloDaUrl={tavoloDaUrl}
+        pagamento={pagamento}
+      />
+    </main>
+    <style>
+      /* Il vestito delle sole classi NUOVE. Il resto della pagina usa le
+         `order-*` del sito, che il cliente veste gia' per /order. */
+      .tbl-main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+      .tbl-titolo { font-size: 1.6rem; margin: 0 0 .4rem; }
+      .tbl-intro { margin: 0 0 1.5rem; opacity: .75; line-height: 1.5; }
+      .tbl-form { display: flex; flex-direction: column; gap: 1rem; }
+      .tbl-campo { display: flex; flex-direction: column; gap: .35rem; }
+      .tbl-lab { display: flex; flex-direction: column; font-weight: 600; }
+      .tbl-aiuto { font-weight: 400; font-size: .85rem; opacity: .7; margin-top: .15rem; }
+      .tbl-input { padding: .7rem .8rem; font-size: 1rem; border: 1px solid currentColor; border-radius: .4rem; background: transparent; color: inherit; }
+      .tbl-err { margin: 1rem 0 0; color: #c0392b; font-weight: 600; }
+      /* ⚠️ 48px di altezza e larghezza piena: si tocca con il pollice, in
+         piedi, su un telefono tenuto con una mano sola. */
+      .tbl-btn { margin-top: 1.5rem; width: 100%; min-height: 48px; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: .4rem; background: currentColor; cursor: pointer; }
+      .tbl-btn:disabled { opacity: .45; cursor: default; }
+    </style>
+  </body>
+</html>

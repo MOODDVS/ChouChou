@@ -1423,6 +1423,21 @@ const t = adminT(lang);
               <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
               <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
             </div>
+            {/* ⚠️ ORDINARE DAL LOCALE. Il tavolo non si chiede qui: «ci sono i
+                tavoli?» lo dice il piano sala, e un interruttore in piu' sarebbe
+                una cosa da tenere d'accordo a mano con la mappa. La riga sotto
+                lo SCRIVE, perche' un ristoratore che accende questo e non vede
+                nessuna scelta del tavolo penserebbe a un guasto. */}
+            <div class="field">
+              <label>{t("set.ord.table")}<span class="lab-hint">{t("set.ord.tableHint")}</span><span class="lab-hint" id="o-table-notables" style="display:none">{t("set.ord.tableNoTables")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table" /><span class="track"></span></label>
+            </div>
+            {/* ⚠️ Compare solo a sala accesa: a chi fa solo asporto, «avvisare
+                quando e' pronto» non vuol dire niente. */}
+            <div class="field" id="o-table-notify-row" style="display:none">
+              <label>{t("set.ord.tableNotify")}<span class="lab-hint">{t("set.ord.tableNotifyHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-notify" /><span class="track"></span></label>
+            </div>
           </div>
 
           <div class="section" data-tab="notifications" style="display:none">
@@ -3740,7 +3755,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; stripe_pronto?: boolean };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -3934,6 +3949,15 @@ const t = adminT(lang);
         met("o-pay-onsite", "orders_pay_onsite");
         met("o-coupons", "orders_coupons");
         met("o-coupons-onsite", "orders_coupons_onsite");
+        met("o-table", "orders_table");
+        /* ⚠️ Questo interruttore arriva dal server GIA' RISOLTO: a chiave
+           vuota il valore dipende dai tavoli, e il server e' l'unico che li
+           puo' contare. La pagina non deve indovinare — ed e' il motivo per
+           cui `met` legge `ordini[chiave]` invece di un default scritto qui. */
+        met("o-table-notify", "orders_table_notify");
+        // «Questa sala non ha tavoli»: un fatto, scritto dove si decide.
+        const senzaTavoli = document.getElementById("o-table-notables") as HTMLElement | null;
+        if (senzaTavoli) senzaTavoli.style.display = dati.sala_con_tavoli === false ? "" : "none";
         // La riga dei coupon in cassa esiste solo dove la domanda ha senso, e
         // segue i due interruttori da cui dipende, anche mentre li si tocca.
         const rigaCouponCassa = document.getElementById("o-coupons-onsite-row") as HTMLElement | null;
@@ -3943,6 +3967,15 @@ const t = adminT(lang);
           if (!rigaCouponCassa) return;
           rigaCouponCassa.style.display = swCoupons?.checked && swOnsite?.checked ? "" : "none";
         };
+        // La riga dell'avviso segue la sala, anche mentre la si tocca.
+        const rigaAvviso = document.getElementById("o-table-notify-row") as HTMLElement | null;
+        const swTavolo = document.getElementById("o-table") as HTMLInputElement | null;
+        const aggiornaRigaAvviso = () => {
+          if (!rigaAvviso) return;
+          rigaAvviso.style.display = swTavolo?.checked ? "" : "none";
+        };
+        aggiornaRigaAvviso();
+        swTavolo?.addEventListener("change", aggiornaRigaAvviso);
         swCoupons?.addEventListener("change", aggiornaRigaCoupon);
         swOnsite?.addEventListener("change", aggiornaRigaCoupon);
         aggiornaRigaCoupon();
@@ -4301,6 +4334,12 @@ const t = adminT(lang);
                   orders_pay_onsite: (document.getElementById("o-pay-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_coupons: (document.getElementById("o-coupons") as HTMLInputElement | null)?.checked ?? true,
                   orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
+                  /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un
+                     no esplicito, e va bene cosi': il ristoratore ha visto la
+                     casella col valore vero e l'ha confermata. Per questo la
+                     pagina DEVE mostrarla risolta — vedi `settings.ts`. */
+                  orders_table_notify: (document.getElementById("o-table-notify") as HTMLInputElement | null)?.checked ?? false,
                 },
                 links: Object.fromEntries(
                   CHIAVI_LINK.map((k) => [k, (lnkEls.get(k)?.value ?? "").trim()])

@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 // ⚠️ Si importa `ordiniRegole`, NON `ordiniOpzioni`: il secondo arriva a
 // `db.ts`, che in vitest lancia all'import — e un file di prova che non parte
 // viene contato come «0 test», cioe' verde. Vedi ENGINE.md.
-import { acceso, RIPIEGO_ORDINI, CHIAVI_ORDINI, inCassa, metodoCambiabile, METODI_CASSA_SCELTA } from "../src/lib/ordiniRegole.ts";
+import { acceso, RIPIEGO_ORDINI, RIPIEGO_ORDINI_SCELTA, CHIAVI_ORDINI, inCassa, metodoCambiabile, METODI_CASSA_SCELTA } from "../src/lib/ordiniRegole.ts";
 import { SONO_IL_MOTORE } from "./ambiente.mjs";
 
 const leggi = (f) => readFileSync(f, "utf8");
@@ -27,7 +27,15 @@ test("chi non ha mai visto queste opzioni si comporta come ieri", () => {
   assert.equal(acceso(undefined, "orders_pay_online"), true);
   assert.equal(acceso(undefined, "orders_pay_onsite"), false);
   assert.equal(acceso(undefined, "orders_coupons"), true);
-  assert.deepEqual(Object.keys(RIPIEGO_ORDINI).sort(), [...CHIAVI_ORDINI].sort());
+  /* ⚠️ DUE elenchi, un solo invariante: ogni chiave che si LEGGE ha un
+     ripiego dichiarato. Quelle a due stati stanno in `RIPIEGO_ORDINI`, quelle
+     a tre in `RIPIEGO_ORDINI_SCELTA` — separate perche’ `acceso()` sa leggere
+     solo le prime. Una chiave letta e senza ripiego da nessuna parte e’ un
+     interruttore che non fa niente. */
+  assert.deepEqual(
+    [...Object.keys(RIPIEGO_ORDINI), ...Object.keys(RIPIEGO_ORDINI_SCELTA)].sort(),
+    [...CHIAVI_ORDINI].sort(),
+  );
 });
 
 test("un valore storto ricade sul ripiego, non su «spento»", () => {

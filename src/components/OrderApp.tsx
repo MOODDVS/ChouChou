@@ -123,6 +123,10 @@ interface OrderStrings {
   consentPre: string;
   consentLink: string;
   privacyHref: string;
+  /** Perche’ l’email serve, quando ordinando dal locale e’ obbligatoria.
+   *  OPZIONALE: una pagina che non la passa non mostra nessuna spiegazione, e
+   *  l’email resta comunque obbligatoria. */
+  emailWhyRequired?: string;
   /** Etichette dei badge e degli stati. OPZIONALI: se la pagina del cliente
    *  non le passa, si usano quelle del motore nella lingua giusta. */
   soldOut?: string;
@@ -213,6 +217,29 @@ interface OrderAppProps {
    * `/api/checkout` a ogni richiesta, perche' una prop la si cambia da
    * console in tre secondi.
    */
+  /**
+   * LA SESSIONE AL TAVOLO — presente solo sulla pagina del QR.
+   *
+   * ⚠️ La apre `/api/table-session` PRIMA che il menu si veda: l’ordine si
+   * attacca a una prenotazione che esiste gia’. Assente = la pagina di
+   * sempre, quella da asporto, e niente cambia di una virgola per i siti in
+   * produzione il giorno del merge.
+   *
+   * ⚠️ E NON E’ L’AUTORIZZAZIONE, come `pagamento`: questi tre valori
+   * dicono al cliente dov’e’ seduto. Che quella prenotazione sia di oggi,
+   * ancora aperta e con quel tavolo lo RILEGGE `/api/checkout` dal database a
+   * ogni richiesta — una prop la si cambia da console in tre secondi.
+   */
+  tavolo?: {
+    reservationId: string;
+    /** `null` dove la sala non ha tavoli disegnati: si ordina lo stesso. */
+    tableId: string | null;
+    /** Come si chiama quel tavolo. Vuoto = nessun tavolo da mostrare. */
+    tableLabel: string;
+    /** L’email e’ obbligatoria: nessuno porta il piatto, e l’avviso «c’e’
+     *  pronto» e’ un’email. Lo decide il ristoratore in Reglages. */
+    emailObbligatoria: boolean;
+  } | null;
   pagamento?: {
     /** Si puo' pagare con la carta ora (Stripe configurato e acceso). */
     online: boolean;
@@ -287,7 +314,11 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", pagamento = { online: true, locale: false, coupon: true, couponInCassa: false } }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false } }: OrderAppProps) {
+  /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
+     cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
+     non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
+  const inSala = tavolo !== null;
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -682,13 +713,25 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   }, [couponVisibile, couponApplicato]);
 
   const emailValida = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  /* ⚠️ AL TAVOLO SI CHIEDE MENO, e non e’ una svista. Cognome, telefono e
+     ora di ritiro non esistono: il cliente e’ seduto a tre metri, e il nome
+     serve solo a chiamarlo. L’email e’ una SCELTA — chi la lascia riceve la
+     ricevuta — tranne dove nessuno porta il piatto: li’ l’avviso «c’e’
+     pronto» e’ un’email, e senza indirizzo quella persona fisserebbe il
+     bancone. Le stesse tre regole le ricontrolla `/api/checkout`: questa
+     riga decide solo se il bottone si accende. */
+  const emailOk = inSala
+    ? tavolo.emailObbligatoria
+      ? emailValida
+      : email.trim() === "" || emailValida
+    : emailValida;
   const formValido =
     linee.length > 0 &&
-    slot !== null &&
+    (inSala || slot !== null) &&
     nome.trim() !== "" &&
-    cognome.trim() !== "" &&
-    telefono.trim() !== "" &&
-    emailValida &&
+    (inSala || cognome.trim() !== "") &&
+    (inSala || telefono.trim() !== "") &&
+    emailOk &&
     accettato;
 
   async function paga() {
@@ -701,7 +744,16 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
-          slot,
+          /* ⚠️ Al tavolo NON si manda nessuno slot: non c’e’ un’ora di ritiro
+             da scegliere, e mandarne una la farebbe scrivere come appuntamento
+             su un ordine che nessuno viene a ritirare. */
+          ...(inSala
+            ? {
+                service: "table",
+                reservation_id: tavolo.reservationId,
+                ...(tavolo.tableId ? { table_id: tavolo.tableId } : {}),
+              }
+            : { slot }),
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
           // ⚠️ Il server non si fida di questo campo: ricontrolla che il punto
@@ -985,16 +1037,38 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
 
           <aside className="order-cart order-cart--checkout">
             <h2 className="order-cart-title">{t.yourInfo}</h2>
-            <label className="order-field-label">{t.pickupTime}</label>
-            {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
-                che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
-                che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
-            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
+            {/* ⚠️ AL TAVOLO NON SI SCEGLIE NESSUN’ORA. Lasciare il selettore
+                degli slot chiederebbe a chi e’ seduto quando passa a ritirare,
+                e il primo orario scelto finirebbe scritto come appuntamento.
+                Al suo posto, dove un tavolo c’e’, si mostra QUALE: e’ l’unica
+                conferma che il cliente ha di non aver sbagliato cartoncino.
+                Le classi da vestire sono `order-table-at` e `order-email-why`. */}
+            {inSala ? (
+              tavolo.tableLabel ? <p className="order-table-at">{tavolo.tableLabel}</p> : null
+            ) : (
+              <>
+                <label className="order-field-label">{t.pickupTime}</label>
+                {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
+                    che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
+                    che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
+                <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
+              </>
+            )}
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
-              <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
-              <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-              <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+              {/* Cognome e telefono: solo da asporto. A chi e’ in sala non si
+                  chiede il cognome, e il telefono non serve a richiamare
+                  nessuno — il cliente e’ a tre metri. */}
+              {!inSala && (
+                <>
+                  <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
+                  <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+                </>
+              )}
+              <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} required={!inSala || tavolo.emailObbligatoria} />
+              {inSala && tavolo.emailObbligatoria && t.emailWhyRequired && (
+                <p className="order-email-why">{t.emailWhyRequired}</p>
+              )}
             </div>
             {/* ⚠️ COMPARE SOLO SE C'E' DAVVERO UNA SCELTA, e solo se la pagina
                 /order del cliente passa `pagamento` con entrambe le strade

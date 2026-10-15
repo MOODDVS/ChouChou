@@ -13,7 +13,8 @@ import {
   ambitoDiRichiesta, leggiConfig, scriviConfig, cancellaConfig,
   leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo,
 } from "../../../lib/admin/sede";
-import { CHIAVI_ORDINI, acceso } from "../../../lib/ordiniRegole";
+import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordiniRegole";
+import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 
 export const prerender = false;
 
@@ -206,7 +207,19 @@ export const GET: APIRoute = async ({ request }) => {
   // (`acceso`), cosi' la pagina non deve conoscere i valori di default — che
   // e' il modo in cui due posti finiscono per non essere d'accordo.
   const orders: Record<string, boolean> = {};
-  for (const k of CHIAVI_ORDINI) orders[k] = acceso(cfg.get(k), k);
+  for (const k of CHIAVI_ORDINI) {
+    if (k in RIPIEGO_ORDINI_SCELTA) continue;
+    orders[k] = acceso(cfg.get(k), k);
+  }
+  /* ⚠️ LE CHIAVI A TRE STATI NON PASSANO DA `acceso()`, e il difetto che
+     questa riga evita e’ cattivo: `acceso()` non trova il loro ripiego e
+     rende `false`. La pagina mostrerebbe «avvisa: spento» a uno snack che sta
+     avvisando, il ristoratore salverebbe un campo qualunque, e quel "0"
+     diventerebbe la scelta — i clienti al banco smetterebbero di ricevere
+     l’email senza che nessuno abbia deciso niente. Qui si rende il valore
+     VERO, risolto dalla stessa funzione che decide a ordine fatto. */
+  const sala = await opzioniTavolo(ambito);
+  orders.orders_table_notify = sala.avvisa;
 
   return json({
     days,
@@ -225,6 +238,11 @@ export const GET: APIRoute = async ({ request }) => {
     general,
     reservations,
     orders,
+    /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
+       di lasciarlo capire: senza, il ristoratore accende «ordinare dal
+       locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
+       un guasto. */
+    sala_con_tavoli: sala.conTavoli,
     // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
     // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
     // Senza questo, un interruttore acceso sembrerebbe una promessa mantenuta.
