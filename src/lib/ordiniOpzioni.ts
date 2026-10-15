@@ -20,11 +20,16 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       locale: acceso(valori.get("orders_pay_onsite"), "orders_pay_onsite"),
       coupon: acceso(valori.get("orders_coupons"), "orders_coupons"),
       couponInCassa: acceso(valori.get("orders_coupons_onsite"), "orders_coupons_onsite"),
+      tavolo: acceso(valori.get("orders_table"), "orders_table"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
     // non prende ordini.
-    return { online: true, locale: false, coupon: true, couponInCassa: false };
+    /* ⚠️ `tavolo: false` nel ripiego, a differenza di `online`. Un database
+       muto non deve spegnere gli ordini — da sempre si continua a prenderli —
+       ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
+       porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false };
   }
 }
 

@@ -62,6 +62,8 @@ export interface OpzioniOrdini {
   coupon: boolean;
   /** ...e vale anche per chi paga in cassa. */
   couponInCassa: boolean;
+  /** Si puo' ordinare dal tavolo col QR. */
+  tavolo: boolean;
 }
 
 /** Le chiavi, con il valore che vale quando la riga non c'e'. */
@@ -70,6 +72,11 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
   orders_pay_onsite: "0",
   orders_coupons: "1",
   orders_coupons_onsite: "0",
+  /* ⚠️ SPENTO di ripiego, e non per prudenza generica: un ristorante che fa
+     solo asporto non ha tavoli, e una pagina «ordina dal tavolo» accesa da
+     sola gli darebbe un QR che porta a un modulo senza senso. Lo accende chi
+     ha una sala. */
+  orders_table: "0",
 };
 
 export const CHIAVI_ORDINI = Object.keys(RIPIEGO_ORDINI);
@@ -145,7 +152,17 @@ export const FINESTRA_PRONTO_MIN = 30;
  * @param adessoMs  l'istante in cui si preme (parametro apposta: una regola
  *                  che legge l'orologio da sola non si puo' provare)
  */
-export function avvisaChePronto(pickupIso: unknown, adessoMs: number = Date.now()): boolean {
+export function avvisaChePronto(
+  pickupIso: unknown,
+  adessoMs: number = Date.now(),
+  servizio: unknown = "pickup",
+): boolean {
+  /* ⚠️ A CHI E' SEDUTO A TRE METRI NON SI MANDA UN'EMAIL. «Votre commande est
+     prete» ha senso per chi deve mettersi in macchina; per un tavolo il
+     piatto arriva in mano, e l'email diventa rumore — o peggio, arriva dopo
+     che il cameriere ha gia' servito. Il ripiego e' `pickup` perche' le righe
+     scritte prima della migrazione #82 non hanno il servizio. */
+  if (alTavolo(servizio)) return false;
   const t = new Date(String(pickupIso ?? "")).getTime();
   // ⚠️ Una data illeggibile non e' «adesso»: senza questa riga `NaN` farebbe
   // fallire il confronto e l'email partirebbe sempre, anche a mezzanotte.
@@ -160,4 +177,58 @@ export const RITARDI_MIN = [5, 10, 15, 20] as const;
 
 export function ritardoAmmesso(min: unknown): boolean {
   return (RITARDI_MIN as readonly number[]).includes(Math.round(Number(min)));
+}
+
+/* ==========================================================================
+   DA ASPORTO O AL TAVOLO
+   --------------------------------------------------------------------------
+   ⚠️ Nasce perche' `pickup_time` non basta piu'. Un ordine al tavolo non ha
+   un'ora di ritiro, ma quella colonna la legge mezzo motore — e il semaforo
+   dei ritardatari diventa ROSSO un quarto d'ora dopo l'ora di ritiro. Senza
+   una colonna che dica di che servizio si tratta, ogni tavolo sarebbe in
+   ritardo mentre la gente mangia.
+   ========================================================================== */
+
+export type Servizio = "pickup" | "table";
+
+/**
+ * Di che servizio e' questo ordine.
+ * ⚠️ Il ripiego e' `pickup` e non e' una scelta estetica: in un database vivo
+ * ci sono tutte le righe scritte PRIMA della migrazione #82, che non hanno la
+ * colonna. Erano tutte da asporto, e devono continuare a comportarsi come
+ * prima — ticket con l'ora, semaforo dei ritardi, email di ritiro.
+ */
+export function servizioDi(valore: unknown): Servizio {
+  return String(valore ?? "") === "table" ? "table" : "pickup";
+}
+
+/** Scorciatoia per chi deve solo sapere «e' uno in sala?». */
+export function alTavolo(valore: unknown): boolean {
+  return servizioDi(valore) === "table";
+}
+
+/* ───────── Come si paga in sala ─────────
+ *
+ * ⚠️ DUE MODI, UNO SOLO COSTRUITO, e la differenza non e' un'impostazione
+ * dello stesso flusso: sono due prodotti.
+ *
+ *   `per_giro` — ogni giro e' un ordine suo: paga, ticket, ricevuta. Riusa
+ *                tutta la catena che esiste (checkout -> webhook ->
+ *                confermaOrdine -> ticket).
+ *   `conto`    — i giri si accumulano e si paga alla fine. Vuole lo stato del
+ *                tavolo, il conto unico, e cosa fare con chi se ne va senza
+ *                pagare. Ma soprattutto vuole che LA CUCINA CUOCIA PRIMA DI
+ *                ESSERE PAGATA: oggi `daStampare` rifiuta di stampare
+ *                qualsiasi cosa non pagata tranne il `pending + onsite`, e il
+ *                motivo e' scritto qui sopra — cibo preparato per nessuno.
+ *                E' una decisione di fiducia del ristoratore, non una riga.
+ *
+ * Il secondo valore esiste nel tipo perche' il giorno in cui si costruisce non
+ * si debba rinominare niente; il pannello ne mostra UNO. Un interruttore che
+ * promette una cosa non costruita e' peggio di un'opzione assente.
+ */
+export type ModoServizio = "per_giro" | "conto";
+
+export function modoServizio(): ModoServizio {
+  return "per_giro";
 }

@@ -515,6 +515,10 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_pay_onsite: "sede",
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
+  /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo
+     con tre punti puo' averne uno con i tavoli e due di solo asporto. Al
+     marchio, un QR sul tavolo comparirebbe anche a chi i tavoli non ce li ha. */
+  orders_table: "sede",
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",
