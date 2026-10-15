@@ -1767,7 +1767,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         incassato, panierMedio, restaDaIncassare, righeIncassate, daServire, statoOrdine,
         piattiVeri,
       } from "../../lib/admin/ordiniConti";
-      import { euroDa } from "../../lib/soldi";
+      import { importoDa } from "../../lib/soldi";
       import {
         fuori as piattiFuori, conStato, conti as contiMenu, statoPiatto, etichettaFormati,
         type RigaMenu, type StatoPiatto,
@@ -1928,7 +1928,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       }
       /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
        *  pannello. Era la stessa funzione in cinque pagine. */
-      const euro = (cents: number): string => euroDa(cents, LOC);
+      const euro = (cents: number): string => importoDa(cents, LOC);
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       function oraDa(iso: string): string {

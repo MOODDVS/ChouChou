@@ -5,6 +5,11 @@ import Stripe from "stripe";
 import { defaultLang } from "../i18n/ui";
 import { prefissoLingua } from "./linguaUrl";
 import { leggiSegreto, type Ambito } from "./admin/sede";
+/* ⚠️ La valuta dell'incasso NON si scrive qui. Era `"eur"` a mano in quattro
+   punti, e tre su quattro e' il modo in cui un pagamento parte nella moneta
+   sbagliata. Vedi `lib/valuta.ts` per cosa va verificato con Stripe prima di
+   accendere un cliente fuori dall'euro. */
+import { valutaStripe } from "./valuta";
 
 
 /**
@@ -96,7 +101,7 @@ export async function creaCheckoutSession({
   if (discount && discount.amount_cents > 0) {
     const c = await sp.coupons.create({
       amount_off: discount.amount_cents,
-      currency: "eur",
+      currency: valutaStripe(),
       duration: "once",
       name: discount.label.slice(0, 40) || "Code promo",
     });
@@ -108,7 +113,7 @@ export async function creaCheckoutSession({
     payment_method_types: ["card"],
     line_items: voci.map((v) => ({
       price_data: {
-        currency: "eur",
+        currency: valutaStripe(),
         product_data: { name: v.name },
         unit_amount: v.price_cents,
       },
@@ -154,7 +159,7 @@ export async function creaCheckoutBon(opts: {
     mode: "payment",
     payment_method_types: ["card"],
     line_items: voci.map((v) => ({
-      price_data: { currency: "eur", product_data: { name: v.name }, unit_amount: v.amount },
+      price_data: { currency: valutaStripe(), product_data: { name: v.name }, unit_amount: v.amount },
       quantity: 1,
     })),
     metadata: { gift_card_id: opts.giftCardId },
@@ -202,7 +207,7 @@ export async function creaCheckoutSupplemento(opts: {
     payment_method_types: ["card"],
     line_items: [
       {
-        price_data: { currency: "eur", product_data: { name: label }, unit_amount: opts.diffCents },
+        price_data: { currency: valutaStripe(), product_data: { name: label }, unit_amount: opts.diffCents },
         quantity: 1,
       },
     ],

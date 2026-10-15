@@ -1,15 +1,31 @@
 /**
- * LA VALUTA — simbolo e misura, in un posto solo.
+ * LA VALUTA — una domanda, una risposta, un posto solo.
  *
- * ⚠️ IL MOTORE OGGI E' IN EURO, E NON SOLO PER MODO DI DIRE: `lib/soldi.ts`
- * scrive `currency: "EUR"` e `lib/stripe.ts` incassa `currency: "eur"` in
- * quattro punti. Finche' quei cinque posti non leggono da qui, `valutaDi()`
- * NON va collegata a nessuna schermata: un'icona in dollari accanto a un
- * totale in euro e' una card che mente — e mente sui soldi.
- * La mappa sta qui perche' il giorno in cui si fa, si fa in un file solo.
- * `tests/valuta.test.mjs` tiene chiuso l'uscio: fallisce se qualcuno collega
- * la mappa prima di aver sistemato soldi.ts e stripe.ts.
+ * Collegata il 15/10/2026. Prima l'euro era scritto a mano in tre file e
+ * cinque punti: `soldi.ts` per come l'importo si SCRIVE, `stripe.ts` per cosa
+ * si INCASSA (quattro volte), e l'icona del rimborso. Cambiarne uno solo
+ * produceva una card che mente sui soldi — un simbolo e un importo che non
+ * parlano della stessa moneta. Adesso leggono tutti da qui.
+ *
+ * ⚠️ LA DOMANDA E' IL PAESE, NON IL CONTINENTE. Zurigo e' in Europa e paga in
+ * franchi, Londra in sterline. «Europa = euro» e' la scorciatoia che mette
+ * l'euro sul conto di un ristorante svizzero.
+ *
+ * ⚠️ DUE COSE DA FARE **PRIMA** DI ACCENDERE UN CLIENTE FUORI DALL'EURO, e
+ * nessuna delle due e' codice:
+ *
+ *   1. IL CONTO STRIPE HA UNA VALUTA SUA. Un conto belga che addebita in
+ *      franchi si puo' fare, ma cambiano commissioni e accrediti: va
+ *      verificato con Stripe, non deciso qui.
+ *   2. GLI ORDINI GIA' SCRITTI NON DICONO IN CHE VALUTA SONO. La colonna e'
+ *      `total_cents` e basta: oggi «euro» e' un'assunzione implicita di tutto
+ *      lo storico. Cambiare il paese di un cliente ESISTENTE farebbe
+ *      rileggere i suoi vecchi ordini nella valuta nuova, e le statistiche
+ *      sommerebbero franchi ed euro come se fossero la stessa cosa. Per un
+ *      cliente NUOVO non c'e' storico e il problema non esiste; per uno
+ *      vecchio serve prima una colonna `currency` sugli ordini.
  */
+import { CLIENT } from "../config/client";
 
 /** Il paese (ISO 3166-1 alfa-2) → la valuta che ci si paga. */
 const VALUTA_DI: Record<string, string> = {
@@ -24,11 +40,20 @@ export function valutaDi(paese: unknown): string {
   return VALUTA_DI[String(paese ?? "").toUpperCase()] ?? "EUR";
 }
 
-/** Quello che il motore usa DAVVERO oggi. Una funzione e non una costante:
- *  il giorno in cui diventa `valutaDi(CLIENT.paese)` si cambia questa riga e
- *  tutto il pannello la segue. */
+/** La valuta di QUESTA installazione: la decide il paese del cliente.
+ *  ⚠️ Una funzione e non una costante calcolata all'import: `config/client.ts`
+ *  e' del cliente e puo' cambiare, e una costante congelerebbe il valore nel
+ *  bundle senza che nessuno se ne accorga. */
 export function valutaDelMotore(): string {
-  return "EUR";
+  return valutaDi(CLIENT.paese);
+}
+
+/** La stessa, come la vuole Stripe: minuscola, ISO 4217.
+ *  ⚠️ Esiste perche' `"eur"` minuscolo era scritto a mano in quattro punti di
+ *  `stripe.ts`, e tre su quattro e' esattamente il modo in cui un incasso
+ *  finisce nella valuta sbagliata. */
+export function valutaStripe(): string {
+  return valutaDelMotore().toLowerCase();
 }
 
 /**

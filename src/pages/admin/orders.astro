@@ -1141,7 +1141,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         incassato, righeIncassate, restaDaIncassare, daServire, fatti,
         piattiVeri, notaCliente,
       } from "../../lib/admin/ordiniConti";
-      import { euroDa } from "../../lib/soldi";
+      import { importoDa } from "../../lib/soldi";
       import { iconaValuta, valutaDelMotore } from "../../lib/valuta";
       /* ⚠️ La stessa regola della stampa automatica, non una copia: il bottone
          della ristampa deve comparire ESATTAMENTE dove un ticket ha senso. */
@@ -1197,7 +1197,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
        *  pannello. Era la stessa funzione in cinque pagine. */
-      const euro = (cents: number): string => euroDa(cents, LOC);
+      const euro = (cents: number): string => importoDa(cents, LOC);
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       // Chiave-giorno (YYYY-MM-DD) di un istante ISO, nel fuso del ristorante.

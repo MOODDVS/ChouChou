@@ -27,24 +27,35 @@ test("la valuta la decide il PAESE, non il continente", () => {
   assert.equal(valutaDi(undefined), "EUR");
 });
 
-test("finche' i soldi sono scritti in euro, il motore DICE euro", () => {
-  // ⚠️ Questa prova si legge al contrario: non controlla `valutaDelMotore`,
-  // controlla che nessuno l'abbia collegata PRIMA del resto. Se un giorno
-  // soldi.ts e stripe.ts leggeranno la valuta, questa prova diventera' rossa
-  // ed e' il momento giusto per cambiarla.
+test("la valuta la dice il paese, e nessuno se la riscrive a mano", () => {
+  // ⚠️ IL 15/10/2026 LA CATENA E' STATA COLLEGATA. Prima questa prova teneva
+  // chiusa la porta: `valutaDi` non doveva arrivare a nessuna schermata
+  // finche' gli importi e Stripe avevano l'euro scritto dentro. Adesso
+  // guarda il contrario — che quel pezzo di euro non sia tornato a mano in
+  // nessuno dei tre posti, perche' basta UNO perche' la card menta sui soldi.
   const soldi = nudo("src/lib/soldi.ts");
+  assert.doesNotMatch(soldi, /currency:\s*"[A-Z]{3}"/,
+    "soldi.ts ha di nuovo una valuta scritta a mano: l'importo e il simbolo direbbero due monete diverse");
+  assert.match(soldi, /valutaDelMotore/, "soldi.ts non chiede piu' la valuta al motore");
+
   const stripe = nudo("src/lib/stripe.ts");
-  const euroFisso = /currency:\s*"EUR"/.test(soldi) && /currency:\s*"eur"/.test(stripe);
-  if (euroFisso) {
-    assert.equal(valutaDelMotore(), "EUR",
-      "soldi.ts e stripe.ts incassano ancora in euro: il pannello non puo' mostrare un'altra valuta");
-    const ord = nudo("src/pages/admin/orders.astro");
-    assert.doesNotMatch(ord, /valutaDi\s*\(/,
-      "la pagina Commandes legge la valuta dal paese mentre gli importi sono ancora in euro: la card mentirebbe sui soldi");
-  } else {
-    assert.notEqual(valutaDelMotore(), "EUR",
-      "soldi.ts/stripe.ts non sono piu' fissi sull'euro: adesso valutaDelMotore() deve leggere il paese");
-  }
+  assert.doesNotMatch(stripe, /currency:\s*"[a-z]{3}"/,
+    "stripe.ts ha di nuovo una valuta scritta a mano: un incasso partirebbe nella moneta sbagliata");
+  // Quattro punti incassano: checkout, buono regalo, supplemento, riga.
+  assert.ok((stripe.match(/valutaStripe\(\)/g) ?? []).length >= 4,
+    "qualche punto di stripe.ts non chiede piu' la valuta: e' li' che l'incasso parte storto");
+
+  // ⚠️ E la risposta viene dal PAESE, non da una costante: una costante
+  // ricomparirebbe identica anche su un cliente svizzero.
+  const valuta = nudo("src/lib/valuta.ts");
+  assert.match(valuta, /valutaDi\(CLIENT\.paese\)/,
+    "valutaDelMotore non legge piu' il paese del cliente");
+
+  // Oggi tutti i clienti sono in Belgio, quindi la risposta e' EUR: se un
+  // giorno questa riga diventasse rossa, vorrebbe dire che un'installazione
+  // ha cambiato paese — ed e' il momento di rileggere le due cose da fare
+  // scritte in valuta.ts (conto Stripe, colonna currency sugli ordini).
+  assert.equal(valutaDelMotore(), "EUR");
 });
 
 test("ogni simbolo porta la SUA misura, se no il dollaro viene piu' alto", () => {

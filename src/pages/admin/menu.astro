@@ -869,7 +869,7 @@ const varianti = boot.features.includes("variants");
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { etichettaFormati, formatiFiniti } from "../../lib/admin/menuRegole";
-      import { euroDa } from "../../lib/soldi";
+      import { importoDa } from "../../lib/soldi";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -934,7 +934,7 @@ const varianti = boot.features.includes("variants");
       }
       /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
        *  pannello. Era la stessa funzione in cinque pagine. */
-      const euro = (cents: number): string => euroDa(cents, LOC);
+      const euro = (cents: number): string => importoDa(cents, LOC);
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
       function toast(msg: string, err = false) {

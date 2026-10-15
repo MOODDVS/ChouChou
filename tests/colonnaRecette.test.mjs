@@ -146,5 +146,5 @@ test("guardia · il grafico e l'asse sono quelli della fascia", () => {
   // I soldi si scrivono con l'unica funzione che sa farlo (`soldi.ts`): il
   // «€» scritto a mano aveva gia' prodotto cinque formati diversi.
   assert.doesNotMatch(HOME, /j-rec-tot[^;]{0,200}toFixed\(2\)/,
-    "il totale delle recettes si formatta a mano invece di passare da `euroDa`");
+    "il totale delle recettes si formatta a mano invece di passare da `importoDa`");
 });
