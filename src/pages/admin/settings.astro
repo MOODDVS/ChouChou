@@ -655,6 +655,11 @@ const t = adminT(lang);
       .section[data-tab="general"] .field input.g-zip { flex: 0 0 120px; }
       /* Descrizione del campo: sempre sotto il suo label */
       .field:has(.lab-hint) { align-items: flex-start; }
+      /* ⚠️ L’INTERRUTTORE NON VA A CAPO. `.field` ha `flex-wrap: wrap`, e una
+         spiegazione lunga due righe spingeva il suo interruttore sulla riga
+         sotto: letto di sfuggita sembrava appartenere alla voce successiva, e
+         il ristoratore accendeva l’altra cosa. */
+      .field:has(> label.switch) { flex-wrap: nowrap; }
       /* ⚠️ UN CAMPO CON INTERRUTTORE NON E' UN CAMPO CON INPUT. Li' il label
          nomina la casella accanto e 220px bastano; qui il testo SPIEGA cosa
          succede accendendolo — due righe di descrizione — e stretto in 220px
@@ -1381,25 +1386,25 @@ const t = adminT(lang);
             </div>
           </div>
 
+          {/* ⚠️ DUE SCHEDE, E IL CONFINE E’ DOVE SIEDE IL CLIENTE: a sinistra
+              chi ordina da fuori e viene a ritirare, a destra chi e’ dentro al
+              locale. Erano sei interruttori di fila e le due domande si
+              leggevano come una sola — «paghi online» e «ordini dal tavolo»
+              non hanno niente in comune.
+
+              ⚠️ IL «TEMPO DI PREPARAZIONE» NON STA PIU’ QUI, e non e’ sparito:
+              si cambia dall’Accueil, coi bottoni coniglio/cane/tartaruga, che
+              e’ il posto dove serve — lo si tocca durante il servizio, non
+              nelle impostazioni. La pagina continua a RIMANDARLO uguale a come
+              l’ha letto, perche’ il salvataggio degli orari lo pretende
+              (risponde 400 senza) e scriverlo a zero vorrebbe dire slot di
+              ritiro disponibili fra un minuto. */}
           <div class="section" data-tab="cuisine" style="display:none">
-            <h2>{t("tab.settings.cuisine")}</h2>
-            <div class="field">
-              <label for="prep">{t("set.cui.prepTime")}</label>
-              <input type="number" id="prep" min="0" max="240" step="5" />
-            </div>
+            <h2>{t("set.ord.onlineTitle")}</h2>
             <div class="field">
               <label for="slot">{t("set.cui.slotDuration")}</label>
               <input type="number" id="slot" min="5" max="120" step="5" />
             </div>
-
-          </div>
-
-          {/* ⚠️ Scheda a SE', non un pezzo in fondo a quella dei tempi: sono
-              due cose diverse (quanto ci mette la cucina · come si paga) e il
-              tab ha due colonne, come Prenotazioni e Orari. Una sezione sola
-              lasciava mezza pagina vuota. */}
-          <div class="section" data-tab="cuisine" style="display:none">
-            <h2>{t("set.ord.payTitle")}</h2>
             {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
                 si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
                 niente, e il salvataggio lo rifiuta invece di lasciare un
@@ -1423,11 +1428,15 @@ const t = adminT(lang);
               <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
               <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
             </div>
-            {/* ⚠️ ORDINARE DAL LOCALE. Il tavolo non si chiede qui: «ci sono i
-                tavoli?» lo dice il piano sala, e un interruttore in piu' sarebbe
-                una cosa da tenere d'accordo a mano con la mappa. La riga sotto
-                lo SCRIVE, perche' un ristoratore che accende questo e non vede
-                nessuna scelta del tavolo penserebbe a un guasto. */}
+          </div>
+
+          {/* ⚠️ ORDINARE DAL LOCALE — scheda sua. Il tavolo non si chiede qui:
+              «ci sono i tavoli?» lo dice il piano sala, e un interruttore in
+              piu’ sarebbe una cosa da tenere d’accordo a mano con la mappa. La
+              riga sotto lo SCRIVE, perche’ un ristoratore che accende questo e
+              non vede nessuna scelta del tavolo penserebbe a un guasto. */}
+          <div class="section" data-tab="cuisine" style="display:none">
+            <h2>{t("set.ord.salleTitle")}</h2>
             <div class="field">
               <label>{t("set.ord.table")}<span class="lab-hint">{t("set.ord.tableHint")}</span><span class="lab-hint" id="o-table-notables" style="display:none">{t("set.ord.tableNoTables")}</span></label>
               <label class="switch"><input type="checkbox" id="o-table" /><span class="track"></span></label>
@@ -1809,7 +1818,12 @@ const t = adminT(lang);
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const contentEl = document.getElementById("content") as HTMLDivElement;
         const daysEl = document.getElementById("days") as HTMLDivElement;
-        const prepEl = document.getElementById("prep") as HTMLInputElement;
+        /* ⚠️ IL TEMPO DI PREPARAZIONE NON HA PIU’ UN CAMPO, ma il salvataggio
+           degli orari lo pretende (400 senza). Si tiene quello LETTO e si
+           rimanda uguale: la pagina non lo cambia, lo conserva.
+           ⚠️ Il ripiego e’ 30 come nell’API, non 0: una lettura fallita non
+           deve scrivere «pronto fra un minuto» su tutti e sette i giorni. */
+        let prepCorrente = 30;
         const slotEl = document.getElementById("slot") as HTMLInputElement;
         const kemailsBox = document.getElementById("kemails") as HTMLDivElement;
         const kemailAdd = document.getElementById("kemail-add") as HTMLButtonElement;
@@ -3924,7 +3938,7 @@ const t = adminT(lang);
 
         const mappa = new Map(dati.days.map((g) => [g.day_of_week, g]));
         daysEl.innerHTML = ORDINE.map((d) => rigaGiorno(mappa.get(d)!)).join("");
-        prepEl.value = String(dati.prep_time_minutes);
+        prepCorrente = Number(dati.prep_time_minutes) || 30;
         slotEl.value = String(dati.slot_duration_minutes);
         kemailsBox.innerHTML = "";
         const listaEmail = String(dati.kitchen_email ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
@@ -4091,7 +4105,7 @@ const t = adminT(lang);
           const t = e.target as HTMLElement;
           if (t.classList.contains("m-continu") || t.classList.contains("m-coupe")) dirty();
         });
-        [prepEl, slotEl].forEach((el) => el.addEventListener("input", dirty));
+        slotEl.addEventListener("input", dirty);
 
         // --- Jours spéciaux ---
         // Il form è il componente condiviso <SpecialDaysForm />. Qui restano
@@ -4324,7 +4338,7 @@ const t = adminT(lang);
               headers: { Authorization: `Bearer ${tokenNow}`, "Content-Type": "application/json" },
               body: JSON.stringify({
                 days,
-                prep_time_minutes: Number(prepEl.value),
+                prep_time_minutes: prepCorrente,
                 slot_duration_minutes: Number(slotEl.value),
                 kitchen_email: emailsCucina(),
                 // ⚠️ Interruttori: si mandano come veri/falsi. Il server li
@@ -5172,8 +5186,8 @@ const t = adminT(lang);
             // ⚠️ IL BOTTONE SI TOGLIE, LA SEZIONE NO — SI SPEGNE (30/09/2026).
             //
             // Smontarla dal DOM rompeva la pagina per chiunque non fosse super
-            // admin: il codice che riempie i campi fa `prepEl.value = …`, e
-            // `prepEl` sta nel tab Ordini. Tab spento, elemento inesistente,
+            // admin: il codice che riempie i campi fa `slotEl.value = …`, e
+            // `slotEl` sta nel tab Ordini. Tab spento, elemento inesistente,
             // `Cannot read properties of null` — e siccome quella riga stava
             // PRIMA di togliere «Chargement…», la pagina restava li' per
             // sempre. Nessun errore nel server (l'API rispondeva 200), nessun

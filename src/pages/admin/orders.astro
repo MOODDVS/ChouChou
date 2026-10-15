@@ -8,6 +8,7 @@
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import { ambitoDiRichiesta, leggi, pagamentoOnlineAttivo } from "../../lib/admin/sede";
+import { opzioniTavolo } from "../../lib/ordiniOpzioni";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
@@ -51,12 +52,20 @@ let ssrOrders: unknown[] | null = null;
 // questo valore non puo' restare indietro rispetto al selettore.
 let pagaOnline = true;
 
+/* ⚠️ SPENTA di ripiego, al contrario di `pagaOnline`. Se la lettura non
+   riesce, una colonna «Sala» vuota in cucina sarebbe meta’ schermo che non
+   dice niente — mentre un ordine al tavolo, se per caso ce ne fosse uno,
+   compare lo stesso: la colonna si apre anche quando la lista ne contiene uno,
+   non solo quando l’interruttore e’ acceso. Nessun ordine puo’ sparire. */
+let salaAttiva = false;
+
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
   if (staff) {
     const ambitoOrd = await ambitoDiRichiesta(Astro.request, staff);
     pagaOnline = await pagamentoOnlineAttivo(ambitoOrd);
+    salaAttiva = (await opzioniTavolo(ambitoOrd)).attivo;
     const soglia = DateTime.now()
       .setZone(await fusoDi(ambitoOrd))
       .minus({ days: 7 })
@@ -166,6 +175,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          riga, e un ordine da due piatti si ritrova mezza card vuota sotto i
          bottoni — che a colpo d'occhio sembra un ordine incompleto. */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; align-items: start; }
+      /* Le due colonne: ritiri e sala. ⚠️ Una sola quando la sala e’ spenta —
+         e` la stessa riga di prima, perche’ `.due-col` senza la classe non
+         impone niente. */
+      .due-col { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
+      .due-col.aperta { grid-template-columns: 1fr 1fr; gap: 2rem; }
+      .col-tit { font-family: var(--font-title); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 0 0 0.9rem; }
+      /* ⚠️ Sotto i 1100px le due colonne tornano una: le card hanno un minimo
+         di 300px, e in mezza schermata stretta andrebbero a filo o fuori. */
+      @media (max-width: 1100px) { .due-col.aperta { grid-template-columns: 1fr; gap: 1.5rem; } }
       /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
          sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
          si vede il fondo della pagina attraverso, non un finto dentello
@@ -964,7 +982,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           </div>
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
-        <div class="grid" id="grid"></div>
+        {/* ⚠️ DUE COLONNE, E IL CONFINE E’ IL GESTO CHE SEGUE: un ritiro si
+            prepara e si mette sul bancone, un ordine in sala si PORTA. In una
+            lista sola i due si mescolano e la differenza sta in una pastiglia
+            che a mezzo metro dal tablet non si legge.
+            ⚠️ A sala spenta resta una colonna sola, esattamente come prima:
+            la seconda si apre quando l’interruttore e’ acceso OPPURE quando
+            nella lista c’e’ almeno un ordine al tavolo. Mai il contrario — un
+            ordine che non si vede e’ un piatto che nessuno porta. */}
+        <div class="due-col" id="due-col" data-sala={salaAttiva ? "1" : "0"}>
+          <section class="col-ord">
+            <h2 class="col-tit" id="col-tit-ritiri" style="display:none">{t("ord.colPickup")}</h2>
+            <div class="grid" id="grid"></div>
+          </section>
+          <section class="col-ord" id="col-sala" style="display:none">
+            <h2 class="col-tit">{t("ord.room")}</h2>
+            <div class="grid" id="grid-sala"></div>
+          </section>
+        </div>
         <h2 class="done-title" id="done-title" style="display:none">{t("ord.doneCancelled")}</h2>
         <div class="grid" id="grid-done"></div>
       </main>
@@ -1636,6 +1671,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const gridEl = document.getElementById("grid") as HTMLDivElement;
+        const gridSalaEl = document.getElementById("grid-sala") as HTMLDivElement;
+        const dueColEl = document.getElementById("due-col") as HTMLDivElement | null;
+        const colSalaEl = document.getElementById("col-sala") as HTMLElement | null;
+        const colTitRitiriEl = document.getElementById("col-tit-ritiri") as HTMLElement | null;
         const gridDoneEl = document.getElementById("grid-done") as HTMLDivElement;
         const doneTitleEl = document.getElementById("done-title") as HTMLHeadingElement;
         const countEl = document.getElementById("count") as HTMLParagraphElement;
@@ -1827,6 +1866,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             } else {
               stateEl.style.display = "none";
             }
+            /* ⚠️ LA RICERCA CHIUDE LE DUE COLONNE. Chi cerca sa gia’ chi
+               cerca: dividere i risultati fra ritiri e sala lo costringerebbe
+               a guardare in due posti. E svuotare la colonna della sala non e’
+               facoltativo — lasciata com’era, mostrerebbe le card di prima
+               accanto ai risultati, che e’ il modo di far leggere un ordine
+               che non c’entra niente. */
+            if (dueColEl) dueColEl.classList.remove("aperta");
+            if (colSalaEl) colSalaEl.style.display = "none";
+            if (colTitRitiriEl) colTitRitiriEl.style.display = "none";
+            gridSalaEl.innerHTML = "";
             gridEl.innerHTML = trovati.map(cardHTML).join("");
             gridDoneEl.innerHTML = "";
             doneTitleEl.style.display = "none";
@@ -1873,7 +1922,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             stateEl.style.display = "none";
           }
 
-          gridEl.innerHTML = attivi.map(cardHTML).join("");
+          /* ⚠️ La divisione la fa `alTavolo`, la stessa regola del ticket e
+             del semaforo. Scritta qui a mano (`o.service === "table"`), un
+             valore mai visto finirebbe in sala invece che fra i ritiri — e
+             `servizioDi` dice che nel dubbio e’ un ritiro. */
+          const inSala = attivi.filter((o) => alTavolo(o.service));
+          const daRitirare = attivi.filter((o) => !alTavolo(o.service));
+          /* La seconda colonna si apre con l’interruttore acceso O con almeno
+             un ordine al tavolo gia’ in lista: spegnere la sala a servizio
+             iniziato non deve far sparire chi sta mangiando. */
+          const apriSala = dueColEl?.dataset.sala === "1" || inSala.length > 0;
+          if (dueColEl) dueColEl.classList.toggle("aperta", apriSala);
+          if (colSalaEl) colSalaEl.style.display = apriSala ? "" : "none";
+          if (colTitRitiriEl) colTitRitiriEl.style.display = apriSala ? "" : "none";
+          gridEl.innerHTML = daRitirare.map(cardHTML).join("");
+          gridSalaEl.innerHTML = inSala.map(cardHTML).join("");
           gridDoneEl.innerHTML = spenti.map(cardHTML).join("");
           doneTitleEl.style.display = spenti.length > 0 ? "block" : "none";
         }

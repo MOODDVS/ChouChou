@@ -851,3 +851,126 @@ test("le parole della prima schermata stanno nella pagina, non nel dizionario", 
   // traduzioni della stessa parola si allontanano alla prima modifica.
   assert.match(TPAG, /firstName: t\("book\.firstName"\)/);
 });
+
+
+/* ==========================================================================
+   LA SCHEDA COMMANDES DI REGLAGES, divisa in due.
+   ========================================================================== */
+
+test("due schede: chi ordina da fuori, e chi e' dentro al locale", () => {
+  /* ⚠️ Erano sei interruttori di fila, e le due domande si leggevano come una
+     sola: «paghi online» e «ordini dal tavolo» non hanno niente in comune. */
+  assert.match(SET_PAG, /<h2>\{t\("set\.ord\.onlineTitle"\)\}<\/h2>/);
+  assert.match(SET_PAG, /<h2>\{t\("set\.ord\.salleTitle"\)\}<\/h2>/);
+  // I due interruttori della sala stanno nella SECONDA scheda.
+  const iSalle = SET_PAG.indexOf('set.ord.salleTitle');
+  assert.ok(iSalle > 0 && SET_PAG.indexOf('id="o-table"') > iSalle,
+    "l'interruttore della sala e' rimasto nella scheda degli ordini online");
+  assert.ok(SET_PAG.indexOf('id="o-pay-online"') < iSalle,
+    "il pagamento online e' finito nella scheda della sala");
+});
+
+test("il tempo di preparazione sparisce dalla vista, non dal salvataggio", () => {
+  /* ⚠️ IL PUT DEGLI ORARI LO PRETENDE: `Number.isFinite(prep)` e 400 senza.
+     Tolto il campo senza tenerne il valore, il salvataggio di QUALSIASI cosa
+     in Reglages morirebbe con un errore in faccia al ristoratore — e la
+     pagina non lo spiegherebbe. */
+  assert.match(SET_API, /if \(!Number\.isFinite\(prep\) \|\| prep < 0 \|\| prep > 240\)/,
+    "il PUT non pretende piu' prep_time_minutes: ricontrollare se la pagina debba ancora rimandarlo");
+  assert.doesNotMatch(SET_PAG, /id="prep"/, "il campo e' ancora li'");
+  assert.doesNotMatch(SET_PAG, /prepEl/, "resta un riferimento a un elemento che non esiste: la pagina morirebbe al caricamento");
+  assert.match(SET_PAG, /prep_time_minutes: prepCorrente,/);
+  assert.match(SET_PAG, /prepCorrente = Number\(dati\.prep_time_minutes\) \|\| 30;/);
+  // ⚠️ Il ripiego e' 30 come nell'API, non 0: una lettura fallita non deve
+  // scrivere «pronto fra un minuto» su tutti e sette i giorni.
+  assert.match(SET_PAG, /let prepCorrente = 30;/);
+});
+
+test("la durata di uno slot resta, e resta viva", () => {
+  // ⚠️ Tre fili, e mancandone uno il campo sembra funzionare: si riempie, si
+  // cambia, e al salvataggio torna com'era.
+  assert.match(SET_PAG, /id="slot" min="5" max="120"/);
+  assert.match(SET_PAG, /slotEl\.value = String\(dati\.slot_duration_minutes\)/);
+  assert.match(SET_PAG, /slotEl\.addEventListener\("input", dirty\)/,
+    "cambiare la durata non segna piu' la pagina come modificata: il bottone «salva» resta spento");
+  assert.match(SET_PAG, /slot_duration_minutes: Number\(slotEl\.value\)/);
+});
+
+test("l'interruttore non va a capo sotto la sua spiegazione", () => {
+  /* ⚠️ `.field` ha `flex-wrap: wrap`, e una spiegazione di due righe spingeva
+     il suo interruttore sulla riga sotto: letto di sfuggita sembrava
+     appartenere alla voce successiva, e il ristoratore accendeva l'altra
+     cosa. Visto sulle due voci nuove, che hanno il testo piu' lungo. */
+  assert.match(SET_PAG, /\.field:has\(> label\.switch\) \{ flex-wrap: nowrap; \}/);
+});
+
+test("i titoli delle due schede esistono in tutte e cinque le lingue", () => {
+  for (const k of ["set.ord.onlineTitle", "set.ord.salleTitle"]) {
+    for (const lang of ADMIN_LANG_CODES) {
+      const v = adminT(lang)(k);
+      assert.ok(v && v !== k, `${k} manca in ${lang}`);
+    }
+  }
+});
+
+
+/* ==========================================================================
+   LA PAGINA COMMANDES IN DUE COLONNE.
+
+   ⚠️ Il confine è il GESTO che segue: un ritiro si prepara e si mette sul
+   bancone, un ordine in sala si porta. In una lista sola i due si mescolano e
+   la differenza sta in una pastiglia che a mezzo metro dal tablet non si legge.
+   ========================================================================== */
+
+test("ritiri e sala, e la divisione la fa la regola condivisa", () => {
+  assert.match(ORD, /const inSala = attivi\.filter\(\(o\) => alTavolo\(o\.service\)\);/);
+  assert.match(ORD, /const daRitirare = attivi\.filter\(\(o\) => !alTavolo\(o\.service\)\);/);
+  /* ⚠️ `alTavolo`, non `o.service === "table"` scritto a mano: un valore mai
+     visto finirebbe in sala invece che fra i ritiri, e `servizioDi` dice che
+     nel dubbio è un ritiro. */
+  assert.doesNotMatch(ORD, /o\.service === "table"/,
+    "la divisione è scritta a mano: un valore sconosciuto finirebbe in sala");
+  assert.match(ORD, /gridSalaEl\.innerHTML = inSala\.map\(cardHTML\)\.join\(""\)/);
+});
+
+test("nessun ordine può sparire quando la sala si spegne", () => {
+  /* ⚠️ La seconda colonna si apre con l'interruttore acceso O con almeno un
+     ordine al tavolo già in lista. Legata al solo interruttore, spegnere la
+     sala a servizio iniziato farebbe sparire chi sta mangiando — e un ordine
+     che non si vede è un piatto che nessuno porta. */
+  assert.match(ORD, /const apriSala = dueColEl\?\.dataset\.sala === "1" \|\| inSala\.length > 0;/);
+  // E di ripiego è SPENTA: una colonna «Sala» vuota è mezzo schermo che non
+  // dice niente in cucina.
+  assert.match(ORD, /let salaAttiva = false;/);
+  assert.match(ORD, /salaAttiva = \(await opzioniTavolo\(ambitoOrd\)\)\.attivo;/);
+});
+
+test("la ricerca chiude le due colonne, e svuota quella della sala", () => {
+  /* ⚠️ Svuotarla non è facoltativo: lasciata com'era mostrerebbe le card di
+     prima accanto ai risultati della ricerca — un ordine che non c'entra
+     niente, letto come se c'entrasse. */
+  /* ⚠️ L'ancora e' CODICE, non un commento: `ORD` passa da `nudo()`, che i
+     commenti li toglie — cercare «Modalità RICERCA» rendeva -1, la finestra
+     veniva vuota, e la prova falliva su un codice giusto. */
+  const iRicerca = ORD.indexOf("if (ricerca) {");
+  const iRender = ORD.indexOf("const inSala = attivi.filter");
+  const blocco = ORD.slice(iRicerca, iRender);
+  assert.match(blocco, /gridSalaEl\.innerHTML = "";/,
+    "la colonna della sala non si svuota durante la ricerca");
+  assert.match(blocco, /dueColEl\.classList\.remove\("aperta"\)/);
+});
+
+test("sotto i 1100px le due colonne tornano una", () => {
+  // ⚠️ Le card hanno un minimo di 300px: in mezza schermata stretta
+  // andrebbero a filo o fuori, e la pagina Commandes si guarda su un tablet.
+  assert.match(ORD, /@media \(max-width: 1100px\) \{ \.due-col\.aperta \{ grid-template-columns: 1fr;/);
+});
+
+test("il titolo delle due colonne esiste in tutte e cinque le lingue", () => {
+  for (const k of ["ord.colPickup", "ord.room"]) {
+    for (const lang of ADMIN_LANG_CODES) {
+      const v = adminT(lang)(k);
+      assert.ok(v && v !== k, `${k} manca in ${lang}`);
+    }
+  }
+});
