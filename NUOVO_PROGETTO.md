@@ -98,9 +98,12 @@ Prima il DNS: record **A** del dominio nudo → `153.92.222.33`, TTL 300, e `www
 come **CNAME** verso il dominio nudo. ⚠️ Un ALIAS o CNAME preesistente sullo
 stesso nome va **cancellato**, non affiancato.
 
-1. Dal **Mac**, copia il sorgente (niente `.env`: il repo cliente non ne ha):
+1. Dal **Mac**, copia il sorgente (niente `.env`: il repo cliente non ne ha).
+   ⚠️ Le due `--exclude .env` e `--exclude ecosystem.config.cjs` **non sono
+   facoltative**: quei due file esistono solo sul server, e senza esclusione
+   `--delete` li cancella al primo aggiornamento (l'app riparte senza chiavi):
 
-        rsync -avz --delete --exclude node_modules --exclude build --exclude .git --exclude .astro -e "ssh -i ~/.ssh/moodd_vps" ~/Developer/<Cliente>/ enzo@153.92.222.33:/home/enzo/app-<cliente>/
+        rsync -avz --delete --exclude node_modules --exclude build --exclude .git --exclude .astro --exclude .env --exclude ecosystem.config.cjs -e "ssh -i ~/.ssh/moodd_vps" ~/Developer/<Cliente>/ enzo@153.92.222.33:/home/enzo/app-<cliente>/
 
 2. Sul **server**, il file delle variabili. Le due chiavi casuali le genera lui:
 
@@ -134,6 +137,31 @@ usa la stessa non parte e il messaggio parla di `EADDRINUSE`, non di porte:
 |---|---|
 | 4321 | `app.restohub.cloud` (motore, dimostrazione) |
 | 4322 | `villa77.be` |
+
+### Aggiornare un cliente gia' sul VPS (dopo `sync-clienti.sh`)
+
+Dal **Mac** — prima la prova, che non tocca niente e dice cosa cancellerebbe
+(deve uscire vuota, o solo file di codice vecchi):
+
+    rsync -avzn --delete --exclude node_modules --exclude build --exclude .git --exclude .astro --exclude .env --exclude ecosystem.config.cjs -e "ssh -i ~/.ssh/moodd_vps" ~/Developer/<Cliente>/ enzo@153.92.222.33:/home/enzo/app-<cliente>/ | grep deleting
+
+poi lo stesso comando senza la `n`. Sul **server**, un comando per volta:
+
+    grep ^PUBLIC_SITE_URL ~/app-<cliente>/.env
+    cd ~/app-<cliente> && npm ci && npm run build
+    pm2 restart <cliente>
+    curl -sI http://127.0.0.1:<porta> | head -1
+
+⚠️ La porta nel `curl` va scritta **a mano** dalla tabella qui sopra. Ricavarla
+dal file con un `grep` e' fragile: se non trova niente, il `curl` va sulla 80,
+risponde Caddy con un 200 e la prova sembra passata senza aver provato nulla.
+
+⚠️ **Se il sito non si apre ma `curl` su `127.0.0.1` risponde 200**, il problema
+non e' l'app: `getent hosts <dominio>` sul server. Se non risponde niente, il
+record **A** e' sparito dal DNS (successo il 16/10/2026 ad `app.restohub.cloud`:
+sul nome era rimasta solo la TXT `hosting-site=...` della vecchia Web App
+Hostinger, che considera suoi i record di quel nome). Si rimette il record A;
+Caddy ha gia' il certificato, non c'e' niente da riavviare.
 
 ### 5b. Su Hostinger (i clienti gia' li)
 

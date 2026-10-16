@@ -1,0 +1,191 @@
+---
+/**
+ * LA SCELTA DELLA LINGUA: un bottone (globo + lingua attuale) che apre un
+ * modale con le bandiere. Nato per la pagina del tavolo, dove sul telefono
+ * non c'e' posto per «FR / EN / IT» accanto al logo, e serve a qualunque
+ * header di un sito.
+ *
+ * ⚠️ Gli indirizzi li costruisce CHI LO USA, non questo file: le regole delle
+ * lingue (quale sta alla radice, quali pagine esistono) sono del sito. E chi
+ * lo usa sulla pagina del tavolo ci attacca la query: `?table=` e `?zone=`
+ * li ha scritti il QR stampato, e cambiando lingua non si devono perdere.
+ *
+ * ⚠️ `<dialog>` del browser, non un div: Esc, il fuoco che resta dentro e il
+ * resto della pagina non cliccabile li fa lui, anche con un lettore di schermo.
+ *
+ * Colori: variabili con ripiego, da dichiarare nel foglio del sito —
+ * `--sl-bg`, `--sl-text`, `--sl-line`, `--sl-ink` (l'accento).
+ */
+interface Props {
+  /** Le lingue del sito, nell'ordine in cui le mostra, con l'indirizzo della
+   *  stessa pagina in quella lingua. */
+  lingue: { code: string; href: string }[];
+  /** La lingua della pagina. */
+  attuale: string;
+}
+const { lingue, attuale } = Astro.props;
+
+/* Il nome di ogni lingua NELLA SUA lingua: chi non capisce il francese deve
+   riconoscere «English», non «Anglais». */
+const NOMI: Record<string, string> = {
+  fr: "Français", en: "English", it: "Italiano", nl: "Nederlands", es: "Español", de: "Deutsch",
+};
+const TITOLI: Record<string, { titolo: string; chiudi: string; apri: string }> = {
+  fr: { titolo: "Choisir la langue", chiudi: "Fermer", apri: "Langue" },
+  en: { titolo: "Choose your language", chiudi: "Close", apri: "Language" },
+  it: { titolo: "Scegli la lingua", chiudi: "Chiudi", apri: "Lingua" },
+  nl: { titolo: "Kies uw taal", chiudi: "Sluiten", apri: "Taal" },
+  es: { titolo: "Elija su idioma", chiudi: "Cerrar", apri: "Idioma" },
+  de: { titolo: "Sprache wählen", chiudi: "Schließen", apri: "Sprache" },
+};
+const tx = TITOLI[attuale] ?? TITOLI.en;
+/* Un id per modale: due header sulla stessa pagina non si aprono a vicenda. */
+const id = `sl-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<button type="button" class="sl-apri" data-sl-apri={id} aria-haspopup="dialog" aria-label={`${tx.apri} : ${NOMI[attuale] ?? attuale}`}>
+  <svg class="sl-globo" viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9.2" />
+    <path d="M2.8 12h18.4" />
+    <path d="M12 2.8c2.6 2.6 3.9 5.7 3.9 9.2s-1.3 6.6-3.9 9.2c-2.6-2.6-3.9-5.7-3.9-9.2S9.4 5.4 12 2.8z" />
+  </svg>
+  <span class="sl-codice">{attuale.toUpperCase()}</span>
+</button>
+
+<dialog class="sl-modale" id={id} aria-label={tx.titolo}>
+  <div class="sl-box">
+    <div class="sl-testa">
+      <p class="sl-tit">{tx.titolo}</p>
+      <button type="button" class="sl-x" data-sl-chiudi aria-label={tx.chiudi}>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </div>
+    <ul class="sl-lista">
+      {lingue.map(({ code, href }) => (
+        <li>
+          <a class={"sl-opz" + (code === attuale ? " is-ora" : "")} href={href} hreflang={code} lang={code}
+             aria-current={code === attuale ? "true" : undefined}>
+            <span class="sl-bandiera" aria-hidden="true">
+              {code === "fr" && (
+                <svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="1" height="2" fill="#002654" /><rect x="1" width="1" height="2" fill="#fff" /><rect x="2" width="1" height="2" fill="#ce1126" /></svg>
+              )}
+              {code === "it" && (
+                <svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="1" height="2" fill="#009246" /><rect x="1" width="1" height="2" fill="#fff" /><rect x="2" width="1" height="2" fill="#ce2b37" /></svg>
+              )}
+              {code === "nl" && (
+                <svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#21468b" /><rect width="3" height="1.334" fill="#fff" /><rect width="3" height=".667" fill="#ae1c28" /></svg>
+              )}
+              {code === "es" && (
+                <svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#aa151b" /><rect y=".5" width="3" height="1" fill="#f1bf00" /></svg>
+              )}
+              {code === "de" && (
+                <svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#ffce00" /><rect width="3" height="1.334" fill="#dd0000" /><rect width="3" height=".667" fill="#000" /></svg>
+              )}
+              {code === "en" && (
+                /* La Union Jack, semplificata: a 30px la diagonale rossa
+                   sfalsata non si vede comunque. */
+                <svg viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice"><rect width="60" height="30" fill="#012169" /><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6" /><path d="M0,0 L60,30 M60,0 L0,30" stroke="#c8102e" stroke-width="2.4" /><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10" /><path d="M30,0 v30 M0,15 h60" stroke="#c8102e" stroke-width="6" /></svg>
+              )}
+            </span>
+            <span class="sl-nome">{NOMI[code] ?? code.toUpperCase()}</span>
+            {code === attuale && (
+              <svg class="sl-spunta" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            )}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</dialog>
+
+<style>
+  /* Senza bordo, discreto: globo e sigla. L'area da toccare resta 44px
+     (la chiede un dito), anche se quello che si vede e' piu' piccolo. */
+  .sl-apri {
+    display: inline-flex; align-items: center; gap: .3rem;
+    min-height: 44px; padding: 0 .4rem;
+    border: 0; border-radius: .5rem; background: transparent; color: inherit;
+    font: inherit; font-size: .78rem; font-weight: 700; letter-spacing: .06em;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    opacity: .9;
+  }
+  .sl-apri:hover { opacity: 1; }
+  .sl-apri:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .sl-globo { flex: 0 0 auto; }
+
+  /* Il modale: un foglio che sale dal basso sul telefono, una scheda al
+     centro su uno schermo largo. */
+  .sl-modale {
+    --_bg: var(--sl-bg, #fff); --_text: var(--sl-text, #1b1b1b);
+    --_line: var(--sl-line, rgba(0, 0, 0, .12)); --_ink: var(--sl-ink, currentColor);
+    width: 100%; max-width: 26rem; margin: auto auto 0; padding: 0;
+    border: 0; background: transparent; color: var(--_text);
+  }
+  .sl-modale::backdrop { background: rgba(0, 0, 0, .55); }
+  .sl-modale[open] { animation: sl-entra .26s cubic-bezier(.2, .8, .2, 1); }
+  .sl-modale[open]::backdrop { animation: sl-velo .26s ease; }
+  .sl-modale.sl-esce { animation: sl-esce .2s ease forwards; }
+  .sl-modale.sl-esce::backdrop { animation: sl-velo-via .2s ease forwards; }
+  .sl-box {
+    background: var(--_bg); border-radius: 1.1rem 1.1rem 0 0;
+    padding: 1.1rem 1.1rem calc(1.2rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);
+  }
+  @media (min-width: 640px) {
+    .sl-modale { margin: auto; }
+    .sl-box { border-radius: 1.1rem; padding-bottom: 1.2rem; }
+  }
+  .sl-testa { display: flex; align-items: center; justify-content: space-between; margin-bottom: .7rem; }
+  .sl-tit { margin: 0; font-size: .95rem; font-weight: 700; letter-spacing: .02em; }
+  .sl-x {
+    width: 40px; height: 40px; display: grid; place-items: center;
+    border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer;
+  }
+  .sl-x:hover { background: var(--_line); }
+  .sl-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+  .sl-opz {
+    display: flex; align-items: center; gap: .85rem;
+    min-height: 56px; padding: .55rem .9rem;
+    border: 1px solid var(--_line); border-radius: .8rem;
+    color: inherit; text-decoration: none; font-size: 1rem;
+  }
+  .sl-opz:hover { border-color: var(--_ink); }
+  .sl-opz.is-ora { border-color: var(--_ink); box-shadow: inset 0 0 0 1px var(--_ink); font-weight: 700; }
+  .sl-bandiera {
+    flex: 0 0 auto; width: 32px; height: 22px; border-radius: 4px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .15);
+  }
+  .sl-bandiera svg { display: block; width: 100%; height: 100%; }
+  .sl-nome { flex: 1 1 auto; }
+  .sl-spunta { flex: 0 0 auto; color: var(--_ink); }
+
+  @keyframes sl-entra { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes sl-esce { from { transform: none; opacity: 1; } to { transform: translateY(24px); opacity: 0; } }
+  @keyframes sl-velo { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sl-velo-via { from { opacity: 1; } to { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .sl-modale[open], .sl-modale[open]::backdrop, .sl-modale.sl-esce, .sl-modale.sl-esce::backdrop { animation: none; }
+  }
+</style>
+
+<script>
+  /* Uno script solo per tutti i bottoni della pagina (Astro lo carica una
+     volta). Chiusura con l'animazione d'uscita: la classe, poi `close()`. */
+  function chiudi(d: HTMLDialogElement) {
+    if (!d.open || d.classList.contains("sl-esce")) return;
+    const riduci = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (riduci) { d.close(); return; }
+    d.classList.add("sl-esce");
+    window.setTimeout(() => { d.classList.remove("sl-esce"); d.close(); }, 200);
+  }
+  document.querySelectorAll<HTMLButtonElement>("[data-sl-apri]").forEach((b) => {
+    const d = document.getElementById(b.dataset.slApri ?? "") as HTMLDialogElement | null;
+    if (!d) return;
+    b.addEventListener("click", () => d.showModal());
+    d.querySelector("[data-sl-chiudi]")?.addEventListener("click", () => chiudi(d));
+    // Un tocco sul velo (fuori dalla scheda) chiude.
+    d.addEventListener("click", (e) => { if (e.target === d) chiudi(d); });
+    // Esc: il browser chiude da solo, senza animazione — la mettiamo noi.
+    d.addEventListener("cancel", (e) => { e.preventDefault(); chiudi(d); });
+  });
+</script>

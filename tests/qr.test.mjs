@@ -50,7 +50,8 @@ test("il QR e' un SVG solo, bianco e nero, con un path solo", () => {
 });
 
 test("la pagina del tavolo legge ?zone= e filtra con la regola", () => {
-  const pag = leggi("src/pages/table.astro");
+  // Il contenuto della pagina sta nel blocco del motore (`PaginaTavolo`).
+  const pag = leggi("src/components/PaginaTavolo.astro");
   assert.match(pag, /tavoli=\{tavoliDellaZona\(tavoli, zonaDaUrl\)\}/);
 });
 
