@@ -1,9 +1,9 @@
-import { leggiConfig, type Ambito } from "./admin/sede";
-import { CHIAVI_BRAND } from "./brandRegole";
+import { leggiConfig, elencoSedi, type Ambito } from "./admin/sede";
+import { CHIAVI_BRAND, immagineDelLocale } from "./brandRegole";
 
 /* Le regole pure si riesportano da qui: chi veste una pagina importa un file
    solo, e chi deve PROVARLE importa `brandRegole` senza passare da `db.ts`. */
-export { CHIAVI_BRAND, coloreTema } from "./brandRegole";
+export { CHIAVI_BRAND, coloreTema, immagineDelLocale } from "./brandRegole";
 
 /**
  * IL BRAND DEL CLIENTE, per una pagina PUBBLICA.
@@ -30,6 +30,8 @@ export interface BrandPubblico {
   logo: string;
   favicon: string;
   tema: Record<string, string>;
+  /** La foto del locale: quella della sede, o una del sito. Vuoto = nessuna. */
+  immagine: string;
 }
 
 export async function brandPubblico(ambito: Ambito): Promise<BrandPubblico> {
@@ -48,13 +50,19 @@ export async function brandPubblico(ambito: Ambito): Promise<BrandPubblico> {
     const logo =
       (valori.get("brand_logo_negative") ?? "").trim() ||
       (valori.get("brand_logo") ?? "").trim();
+    /* La foto della SEDE sta nella sua riga di `locations`, che `elencoSedi`
+       ha gia' in cache: nessuna lettura in piu'. */
+    const fotoSede = ambito.modo === "sede"
+      ? (await elencoSedi()).find((s) => s.id === ambito.id)?.image_url
+      : "";
     return {
       nome: (valori.get("restaurant_name") ?? "").trim(),
       logo,
       favicon: (valori.get("brand_favicon") ?? "").trim() || "/favicon.svg",
       tema,
+      immagine: immagineDelLocale(fotoSede, [1, 2, 3].map((i) => valori.get(`site_hero_${i}`))),
     };
   } catch {
-    return { nome: "", logo: "", favicon: "/favicon.svg", tema: {} };
+    return { nome: "", logo: "", favicon: "/favicon.svg", tema: {}, immagine: "" };
   }
 }

@@ -84,11 +84,14 @@ funzionante invece di lasciare che ogni cliente se la scriva — ma resta una
 Tre livelli, dal più economico al più libero. **Nessuno dei tre richiede di
 modificare il motore.**
 
-1. **Solo CSS.** Il sito veste le classi: `tbl-apri`, `tbl-titolo`, `tbl-intro`,
-   `tbl-form`, `tbl-campo`, `tbl-lab`, `tbl-aiuto`, `tbl-input`, `tbl-err`,
-   `tbl-btn` per il modulo d'ingresso; `order-*` per il menù e il carrello
-   (le stesse di `/order`); `order-table-at` e `order-email-why` per i due
-   pezzi che compaiono solo in sala. I colori passano da due variabili:
+1. **Solo CSS.** Il sito veste le classi: `tbl-pagina`, `tbl-titolo`,
+   `tbl-passi`/`tbl-passo` per il percorso in tre passi (scelta → dati →
+   pagamento); `tbl-form`, `tbl-campo`, `tbl-lab`, `tbl-tav`, `tbl-scegli`,
+   `tbl-pgrid`, `tbl-p`, `tbl-input` per tavolo e coperti, che compaiono nel
+   pannello dei dati del carrello; `tbl-modale` per la scelta del tavolo e,
+   con `tbl-chiuso` e `tbl-btn`, per il modale a servizio chiuso; `order-*`
+   per il menù e il carrello (le stesse di `/order`), più `order-email-why`
+   che compare solo in sala. I colori passano da due variabili:
    `.tbl-main { --tbl-ink: var(--mio-accento); --tbl-paper: #fff; }`.
 
 2. **La pagina diventa una pagina del sito.** Si sostituisce il guscio
@@ -110,8 +113,12 @@ modificare il motore.**
 3. **Modulo tutto suo.** `TableOrder` è una comodità, non un obbligo: la porta
    è `POST /api/table-session` (`{ table?, people, name, email?, lang?,
    reservation_id? }` → `{ reservation_id, table_id, table_label, service_key,
-   ripresa }`). Un sito che vuole un'altra esperienza scrive il suo modulo,
-   chiama quella rotta e poi monta `OrderApp` con la prop `tavolo`.
+   ripresa }`). Un sito che vuole un'altra esperienza monta `OrderApp` con
+   la prop `tavolo` e le passa i suoi campi (`campi`, `pronto`) e la sua
+   `apriSessione`, che chiama quella rotta **al momento di pagare**, non
+   prima: una sessione aperta da chi guarda il menù e se ne va è un tavolo
+   «seduto» nel piano sala per tutta la sera. Aperto o chiuso, prima di
+   mostrare il menù, lo dice `statoServizioSala(ambito)`.
 
 ⚠️ Cosa NON è negoziabile, e perché: le due rotte (`/api/table-session`,
 `/api/checkout`) rileggono tutto dal database — che la prenotazione sia di

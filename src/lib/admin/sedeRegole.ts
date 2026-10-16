@@ -145,6 +145,30 @@ export function sedeDettaDa(request: { headers: { get(n: string): string | null 
   return grezza === CHIESTA_TUTTE ? "" : grezza;
 }
 
+/**
+ * DI QUALE SEDE PARLA LA RICHIESTA — per id o per nome breve (`slug`).
+ *
+ * ⚠️ IL NOME BREVE E' PER GLI UMANI: `/table?sede=schaerbeek` si legge, si
+ * detta al telefono e si controlla a occhio su un cartoncino stampato;
+ * `?sede=5cf85a6a-…` no. L'id resta accettato per sempre: tutti i link e i
+ * QR gia' in giro lo usano, e un id non cambia mai.
+ *
+ * ⚠️ Il nome breve si confronta in minuscolo (lo slug si salva cosi'), e
+ * l'id ha la precedenza: uno slug non puo' «rubare» una sede a un id.
+ * Non trovata = `null`, e chi chiama ripiega come ha sempre fatto.
+ */
+export function riconosciSede(
+  sedi: { id: string; slug?: string | null }[],
+  chiesta: string,
+): string | null {
+  const c = chiesta.trim();
+  if (!c) return null;
+  const perId = sedi.find((s) => s.id === c);
+  if (perId) return perId.id;
+  const breve = c.toLowerCase();
+  return sedi.find((s) => (s.slug ?? "").trim().toLowerCase() === breve)?.id ?? null;
+}
+
 function paramDa(url: string): string {
   try {
     return (new URL(url).searchParams.get(PARAM_SEDE) ?? "").trim();

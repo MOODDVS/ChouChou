@@ -159,6 +159,13 @@ const t = adminT(lang);
       .sl-tot { margin-left: auto; background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-text); font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; white-space: nowrap; }
       .sl-tot.troppo { background: rgba(237, 28, 36, 0.16); border-color: rgba(237, 28, 36, 0.45); color: #ff8a8f; }
       .sl-tot:empty { display: none; }
+      /* L'avviso dei tavoli senza section: nasce nascosto (`hidden`) e lo
+         mostra il salvataggio, solo quando ce ne sono davvero. Che `hidden`
+         vinca su `.field { display: flex }` lo garantisce AdminHead per
+         tutte le pagine admin — qui non si riscrive. */
+      .orf-lista { margin: 0 0 .5rem; font-weight: 700; }
+      .orf-del { border-color: rgba(237, 28, 36, .45) !important; color: #ff8a8f !important; }
+      .orf-msg:empty { display: none; }
       .sl-msg { color: var(--c-muted); font-size: 0.8rem; }
       .sl-msg:empty { display: none; }
       .sl-body { grid-column: 2; grid-row: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: flex-start; overflow: hidden; container-type: size; }
@@ -690,6 +697,10 @@ const t = adminT(lang);
       /* Righe dinamiche + bottone "+ Ajouter" in un'unica colonna a destra:
          il bottone sta SEMPRE subito sotto l'ultima riga del suo campo. */
       .dyn-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+      /* Il link del QR: per intero e selezionabile, perche' c'e' chi lo copia
+         a mano in un generatore di QR. Monospazio: un carattere sbagliato in
+         un id e il cartoncino apre un altro locale. */
+      .qr-link input { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; margin-bottom: .4rem; }
       .dyn-col .kemails, .dyn-col .rzones { width: 100%; }
       /* Righe "sezione sala": nome + coperti + elimina */
       .rzones { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -1167,6 +1178,14 @@ const t = adminT(lang);
                 <button type="button" class="kemail-add" id="r-zone-add">{t("set.res.addZone")}</button>
               </div>
             </div>
+            <div class="field field-orfani" id="r-orfani" hidden>
+              <label>{t("set.res.orphans")}<span class="lab-hint">{t("set.res.orphansHint")}</span></label>
+              <div class="dyn-col">
+                <p class="orf-lista" id="r-orfani-lista"></p>
+                <button type="button" class="kemail-add orf-del" id="r-orfani-del">{t("set.res.orphansDelete")}</button>
+                <span class="orf-msg" id="r-orfani-msg"></span>
+              </div>
+            </div>
             <div class="field sl-filter-field">
               <label>{t("set.res.floorPlan")}<span class="lab-hint">{t("set.res.floorPlanHint")}</span></label>
               <div class="dyn-col sl-col">
@@ -1446,6 +1465,18 @@ const t = adminT(lang);
             <div class="field" id="o-table-notify-row" style="display:none">
               <label>{t("set.ord.tableNotify")}<span class="lab-hint">{t("set.ord.tableNotifyHint")}</span></label>
               <label class="switch"><input type="checkbox" id="o-table-notify" /><span class="track"></span></label>
+            </div>
+            {/* ⚠️ Il link lo scrive il SERVER, con la sede dentro: vedi
+                `link_tavolo` in settings.ts. Qui si mostra e si copia, mai si
+                compone — una pagina che attacca da sola `?sede=` e' la
+                prossima che se lo dimentica. Compare a sala accesa, come la
+                riga sopra: a chi non ordina dal tavolo un QR non serve. */}
+            <div class="field" id="o-table-link-row" style="display:none">
+              <label>{t("set.ord.tableLink")}<span class="lab-hint">{t("set.ord.tableLinkHint")}</span></label>
+              <div class="dyn-col qr-link">
+                <input type="text" id="o-table-link" readonly data-noauto="1" />
+                <button type="button" class="kemail-add" id="o-table-link-copy">{t("common.copy")}</button>
+              </div>
             </div>
           </div>
 
@@ -2126,6 +2157,59 @@ const t = adminT(lang);
             },
           });
         }
+
+        /* ============================================================
+           I TAVOLI RIMASTI SENZA SECTION
+
+           ⚠️ Le sections stanno in `app_config`, i tavoli in una tabella, e
+           niente tiene insieme le due cose: cancellare o RINOMINARE una
+           section lascia i suoi tavoli agganciati a una zona che non esiste
+           piu'. Il plan de salle non li mostra — chiede sempre una zona alla
+           volta — quindi non c'e' nessun posto in cui ci si possa accorgere
+           del problema. Si sono visti dall'altra parte, nel selettore del QR
+           sul tavolo: ventuno quadrati per diciannove tavoli, due «T1», e
+           chi toccava quello sbagliato mandava i piatti a un tavolo morto.
+
+           ⚠️ L'avviso compare DOPO il salvataggio, non durante: il conto lo
+           fa il server sulle sections appena scritte. Qui non si indovina
+           niente, e soprattutto non si cancella niente da soli — il motore
+           dice quanti sono, la mano resta al ristoratore.
+           ============================================================ */
+        const orfBox = document.getElementById("r-orfani") as HTMLDivElement;
+        const orfLista = document.getElementById("r-orfani-lista") as HTMLParagraphElement;
+        const orfDel = document.getElementById("r-orfani-del") as HTMLButtonElement;
+        const orfMsg = document.getElementById("r-orfani-msg") as HTMLSpanElement;
+
+        function mostraOrfani(lista: unknown): void {
+          const righe = Array.isArray(lista) ? (lista as { zone?: unknown; tavoli?: unknown }[]) : [];
+          orfMsg.textContent = "";
+          orfLista.textContent = righe
+            .map((o) => `${String(o.zone ?? "")} · ${Math.floor(Number(o.tavoli)) || 0} ${tr("set.res.orphansTables")}`)
+            .join("    ");
+          orfBox.hidden = righe.length === 0;
+        }
+
+        orfDel.addEventListener("click", async () => {
+          orfDel.disabled = true;
+          orfMsg.textContent = "";
+          try {
+            /* ⚠️ Nessun id nella richiesta: quali tavoli siano orfani lo
+               ricalcola il server adesso. Una lista costruita qui sarebbe
+               vecchia di quanto e' rimasta aperta la pagina. */
+            const res = await slFetch("/api/admin/tables?orphans=1", {
+              method: "POST",
+              headers: { "X-Method-Override": "DELETE" },
+            });
+            if (!res.ok) { orfMsg.textContent = tr("set.gen.deleteErrDot"); return; }
+            orfMsg.textContent = tr("set.res.orphansDone");
+            orfLista.textContent = "";
+            setTimeout(() => { orfBox.hidden = true; }, 1600);
+          } catch {
+            orfMsg.textContent = tr("common.netErr");
+          } finally {
+            orfDel.disabled = false;
+          }
+        });
 
         // Dimensioni (unità canvas 1000×600) da forma + posti
         function slMisura(shape: string, seats: number): { w: number; h: number } {
@@ -3769,7 +3853,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -3990,6 +4074,34 @@ const t = adminT(lang);
         };
         aggiornaRigaAvviso();
         swTavolo?.addEventListener("change", aggiornaRigaAvviso);
+        // Il link del QR: arriva gia' fatto dal server, con la sede dentro.
+        const rigaLink = document.getElementById("o-table-link-row") as HTMLElement | null;
+        const campoLink = document.getElementById("o-table-link") as HTMLInputElement | null;
+        const copiaLink = document.getElementById("o-table-link-copy") as HTMLButtonElement | null;
+        if (campoLink) campoLink.value = dati.link_tavolo ?? "";
+        const aggiornaRigaLink = () => {
+          if (!rigaLink) return;
+          // ⚠️ Senza link (vista «tutte le sedi») la riga non compare affatto:
+          // un campo vuoto con «Copier» accanto copierebbe il niente.
+          rigaLink.style.display = swTavolo?.checked && dati.link_tavolo ? "" : "none";
+        };
+        aggiornaRigaLink();
+        swTavolo?.addEventListener("change", aggiornaRigaLink);
+        if (campoLink && copiaLink) {
+          campoLink.addEventListener("focus", () => campoLink.select());
+          copiaLink.addEventListener("click", async () => {
+            if (!campoLink.value) return;
+            try {
+              await navigator.clipboard.writeText(campoLink.value);
+            } catch {
+              // Senza permesso agli appunti: lo si seleziona, e Cmd+C fa il resto.
+              campoLink.select();
+              return;
+            }
+            copiaLink.textContent = tr("set.ord.tableLinkCopied");
+            setTimeout(() => { copiaLink.textContent = tr("common.copy"); }, 1600);
+          });
+        }
         swCoupons?.addEventListener("change", aggiornaRigaCoupon);
         swOnsite?.addEventListener("change", aggiornaRigaCoupon);
         aggiornaRigaCoupon();
@@ -4388,6 +4500,8 @@ const t = adminT(lang);
               msgEl.textContent = json.error ?? tr("res.saveError");
               msgEl.classList.add("err");
             } else {
+              // Il server ha appena contato i tavoli rimasti senza section.
+              mostraOrfani(json.tavoli_orfani);
               saveBtn.classList.add("is-saved");
               saveBtn.textContent = tr("set.gen.saved");
               setTimeout(() => {

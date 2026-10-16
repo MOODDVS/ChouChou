@@ -605,8 +605,12 @@ test("il listener si toglie quando l'isola se ne va", () => {
 test("il modale dei formati esiste in tutt'e due le viste", () => {
   // ⚠️ Era montato solo nella vista menu. Un sito che aggiunge un piatto con
   // formati mentre il cliente compila i dati non avrebbe avuto dove chiedere.
-  const montaggi = [...ORDERAPP.matchAll(/<ModaleVarianti \/>/g)];
+  // ⚠️ Chiamato come FUNZIONE, non come `<ModaleVarianti />`: definito dentro
+  // OrderApp, come componente si rimonterebbe a ogni render, e l'animazione
+  // d'entrata ripartirebbe a ogni tocco su un formato.
+  const montaggi = [...ORDERAPP.matchAll(/\{ModaleVarianti\(\)\}/g)];
   assert.equal(montaggi.length, 2, "il modale non e' montato in tutt'e due le viste");
+  assert.doesNotMatch(ORDERAPP, /<ModaleVarianti \/>/, "il modale e' tornato un componente: si rimonta a ogni render");
 });
 
 /* ============================================================

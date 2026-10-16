@@ -74,6 +74,11 @@ interface CreaSessioneInput {
   // Base URL di ritorno (es. "/demo01") per gli ordini che partono da un
   // template: vince sul prefisso lingua. Assente = comportamento standard.
   returnBase?: string;
+  /** Dove torna chi preme «indietro» su Stripe. Assente = `/order-cancel`,
+   *  come sempre. ⚠️ Al tavolo NON e' un annullamento: e' un ripensamento
+   *  (un piatto in piu', un'altra carta), e la pagina giusta e' il carrello
+   *  che aveva davanti, non una pagina che gli dice «commande annulée». */
+  cancelUrl?: string;
   // Sconto coupon già calcolato lato server (centesimi). Se presente, viene
   // creato un coupon Stripe "usa e getta" (duration: once) applicato alla
   // sessione: il cliente vede la riduzione e paga il totale scontato.
@@ -91,6 +96,7 @@ export async function creaCheckoutSession({
   siteUrl,
   lang = defaultLang,
   returnBase,
+  cancelUrl,
   discount,
 }: CreaSessioneInput): Promise<string> {
   const sp = await stripeDi(ambito);
@@ -122,7 +128,7 @@ export async function creaCheckoutSession({
     ...(discounts ? { discounts } : {}),
     metadata: { order_id: orderId },
     success_url: `${siteUrl}${returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${returnBase ? `&lang=${lang}` : ""}`,
-    cancel_url: `${siteUrl}${returnBase ?? prefix}/order-cancel${returnBase ? `?lang=${lang}` : ""}`,
+    cancel_url: cancelUrl ?? `${siteUrl}${returnBase ?? prefix}/order-cancel${returnBase ? `?lang=${lang}` : ""}`,
   });
 
   if (!session.url) {

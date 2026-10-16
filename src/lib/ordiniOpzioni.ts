@@ -7,7 +7,11 @@
  * Vedi la nota in testa a quel file.
  */
 import { leggi, leggiConfig, pagamentoOnlineAttivo, type Ambito } from "./admin/sede";
-import { CHIAVI_ORDINI, acceso, avvisaIlCliente, type OpzioniOrdini } from "./ordiniRegole";
+import { DateTime } from "luxon";
+import { CHIAVI_ORDINI, acceso, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
+import { configGiornoEffettiva } from "./schedule";
+import { fusoDi } from "./fuso";
+import { tavoliDelPiano, type TavoloDiSala } from "./pianoSalaRegole";
 
 export { CHIAVI_ORDINI, acceso, RIPIEGO_ORDINI, type OpzioniOrdini } from "./ordiniRegole";
 
@@ -112,12 +116,70 @@ export async function opzioniTavolo(ambito: Ambito): Promise<OpzioniTavolo> {
   return { attivo: opz.tavolo, conTavoli, avvisa: avvisaIlCliente(opz.avvisoScelto, conTavoli) };
 }
 
-async function contaTavoli(ambito: Ambito): Promise<number> {
+export type { TavoloDiSala } from "./pianoSalaRegole";
+
+/**
+ * I TAVOLI DELLA SALA, per il menu a tendina del QR.
+ *
+ * ⚠️ L’ordine e i tavoli da tenere li decide `tavoliDelPiano` (regola pura,
+ * provata): sections nell’ordine dei Réglages, nomi confrontati in modo
+ * numerico, e FUORI i tavoli agganciati a sections che non esistono piu’.
+ *
+ * ⚠️ Lettura muta → elenco vuoto, che vuol dire «sala senza mappa»: si chiede
+ * solo il nome e si ordina lo stesso. Mai un errore in faccia a chi e’ seduto.
+ */
+export async function tavoliDiSala(ambito: Ambito): Promise<TavoloDiSala[]> {
   try {
-    const { data, error } = await leggi("restaurant_tables", ambito, "id");
-    if (error) return 0;
-    return (data ?? []).length;
+    /* ⚠️ Le due letture insieme: i tavoli NON bastano. Una riga di
+       `restaurant_tables` puo' appartenere a una section cancellata o
+       rinominata, e nessun piano di sala la mostra piu'. Chi decide quali
+       sono veri e' `reservation_zones` — la stessa chiave che il piano di
+       sala e l'assegnazione delle prenotazioni usano da sempre. */
+    const [righe, cfg] = await Promise.all([
+      leggi("restaurant_tables", ambito, "id, name, zone"),
+      leggiConfig(ambito, ["reservation_zones"]),
+    ]);
+    if (righe.error) return [];
+    return tavoliDelPiano(righe.data ?? [], cfg.valori.get("reservation_zones") ?? "");
   } catch {
-    return 0;
+    return [];
+  }
+}
+
+async function contaTavoli(ambito: Ambito): Promise<number> {
+  return (await tavoliDiSala(ambito)).length;
+}
+
+/** Il servizio della sala, adesso. */
+export interface StatoServizio {
+  aperto: boolean;
+  /** Chiuso: a che ora riapre OGGI. `null` = per oggi e' finita. */
+  riapre: string | null;
+}
+
+/**
+ * LA SALA E' APERTA ADESSO? — per la pagina del QR, prima di mostrare il menu.
+ *
+ * ⚠️ STESSI TRE PASSI, NELLO STESSO ORDINE, di `/api/table-session` e di
+ * `/api/checkout`: il fuso della sede, gli orari effettivi di oggi (giorni
+ * speciali compresi), `servizioInCorso`. Se la pagina rispondesse con un
+ * altro calcolo, prima o poi direbbe «aperto» e poi rifiuterebbe l'ordine
+ * al momento di pagare — dopo che il cliente ha composto la cena.
+ *
+ * ⚠️ Sta nel MOTORE e non nella pagina: `table.astro` e' del cliente
+ * (`merge=ours`), e una regola scritta li' dentro non si aggiornerebbe piu'.
+ *
+ * ⚠️ Orari illeggibili → CHIUSO, come fanno le due rotte: meglio un modale
+ * che dice «chiuso» di un menu che poi rifiuta di prendere i soldi.
+ */
+export async function statoServizioSala(ambito: Ambito): Promise<StatoServizio> {
+  try {
+    const ora = DateTime.now().setZone(await fusoDi(ambito));
+    const cfg = await configGiornoEffettiva(ora, ambito);
+    const hhmm = ora.toFormat("HH:mm");
+    if (servizioInCorso(cfg, hhmm)) return { aperto: true, riapre: null };
+    return { aperto: false, riapre: prossimaApertura(cfg, hhmm) };
+  } catch {
+    return { aperto: false, riapre: null };
   }
 }

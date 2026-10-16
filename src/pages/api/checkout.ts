@@ -10,6 +10,7 @@ import { fusoDi } from "../../lib/fuso";
 import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
 import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { modiDiPagamento, opzioniTavolo, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
@@ -586,6 +587,24 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
+  /* ⚠️ AL TAVOLO «INDIETRO» SU STRIPE NON ANNULLA NIENTE. Chi e' seduto e
+     torna indietro dal pagamento vuole cambiare qualcosa — un piatto, i
+     coperti, un'altra carta — e trovava «Commande annulée» e un link al
+     sito: il carrello sparito dalla vista, la sala da rifare. Si torna alla
+     pagina del tavolo, con la stessa sede con cui e' arrivato (id o nome
+     breve, com'era), dritti sui dati (`ripresa=1`): carrello, tavolo e
+     coperti li ritrova lui, sono nel suo browser.
+     ⚠️ `/table` sta alla radice per contratto (il QR e' stampato): niente
+     prefisso del sito qui, a differenza delle pagine di conferma. */
+  let ritornoTavolo: string | undefined;
+  if (aTavolo) {
+    const u = new URL(`${siteUrl.replace(/\/$/, "")}/table`);
+    const sedeChiesta = sedeDettaDa(request);
+    if (sedeChiesta) u.searchParams.set(PARAM_SEDE, sedeChiesta);
+    u.searchParams.set("ripresa", "1");
+    ritornoTavolo = u.toString();
+  }
+
   try {
     const url = await creaCheckoutSession({
       // Chi incassa: il punto che il cliente ha scelto, lo stesso con cui
@@ -598,6 +617,7 @@ export const POST: APIRoute = async ({ request }) => {
       // ⚠️ Il prefisso del sito viene dalla CONFIGURAZIONE, non dal nome di
       // un demo scritto qui dentro. Vedi `lib/basePubblica.ts`.
       returnBase: await basePubblicaOpz(ambitoPub),
+      cancelUrl: ritornoTavolo,
       discount:
         scontoCents > 0
           ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }

@@ -320,7 +320,18 @@ export interface OrariDelGiorno {
 /** "HH:MM" → minuti dalla mezzanotte. Un'ora illeggibile rende `null`, che
  *  chi chiama tratta come «non lo so», mai come «mezzanotte». */
 function minuti(hhmm: unknown): number | null {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm ?? "").trim());
+  /* ⚠️ I SECONDI SONO FACOLTATIVI, e non e' una gentilezza: `lunch_open` e
+     compagni sono colonne `time` di Postgres e tornano «12:00:00». Con
+     l'ancora stretta `^\d{1,2}:\d{2}$` quella stringa non passava, `minuti`
+     rendeva null, `dentro()` rispondeva sempre falso e `servizioInCorso`
+     diceva CHIUSO a qualunque ora, in qualunque ristorante aperto. Dal
+     16/10/2026, visto su un QR al tavolo: «Le service est fermé» alle 13:40
+     di un venerdi' di servizio.
+     ⚠️ I test non l'avevano visto perche' scrivevo io i finti orari, e li
+     scrivevo «12:00» — cioe' chiedevo alla prova di confermare la mia idea
+     del dato invece del dato. Il resto del motore lo sapeva gia': ovunque si
+     confrontino orari c'e' uno `.slice(0, 5)` prima. */
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$/.exec(String(hhmm ?? "").trim());
   if (!m) return null;
   const h = Number(m[1]);
   const mi = Number(m[2]);
@@ -351,4 +362,34 @@ export function servizioInCorso(cfg: OrariDelGiorno | null | undefined, hhmm: st
   if (cfg.dinner_active !== false && dentro(cfg.dinner_open, cfg.dinner_close)) return "soir";
   if (cfg.lunch_active !== false && dentro(cfg.lunch_open, cfg.lunch_close)) return "midi";
   return null;
+}
+
+/**
+ * A CHE ORA RIAPRE OGGI, se riapre. `null` = per oggi e' finita (o non si sa).
+ *
+ * ⚠️ Serve a dire al cliente QUANDO, non solo «chiuso». «Fermé pour le
+ * moment» davanti a un QR alle 15:00 si legge «non funziona»; «on rouvre à
+ * 17:00» si legge «torno dopo». E' la differenza fra un cliente perso e uno
+ * che aspetta un'ora.
+ *
+ * ⚠️ Solo OGGI, e di proposito: dire «riapre martedi'» a chi e' gia' seduto
+ * al tavolo non e' un'informazione, e il giorno dopo il locale puo' aver
+ * cambiato orari. Una fascia con un'ora illeggibile non conta — meglio non
+ * promettere un orario che inventarlo.
+ */
+export function prossimaApertura(cfg: OrariDelGiorno | null | undefined, hhmm: string): string | null {
+  const ora = minuti(hhmm);
+  if (ora === null || !cfg) return null;
+  const aperture: number[] = [];
+  const fascia = (attiva: boolean | null | undefined, apre: unknown, chiude: unknown) => {
+    if (attiva === false) return;
+    const a = minuti(apre);
+    if (a === null || minuti(chiude) === null) return;
+    if (a > ora) aperture.push(a);
+  };
+  fascia(cfg.lunch_active, cfg.lunch_open, cfg.lunch_close);
+  fascia(cfg.dinner_active, cfg.dinner_open, cfg.dinner_close);
+  if (aperture.length === 0) return null;
+  const m = Math.min(...aperture);
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }

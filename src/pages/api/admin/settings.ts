@@ -10,11 +10,15 @@ import { adminT } from "../../../i18n/admin";
 // Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
-  ambitoDiRichiesta, leggiConfig, scriviConfig, cancellaConfig,
+  ambitoDiRichiesta, leggi, leggiConfig, scriviConfig, cancellaConfig, elencoSedi,
   leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo,
+  type Ambito,
 } from "../../../lib/admin/sede";
+import { orfaniDelPiano, type SezioneOrfana } from "../../../lib/pianoSalaRegole";
 import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordiniRegole";
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
+import { indirizzoPubblico } from "../../../lib/indirizzoPubblico";
+import { urlConSede } from "../../../lib/sedeUrl";
 
 export const prerender = false;
 
@@ -24,6 +28,37 @@ export const prerender = false;
  *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
 async function msg(chiave: string): Promise<string> {
   return adminT(await adminLang())(chiave);
+}
+
+/**
+ * I TAVOLI RIMASTI SENZA SECTION, dopo aver salvato le sections.
+ *
+ * ⚠️ Non blocca MAI il salvataggio. Le sections sono gia' scritte quando si
+ * arriva qui: questa e' una notizia da dare, non una condizione da superare.
+ * Qualunque cosa vada storta nella lettura si tace e si va avanti — il
+ * ristoratore ha chiesto di salvare, non di sapere quanti tavoli perde.
+ *
+ * ⚠️ Il confronto e' con le sections APPENA SALVATE, non con quelle di prima:
+ * cosi' il primo salvataggio dopo questo cambiamento fa emergere anche i
+ * fantasmi accumulati prima, che nessuno aveva mai contato.
+ */
+/** Il nome breve di una sede per i link pubblici; l'id se non ne ha uno. */
+async function nomeBreveSede(id: string): Promise<string> {
+  try {
+    return (await elencoSedi()).find((s) => s.id === id)?.slug?.trim() || id;
+  } catch {
+    return id;
+  }
+}
+
+async function tavoliSenzaSection(ambito: Ambito, zonesJson: string): Promise<SezioneOrfana[]> {
+  try {
+    const { data, error } = await leggi("restaurant_tables", ambito, "id, zone");
+    if (error) return [];
+    return orfaniDelPiano(data ?? [], zonesJson);
+  } catch {
+    return [];
+  }
 }
 
 // Riga oraria di un giorno, come viaggia tra admin e API.
@@ -243,6 +278,24 @@ export const GET: APIRoute = async ({ request }) => {
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
        un guasto. */
     sala_con_tavoli: sala.conTavoli,
+    /* ⚠️ IL LINK DEL QR LO SCRIVE IL SERVER, CON LA SEDE DENTRO. Un QR
+       stampato vive anni su un tavolo: se puntasse a `/table` e basta,
+       varrebbe per «la prima sede attiva» — giusto finche' ne e' accesa una
+       sola, sbagliato il giorno in cui se ne riaccende un'altra: i cartoncini
+       di una sede aprirebbero il menu, i tavoli e gli orari di un'altra, e
+       nessuno se ne accorgerebbe (successo il 16/10/2026: tre sedi, una
+       accesa, e dall'admin di quella spenta sembrava un guasto).
+       ⚠️ Il parametro lo attacca `urlConSede`, la stessa regola di tutto il
+       fronte: a sede unica non aggiunge niente e il link resta `/table`.
+       ⚠️ Con «tutte le sedi» il link NON esiste: non e' un posto dove ci si
+       siede, e un QR senza sede e' esattamente il guasto qui sopra. */
+    /* ⚠️ COL NOME BREVE DELLA SEDE (`slug`), non con l'id: un cartoncino con
+       `?sede=schaerbeek` si legge e si controlla a occhio, uno con un uuid no.
+       Lo riconosce `riconosciSede`, nello stesso posto dove si riconosce
+       l'id. Senza slug (non dovrebbe succedere: e' obbligatorio) resta l'id. */
+    link_tavolo: ambito.modo === "tutte"
+      ? ""
+      : urlConSede(`${indirizzoPubblico(request)}/table`, ambito.modo === "sede" ? await nomeBreveSede(ambito.id) : ""),
     // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
     // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
     // Senza questo, un interruttore acceso sembrerebbe una promessa mantenuta.
@@ -632,9 +685,15 @@ export const PUT: APIRoute = async ({ request }) => {
   // svuotare la cache di boot così il logo nuovo si vede al primo reload.
   if (generalPulito.length > 0) { cacheDel(CACHE_ADMIN_BOOT); cacheDel("public:favicon"); }
 
+  // ⚠️ Gli orfani si contano DOPO la scrittura, mai prima: se si contassero
+  // sul valore in arrivo e il salvataggio poi fallisse, si proporrebbe di
+  // cancellare tavoli che appartengono ancora a una section viva.
+  let orfani: SezioneOrfana[] = [];
   if (resaPulito.length > 0) {
     const err = await scriviConfig(ambitoPut, Object.fromEntries(resaPulito));
     if (err) return json({ error: await msg("err.resSave") }, 500);
+    const zone = resaPulito.find(([k]) => k === "reservation_zones")?.[1];
+    if (zone !== undefined) orfani = await tavoliSenzaSection(ambitoPut, zone);
   }
 
   // ---- Tab Ordini: come si paga in questo punto ----
@@ -662,5 +721,5 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito
-  return json({ ok: true });
+  return json({ ok: true, tavoli_orfani: orfani });
 };
