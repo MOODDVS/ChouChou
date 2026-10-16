@@ -28,7 +28,8 @@ import { getLangFromUrl, useTranslations } from "../i18n/ui";
 import TableOrder from "../components/TableOrder";
 import type { TestiSessione } from "../components/TableOrder";
 import Fonts from "../components/Fonts.astro";
-import { CLIENT } from "../config/client";
+import Immagine from "../components/Immagine.astro";
+import { brandPubblico, coloreTema } from "../lib/brandPubblico";
 
 export const prerender = false;
 
@@ -45,10 +46,31 @@ const sala = await opzioniTavolo(ambito);
    rifiuta l'ordine dopo che ha composto la cena. */
 if (!sala.attivo) return new Response(null, { status: 404 });
 
-const [menu, pagamento] = await Promise.all([
+const [menu, pagamento, brand] = await Promise.all([
   getMenuSala(ambito),
   modiDiPagamento(ambito),
+  brandPubblico(ambito),
 ]);
+
+/* ⚠️ IL VESTITO VIENE DAI REGLAGES DEL CLIENTE, non dal motore. Logo,
+   nome e colori sono quelli che il ristoratore ha gia’ messo: una pagina del
+   motore non ha un design suo, e non deve averne uno. Senza questa riga la
+   pagina esce in Times New Roman su fondo bianco — tecnicamente giusta, e per
+   chi inquadra il QR seduto al tavolo e’ il sito di nessuno.
+   ⚠️ E restano VARIABILI: il cliente che rifa’ questa pagina, o che scrive
+   una riga nel suo foglio di stile, vince su tutto senza toccare il motore. */
+const cBg = coloreTema(brand.tema, "bg");
+const cText = coloreTema(brand.tema, "text");
+const cMuted = coloreTema(brand.tema, "muted");
+const cLine = coloreTema(brand.tema, "line");
+const cAccent = coloreTema(brand.tema, "accent");
+const stileTema = [
+  `--tbl-bg:${cBg}`, `--tbl-text:${cText}`, `--tbl-muted:${cMuted}`,
+  `--tbl-line:${cLine}`,
+  /* Il testo sui bottoni d’accento e’ il fondo pagina: e’ la regola che il
+     tema dichiara da se’ (vedi `TEMA_DEFAULT`), non una scelta presa qui. */
+  `--tbl-ink:${cAccent}`, `--tbl-paper:${cBg}`,
+].join(";");
 
 /**
  * LE PAROLE DELLA PRIMA SCHERMATA, qui e non nel dizionario pubblico.
@@ -180,11 +202,21 @@ const testiOrdine = {
     {/* ⚠️ `noindex`: la pagina del QR non deve finire su Google. Chi la
         trovasse cercando il ristorante aprirebbe un tavolo da casa. */}
     <meta name="robots" content="noindex, nofollow" />
-    <title>{CLIENT.nome}</title>
+    <title>{brand.nome}</title>
+    <meta name="theme-color" content={cBg} />
+    <link rel="icon" href={brand.favicon} />
     <Fonts />
   </head>
   <body>
-    <main class="tbl-main">
+    <main class="tbl-main" style={stileTema}>
+      {/* ⚠️ `<Immagine>` e non un tag immagine nudo: il posto lo PRETENDE, e
+          qui serve
+          davvero. Il logo arriva dai Reglages e la sua forma qui non si sa, ma
+          e’ lo spostamento verticale che fa saltare la pagina mentre carica —
+          e questa si apre su un telefono, tenuto in mano, da chi sta per
+          toccare un campo. Le misure sono il riquadro massimo; il CSS tiene le
+          proporzioni dentro. */}
+      {brand.logo && <Immagine class="tbl-logo" src={brand.logo} alt={brand.nome} width={220} height={72} />}
       <TableOrder
         client:load
         menu={menu}
@@ -198,21 +230,50 @@ const testiOrdine = {
         pagamento={pagamento}
       />
     </main>
-    <style>
+    {/* ⚠️ `is:global`, E NON E’ PIGRIZIA. Astro marca con `data-astro-…`
+        solo gli elementi del SUO template; questo modulo lo disegna React
+        dentro l’isola, quindi uno stile «scoped» non combacia con niente e la
+        pagina esce nuda — senza un errore da nessuna parte, in Astro o in
+        console. E’ lo stesso motivo per cui `reservation.astro` e
+        `ReservationWidget.astro` fanno gia’ cosi’. */}
+    <style is:global>
       /* Il vestito delle sole classi NUOVE. Il resto della pagina usa le
          `order-*` del sito, che il cliente veste gia' per /order. */
-      .tbl-main { max-width: 34rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-      .tbl-titolo { font-size: 1.6rem; margin: 0 0 .4rem; }
-      .tbl-intro { margin: 0 0 1.5rem; opacity: .75; line-height: 1.5; }
+      /* ⚠️ DUE VARIABILI, NON DUE COLORI SCRITTI DENTRO. Il motore non
+         conosce la tavolozza di questo sito, e non deve imporgliene una: qui
+         ci sono due neutri che servono solo a far vedere qualcosa il primo
+         giorno. Il cliente li cambia dal SUO foglio di stile con una riga —
+         `.tbl-main { --tbl-ink: var(--mio-accento); }` — senza toccare questa
+         pagina, quindi senza nessun conflitto al merge. */
+      /* ⚠️ I ripieghi stanno QUI, non nei valori scritti sopra: se la lettura
+         dei Reglages non riesce, la pagina deve uscire sobria e leggibile —
+         mai bianco su bianco. L’attributo `style` del <main> li sovrascrive
+         quando il brand c’e’. */
+      body { background: #fff; margin: 0; }
+      .tbl-main { --tbl-bg: #fff; --tbl-text: #1b1b1b; --tbl-muted: #6b6b6b;
+                  --tbl-line: #c9c9c9; --tbl-ink: #1b1b1b; --tbl-paper: #fff;
+                  background: var(--tbl-bg); color: var(--tbl-text);
+                  font-family: var(--font-body);
+                  min-height: 100vh; max-width: 34rem; margin: 0 auto;
+                  padding: 1.5rem 1rem 3rem; }
+      .tbl-logo { display: block; width: auto; height: 72px; max-width: 220px; margin: 0 auto 1.6rem; object-fit: contain; }
+      .tbl-titolo { font-family: var(--font-title); font-size: 1.6rem; margin: 0 0 .4rem; }
+      .tbl-intro { margin: 0 0 1.5rem; color: var(--tbl-muted); line-height: 1.5; }
       .tbl-form { display: flex; flex-direction: column; gap: 1rem; }
       .tbl-campo { display: flex; flex-direction: column; gap: .35rem; }
       .tbl-lab { display: flex; flex-direction: column; font-weight: 600; }
-      .tbl-aiuto { font-weight: 400; font-size: .85rem; opacity: .7; margin-top: .15rem; }
-      .tbl-input { padding: .7rem .8rem; font-size: 1rem; border: 1px solid currentColor; border-radius: .4rem; background: transparent; color: inherit; }
+      .tbl-aiuto { font-weight: 400; font-size: .85rem; color: var(--tbl-muted); margin-top: .15rem; }
+      /* ⚠️ 16px pieni, mai meno: sotto i 16px iOS ZOOMA sul campo appena lo
+         si tocca, e chi ordina si ritrova la pagina ingrandita e storta. */
+      .tbl-input { padding: .7rem .8rem; font-size: 16px; border: 1px solid var(--tbl-line); border-radius: .4rem; background: transparent; color: inherit; }
       .tbl-err { margin: 1rem 0 0; color: #c0392b; font-weight: 600; }
       /* ⚠️ 48px di altezza e larghezza piena: si tocca con il pollice, in
          piedi, su un telefono tenuto con una mano sola. */
-      .tbl-btn { margin-top: 1.5rem; width: 100%; min-height: 48px; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: .4rem; background: currentColor; cursor: pointer; }
+      /* ⚠️ Due colori DICHIARATI, non `currentColor`: lo sfondo preso da
+         `currentColor` e il testo che eredita lo stesso colore davano un
+         rettangolo pieno con la scritta invisibile. Sono i due neutri del
+         motore: il sito del cliente li sovrascrive col suo accento. */
+      .tbl-btn { margin-top: 1.5rem; width: 100%; min-height: 48px; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: .4rem; background: var(--tbl-ink); color: var(--tbl-paper); cursor: pointer; }
       .tbl-btn:disabled { opacity: .45; cursor: default; }
     </style>
   </body>

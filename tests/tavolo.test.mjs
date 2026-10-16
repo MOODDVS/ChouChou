@@ -974,3 +974,68 @@ test("il titolo delle due colonne esiste in tutte e cinque le lingue", () => {
     }
   }
 });
+
+
+test("lo stile della pagina del QR arriva davvero all'isola", () => {
+  /* ⚠️ IL DIFETTO CHE QUESTA PROVA TIENE CHIUSO NON DA' NESSUN ERRORE. Astro
+     marca con `data-astro-…` solo gli elementi del SUO template; il modulo lo
+     disegna React dentro l'isola, quindi uno stile «scoped» non combacia con
+     niente e la pagina esce nuda — niente in Astro, niente in console, solo
+     un modulo senza vestito su un telefono al tavolo. */
+  assert.match(TPAG, /<style is:global>/,
+    "lo stile e' scoped: non raggiunge il DOM disegnato da React e la pagina esce nuda");
+  // ⚠️ E il bottone ha due colori dichiarati: con `background: currentColor`
+  // il testo ereditava lo stesso colore dello sfondo — un rettangolo pieno.
+  /* ⚠️ Due VARIABILI, non due colori scritti dentro: il motore non conosce
+     la tavolozza del sito e non deve imporgliene una. Il cliente le cambia dal
+     suo foglio di stile, senza toccare la pagina e senza conflitti al merge. */
+  assert.match(TPAG, /\.tbl-btn \{[^}]*background: var\(--tbl-ink\); color: var\(--tbl-paper\);/);
+  assert.match(TPAG, /--tbl-ink: #1b1b1b; --tbl-paper: #fff;/);
+  assert.doesNotMatch(TPAG, /background: currentColor/);
+  // Le altre pagine del motore che vestono un'isola fanno gia' cosi'.
+  assert.match(leggi("src/components/ReservationWidget.astro"), /<style is:global>/,
+    "il modello e' cambiato: ricontrollare come si veste un'isola");
+});
+
+
+test("la pagina del QR si veste col brand del CLIENTE, non del motore", () => {
+  /* ⚠️ Una pagina del motore non ha un design suo e non deve averne uno: dà
+     le porte ai dati, il vestito è del cliente. Senza questa lettura esce in
+     Times New Roman su fondo bianco — tecnicamente giusta, e per chi inquadra
+     il QR seduto al tavolo è il sito di nessuno. */
+  assert.match(TPAG, /brandPubblico\(ambito\)/);
+  assert.match(TPAG, /coloreTema\(brand\.tema, "accent"\)/);
+  assert.match(TPAG, /\{brand\.logo && <Immagine class="tbl-logo"[^>]*width=\{220\} height=\{72\}/,
+    "il logo e' tornato un tag immagine nudo: senza misure la pagina salta mentre carica");
+  assert.match(TPAG, /font-family: var\(--font-body\)/);
+  assert.match(TPAG, /font-family: var\(--font-title\)/);
+  // E i colori restano VARIABILI: una riga nel foglio di stile del cliente
+  // vince su tutto, senza toccare il motore.
+  assert.match(TPAG, /style=\{stileTema\}/);
+
+  /* ⚠️ LE REGOLE STANNO IN UN FILE CHE NON ARRIVA A `db.ts`. Quello crea il
+     client Supabase all’import e lancia senza le variabili d’ambiente: con
+     l’elenco delle chiavi dentro `brandPubblico`, la prova che lo importa non
+     partirebbe nemmeno e vitest la conterebbe come zero. Stessa divisione di
+     `ordiniRegole`/`ordiniOpzioni` e `stampaRegole`/`stampaCoda`. */
+  const brandRegole = nudo("src/lib/brandRegole.ts");
+  assert.doesNotMatch(brandRegole, /from "\.\/admin\/sede"|from "\.\/db"/,
+    "brandRegole ha un import che porta a db.ts: le prove che lo importano smettono di partire");
+  assert.match(brandRegole, /export const CHIAVI_BRAND/);
+
+  const brandLib = nudo("src/lib/brandPubblico.ts");
+  /* ⚠️ `leggiConfig(ambito)`, non `supabaseAdmin` a mano: in un gruppo con più
+     punti il logo e i colori possono essere diversi per sede, e una lettura
+     senza ambito darebbe il marchio del primo. */
+  assert.match(brandLib, /leggiConfig\(ambito, CHIAVI_BRAND\)/);
+  assert.doesNotMatch(brandLib, /supabaseAdmin/);
+  // ⚠️ E non lancia mai: un database muto dà una pagina sobria, non rotta.
+  assert.match(brandLib, /return \{ nome: "", logo: "", favicon: "\/favicon\.svg", tema: \{\} \};/);
+});
+
+test("i campi del modulo non scendono sotto i 16px", () => {
+  /* ⚠️ Sotto i 16px iOS ZOOMA sul campo appena lo si tocca, e chi ordina si
+     ritrova la pagina ingrandita e storta — con una mano sola, in piedi, al
+     tavolo. La stessa regola c'è già per il widget prenotazioni. */
+  assert.match(TPAG, /\.tbl-input \{[^}]*font-size: 16px/);
+});
