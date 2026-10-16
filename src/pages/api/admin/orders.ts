@@ -212,7 +212,9 @@ export const GET: APIRoute = async ({ request, url }) => {
   // Colonne #50 (differenza dopo modifica). Se la migrazione non e' ancora
   // stata lanciata, il primo select fallisce e si ripiega sui campi base:
   // la lista continua a funzionare, la feature differenza resta dormiente.
-  const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method";
+  // `source` (#29, piu' vecchia della #50): «en ligne» o creato a mano, per il
+  // nastro in testa alla card. Assente → il nastro dice solo «à emporter».
+  const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method, source";
   /* Colonne #82 (ordinare dal tavolo). ⚠️ Un tentativo A PARTE, non
      attaccato a EXTRA_50: uniti, un cliente che ha la #50 ma non la #82
      ricadrebbe sui soli campi base e perderebbe `payment_method` — cioe’ gli

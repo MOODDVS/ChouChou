@@ -926,59 +926,28 @@ test("i titoli delle due schede esistono in tutte e cinque le lingue", () => {
 
 
 /* ==========================================================================
-   LA PAGINA COMMANDES IN DUE COLONNE.
+   LA PAGINA COMMANDES: UNA COLONNA, E UN NASTRO SU OGNI CARD.
 
-   ⚠️ Il confine è il GESTO che segue: un ritiro si prepara e si mette sul
-   bancone, un ordine in sala si porta. In una lista sola i due si mescolano e
-   la differenza sta in una pastiglia che a mezzo metro dal tablet non si legge.
+   ⚠️ Le due colonne «Retraits / Salle» sono state tolte il 16/10/2026: si
+   guardava in due posti per sapere cosa c'era da fare. La differenza fra un
+   ritiro e un ordine da portare al tavolo la dice il nastro in testa alla
+   card, pieno corallo per la sala.
    ========================================================================== */
 
-test("ritiri e sala, e la divisione la fa la regola condivisa", () => {
-  assert.match(ORD, /const inSala = attivi\.filter\(\(o\) => alTavolo\(o\.service\)\);/);
-  assert.match(ORD, /const daRitirare = attivi\.filter\(\(o\) => !alTavolo\(o\.service\)\);/);
-  /* ⚠️ `alTavolo`, non `o.service === "table"` scritto a mano: un valore mai
-     visto finirebbe in sala invece che fra i ritiri, e `servizioDi` dice che
-     nel dubbio è un ritiro. */
-  assert.doesNotMatch(ORD, /o\.service === "table"/,
-    "la divisione è scritta a mano: un valore sconosciuto finirebbe in sala");
-  assert.match(ORD, /gridSalaEl\.innerHTML = inSala\.map\(cardHTML\)\.join\(""\)/);
+test("una lista sola, nell'ordine di sempre", () => {
+  assert.doesNotMatch(ORD, /id="grid-sala"|id="due-col"/, "sono tornate le due colonne");
+  assert.match(ORD, /gridEl\.innerHTML = attivi\.map\(cardHTML\)\.join\(""\);/);
 });
 
-test("nessun ordine può sparire quando la sala si spegne", () => {
-  /* ⚠️ La seconda colonna si apre con l'interruttore acceso O con almeno un
-     ordine al tavolo già in lista. Legata al solo interruttore, spegnere la
-     sala a servizio iniziato farebbe sparire chi sta mangiando — e un ordine
-     che non si vede è un piatto che nessuno porta. */
-  assert.match(ORD, /const apriSala = dueColEl\?\.dataset\.sala === "1" \|\| inSala\.length > 0;/);
-  // E di ripiego è SPENTA: una colonna «Sala» vuota è mezzo schermo che non
-  // dice niente in cucina.
-  assert.match(ORD, /let salaAttiva = false;/);
-  assert.match(ORD, /salaAttiva = \(await opzioniTavolo\(ambitoOrd\)\)\.attivo;/);
-});
-
-test("la ricerca chiude le due colonne, e svuota quella della sala", () => {
-  /* ⚠️ Svuotarla non è facoltativo: lasciata com'era mostrerebbe le card di
-     prima accanto ai risultati della ricerca — un ordine che non c'entra
-     niente, letto come se c'entrasse. */
-  /* ⚠️ L'ancora e' CODICE, non un commento: `ORD` passa da `nudo()`, che i
-     commenti li toglie — cercare «Modalità RICERCA» rendeva -1, la finestra
-     veniva vuota, e la prova falliva su un codice giusto. */
-  const iRicerca = ORD.indexOf("if (ricerca) {");
-  const iRender = ORD.indexOf("const inSala = attivi.filter");
-  const blocco = ORD.slice(iRicerca, iRender);
-  assert.match(blocco, /gridSalaEl\.innerHTML = "";/,
-    "la colonna della sala non si svuota durante la ricerca");
-  assert.match(blocco, /dueColEl\.classList\.remove\("aperta"\)/);
-});
-
-test("sotto i 1100px le due colonne tornano una", () => {
-  // ⚠️ Le card hanno un minimo di 300px: in mezza schermata stretta
-  // andrebbero a filo o fuori, e la pagina Commandes si guarda su un tablet.
-  assert.match(ORD, /@media \(max-width: 1100px\) \{ \.due-col\.aperta \{ grid-template-columns: 1fr;/);
-});
-
-test("il titolo delle due colonne esiste in tutte e cinque le lingue", () => {
-  for (const k of ["ord.colPickup", "ord.room"]) {
+test("il nastro: sala in corallo col tavolo, ritiro discreto, deciso da alTavolo", () => {
+  assert.match(ORD, /const nastro = aTavolo\s*\?\s*`<div class="card-nastro card-nastro--sala">/);
+  assert.match(ORD, /card-nastro--ritiro/);
+  assert.match(ORD, /\.card-nastro--sala \{ background: var\(--c-accent\);/);
+  // Il nastro porta la stessa maschera a denti della card: senza, coprirebbe i denti.
+  assert.match(ORD, /\.card-nastro \{[\s\S]*?mask: radial-gradient\(var\(--tk-r\) at 50% 0/);
+  // La provenienza arriva dall'API (e' nei campi della #50, con il suo ripiego).
+  assert.match(nudo("src/pages/api/admin/orders.ts"), /payment_method, source";/);
+  for (const k of ["ord.ribbonWeb", "ord.ribbonPickup", "ord.room"]) {
     for (const lang of ADMIN_LANG_CODES) {
       const v = adminT(lang)(k);
       assert.ok(v && v !== k, `${k} manca in ${lang}`);

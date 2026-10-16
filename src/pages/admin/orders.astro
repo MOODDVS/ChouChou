@@ -8,7 +8,6 @@
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import { ambitoDiRichiesta, leggi, pagamentoOnlineAttivo } from "../../lib/admin/sede";
-import { opzioniTavolo } from "../../lib/ordiniOpzioni";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
@@ -52,12 +51,6 @@ let ssrOrders: unknown[] | null = null;
 // questo valore non puo' restare indietro rispetto al selettore.
 let pagaOnline = true;
 
-/* ⚠️ SPENTA di ripiego, al contrario di `pagaOnline`. Se la lettura non
-   riesce, una colonna «Sala» vuota in cucina sarebbe meta’ schermo che non
-   dice niente — mentre un ordine al tavolo, se per caso ce ne fosse uno,
-   compare lo stesso: la colonna si apre anche quando la lista ne contiene uno,
-   non solo quando l’interruttore e’ acceso. Nessun ordine puo’ sparire. */
-let salaAttiva = false;
 
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
@@ -65,7 +58,6 @@ try {
   if (staff) {
     const ambitoOrd = await ambitoDiRichiesta(Astro.request, staff);
     pagaOnline = await pagamentoOnlineAttivo(ambitoOrd);
-    salaAttiva = (await opzioniTavolo(ambitoOrd)).attivo;
     const soglia = DateTime.now()
       .setZone(await fusoDi(ambitoOrd))
       .minus({ days: 7 })
@@ -175,15 +167,26 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          riga, e un ordine da due piatti si ritrova mezza card vuota sotto i
          bottoni — che a colpo d'occhio sembra un ordine incompleto. */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; align-items: start; }
-      /* Le due colonne: ritiri e sala. ⚠️ Una sola quando la sala e’ spenta —
-         e` la stessa riga di prima, perche’ `.due-col` senza la classe non
-         impone niente. */
-      .due-col { display: grid; grid-template-columns: 1fr; gap: 1.25rem; align-items: start; }
-      .due-col.aperta { grid-template-columns: 1fr 1fr; gap: 2rem; }
-      .col-tit { font-family: var(--font-title); font-size: 1rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 0 0 0.9rem; }
-      /* ⚠️ Sotto i 1100px le due colonne tornano una: le card hanno un minimo
-         di 300px, e in mezza schermata stretta andrebbero a filo o fuori. */
-      @media (max-width: 1100px) { .due-col.aperta { grid-template-columns: 1fr; gap: 1.5rem; } }
+      /* IL NASTRO IN TESTA ALLA CARD: da dove arriva l'ordine e cosa se ne fa.
+         Pieno corallo per la SALA (si porta al tavolo), discreto per il ritiro
+         (si mette sul bancone): la differenza si legge da lontano, prima di
+         leggere qualsiasi cosa, senza dividere la lista in due.
+         ⚠️ Esce dal padding della card e ne prende tutta la larghezza, e porta
+         la STESSA maschera a denti della card (`::before`): senza, il nastro
+         coprirebbe i denti dello scontrino e la card avrebbe il bordo dritto
+         proprio dove e' colorata. Stessa misura e stessa fase (`50% 0`). */
+      .card-nastro {
+        display: flex; align-items: center; gap: 0.45rem;
+        margin: calc(-1 * var(--card-py)) calc(-1 * var(--card-px)) 0.9rem;
+        padding: calc(var(--tk-r) + 0.5rem) var(--card-px) 0.5rem;
+        border-radius: 3px 3px 0 0;
+        font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+        -webkit-mask: radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 100% repeat-x;
+        mask: radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 100% repeat-x;
+      }
+      .card-nastro svg { width: 15px; height: 15px; flex: 0 0 auto; display: block; }
+      .card-nastro--sala { background: var(--c-accent); color: var(--c-bg); }
+      .card-nastro--ritiro { background: color-mix(in srgb, var(--c-text) 7%, transparent); color: var(--c-muted); }
       /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
          sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
          si vede il fondo della pagina attraverso, non un finto dentello
@@ -982,24 +985,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           </div>
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
-        {/* ⚠️ DUE COLONNE, E IL CONFINE E’ IL GESTO CHE SEGUE: un ritiro si
-            prepara e si mette sul bancone, un ordine in sala si PORTA. In una
-            lista sola i due si mescolano e la differenza sta in una pastiglia
-            che a mezzo metro dal tablet non si legge.
-            ⚠️ A sala spenta resta una colonna sola, esattamente come prima:
-            la seconda si apre quando l’interruttore e’ acceso OPPURE quando
-            nella lista c’e’ almeno un ordine al tavolo. Mai il contrario — un
-            ordine che non si vede e’ un piatto che nessuno porta. */}
-        <div class="due-col" id="due-col" data-sala={salaAttiva ? "1" : "0"}>
-          <section class="col-ord">
-            <h2 class="col-tit" id="col-tit-ritiri" style="display:none">{t("ord.colPickup")}</h2>
-            <div class="grid" id="grid"></div>
-          </section>
-          <section class="col-ord" id="col-sala" style="display:none">
-            <h2 class="col-tit">{t("ord.room")}</h2>
-            <div class="grid" id="grid-sala"></div>
-          </section>
-        </div>
+        {/* ⚠️ UNA COLONNA SOLA, come prima (16/10/2026). Le due colonne
+            «Retraits / Salle» costringevano a guardare in due posti per sapere
+            cosa c'era da fare; ora l'ordine e' quello di sempre, e cosa e' un
+            ritiro e cosa va portato al tavolo lo dice il NASTRO in testa a
+            ogni card (`card-nastro`), pieno corallo per la sala. */}
+        <div class="grid" id="grid"></div>
         <h2 class="done-title" id="done-title" style="display:none">{t("ord.doneCancelled")}</h2>
         <div class="grid" id="grid-done"></div>
       </main>
@@ -1237,6 +1228,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         refund_due_cents?: number;
         supplement_paid_at?: string | null;
         payment_method?: string | null;
+        /** #29 — 'web' (dal sito) o 'manual' (creato dall'admin): il nastro. */
+        source?: string | null;
         /** #82 — da asporto ('pickup', o assente) oppure al tavolo ('table'). */
         service?: string | null;
         /** Come si chiamava QUEL tavolo quel giorno: e’ cio’ che si dice a voce. */
@@ -1300,6 +1293,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          freccia: il gesto e' «sposta l'ora», e l'ora e' un orologio. */
       /* Un tavolo visto di lato: il piano e due gambe. ⚠️ Niente sedie e
          niente tovaglia — a 24px diventerebbero tre macchie. */
+      const ICON_SACCHETTO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
       const ICON_TAVOLO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="9" x2="7" y2="19"/><line x1="17" y1="9" x2="17" y2="19"/></svg>`;
       const ICON_RITARDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`;
       const ICON_REFUND = iconaValuta(valutaDelMotore());
@@ -1639,8 +1633,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           (refundBtn ? " refundable" : "") +
           (lr ? ` nc-late nc-late-${lr}` : "");
 
+        /* IL NASTRO: sala (corallo, col tavolo) o ritiro (dal sito o creato
+           a mano). `alTavolo` decide, come per il ticket e il semaforo. */
+        const nastro = aTavolo
+          ? `<div class="card-nastro card-nastro--sala">${ICON_TAVOLO}<span>${esc(tr("ord.room"))}${o.table_label ? ` · ${esc(o.table_label)}` : ""}</span></div>`
+          : `<div class="card-nastro card-nastro--ritiro">${ICON_SACCHETTO}<span>${esc(tr(o.source === "manual" ? "ord.ribbonPickup" : "ord.ribbonWeb"))}</span></div>`;
         return `
           <div class="card${cardCls}" data-id="${o.id}">
+            ${nastro}
             ${tag ? `<div class="card-stato">${tag}</div>` : ""}
             <div class="card-top">
               <div class="ct-left">
@@ -1671,10 +1671,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const gridEl = document.getElementById("grid") as HTMLDivElement;
-        const gridSalaEl = document.getElementById("grid-sala") as HTMLDivElement;
-        const dueColEl = document.getElementById("due-col") as HTMLDivElement | null;
-        const colSalaEl = document.getElementById("col-sala") as HTMLElement | null;
-        const colTitRitiriEl = document.getElementById("col-tit-ritiri") as HTMLElement | null;
         const gridDoneEl = document.getElementById("grid-done") as HTMLDivElement;
         const doneTitleEl = document.getElementById("done-title") as HTMLHeadingElement;
         const countEl = document.getElementById("count") as HTMLParagraphElement;
@@ -1866,16 +1862,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             } else {
               stateEl.style.display = "none";
             }
-            /* ⚠️ LA RICERCA CHIUDE LE DUE COLONNE. Chi cerca sa gia’ chi
-               cerca: dividere i risultati fra ritiri e sala lo costringerebbe
-               a guardare in due posti. E svuotare la colonna della sala non e’
-               facoltativo — lasciata com’era, mostrerebbe le card di prima
-               accanto ai risultati, che e’ il modo di far leggere un ordine
-               che non c’entra niente. */
-            if (dueColEl) dueColEl.classList.remove("aperta");
-            if (colSalaEl) colSalaEl.style.display = "none";
-            if (colTitRitiriEl) colTitRitiriEl.style.display = "none";
-            gridSalaEl.innerHTML = "";
             gridEl.innerHTML = trovati.map(cardHTML).join("");
             gridDoneEl.innerHTML = "";
             doneTitleEl.style.display = "none";
@@ -1922,21 +1908,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             stateEl.style.display = "none";
           }
 
-          /* ⚠️ La divisione la fa `alTavolo`, la stessa regola del ticket e
-             del semaforo. Scritta qui a mano (`o.service === "table"`), un
-             valore mai visto finirebbe in sala invece che fra i ritiri — e
-             `servizioDi` dice che nel dubbio e’ un ritiro. */
-          const inSala = attivi.filter((o) => alTavolo(o.service));
-          const daRitirare = attivi.filter((o) => !alTavolo(o.service));
-          /* La seconda colonna si apre con l’interruttore acceso O con almeno
-             un ordine al tavolo gia’ in lista: spegnere la sala a servizio
-             iniziato non deve far sparire chi sta mangiando. */
-          const apriSala = dueColEl?.dataset.sala === "1" || inSala.length > 0;
-          if (dueColEl) dueColEl.classList.toggle("aperta", apriSala);
-          if (colSalaEl) colSalaEl.style.display = apriSala ? "" : "none";
-          if (colTitRitiriEl) colTitRitiriEl.style.display = apriSala ? "" : "none";
-          gridEl.innerHTML = daRitirare.map(cardHTML).join("");
-          gridSalaEl.innerHTML = inSala.map(cardHTML).join("");
+          /* Una lista sola, nell'ordine di sempre: ritiro o sala lo dice il
+             nastro di ogni card (`alTavolo`, la stessa regola del ticket). */
+          gridEl.innerHTML = attivi.map(cardHTML).join("");
           gridDoneEl.innerHTML = spenti.map(cardHTML).join("");
           doneTitleEl.style.display = spenti.length > 0 ? "block" : "none";
         }

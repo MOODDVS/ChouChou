@@ -985,6 +985,8 @@ const DIZIONARIO: Dizionario = {
   "ord.min":         { fr: "min", en: "min", it: "min", nl: "min", es: "min" },
   "ord.colPickup":   { fr: "Retraits", en: "Pickups", it: "Ritiri", nl: "Afhalingen", es: "Recogidas" },
   "ord.room":        { fr: "Salle", en: "Dining room", it: "Sala", nl: "Zaal", es: "Sala" },
+  "ord.ribbonWeb":   { fr: "En ligne · à emporter", en: "Online · takeaway", it: "Online · da asporto", nl: "Online · afhalen", es: "En línea · para llevar" },
+  "ord.ribbonPickup":{ fr: "À emporter", en: "Takeaway", it: "Da asporto", nl: "Afhalen", es: "Para llevar" },
   "ord.atTable":     { fr: "Commande à table", en: "Table order", it: "Ordine al tavolo", nl: "Bestelling aan tafel", es: "Pedido en mesa" },
   "ord.putBack":     { fr: "Remettre en cours", en: "Put back in progress", it: "Rimetti in corso", nl: "Terug naar bezig", es: "Volver a en curso" },
   "ord.refunded":    { fr: "Remboursé", en: "Refunded", it: "Rimborsato", nl: "Terugbetaald", es: "Reembolsado" },
