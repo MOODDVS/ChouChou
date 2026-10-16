@@ -9,6 +9,9 @@ import { qrSvg } from "../../../lib/qrSvg";
 /**
  * I CARTONCINI DA STAMPARE — un QR per sezione, per tavolo, o uno solo.
  *
+ * GET ?stato=1 → { attivo }   solo «l'ordine dal tavolo e' acceso?», senza
+ *                              disegnare niente: Assets lo chiede all'apertura
+ *                              per decidere se mostrare la scheda.
  * GET ?modo=unico|sezione|tavolo   (senza: il tipo scelto nei Réglages)
  *   → { modo, attivo, cartoncini: [{ titolo, sotto, link, svg }] }
  *
@@ -37,6 +40,9 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
+  if (url.searchParams.get("stato")) {
+    return json({ attivo: (await opzioniTavolo(ambito)).attivo });
+  }
   const [base, sala, cfg] = await Promise.all([
     linkBaseTavolo(request, ambito),
     opzioniTavolo(ambito),

@@ -1101,6 +1101,21 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           setTimeout(() => w.print(), 300);
         });
 
+        /* ⚠️ LA SCHEDA «QR CODES» C'E' SOLO SE L'ORDINE DAL TAVOLO E' ACCESO.
+           Per un ristorante che non lo usa sono QR verso una pagina che non
+           esiste: una scheda in piu' che non serve e fa domandare a cosa
+           serva. Si toglie il BOTTONE (la sezione resta, nascosta), come per
+           le schede spente dal super admin. Rete assente: si tiene, e dentro
+           la scheda lo dice lei. */
+        try {
+          const rs = await fetch("/api/admin/qr?stato=1", { headers });
+          if (rs.ok && !((await rs.json()) as { attivo?: boolean }).attivo) {
+            mainTabs.querySelector('.tab[data-t="qr"]')?.remove();
+            if (tabIniziale === "qr") tabIniziale = mainTabs.querySelector<HTMLElement>(".tab")?.dataset.t ?? "site";
+          }
+        } catch {
+          /* niente rete: la scheda resta */
+        }
         mostraTab(tabIniziale);
 
         // ---------- Tab Site: immagini del sito pubblico ----------

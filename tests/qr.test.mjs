@@ -85,6 +85,10 @@ test("Assets › QR codes: si vedono, si copiano, si stampano", () => {
   // Scarica l'SVG: un file col nome del tavolo, dal QR gia' disegnato.
   assert.match(as, /class="i-btn qr-scarica"/);
   assert.match(as, /new Blob\(\[c\.svg\], \{ type: "image\/svg\+xml" \}\)/);
+  // Senza ordine dal tavolo la scheda non c'e'.
+  assert.match(as, /fetch\("\/api\/admin\/qr\?stato=1"/);
+  assert.match(as, /mainTabs\.querySelector\('\.tab\[data-t="qr"\]'\)\?\.remove\(\);/);
+  assert.match(leggi("src/pages/api/admin/qr.ts"), /return json\(\{ attivo: \(await opzioniTavolo\(ambito\)\)\.attivo \}\);/);
   // Permessi: e' di Assets, e il super admin puo' spegnere la scheda.
   assert.match(leggi("src/lib/admin/permessiRegole.ts"), /"qr": "assets"/);
   assert.match(leggi("src/lib/admin/superAdmin.ts"), /\{ key: "qr", label: "QR codes" \}/);
