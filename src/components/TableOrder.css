@@ -39,7 +39,7 @@
   :where(.tbl-pagina--barra .order-filterbar) { transition: none; }
 }
 :where(.tbl-pagina .order-filterbar) {
-  position: sticky; top: var(--tbl-barra-h, 0px); z-index: 10;
+  position: sticky; top: calc(var(--tbl-testata, 0px) + var(--tbl-barra-h, 0px)); z-index: 10;
   margin: 0 -1rem 1rem; padding: .6rem 1rem;
   background: var(--tbl-bg);
   border-bottom: 1px solid var(--tbl-line);
@@ -72,7 +72,7 @@
    dati, invece, e' la pagina stessa e resta. */
 :where(.tbl-pagina .order-app > .order-cart:not(.order-cart--checkout)) { display: none; }
 
-:where(.tbl-pagina .order-sec) { margin: 0 0 1.8rem; scroll-margin-top: calc(4.5rem + var(--tbl-barra-h, 0px)); }
+:where(.tbl-pagina .order-sec) { margin: 0 0 1.8rem; scroll-margin-top: calc(4.5rem + var(--tbl-testata, 0px) + var(--tbl-barra-h, 0px)); }
 :where(.tbl-pagina .order-sec-title) {
   margin: 0 0 .8rem; font-family: var(--font-title); font-size: 1.05rem;
   text-transform: uppercase; letter-spacing: .08em;

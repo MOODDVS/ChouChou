@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import {
   servizioDi, alTavolo, modoServizio, avvisaChePronto, servizioInCorso,
   avvisaIlCliente, prossimaApertura, RIPIEGO_ORDINI, RIPIEGO_ORDINI_SCELTA, CHIAVI_ORDINI,
@@ -748,7 +748,16 @@ test("le parole dei due interruttori esistono in tutte e cinque le lingue", () =
 
 const OAPP = nudo("src/components/OrderApp.tsx");
 const TORD = nudo("src/components/TableOrder.tsx");
-const TPAG = nudo("src/pages/table.astro");
+/* Il CONTENUTO della pagina del tavolo e' del motore e sta in un blocco
+   (`PaginaTavolo.astro`); le pagine che lo avvolgono sono del cliente — la
+   versione autonoma del motore, o quelle di un sito dentro il suo Layout. */
+const TPAG = nudo("src/components/PaginaTavolo.astro");
+/* Le pagine che lo avvolgono: `/table` e, su un sito con piu' lingue,
+   `/en/table`, `/it/table`… Tutte, qualunque sia il guscio. */
+const PAGINE_TAVOLO = ["src/pages/table.astro",
+  ...readdirSync("src/pages", { withFileTypes: true })
+    .filter((d) => d.isDirectory()).map((d) => `src/pages/${d.name}/table.astro`)]
+  .filter((f) => existsSync(f));
 
 test("il menu della sala non e' nessuno dei due di prima", () => {
   const db = nudo("src/lib/db.ts");
@@ -837,10 +846,16 @@ test("la pagina del QR: spenta da', 404, e non finisce su Google", () => {
   /* ⚠️ Il QR resta incollato al tavolo per mesi. Se il ristoratore spegne gli
      ordini dal locale, chi inquadra deve trovare «questa pagina non c'e'» —
      non un modulo che rifiuta l'ordine DOPO che ha composto la cena. */
-  assert.match(TPAG, /if \(!sala\.attivo\) return new Response\(null, \{ status: 404 \}\)/);
-  // ⚠️ Indicizzata, qualcuno la troverebbe cercando il ristorante e aprirebbe
-  // un tavolo da casa.
-  assert.match(TPAG, /name="robots" content="noindex, nofollow"/);
+  // ⚠️ Il 404 lo da' la PAGINA: un componente non puo' rispondere.
+  assert.ok(PAGINE_TAVOLO.length >= 1, "manca /table");
+  for (const f of PAGINE_TAVOLO) {
+    const pag = nudo(f);
+    assert.match(pag, /if \(!sala\.attivo\) return new Response\(null, \{ status: 404 \}\)/, `${f}: niente 404 a sala spenta`);
+    assert.match(pag, /<PaginaTavolo\b[^>]*\bambito=\{ambito\}[^>]*\bsala=\{sala\}/, `${f}: non usa il blocco del motore`);
+    // ⚠️ Indicizzata, qualcuno la troverebbe cercando il ristorante e aprirebbe
+    // un tavolo da casa. (`<meta>` nella versione autonoma, `noindex` del Layout in un sito.)
+    assert.match(pag, /name="robots" content="noindex, nofollow"|\bnoindex(=\{true\})?[\s/>]/, `${f}: finisce su Google`);
+  }
   // I due QR: generico e stampato per quel tavolo.
   assert.match(TPAG, /searchParams\.get\("table"\)/);
   assert.match(TPAG, /tavoloDaUrl=\{tavoloDaUrl\}/);
@@ -985,11 +1000,13 @@ test("la pagina del QR si veste col brand del CLIENTE, non del motore", () => {
      il QR seduto al tavolo è il sito di nessuno. */
   assert.match(TPAG, /brandPubblico\(ambito\)/);
   assert.match(TPAG, /coloreTema\(brand\.tema, "accent"\)/);
-  assert.match(TPAG, /font-family: var\(--font-body\)/);
   assert.match(TPAG, /font-family: var\(--font-title\)/);
   // E i colori restano VARIABILI: una riga nel foglio di stile del cliente
   // vince su tutto, senza toccare il motore.
-  assert.match(TPAG, /style=\{stileTema\}/);
+  assert.match(TPAG, /<div class="tbl-main" style=\{vestito === "sito" \? undefined : stileTema\}>/);
+  // ⚠️ Con `vestito="sito"` i colori li dichiara il foglio del sito: un
+  // `style` scritto sul blocco vincerebbe su qualunque sua regola.
+  assert.match(TPAG, /vestito = "reglages"/);
 
   /* ⚠️ LE REGOLE STANNO IN UN FILE CHE NON ARRIVA A `db.ts`. Quello crea il
      client Supabase all’import e lancia senza le variabili d’ambiente: con
@@ -1031,10 +1048,21 @@ test("il fondo copre tutta la pagina, non solo la colonna", () => {
   /* ⚠️ Sul <main> il fondo del tema si fermava a 34rem e lasciava bianco
      tutt'intorno: su un telefono si vede poco, su un tablet appoggiato al
      bancone si vede benissimo, e sembra una pagina rotta. */
-  assert.match(TPAG, /<body style=\{stileTema\}>/);
-  assert.match(TPAG, /body \{ --tbl-bg: #fff;[\s\S]{0,400}?background: var\(--tbl-bg\)/,
-    "il fondo non e' piu' sul body: torna la cornice bianca");
-  assert.match(TPAG, /min-height: 100dvh/);
+  // Nella versione AUTONOMA (quella col suo `<html>`). Dentro il Layout di
+  // un sito il fondo e' il suo.
+  for (const f of PAGINE_TAVOLO) {
+    const pag = nudo(f);
+    if (!/<!doctype html>/i.test(pag)) continue;
+    assert.match(pag, /<body style=\{stileTema\}>/);
+    assert.match(pag, /body \{ --tbl-bg: #fff;[\s\S]{0,400}?background: var\(--tbl-bg\)/,
+      "il fondo non e' piu' sul body: torna la cornice bianca");
+    assert.match(pag, /min-height: 100dvh/);
+    assert.match(pag, /font-family: var\(--font-body\)/);
+  }
+  // ⚠️ I ripieghi del blocco a specificita' ZERO, e mai su `body`: dentro il
+  // Layout di un sito ridipingerebbero di bianco tutta la pagina.
+  assert.match(TPAG, /:where\(\.tbl-main\) \{ --tbl-bg: #fff;/);
+  assert.doesNotMatch(TPAG, /^\s*body \{/m);
 });
 
 test("il tavolo sta in cima, subito, e resta li' mentre si scorre", () => {
@@ -1044,10 +1072,11 @@ test("il tavolo sta in cima, subito, e resta li' mentre si scorre", () => {
   assert.doesNotMatch(TORD, /tbl-passi|function percorso/, "il percorso in tre passi e' tornato");
   assert.match(TORD, /\{conBarra && \(\s*<div className=\{`tbl-barra\$\{compatta \? " tbl-barra--compatta" : ""\}`\}>\s*<div className="tbl-barra-fondo" ref=\{fondoRef\}>/);
   assert.match(TORD, /const conBarra = conTavoli && !chiusoTesto;/);
-  assert.match(TPAG, /\.tbl-barra \{ position: sticky; top: 0;/);
+  // Sotto l'header del sito, se e' fisso (`--tbl-testata`, 0 se scorre via).
+  assert.match(TPAG, /\.tbl-barra \{ position: sticky; top: var\(--tbl-testata, 0px\);/);
   // Le categorie si mettono SOTTO la barra, con l'altezza misurata.
   const css = leggi("src/components/TableOrder.css");
-  assert.match(css, /position: sticky; top: var\(--tbl-barra-h, 0px\);/);
+  assert.match(css, /position: sticky; top: calc\(var\(--tbl-testata, 0px\) \+ var\(--tbl-barra-h, 0px\)\);/);
   assert.match(TORD, /"--tbl-barra-piena": `\$\{altezzaPiena\}px`/);
   assert.doesNotMatch(TORD, /"--tbl-barra-h":/, "inline vincerebbe sulla barra stretta");
   assert.match(css, /:where\(\.tbl-pagina--barra\) \{ --tbl-barra-h: var\(--tbl-barra-piena, 0px\); \}/);
@@ -1484,7 +1513,7 @@ test("il menu al tavolo ha un vestito di base, e non comanda", () => {
   /* ⚠️ Visto il 16/10/2026: appena il menu e' passato per primo, la carta e'
      uscita coi bottoni grigi del sistema — `order-*` lo veste la pagina
      /order del cliente, che qui non si carica. */
-  assert.match(TPAG, /import "\.\.\/components\/TableOrder\.css";/);
+  assert.match(TPAG, /import "\.\/TableOrder\.css";/);
   const css = readFileSync("src/components/TableOrder.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   // ⚠️ Ogni regola a specificita' ZERO e chiusa dentro `.tbl-pagina`: un sito
   // che ha gia' vestito /order deve vincere con una classe sola, e la sua
@@ -1638,7 +1667,8 @@ test("indietro da Stripe, al tavolo, riporta al carrello e non annulla", () => {
   /* ⚠️ Visto il 16/10/2026: «indietro» sul pagamento portava a «Commande
      annulée» e a un link al sito, col carrello sparito dalla vista. Al
      tavolo e' un ripensamento, non un annullamento. */
-  assert.match(CK, /if \(aTavolo\) \{\n\s*const u = new URL\(`\$\{siteUrl\.replace\(\/\\\/\$\/, ""\)\}\/table`\);/);
+  // Nella lingua in cui si ordinava: `/en/table` torna su `/en/table`.
+  assert.match(CK, /if \(aTavolo\) \{\n\s*const u = new URL\(`\$\{siteUrl\.replace\(\/\\\/\$\/, ""\)\}\$\{prefissoLingua\(lang, defaultLang\)\}\/table`\);/);
   assert.match(CK, /u\.searchParams\.set\("ripresa", "1"\);/);
   assert.match(CK, /cancelUrl: ritornoTavolo,/);
   // La sede torna com'era arrivata (id o nome breve).
@@ -1887,7 +1917,7 @@ test("scorrendo la barra del tavolo si rimpicciolisce, senza ballare", () => {
   assert.match(TORD, /window\.addEventListener\("scroll", guarda, \{ passive: true \}\)/);
   // ⚠️ Lo spazio nella pagina resta fisso (niente carta che saltella), e
   // si rimpicciolisce con `scale`, non cambiando misura al testo.
-  assert.match(TPAG, /\.tbl-barra \{ position: sticky; top: 0; z-index: 12; height: var\(--tbl-barra-piena, auto\);/);
+  assert.match(TPAG, /\.tbl-barra \{ position: sticky; top: var\(--tbl-testata, 0px\); z-index: 12; height: var\(--tbl-barra-piena, auto\);/);
   assert.match(TPAG, /\.tbl-barra--compatta \.tbl-tav--scelto, \.tbl-barra--compatta \.tbl-scegli \{ transform: scale\(\.8\); \}/);
   assert.doesNotMatch(TPAG, /transition:[^;]*font-size/, "il testo che cambia misura a ogni fotogramma scatta");
   // Stretta, l'altezza la dice il CSS: misurarla a ogni fotogramma scattava.
@@ -1942,3 +1972,28 @@ test("chiudere e riscansionare il QR ritrova tavolo e sessione, ma non domani", 
     assert.match(TORD, new RegExp(`ricorda\\(${k}`), `${k} non passa dalla memoria a tempo`);
   }
 });
+
+test("il link della privacy sotto il consenso porta alla pagina del cliente", () => {
+  /* ⚠️ Il guasto del 16/10/2026: `privacyHref: t("footer.privacy")` metteva
+     nell'href la parola «Confidentialité», e il link andava nel vuoto. */
+  assert.doesNotMatch(TPAG, /privacyHref:\s*t\(/, "l'href torna a essere un'etichetta tradotta");
+  assert.match(TPAG, /import \{ CLIENT \} from "\.\.\/config\/client";/);
+  assert.match(TPAG, /privacyHref: CLIENT\.privacyUrl\[lang\] \?\? CLIENT\.privacyUrl\.en \?\? CLIENT\.privacyUrl\.fr \?\? "\/privacy",/);
+});
+
+test("la scelta della lingua: un globo, e un modale vero con le bandiere", () => {
+  const sl = nudo("src/components/SceltaLingua.astro");
+  // ⚠️ `<dialog>` + `showModal()`: Esc, il fuoco intrappolato e la pagina
+  // dietro non cliccabile li fa il browser. Un div non li avrebbe.
+  assert.match(sl, /<dialog class="sl-modale"/);
+  assert.match(sl, /d\.showModal\(\)/);
+  // Gli indirizzi arrivano da fuori (chi lo usa ci attacca la query del QR).
+  assert.match(sl, /href=\{href\} hreflang=\{code\}/);
+  assert.match(sl, /aria-current=\{code === attuale \? "true" : undefined\}/);
+  // Il nome nella SUA lingua, e una bandiera per ogni lingua pubblica.
+  for (const [l, nome] of [["fr", "Français"], ["en", "English"], ["it", "Italiano"], ["nl", "Nederlands"], ["es", "Español"]]) {
+    assert.match(sl, new RegExp(`${l}: "${nome}"`));
+    assert.match(sl, new RegExp(`code === "${l}" && \\(`), `manca la bandiera ${l}`);
+  }
+});
+

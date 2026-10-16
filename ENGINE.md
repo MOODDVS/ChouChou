@@ -97,21 +97,44 @@ modificare il motore.**
    che compare solo in sala. I colori passano da due variabili:
    `.tbl-main { --tbl-ink: var(--mio-accento); --tbl-paper: #fff; }`.
 
-2. **La pagina diventa una pagina del sito.** Si sostituisce il guscio
-   `<html>` col `<Layout>` del cliente e si toglie il blocco `<style>`:
+2. **La pagina diventa una pagina del sito.** Il contenuto sta in
+   `components/PaginaTavolo.astro` (del motore, si aggiorna da solo); la
+   pagina lo mette dentro il `<Layout>` del cliente, con header e switch
+   lingua del sito, **una pagina per lingua** (`/table`, `/en/table`,
+   `/it/table`…: la lingua la dice l'URL):
 
    ```astro
    ---
-   import Layout from "../layouts/Layout.astro";
-   // … il resto del frontmatter resta identico …
+   import Layout from "../../layouts/Layout.astro";
+   import PaginaTavolo from "../../components/PaginaTavolo.astro";
+   import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+   import { opzioniTavolo } from "../../lib/ordiniOpzioni";
+   export const prerender = false;
+   const ambito = await ambitoPubblicoChiesto(Astro.request);
+   const sala = await opzioniTavolo(ambito);
+   if (!sala.attivo) return new Response(null, { status: 404 });
    ---
-   <Layout title={brand.nome}>
-     <TableOrder client:load menu={menu} testiOrdine={testiOrdine} … />
+   <Layout title="…" noindex={true}>
+     <PaginaTavolo ambito={ambito} sala={sala} vestito="sito" />
    </Layout>
    ```
 
-   Da quel momento header, font, colori e footer sono quelli del sito, e
-   `merge=ours` tiene quella versione a ogni aggiornamento del motore.
+   - ⚠️ **Il 404 resta alla pagina**: un componente non può rispondere.
+   - `vestito="sito"`: i colori li dà il foglio del sito, con una regola
+     `.tbl-main { --tbl-bg: …; --tbl-text: …; --tbl-muted: …; --tbl-line: …;
+     --tbl-card: …; --tbl-campo: …; --tbl-ink: …; --tbl-paper: …; }`. Senza
+     (predefinito `"reglages"`), vengono dal tema dei Réglages.
+   - **Header fisso in cima?** Il sito dichiara quanto è alto,
+     `.tbl-main { --tbl-testata: 80px; }`, e la barra del tavolo e quella delle
+     categorie si mettono sotto. Con un header che scorre via, niente.
+   - **Lo switch lingua deve tenere la query** (`?table=`, `?zone=`, `?sede=`):
+     è il QR stampato che dice il tavolo e la sezione.
+   - Niente footer né barra mobile del sito: in fondo ci sono già il carrello
+     e la campanella.
+   - Il ritorno da Stripe («indietro») torna su `/<lingua>/table`: la pagina
+     deve esistere in ogni lingua del sito.
+
+   `merge=ours` tiene quelle pagine a ogni aggiornamento del motore.
 
 3. **Modulo tutto suo.** `TableOrder` è una comodità, non un obbligo: la porta
    è `POST /api/table-session` (`{ table?, people, name, email?, lang?,

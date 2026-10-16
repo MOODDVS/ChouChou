@@ -13,6 +13,8 @@ import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
 import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
+import { prefissoLingua } from "../../lib/linguaUrl";
+import { defaultLang } from "../../i18n/ui";
 import { modiDiPagamento, opzioniTavolo, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
 import { servizioDi, alTavolo, servizioInCorso } from "../../lib/ordiniRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
@@ -595,10 +597,13 @@ export const POST: APIRoute = async ({ request }) => {
      breve, com'era), dritti sui dati (`ripresa=1`): carrello, tavolo e
      coperti li ritrova lui, sono nel suo browser.
      ⚠️ `/table` sta alla radice per contratto (il QR e' stampato): niente
-     prefisso del sito qui, a differenza delle pagine di conferma. */
+     prefisso del SITO qui (vedi `basePubblica`), a differenza delle pagine di
+     conferma. Il prefisso di LINGUA si': chi ordinava da `/en/table` tornava
+     sulla pagina francese. Per la lingua di default e' vuoto, quindi un sito
+     che ha solo `/table` ci torna come prima. */
   let ritornoTavolo: string | undefined;
   if (aTavolo) {
-    const u = new URL(`${siteUrl.replace(/\/$/, "")}/table`);
+    const u = new URL(`${siteUrl.replace(/\/$/, "")}${prefissoLingua(lang, defaultLang)}/table`);
     const sedeChiesta = sedeDettaDa(request);
     if (sedeChiesta) u.searchParams.set(PARAM_SEDE, sedeChiesta);
     u.searchParams.set("ripresa", "1");
