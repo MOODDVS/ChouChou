@@ -70,7 +70,64 @@ pagamento riuscito finisce su un 404 e una recensione non si può lasciare:
 | `/order-confirm?session_id=…` | Stripe, dopo il pagamento |
 | `/order-cancel` | Stripe, se il cliente rinuncia |
 | `/feedback?…` | l'email di richiesta recensione |
+| `/table`, `/table?table=7` | il **QR stampato sui tavoli** |
 | `/menu`, `/order`, … | il sito stesso (libere, vedi `config/sitePages.ts`) |
+
+⚠️ `/table` è nel contratto per un motivo diverso dalle altre: il QR è
+**stampato e plastificato**, vive sul tavolo per anni, e chi lo inquadra non ha
+un secondo indirizzo da provare. Per questo il motore ne consegna una versione
+funzionante invece di lasciare che ogni cliente se la scriva — ma resta una
+**pagina del cliente** (`src/pages/**` è `merge=ours`).
+
+#### Quanta libertà ha il sito sulla pagina del tavolo
+
+Tre livelli, dal più economico al più libero. **Nessuno dei tre richiede di
+modificare il motore.**
+
+1. **Solo CSS.** Il sito veste le classi: `tbl-pagina`, `tbl-titolo`,
+   `tbl-barra` per il tavolo in cima, fisso mentre si scorre (dentro:
+   `tbl-campo--riga`, `tbl-lab`, `tbl-tav`, `tbl-scegli`; la barra delle
+   categorie si mette sotto di lei con `--tbl-barra-h`, misurata
+   dall'isola); `tbl-form`, `tbl-campo`, `tbl-pgrid`, `tbl-p`, `tbl-input`
+   per i coperti, nel pannello dei dati del carrello, dove
+   `tbl-scegli--manca` ricorda il tavolo se non e' stato scelto; la
+   campanella `tbl-campanello` (+ `tbl-avviso`); `tbl-modale` per la scelta del tavolo e,
+   con `tbl-chiuso` e `tbl-btn`, per il modale a servizio chiuso; `order-*`
+   per il menù e il carrello (le stesse di `/order`), più `order-email-why`
+   che compare solo in sala. I colori passano da due variabili:
+   `.tbl-main { --tbl-ink: var(--mio-accento); --tbl-paper: #fff; }`.
+
+2. **La pagina diventa una pagina del sito.** Si sostituisce il guscio
+   `<html>` col `<Layout>` del cliente e si toglie il blocco `<style>`:
+
+   ```astro
+   ---
+   import Layout from "../layouts/Layout.astro";
+   // … il resto del frontmatter resta identico …
+   ---
+   <Layout title={brand.nome}>
+     <TableOrder client:load menu={menu} testiOrdine={testiOrdine} … />
+   </Layout>
+   ```
+
+   Da quel momento header, font, colori e footer sono quelli del sito, e
+   `merge=ours` tiene quella versione a ogni aggiornamento del motore.
+
+3. **Modulo tutto suo.** `TableOrder` è una comodità, non un obbligo: la porta
+   è `POST /api/table-session` (`{ table?, people, name, email?, lang?,
+   reservation_id? }` → `{ reservation_id, table_id, table_label, service_key,
+   ripresa }`). Un sito che vuole un'altra esperienza monta `OrderApp` con
+   la prop `tavolo` e le passa i suoi campi (`campi`, `pronto`) e la sua
+   `apriSessione`, che chiama quella rotta **al momento di pagare**, non
+   prima: una sessione aperta da chi guarda il menù e se ne va è un tavolo
+   «seduto» nel piano sala per tutta la sera. Aperto o chiuso, prima di
+   mostrare il menù, lo dice `statoServizioSala(ambito)`.
+
+⚠️ Cosa NON è negoziabile, e perché: le due rotte (`/api/table-session`,
+`/api/checkout`) rileggono tutto dal database — che la prenotazione sia di
+oggi, ancora aperta, con quel tavolo; che la sala sia accesa; che il servizio
+sia in corso. Non sono design, sono i controlli che impediscono a un ordine di
+attaccarsi al tavolo di qualcun altro o di entrare a cucina spenta.
 
 Se il sito sta sotto un prefisso (`/demo01`), va scritto in
 Réglages → `public_site_base`: tutti i link di ritorno lo useranno.

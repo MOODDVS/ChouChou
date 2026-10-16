@@ -1,0 +1,24 @@
+/*
+ * I PACCHETTI — i riquadri che si scelgono con un dito.
+ *
+ * ⚠️ Nati nei crediti della newsletter (+500, +1000…), e identici al bottone
+ * che serve per ritardare un ordine (+5, +10 min): numero grande in accento,
+ * dettaglio piccolo sotto, bordo acceso su quello scelto. Copiarli nella
+ * pagina Commandes avrebbe voluto dire due copie della stessa cosa in due
+ * file, cioe' due posti dove cambiare un colore e uno dove dimenticarselo.
+ *
+ * ⚠️ Il NUMERO DI COLONNE non sta qui: i crediti ne vogliono due, i ritardi
+ * quattro. Lo decide chi lo usa, con una regola sua sul contenitore.
+ */
+.c-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.c-pack {
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+  background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+  padding: 1.1rem 0.8rem; cursor: pointer; border-radius: 12px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.c-pack:hover { border-color: var(--c-accent); transform: scale(0.98); }
+.c-pack.is-on { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
+.c-pack:disabled { opacity: 0.5; cursor: wait; }
+.c-pack-n { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
+.c-pack-p { font-size: 0.9rem; font-weight: 700; }

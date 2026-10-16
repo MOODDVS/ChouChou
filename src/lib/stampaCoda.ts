@@ -24,15 +24,31 @@ import { indirizzoPubblico } from "./indirizzoPubblico";
  * pizze. Un «esiste gia'?» scritto qui non basterebbe: due richieste possono
  * arrivare nello stesso istante e passarlo tutte e due.
  */
+/** Chi ha chiesto il ticket. ⚠️ Non e' un'etichetta: l'indice unico del
+ *  database e' PARZIALE (`where origin = 'auto'`), quindi `manual` e' l'unico
+ *  modo di far uscire una SECONDA copia dello stesso ordine. La ristampa
+ *  esiste perche' la carta si inceppa, il ticket cade, l'inchiostro finisce. */
+export type Origine = "auto" | "manual";
+
+/**
+ * ⚠️ ADESSO RENDE UN ESITO, e non e' burocrazia. Chi stampa da solo puo'
+ * fallire in silenzio — un ticket in meno e' un fastidio. Ma quando il
+ * ristoratore PREME «ristampa» e non esce niente, il silenzio e' il guasto:
+ * resta a guardare la stampante chiedendosi se ha premuto male. Il motivo
+ * torna indietro e la pagina lo dice.
+ */
+export interface EsitoCoda { accodati: number; motivo?: string }
+
 export async function accodaTicket(o: {
   id: string;
   status?: string | null;
   payment_method?: string | null;
   location_id?: string | null;
-}): Promise<void> {
+}, opz: { origine?: Origine } = {}): Promise<EsitoCoda> {
+  const origine: Origine = opz.origine ?? "auto";
   try {
-    if (!daStampare(o.status, o.payment_method)) return;
-    if (!stampaConfigurata()) return;
+    if (!daStampare(o.status, o.payment_method)) return { accodati: 0, motivo: "stato" };
+    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
 
     const ambito = ambitoDiRiga(o.location_id ?? null);
     const cfg = await leggiConfig(ambito, [...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
@@ -43,12 +59,19 @@ export async function accodaTicket(o: {
     const principale = idStampante(cfg.valori.get("print_printer_id"));
     // ⚠️ Volere non e' potere: l'interruttore dice che il ristoratore la
     // vuole, il numero dice che la stampante esiste.
-    if (!stampaAttiva(cfg.valori.get("print_auto"), principale)) return;
+    /* ⚠️ L'INTERRUTTORE VALE PER L'AUTOMATICO, NON PER CHI PREME. `print_auto`
+       dice «stampa da sola a ogni ordine»: e' una preferenza. Un dito sul
+       bottone e' una richiesta, e spegnere l'automatico non vuol dire
+       rinunciare a ristampare un ticket caduto per terra. Il NUMERO della
+       stampante invece serve a tutti e due: senza, non c'e' dove mandarlo. */
+    if (origine === "auto" ? !stampaAttiva(cfg.valori.get("print_auto"), principale) : !principale) {
+      return { accodati: 0, motivo: origine === "auto" ? "spenta" : "stampante" };
+    }
 
     const base = indirizzoPubblico();
     if (!base) {
       console.error("[stampa] PUBLIC_SITE_URL non configurata: nessun indirizzo da dare alla stampante");
-      return;
+      return { accodati: 0, motivo: "indirizzo" };
     }
 
     // L'ordine vero: chi chiama ci da' l'id, i piatti stanno nella riga.
@@ -56,9 +79,12 @@ export async function accodaTicket(o: {
     const ordine = (riga ?? { id: o.id, items: [] }) as unknown as RigaOrdine;
 
     const gruppi = await dividiPerStampante(ordine, ambito, cfg.valori.get(CHIAVE_DESTINAZIONI), principale);
-    for (const g of gruppi) await accodaGruppo(o.id, ambito, g, base);
+    let accodati = 0;
+    for (const g of gruppi) if (await accodaGruppo(o.id, ambito, g, base, origine)) accodati++;
+    return accodati ? { accodati } : { accodati: 0, motivo: "coda" };
   } catch (e) {
     console.error("[stampa] accodaTicket:", String((e as Error)?.message ?? e));
+    return { accodati: 0, motivo: "errore" };
   }
 }
 
@@ -113,14 +139,15 @@ async function accodaGruppo(
   ambito: ReturnType<typeof ambitoDiRiga>,
   g: GruppoStampa,
   base: string,
-): Promise<void> {
+  origine: Origine,
+): Promise<boolean> {
   // ⚠️ Il token non contiene `~`: quel segno distingue il biglietto della
   // stampa di prova (vedi printToken.ts).
   const token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
   const { data, error } = await inserisci("print_tickets", ambito, {
     order_id: orderId,
     kind: "kitchen",
-    origin: "auto",
+    origin: origine,
     status: "queued",
     dest: g.chiave,
     token,
@@ -131,12 +158,12 @@ async function accodaGruppo(
   if (error) {
     // 23505 = l'indice unico ha fatto il suo lavoro: questo ordine era gia'
     // in coda per questa stampante. Non e' un guasto, e' la protezione.
-    if (String((error as { code?: string }).code ?? "") === "23505") return;
+    if (String((error as { code?: string }).code ?? "") === "23505") return false;
     console.error("[stampa] coda:", error.message);
-    return;
+    return false;
   }
   const idRiga = String((data as { id?: string } | null)?.id ?? "");
-  if (!idRiga) return;
+  if (!idRiga) return false;
 
   const r = await mandaStampa(
     Number(g.printer),
@@ -153,6 +180,7 @@ async function accodaGruppo(
     last_error: r.ok ? null : String(r.errore ?? "").slice(0, 500),
     updated_at: new Date().toISOString(),
   }).eq("id", idRiga);
+  return true;
 }
 
 /** I ticket di un ordine, per il pannello: quanti ne sono usciti e quando. */

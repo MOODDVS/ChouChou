@@ -15,7 +15,7 @@
  * copre quelle tre.
  */
 
-import { inCassa } from "./ordiniRegole";
+import { inCassa, alTavolo } from "./ordiniRegole";
 import { piattiVeri, notaCliente } from "./admin/ordiniConti";
 
 /** Chiavi di STAMPA, per sede. Un gruppo puo' avere la stampante in un punto
@@ -319,6 +319,28 @@ export interface OrdineDaStampare {
    *  nessun ticket, perche' non sa che manca qualcosa. */
   parte?: { n: number; su: number; altri: { nome: string; righe: number }[] } | null;
   /**
+   * IL SERVIZIO: 'table' se il cliente e’ nel locale, 'pickup' se viene a
+   * ritirare.
+   *
+   * ⚠️ ESISTE PERCHE’ «IN SALA» E «HA UN TAVOLO» NON SONO LA STESSA COSA.
+   * Un bistrot senza numeri sui tavoli e uno snack al banco sono in sala e
+   * non hanno nessun tavolo da stampare: col solo `tavolo` il ticket
+   * ricadrebbe su quello da asporto e uscirebbe «RITIRO 20:14» — l’ora in
+   * cui quella persona si e’ SEDUTA. Qualcuno aspetterebbe al banco un
+   * cliente che e’ in sala.
+   */
+  servizio?: string | null;
+  /**
+   * IL TAVOLO, quando ce n’e’ uno. Assente = da asporto, oppure in sala senza
+   * tavoli — e la differenza la dice `servizio`.
+   *
+   * ⚠️ E’ UN CAMPO A PARTE, non `ora` riempita col numero del tavolo. Il
+   * ticket lo disegna il cliente nel suo `config/ticket.ts`: infilare «7»
+   * dentro `ora` farebbe stampare «RITIRO 7» a chiunque abbia un disegno
+   * proprio, e nessuno capirebbe da dove viene quel sette.
+   */
+  tavolo?: string | null;
+  /**
    * Stampare il logo in testa? ⚠️ SPENTO di ripiego, e non per timidezza: il
    * logo deve stare nella FLASH DI OGNI STAMPANTE, caricato a mano con
    * l'utility del costruttore. Accenderlo per tutti vorrebbe dire mandare un
@@ -338,6 +360,12 @@ export interface RigaOrdine {
   payment_method?: string | null;
   customer_name?: string | null;
   customer_phone?: string | null;
+  /** #82 — 'table' quando il cliente e’ in sala. Assente = da asporto. */
+  service?: string | null;
+  /** Il nome del tavolo. ⚠️ Si stampa QUESTO e non si va a cercarlo in
+   *  `restaurant_tables`: il ticket deve dire dov’era seduto il cliente quel
+   *  giorno, non come si chiama quel tavolo adesso. */
+  table_label?: string | null;
   items?: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; notes?: string }[];
 }
 
@@ -358,6 +386,14 @@ export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
   return {
     numero: String(o.id ?? "").replace(/-/g, "").slice(-4).toUpperCase(),
     ora,
+    /* ⚠️ DUE CAMPI, non uno. Il primo dice SE il cliente e’ nel locale, il
+       secondo QUALE tavolo — e il secondo manca in tutti i locali senza
+       mappa della sala. Tenuti insieme servirebbe un valore finto (un «?»)
+       per non far ricadere il ticket su quello da asporto; separati, l’assenza
+       del tavolo e’ semplicemente l’assenza del tavolo, e chi disegna il
+       ticket sa ancora che la persona e’ in sala. */
+    servizio: alTavolo(o.service) ? "table" : "pickup",
+    tavolo: alTavolo(o.service) ? String(o.table_label ?? "").trim() || null : null,
     cliente: String(o.customer_name ?? "").trim(),
     telefono: String(o.customer_phone ?? "").trim() || null,
     // La nota del cliente sta in una riga finta di `items`: la trova
@@ -402,7 +438,22 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   // col carattere piu' piccolo che la stampante possiede (il Font B
   // condensato): sta in 64 colonne perche' e' stretto, non perche' serva.
   // Qui ci stanno 24 colonne e «#A1B2 · RITIRO 19:45» ne occupa 20.
-  righe.push({ testo: `#${o.numero} · RITIRO ${o.ora}`, taglia: "largo", grassetto: true, centrato: true, linea: true });
+  /* ⚠️ DOVE VA QUESTO ORDINE — tre risposte, non due.
+       · ha un tavolo       → «TAVOLO 7»
+       · in sala, senza     → il NOME, che e’ l’unica cosa che permette di
+                              consegnare: il cameriere cerca Marc, o lo snack
+                              lo chiama al banco;
+       · da asporto         → l’ora di ritiro, come e’ sempre stato.
+     ⚠️ Stampare «RITIRO» su un ordine in sala e’ il difetto peggiore che
+     questo ticket possa avere: il sacchetto finisce sul banco e ci resta,
+     mentre quattro persone aspettano ai tavoli. */
+  const inSala = alTavolo(o.servizio);
+  const nomeGrosso = String(o.cliente ?? "").trim().toUpperCase();
+  const dove = o.tavolo ? `TAVOLO ${o.tavolo}` : inSala ? nomeGrosso || "IN SALA" : o.ora;
+  righe.push({
+    testo: `#${o.numero} · ${o.tavolo || inSala ? dove : `RITIRO ${o.ora}`}`,
+    taglia: "largo", grassetto: true, centrato: true, linea: true,
+  });
 
   // ⚠️ «DA INCASSARE» sta in ALTO, non in fondo. Chi prepara passa il
   // sacchetto a chi sta in cassa, e deve sapere prima di consegnarlo che quei
@@ -440,8 +491,11 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
     });
   }
 
-  // ---- L'ora, e chi viene a ritirare ----
-  righe.push({ testo: o.ora, taglia: "gigante", grassetto: true, centrato: true, linea: true });
+  // ---- L'ora (o il tavolo), e per chi e' ----
+  /* ⚠️ La riga grossa in fondo e’ quella che si legge col ticket in mano,
+     appoggiando il sacchetto o portando il piatto: dice DOVE va. Da asporto
+     l’ora, col tavolo il tavolo, in sala senza tavoli il nome. */
+  righe.push({ testo: dove, taglia: "gigante", grassetto: true, centrato: true, linea: true });
   righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
   if (o.telefono) righe.push({ testo: o.telefono, taglia: "largo" });
   if (o.note) righe.push({ testo: o.note, taglia: "largo", grassetto: true });

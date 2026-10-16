@@ -44,6 +44,8 @@ const breve = (chiave: string): string => {
   resaCanc: t("nav.toastResaCanc"), resaMulti: t("nav.toastResaMulti"),
   ordine: t("nav.toastOrder"), ordineMulti: t("nav.toastOrderMulti"),
   pers: t("nav.toastPers"),
+  chiamata: t("nav.toastCall"), chiamataNome: t("nav.toastCallName"), chiamataMulti: t("nav.toastCallMulti"),
+  chiamataHint: t("nav.toastCallHint"),
 })} />
 <nav class="admin-nav" aria-label="Navigation admin" data-current={current ?? ""}>
   <!-- SUPER ADMIN (solo admin@moodd.online): primo item a sinistra + separatore -->
@@ -771,21 +773,78 @@ const breve = (chiave: string): string => {
 
     // Apertura e chiusura in UN posto solo: prima ogni notifica si riscriveva
     // il suo `classList.add("show")` e il suo timeout.
-    function apriToast() {
+    // `durata` 0 = resta finche' qualcuno non lo tocca (le chiamate dai tavoli).
+    function apriToast(durata = 8000) {
       tEl.classList.add("show");
       tScrim.classList.add("show");
       window.clearTimeout(tTimer);
       // 8 secondi, non 5: il toast e' cliccabile e porta alla pagina — cinque
       // sono pochi per accorgersene, asciugarsi le mani e toccarlo.
-      tTimer = window.setTimeout(chiudiToast, 8000);
+      if (durata > 0) tTimer = window.setTimeout(chiudiToast, durata);
     }
+    // --- «Appeler le serveur»: le chiamate dai tavoli ---
+    // ⚠️ La chiamata e' diversa dagli altri toast: dietro c'e' una persona
+    // seduta che aspetta. Quindi (1) non sparisce da sola dopo 8 secondi,
+    // (2) se un ordine o una prenotazione le passano davanti, torna appena
+    // quel toast si chiude, e (3) toccarla vuol dire «ci vado»: si chiude
+    // sul server, e gli altri tablet smettono di mostrarla al giro dopo.
+    type Chiamata = { id: string; table_label: string; caller_name?: string | null };
+    let chiamateInAttesa: Chiamata[] = [];
+    // Il tavolo se c'e'; se la sala non ha tavoli, il nome di chi chiama.
+    const chi = (c: Chiamata) => String(c.table_label || c.caller_name || "").trim();
+    let toastDiChiamata = false;
     function chiudiToast() {
       tEl.classList.remove("show");
       tScrim.classList.remove("show");
       window.clearTimeout(tTimer);
+      if (toastDiChiamata) {
+        // Chiuso col velo: visto, ma nessuno ha detto «ci vado». Non torna
+        // su questo tablet; resta aperta per gli altri.
+        toastDiChiamata = false;
+        chiamateInAttesa = [];
+        return;
+      }
+      if (chiamateInAttesa.length) {
+        const ancora = chiamateInAttesa;
+        window.setTimeout(() => mostraChiamate(ancora), 450);
+      }
     }
     tScrim.addEventListener("click", chiudiToast);
-    tEl.addEventListener("click", () => { window.location.href = lastHref; });
+    tEl.addEventListener("click", () => {
+      if (toastDiChiamata) {
+        const ids = chiamateInAttesa.map((c) => c.id);
+        chiamateInAttesa = [];
+        toastDiChiamata = false;
+        chiudiToast();
+        void fetch("/api/admin/table-calls", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        }).catch(() => {});
+        return;
+      }
+      window.location.href = lastHref;
+    });
+    function mostraChiamate(chiamate: Chiamata[]) {
+      if (!chiamate.length) return;
+      chiamateInAttesa = chiamate;
+      toastDiChiamata = true;
+      const n = chiamate.length;
+      // ⚠️ Il nome lo scrive il CLIENTE: passa da `esc` come tutto il resto,
+      // se no un «nome» con dentro dell'HTML finirebbe eseguito sul tablet.
+      const titolo = n === 1
+        ? chiamate[0].table_label
+          ? String(T.chiamata ?? "").replace("{t}", esc(chiamate[0].table_label))
+          : String(T.chiamataNome ?? "").replace("{nome}", esc(chi(chiamate[0])))
+        : conN(T.chiamataMulti, n);
+      const dettaglio = n === 1
+        ? esc(T.chiamataHint ?? "")
+        : `${chiamate.map((c) => esc(chi(c))).join(" · ")} — ${esc(T.chiamataHint ?? "")}`;
+      tEl.classList.remove("is-cancel");
+      const icoCampana = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
+      tBox.innerHTML = `<span class="mn-ico">${icoCampana}</span><span class="mn-txt"><strong>${titolo}</strong><span class="det">${dettaglio}</span></span><span class="mn-toast-x">✓</span>`;
+      apriToast(0);
+    }
 
     function mostra(eventi: { tipo: string; r: any }[]) {
       const n = eventi.length;
@@ -801,6 +860,7 @@ const breve = (chiave: string): string => {
       const dettaglio = n === 1
         ? `${esc(nome)} · ${jjmm(r.date)} ${esc(r.heure)} · ${r.people} ${esc(T.pers ?? "")}`
         : "";
+      toastDiChiamata = false;
       tEl.classList.toggle("is-cancel", n === 1 && last.tipo === "cancelled");
       const icoResa = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>`;
       tBox.innerHTML = `<span class="mn-ico">${icoResa}</span><span class="mn-txt"><strong>${titolo}</strong>${dettaglio ? `<span class="det">${dettaglio}</span>` : ""}</span><span class="mn-toast-x">›</span>`;
@@ -836,6 +896,7 @@ const breve = (chiave: string): string => {
       const nome = String(o.customer_name || "").trim();
       const titolo = n === 1 ? (T.ordine ?? "") : conN(T.ordineMulti, n);
       const dettaglio = n === 1 ? `${esc(nome)} · ${euro(o.total_cents)}` : "";
+      toastDiChiamata = false;
       tEl.classList.remove("is-cancel");
       const icoCmd = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
       tBox.innerHTML = `<span class="mn-ico">${icoCmd}</span><span class="mn-txt"><strong>${titolo}</strong>${dettaglio ? `<span class="det">${dettaglio}</span>` : ""}</span><span class="mn-toast-x">›</span>`;
@@ -874,6 +935,39 @@ const breve = (chiave: string): string => {
 
     pollOrdini(); // baseline immediata: registra i pagati già presenti al load
 
+    // ⚠️ LE CHIAMATE VISTE SI RICORDANO PER LA SCHEDA, non solo per la pagina.
+    // L'admin ricarica AdminNav a ogni cambio di pagina: con un insieme in
+    // memoria, ogni clic nel menu farebbe risuonare le chiamate gia' viste.
+    // E NIENTE «primo giro muto» come per gli ordini: una chiamata arrivata
+    // mentre la pagina si caricava e' una persona che aspetta, e va detta.
+    const CHIAVE_VISTE = "mdd_chiamate_viste";
+    const chiamateViste = new Set<string>(
+      (() => { try { return JSON.parse(sessionStorage.getItem(CHIAVE_VISTE) || "[]"); } catch { return []; } })() as string[],
+    );
+    async function pollChiamate() {
+      try {
+        const res = await fetch("/api/admin/table-calls", { headers });
+        if (!res.ok) return;
+        const j = (await res.json()) as { calls?: Chiamata[] };
+        const aperte = j.calls ?? [];
+        const nuove = aperte.filter((c) => !chiamateViste.has(c.id));
+        // L'insieme tiene solo le aperte: le chiuse non torneranno.
+        chiamateViste.clear();
+        for (const c of aperte) chiamateViste.add(c.id);
+        try { sessionStorage.setItem(CHIAVE_VISTE, JSON.stringify([...chiamateViste])); } catch { /* privato */ }
+        if (!nuove.length) return;
+        // Il toast mostra TUTTE quelle in attesa su questo tablet, non solo
+        // l'ultima: due tavoli che chiamano a dieci secondi sono due persone.
+        const giaInAttesa = chiamateInAttesa.filter((c) => aperte.some((a) => a.id === c.id));
+        mostraChiamate([...giaInAttesa, ...nuove]);
+        suona(bell); // il rintocco delle prenotazioni: «c'e' qualcuno»
+        for (const c of nuove) window.dispatchEvent(new CustomEvent("restohub:table-call", { detail: c }));
+      } catch {
+        // rete assente: nessun blocco
+      }
+    }
+    pollChiamate();
+
     // Se l'isola scorre davvero (le voci non ci stanno), la pagina ATTIVA va
     // portata in vista. Si guarda il contenuto, non la larghezza: dipende da
     // quante voci quel cliente ha attive.
@@ -886,8 +980,12 @@ const breve = (chiave: string): string => {
     }
     window.setInterval(poll, 20000);
     window.setInterval(pollOrdini, 20000);
+    // ⚠️ 8 secondi e non 20: un ordine puo' aspettare il giro dopo, una
+    // persona col braccio alzato no. La query e' su un indice parziale delle
+    // sole aperte: costa quasi niente.
+    window.setInterval(pollChiamate, 8000);
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") { poll(); pollOrdini(); }
+      if (document.visibilityState === "visible") { poll(); pollOrdini(); pollChiamate(); }
     });
   })();
 

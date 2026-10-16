@@ -23,7 +23,7 @@ import {
   daServire, fatti, statoOrdine, piattiVeri, notaCliente,
   rimborsato, rimborsi, conRimborso,
 } from "../src/lib/admin/ordiniConti.ts";
-import { euroDa } from "../src/lib/soldi.ts";
+import { importoDa } from "../src/lib/soldi.ts";
 
 /* Una giornata come quella che ha fatto nascere queste prove. */
 const GIORNATA = [
@@ -123,9 +123,9 @@ test("uno stato ignoto non diventa «pagato»", () => {
 });
 
 test("i soldi scritti: una riga, e mai «NaN €»", () => {
-  assert.equal(euroDa(1250, "fr-BE").replace(/ | /g, " "), "12,50 €");
-  assert.equal(euroDa(null, "fr-BE").replace(/ | /g, " "), "0,00 €");
-  assert.equal(euroDa("abc", "fr-BE").replace(/ | /g, " "), "0,00 €");
+  assert.equal(importoDa(1250, "fr-BE").replace(/ | /g, " "), "12,50 €");
+  assert.equal(importoDa(null, "fr-BE").replace(/ | /g, " "), "0,00 €");
+  assert.equal(importoDa("abc", "fr-BE").replace(/ | /g, " "), "0,00 €");
 });
 
 /* ---------- le guardie sul codice delle pagine ---------- */
@@ -152,7 +152,7 @@ test("guardia · «euro» sta in un posto solo", () => {
   for (const f of ["index", "orders", "clients", "menu", "stats"]) {
     const src = readFileSync(new URL(`../src/pages/admin/${f}.astro`, import.meta.url), "utf8");
     assert.ok(!/function euro\(cents/.test(src), `${f}.astro non ridichiara euro()`);
-    assert.ok(/euroDa/.test(src), `${f}.astro usa lib/soldi`);
+    assert.ok(/importoDa/.test(src), `${f}.astro usa lib/soldi`);
   }
 });
 

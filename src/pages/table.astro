@@ -1,0 +1,624 @@
+---
+/**
+ * ORDINARE DAL PROPRIO TAVOLO — la pagina del QR.
+ *
+ * Il cliente inquadra il cartoncino sul tavolo, sceglie dal menu della sala,
+ * poi dice chi e' e in quanti sono, e paga. A servizio chiuso vede subito
+ * quando riapre, invece di scoprirlo dopo aver composto la cena. Due QR
+ * possibili, e questa pagina li regge entrambi:
+ *   /table           il QR generico (volantino, bancone): il tavolo si scegle
+ *   /table?table=7   il QR stampato PER quel tavolo: arriva gia' scelto
+ *
+ * ⚠️ QUESTA PAGINA E' DEL CLIENTE (`src/pages/**` sta in `.gitattributes`
+ * come `merge=ours`). Il motore la consegna funzionante e non la riscrive
+ * mai piu': un cliente che la rifa' col suo disegno tiene la sua a ogni
+ * merge, e non si prende un conflitto a ogni giro. Cio' che resta del motore
+ * e' quello che conta — `TableOrder`, `OrderApp`, `/api/table-session`,
+ * `/api/checkout` — e quello si aggiorna da solo.
+ *
+ * ⚠️ LO STILE E' QUELLO DEL SITO. Qui sotto c'e' solo il vestito delle classi
+ * `tbl-*`, che sono nuove e nessun cliente ha ancora. Il menu e il carrello
+ * usano le classi `order-*`, che il sito pubblico veste gia' per /order: su
+ * un'installazione che quel CSS non ce l'ha, la pagina FUNZIONA e si vede
+ * spoglia — che e' il modo giusto di sbagliare.
+ */
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
+import { tavoliDellaZona, PARAM_ZONA } from "../lib/qrRegole";
+import { opzioniTavolo, modiDiPagamento, tavoliDiSala, statoServizioSala, tavoliApertiAdesso, attesaChiamataDi } from "../lib/ordiniOpzioni";
+import { getMenuSala } from "../lib/db";
+import { getLangFromUrl, useTranslations } from "../i18n/ui";
+import TableOrder from "../components/TableOrder";
+import type { TestiSessione } from "../components/TableOrder";
+import Fonts from "../components/Fonts.astro";
+/* ⚠️ Il vestito di BASE di menu e carrello (`order-*`): senza, la carta usciva
+   coi bottoni grigi del sistema. Vale zero di specificita' — qualunque regola
+   del sito vince — quindi un sito che ha gia' vestito /order non perde niente.
+   Una pagina che lo toglie deve vestire `order-*` da se'. */
+import "../components/TableOrder.css";
+import { brandPubblico, coloreTema } from "../lib/brandPubblico";
+
+export const prerender = false;
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+const sede = (Astro.url.searchParams.get("sede") ?? "").trim();
+const tavoloDaUrl = (Astro.url.searchParams.get("table") ?? "").trim().slice(0, 40);
+/* Il QR di una SEZIONE (`?zone=Terrasse`): la griglia mostra solo i tavoli di
+   quella sezione. Vedi `tavoliDellaZona` per una sezione che non c'e' piu'. */
+const zonaDaUrl = (Astro.url.searchParams.get(PARAM_ZONA) ?? "").trim().slice(0, 80);
+/* Ritorno da Stripe col tasto «indietro»: si riapre sui dati, non sul menu. */
+const ripresa = Astro.url.searchParams.get("ripresa") === "1";
+
+const ambito = await ambitoPubblicoChiesto(Astro.request);
+const sala = await opzioniTavolo(ambito);
+/* Minuti prima di poter richiamare il cameriere: si legge solo se la
+   campanella c'e'. */
+const attesaChiamataMin = sala.chiamata ? await attesaChiamataDi(ambito) : 5;
+/* ⚠️ Sala spenta → 404, non una pagina che spiega. Il QR resta incollato al
+   tavolo per mesi: se un ristoratore spegne gli ordini dal locale, chi
+   inquadra deve trovare «questa pagina non c'e'», non un modulo che poi
+   rifiuta l'ordine dopo che ha composto la cena. */
+if (!sala.attivo) return new Response(null, { status: 404 });
+
+const [menu, pagamento, brand, tavoli, servizio, aperti] = await Promise.all([
+  getMenuSala(ambito),
+  modiDiPagamento(ambito),
+  brandPubblico(ambito),
+  /* ⚠️ L’ELENCO, non un «ci sono i tavoli: sì/no». Un campo libero al tavolo
+     produce «7», «tavolo 7», «7 terrazza» e «8» battuto per sbaglio: il
+     server rifiuta i primi tre e accetta il quarto, che e’ il peggiore — i
+     piatti partono per un tavolo dove siede qualcun altro. Da una tendina si
+     puo’ scegliere solo un tavolo che esiste. */
+  tavoliDiSala(ambito),
+  /* ⚠️ APERTO O CHIUSO SI DECIDE QUI, prima di mostrare il menu, con la
+     stessa regola delle due rotte (`statoServizioSala`, nel motore). Prima
+     lo si scopriva solo al momento di pagare: il cliente componeva la cena
+     e poi leggeva «fermé». */
+  statoServizioSala(ambito),
+  /* I tavoli gia' aperti dal QR con almeno un ordine confermato, e le
+     iniziali di chi ci ha ordinato: nel selettore si ACCENDONO (corallo), non
+     si spengono. Mai quelli delle prenotazioni — vedi `tavoliApertiAlQr`. */
+  tavoliApertiAdesso(ambito),
+]);
+
+/* ⚠️ IL VESTITO VIENE DAI REGLAGES DEL CLIENTE, non dal motore. Logo,
+   nome e colori sono quelli che il ristoratore ha gia’ messo: una pagina del
+   motore non ha un design suo, e non deve averne uno. Senza questa riga la
+   pagina esce in Times New Roman su fondo bianco — tecnicamente giusta, e per
+   chi inquadra il QR seduto al tavolo e’ il sito di nessuno.
+   ⚠️ E restano VARIABILI: il cliente che rifa’ questa pagina, o che scrive
+   una riga nel suo foglio di stile, vince su tutto senza toccare il motore. */
+const cBg = coloreTema(brand.tema, "bg");
+const cText = coloreTema(brand.tema, "text");
+const cMuted = coloreTema(brand.tema, "muted");
+const cLine = coloreTema(brand.tema, "line");
+/* Il fondo dei quadrati: su un fondo scuro un bordo sottile sparisce. */
+const cCard = coloreTema(brand.tema, "card");
+/* Il fondo dei campi: piu’ scuro della pagina, cosi’ si vede dove si scrive. */
+const cCampo = coloreTema(brand.tema, "input");
+const cAccent = coloreTema(brand.tema, "accent");
+/**
+ * Le variabili del tema, da mettere sul CORPO della pagina.
+ *
+ * ⚠️ SUL CORPO, non sul blocco centrale: li’ il fondo si fermava a 34rem di
+ * larghezza e lasciava bianco tutt’intorno. Su un telefono si vede poco, su un
+ * tablet appoggiato al bancone si vede benissimo, e sembra una pagina rotta.
+ *
+ * ⚠️ E la spiegazione sta QUI e non accanto al tag: fra la testa e il corpo
+ * della pagina Astro non accetta un’espressione, e un commento messo li’ fa
+ * smettere di compilare tutto il file.
+ */
+const stileTema = [
+  `--tbl-bg:${cBg}`, `--tbl-text:${cText}`, `--tbl-muted:${cMuted}`,
+  `--tbl-line:${cLine}`, `--tbl-card:${cCard}`, `--tbl-campo:${cCampo}`,
+  /* Il testo sui bottoni d’accento e’ il fondo pagina: e’ la regola che il
+     tema dichiara da se’ (vedi `TEMA_DEFAULT`), non una scelta presa qui. */
+  `--tbl-ink:${cAccent}`, `--tbl-paper:${cBg}`,
+].join(";");
+
+/**
+ * LE PAROLE DELLA PRIMA SCHERMATA, qui e non nel dizionario pubblico.
+ *
+ * ⚠️ E’ UNA SCELTA, e ha un motivo preciso: `src/i18n/**` e’ del cliente
+ * (`merge=ours`), quindi una chiave nuova messa in `fr.json` dal motore NON
+ * arriverebbe mai a nessuno — `t("...")` renderebbe la chiave, e sul tavolo
+ * si leggerebbe «table.intro». Stando nella pagina, le parole viaggiano col
+ * file che le usa: arrivano insieme, o non arriva nessuno dei due.
+ *
+ * Cinque lingue perche’ tante sono quelle pubbliche del motore; un sito che
+ * ne ha due usa le sue due, e qualunque altra ripiega sul francese.
+ */
+const TESTI: Record<string, TestiSessione> = {
+  fr: {
+    titolo: "Commander à table",
+    tavolo: "Votre table", tavoloAiuto: "Le numéro inscrit sur la table",
+    persone: "Vous êtes combien ?",
+    scegli: "Choisir", cambia: "Changer", chiudi: "Fermer", tavoloUnito: "Cette table est déjà ouverte : votre commande s’ajoute à la sienne.", scegliTavolo: "Choisissez votre table…",
+    errCampi: "Vérifiez les champs.", errChiuso: "Le service vient de se terminer.",
+    errTavolo: "Cette table n’existe pas. Vérifiez le numéro.",
+    errGenerico: "Impossible d’enregistrer la table. Réessayez.",
+    chiusoTitolo: "Nous sommes fermés", chiusoRiapre: "Nous rouvrons aujourd’hui à {ora}.",
+    chiusoOggi: "Le service est terminé pour aujourd’hui.", aggiorna: "Actualiser",
+    nonDisponibileTitolo: "Commande indisponible", nonDisponibileTesto: "La commande depuis la table n’est pas disponible pour le moment. Un membre de l’équipe peut prendre votre commande.",
+    chiama: "Appeler le serveur", chiamaTitolo: "À quelle table êtes-vous ?", chiamaFatto: "C’est noté : un serveur arrive à la table {t}.", chiamaErr: "L’appel n’est pas passé. Faites signe à un serveur.", chiamaNomeTitolo: "Pour que le serveur vous trouve", chiamaNome: "Votre prénom", chiamaInvia: "Appeler le serveur", chiamaFattoNome: "C’est noté : un serveur arrive.", chiamaAttendi: "Le serveur est prévenu. Vous pourrez rappeler dans {tempo}.",
+  },
+  en: {
+    titolo: "Order from your table",
+    tavolo: "Your table", tavoloAiuto: "The number written on the table",
+    persone: "How many of you?",
+    scegli: "Choose", cambia: "Change", chiudi: "Close", tavoloUnito: "This table is already open: your order is added to it.", scegliTavolo: "Choose your table…",
+    errCampi: "Please check the fields.", errChiuso: "Service has just ended.",
+    errTavolo: "That table doesn’t exist. Check the number.",
+    errGenerico: "Could not register the table. Please try again.",
+    chiusoTitolo: "We’re closed", chiusoRiapre: "We reopen today at {ora}.",
+    chiusoOggi: "Service is over for today.", aggiorna: "Refresh",
+    nonDisponibileTitolo: "Ordering unavailable", nonDisponibileTesto: "Ordering from the table isn’t available right now. A member of staff can take your order.",
+    chiama: "Call the waiter", chiamaTitolo: "Which table are you at?", chiamaFatto: "Got it: a waiter is on the way to table {t}.", chiamaErr: "The call didn’t go through. Please wave to a member of staff.", chiamaNomeTitolo: "So the waiter can find you", chiamaNome: "Your first name", chiamaInvia: "Call the waiter", chiamaFattoNome: "Got it: a waiter is on the way.", chiamaAttendi: "The waiter has been told. You can call again in {tempo}.",
+  },
+  it: {
+    titolo: "Ordina dal tavolo",
+    tavolo: "Il tuo tavolo", tavoloAiuto: "Il numero scritto sul tavolo",
+    persone: "In quanti siete?",
+    scegli: "Scegli", cambia: "Cambia", chiudi: "Chiudi", tavoloUnito: "Questo tavolo è già aperto: il tuo ordine si aggiunge al suo.", scegliTavolo: "Scegli il tuo tavolo…",
+    errCampi: "Controlla i campi.", errChiuso: "Il servizio è appena terminato.",
+    errTavolo: "Questo tavolo non esiste. Controlla il numero.",
+    errGenerico: "Non riesco a registrare il tavolo. Riprova.",
+    chiusoTitolo: "Siamo chiusi", chiusoRiapre: "Riapriamo oggi alle {ora}.",
+    chiusoOggi: "Il servizio di oggi è terminato.", aggiorna: "Aggiorna",
+    nonDisponibileTitolo: "Ordine non disponibile", nonDisponibileTesto: "L’ordine dal tavolo non è disponibile al momento. Il personale può prendere la tua ordinazione.",
+    chiama: "Chiama il cameriere", chiamaTitolo: "A quale tavolo siete?", chiamaFatto: "Fatto: un cameriere arriva al tavolo {t}.", chiamaErr: "La chiamata non è partita. Fate un cenno a un cameriere.", chiamaNomeTitolo: "Perché il cameriere vi trovi", chiamaNome: "Il tuo nome", chiamaInvia: "Chiama il cameriere", chiamaFattoNome: "Fatto: arriva un cameriere.", chiamaAttendi: "Il cameriere è avvisato. Potrai richiamare tra {tempo}.",
+  },
+  nl: {
+    titolo: "Bestellen aan tafel",
+    tavolo: "Uw tafel", tavoloAiuto: "Het nummer op de tafel",
+    persone: "Hoeveel bent u?",
+    scegli: "Kiezen", cambia: "Wijzigen", chiudi: "Sluiten", tavoloUnito: "Deze tafel is al geopend: uw bestelling wordt eraan toegevoegd.", scegliTavolo: "Kies uw tafel…",
+    errCampi: "Controleer de velden.", errChiuso: "De service is net afgelopen.",
+    errTavolo: "Die tafel bestaat niet. Controleer het nummer.",
+    errGenerico: "Kan de tafel niet registreren. Probeer opnieuw.",
+    chiusoTitolo: "We zijn gesloten", chiusoRiapre: "We gaan vandaag weer open om {ora}.",
+    chiusoOggi: "De service is voor vandaag afgelopen.", aggiorna: "Vernieuwen",
+    nonDisponibileTitolo: "Bestellen niet beschikbaar", nonDisponibileTesto: "Bestellen vanaf de tafel is momenteel niet beschikbaar. Een medewerker kan uw bestelling opnemen.",
+    chiama: "Ober roepen", chiamaTitolo: "Aan welke tafel zit u?", chiamaFatto: "Genoteerd: er komt een ober naar tafel {t}.", chiamaErr: "De oproep is niet verstuurd. Wenk even een ober.", chiamaNomeTitolo: "Zodat de ober u vindt", chiamaNome: "Uw voornaam", chiamaInvia: "Ober roepen", chiamaFattoNome: "Genoteerd: er komt een ober.", chiamaAttendi: "De ober is verwittigd. U kunt opnieuw roepen over {tempo}.",
+  },
+  es: {
+    titolo: "Pedir en la mesa",
+    tavolo: "Su mesa", tavoloAiuto: "El número escrito en la mesa",
+    persone: "¿Cuántos son?",
+    scegli: "Elegir", cambia: "Cambiar", chiudi: "Cerrar", tavoloUnito: "Esta mesa ya está abierta: su pedido se suma al suyo.", scegliTavolo: "Elija su mesa…",
+    errCampi: "Revise los campos.", errChiuso: "El servicio acaba de terminar.",
+    errTavolo: "Esa mesa no existe. Revise el número.",
+    errGenerico: "No se puede registrar la mesa. Inténtelo de nuevo.",
+    chiusoTitolo: "Estamos cerrados", chiusoRiapre: "Volvemos a abrir hoy a las {ora}.",
+    chiusoOggi: "El servicio de hoy ha terminado.", aggiorna: "Actualizar",
+    nonDisponibileTitolo: "Pedido no disponible", nonDisponibileTesto: "Pedir desde la mesa no está disponible en este momento. El personal puede tomar su pedido.",
+    chiama: "Llamar al camarero", chiamaTitolo: "¿En qué mesa está?", chiamaFatto: "Hecho: un camarero va a la mesa {t}.", chiamaErr: "La llamada no se envió. Haga una seña a un camarero.", chiamaNomeTitolo: "Para que el camarero le encuentre", chiamaNome: "Su nombre", chiamaInvia: "Llamar al camarero", chiamaFattoNome: "Hecho: va un camarero.", chiamaAttendi: "El camarero está avisado. Podrá volver a llamar en {tempo}.",
+  },
+};
+
+/* ⚠️ «Remplissez tous les champs, CHOISISSEZ UNE HEURE…» e' la frase di
+   /order: al tavolo un'ora da scegliere non c'e', e chi la legge cerca un
+   campo che non esiste. Qui la stessa richiesta, senza l'ora. */
+const RIEMPI: Record<string, string> = {
+  fr: "Remplissez tous les champs pour commander.",
+  en: "Fill in all the fields to order.",
+  it: "Compila tutti i campi per ordinare.",
+  nl: "Vul alle velden in om te bestellen.",
+  es: "Complete todos los campos para pedir.",
+};
+
+/* Il perche' dell'email obbligatoria, sotto il campo di OrderApp. Sta fuori
+   da `TESTI` perche' non e' di questa pagina: lo mostra OrderApp, che lo
+   riceve fra le sue parole (`emailWhyRequired`). */
+/* ⚠️ Il codice promo come DOMANDA, non come campo: al tavolo quasi nessuno
+   ne ha uno, e un campo vuoto sempre aperto in mezzo al pagamento fa
+   pensare a chi non ce l'ha di star perdendo uno sconto. Spuntata la
+   casella, il campo appare (lo fa gia' OrderApp con `couponAsk`). */
+const DOMANDA_COUPON: Record<string, string> = {
+  fr: "Vous avez un code promo ?",
+  en: "Do you have a promo code?",
+  it: "Hai un codice promo?",
+  nl: "Heeft u een promotiecode?",
+  es: "¿Tiene un código promocional?",
+};
+
+const EMAIL_PERCHE: Record<string, string> = {
+  fr: "Pour vous prévenir quand c’est prêt",
+  en: "So we can tell you when it’s ready",
+  it: "Per avvisarti quando è pronto",
+  nl: "Om u te verwittigen als het klaar is",
+  es: "Para avisarle cuando esté listo",
+};
+
+/* ⚠️ Le persone e il nome stanno sotto `book.*`, non `order.*`: sono le
+   stesse parole del widget prenotazioni, e il dizionario pubblico le ha
+   solo la'. Inventarne di nuove vorrebbe dire due traduzioni della stessa
+   parola, e il giorno che il cliente cambia una delle due la pagina
+   mostrerebbe l'altra. */
+const testiOrdine = {
+  cartTitle: t("order.cartTitle"),
+  cartEmpty: t("order.cartEmpty"),
+  recap: t("order.recap"),
+  yourInfo: t("order.yourInfo"),
+  pickupTime: t("order.pickupTime"),
+  notes: t("order.notes"),
+  notesPlaceholder: t("order.notesPlaceholder"),
+  coupon: t("order.coupon"),
+  couponAsk: DOMANDA_COUPON[lang] ?? DOMANDA_COUPON.fr,
+  couponPlaceholder: t("order.couponPlaceholder"),
+  couponApply: t("order.couponApply"),
+  couponRemove: t("order.couponRemove"),
+  couponInvalid: t("order.couponInvalid"),
+  subtotal: t("order.subtotal"),
+  discount: t("order.discount"),
+  total: t("order.total"),
+  items: t("order.items"),
+  toCheckout: t("order.toCheckout"),
+  pay: t("order.pay"),
+  paying: t("order.paying"),
+  backToMenu: t("order.backToMenu"),
+  seeCart: t("order.seeCart"),
+  fillAll: RIEMPI[lang] ?? RIEMPI.fr,
+  errPayment: t("order.errPayment"),
+  errConnection: t("order.errConnection"),
+  firstName: t("book.firstName"),
+  lastName: t("book.lastName"),
+  phone: t("book.phone"),
+  email: t("book.email"),
+  ariaIncrease: t("order.aria.increase"),
+  ariaDecrease: t("order.aria.decrease"),
+  ariaRemove: t("order.aria.remove"),
+  ariaAdd: t("order.aria.add"),
+  tabBoissons: t("order.tab.boissons"),
+  /* ⚠️ Non si usano, e ci sono: `closedToday` la pagina non la accende mai
+     — a servizio chiuso il menu non si monta nemmeno, e lo dice il modale
+     di `TableOrder` — ma la prop e' obbligatoria e una stringa vuota in
+     un'interfaccia e' peggio di una parola giusta mai mostrata. */
+  closedToday: t("slot.closed"),
+  reopenInfo: "",
+  consentPre: t("book.consentPre"),
+  consentLink: t("book.consentLink"),
+  privacyHref: t("footer.privacy"),
+  emailWhyRequired: EMAIL_PERCHE[lang] ?? EMAIL_PERCHE.fr,
+};
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* ⚠️ `noindex`: la pagina del QR non deve finire su Google. Chi la
+        trovasse cercando il ristorante aprirebbe un tavolo da casa. */}
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{brand.nome}</title>
+    <meta name="theme-color" content={cBg} />
+    <link rel="icon" href={brand.favicon} />
+    <Fonts />
+  </head>
+  <body style={stileTema}>
+    <main class="tbl-main">
+      {/* ⚠️ QUI VA L’INTESTAZIONE DEL SITO, e il motore non ne ha una: il
+          logo, il menu e i colori del locale vivono nel `Layout` del cliente,
+          che questa pagina non puo’ importare — nel motore quel file non
+          esiste e la pagina non compilerebbe. Il cliente sostituisce il guscio
+          `<html>` col suo `<Layout>` (vedi ENGINE.md), e da quel momento
+          l’intestazione compare sopra il percorso senza toccare l’isola.
+          Finche’ non lo fa, la pagina comincia dai passi: nuda, e giusta. */}
+      {/* `sceltaFormato="modale"`: un piatto con piu' formati apre la scheda
+          con la foto e i formati da scegliere, invece di una fila di bottoni
+          dentro la riga — al tavolo, su un telefono, la fila andava a capo e
+          i prezzi si leggevano male. `foto`: la foto compare solo sui piatti
+          che ne hanno una, mai un riquadro vuoto. `carrelloDettagliato`: nel
+          riepilogo la foto del piatto, il formato a parte e il prezzo unitario
+          — questa pagina ha gia' lo stile pronto (`TableOrder.css`). Tutte e due scelte di
+          QUESTA pagina, che e' del cliente: le cambia senza toccare il motore. */}
+      <TableOrder
+        client:load
+        menu={menu}
+        testiOrdine={testiOrdine}
+        testi={TESTI[lang] ?? TESTI.fr}
+        lang={lang}
+        sede={sede}
+        tavoli={tavoliDellaZona(tavoli, zonaDaUrl)}
+        avvisa={sala.avvisa}
+        tavoloDaUrl={tavoloDaUrl}
+        aperti={aperti}
+        ripresa={ripresa}
+        chiuso={pagamento.nessuno
+          ? { riapre: null, motivo: "pagamento" }
+          : servizio.aperto ? null : { riapre: servizio.riapre, motivo: "orario" }}
+        immagine={brand.immagine}
+        sceltaFormato="modale"
+        foto={true}
+        carrelloDettagliato={true}
+        chiamata={sala.chiamata}
+        attesaChiamata={attesaChiamataMin}
+        pagamento={pagamento}
+      />
+    </main>
+    {/* ⚠️ `is:global`, E NON E’ PIGRIZIA. Astro marca con `data-astro-…`
+        solo gli elementi del SUO template; questo modulo lo disegna React
+        dentro l’isola, quindi uno stile «scoped» non combacia con niente e la
+        pagina esce nuda — senza un errore da nessuna parte, in Astro o in
+        console. E’ lo stesso motivo per cui `reservation.astro` e
+        `ReservationWidget.astro` fanno gia’ cosi’. */}
+    <style is:global>
+      /* Il vestito delle sole classi NUOVE. Il resto della pagina usa le
+         `order-*` del sito, che il cliente veste gia' per /order. */
+      /* ⚠️ DUE VARIABILI, NON DUE COLORI SCRITTI DENTRO. Il motore non
+         conosce la tavolozza di questo sito, e non deve imporgliene una: qui
+         ci sono due neutri che servono solo a far vedere qualcosa il primo
+         giorno. Il cliente li cambia dal SUO foglio di stile con una riga —
+         `.tbl-main { --tbl-ink: var(--mio-accento); }` — senza toccare questa
+         pagina, quindi senza nessun conflitto al merge. */
+      /* ⚠️ I ripieghi stanno QUI, non nei valori scritti sopra: se la lettura
+         dei Reglages non riesce, la pagina deve uscire sobria e leggibile —
+         mai bianco su bianco. L’attributo `style` del <main> li sovrascrive
+         quando il brand c’e’. */
+      body { --tbl-bg: #fff; --tbl-text: #1b1b1b; --tbl-muted: #6b6b6b;
+             --tbl-line: #c9c9c9; --tbl-ink: #1b1b1b; --tbl-paper: #fff; --tbl-card: #f2f2f2; --tbl-campo: #f7f7f7;
+             margin: 0; min-height: 100dvh;
+             background: var(--tbl-bg); color: var(--tbl-text);
+             font-family: var(--font-body); }
+      .tbl-main { max-width: 34rem; margin: 0 auto; padding: 1.2rem 1rem 1.5rem; }
+      /* IL TAVOLO IN CIMA, FERMO MENTRE SI SCORRE (era il percorso in tre
+         passi). Esce dai margini della colonna come la barra delle categorie,
+         cosi' le due si leggono come un'unica testata.
+         ⚠️ DUE STRATI, ed e' quello che toglie gli scatti. Fuori, `.tbl-barra`:
+         occupa nella pagina SEMPRE l'altezza piena (`--tbl-barra-piena`,
+         misurata dall'isola) e non si vede — trasparente, e non prende i
+         tocchi. Dentro, `.tbl-barra-fondo`: il fondo pieno e il box, l'unica
+         cosa che si stringe. Prima si stringeva la barra intera: la pagina
+         sotto si accorciava a ogni fotogramma, il browser la ricalcolava
+         tutta, e la carta saltellava. */
+      .tbl-barra { position: sticky; top: 0; z-index: 12; height: var(--tbl-barra-piena, auto);
+                   margin: -1.2rem -1rem .6rem; pointer-events: none; }
+      /* ⚠️ Fondo PIENO del colore della pagina: la carta ci scorre sotto, e un
+         fondo trasparente mescolerebbe il numero del tavolo coi piatti. */
+      .tbl-barra-fondo { pointer-events: auto; padding: .75rem 1rem .6rem; background: var(--tbl-bg); }
+      /* IL BOX: la riga del tavolo in una scheda come quelle dei piatti, cosi'
+         si legge come «la mia tavola», non come un titolo di pagina. Una riga
+         sola, centrata in verticale: etichetta a sinistra, numero a destra. */
+      .tbl-barra-fondo > .tbl-campo--riga { flex-wrap: wrap; align-items: center; gap: .5rem .75rem;
+                                            padding: .5rem .5rem .5rem 1rem; min-height: 60px; box-sizing: border-box;
+                                            border: 1px solid var(--tbl-line); border-radius: .9rem;
+                                            background: var(--tbl-card); }
+      .tbl-barra .tbl-lab--riga { font-size: 1rem; transform-origin: left center; }
+      .tbl-barra .tbl-tav--scelto { width: 44px; min-height: 44px; border-radius: .6rem; transform-origin: right center; }
+      .tbl-barra .tbl-scegli { min-height: 44px; transform-origin: right center; }
+      .tbl-barra .tbl-aiuto-testo { padding: 0 .5rem .3rem 0; }
+      /* SCORRENDO si rimpicciolisce (la classe la mette TableOrder): una riga
+         sottile, niente «?» — l'aiuto serve in cima, quando si arriva, non a
+         meta' della carta.
+         ⚠️ Etichetta e numero si rimpiccioliscono con `transform: scale`, non
+         cambiando misura: lo `scale` lo fa la scheda grafica senza ricalcolare
+         il testo, ed e' liscio anche su un telefono lento. Cambiano misura
+         solo i margini del fondo e del box, che stanno dentro uno spazio
+         fisso e non spostano niente intorno. */
+      .tbl-barra-fondo, .tbl-barra-fondo > .tbl-campo--riga {
+        transition: padding .25s ease, min-height .25s ease, border-radius .25s ease; }
+      .tbl-barra .tbl-lab--riga, .tbl-barra .tbl-tav--scelto, .tbl-barra .tbl-scegli {
+        transition: transform .25s ease; }
+      .tbl-barra .tbl-aiuto-btn { transition: opacity .2s ease, visibility .2s ease; }
+      .tbl-barra--compatta .tbl-barra-fondo { padding-top: .4rem; padding-bottom: .35rem; }
+      .tbl-barra--compatta .tbl-barra-fondo > .tbl-campo--riga { min-height: 0; padding: .15rem .3rem .15rem .85rem; border-radius: .7rem; }
+      .tbl-barra--compatta .tbl-lab--riga { transform: scale(.88); }
+      .tbl-barra--compatta .tbl-tav--scelto, .tbl-barra--compatta .tbl-scegli { transform: scale(.8); }
+      .tbl-barra--compatta .tbl-aiuto-btn { opacity: 0; visibility: hidden; }
+      .tbl-barra--compatta .tbl-aiuto-testo { display: none; }
+      /* L'altezza della barra stretta, per le categorie che le stanno sotto:
+         margini del fondo (.4 + .35rem) + margini del box (2 × .15rem) + il
+         numero (44px) + il bordo (2px). Si scrive qui e non si misura, perche'
+         misurarla a ogni fotogramma era proprio uno degli scatti. ⚠️ Cambiando
+         una di quelle misure qui sopra, va cambiata anche questa. */
+      .tbl-pagina--barra.tbl-pagina--compatta { --tbl-barra-h: calc(1.05rem + 46px); }
+      @media (prefers-reduced-motion: reduce) {
+        .tbl-barra-fondo, .tbl-barra-fondo > .tbl-campo--riga, .tbl-barra .tbl-lab--riga,
+        .tbl-barra .tbl-tav--scelto, .tbl-barra .tbl-scegli, .tbl-barra .tbl-aiuto-btn { transition: none; }
+      }
+      /* IL TITOLO NON SI VEDE, MA C'E'. Il tavolo in cima dice gia' dove si
+         e', e la vetrina dei piatti fa il resto: un titolo in piu' spingeva
+         la carta sotto la piega. Resta per chi usa un lettore di schermo, che
+         su una pagina senza titolo non sa dove e' arrivato. */
+      .tbl-titolo { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+                    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+      /* LA VETRINA DEI PIATTI. ⚠️ `scroll-snap`: si sfoglia col dito come ogni
+         galleria del telefono e si ferma sempre su una foto intera, mai a
+         meta'. `aspect-ratio` fisso: le foto della carta hanno qualunque
+         forma, e una verticale spingerebbe il menu fuori dalla vista. */
+      .tbl-vetrina { position: relative; margin: 0 0 1.2rem; }
+      .tbl-vetrina-binario { display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
+                             scrollbar-width: none; border-radius: .8rem; }
+      .tbl-vetrina-binario::-webkit-scrollbar { display: none; }
+      .tbl-vetrina-foto { position: relative; flex: 0 0 100%; margin: 0; scroll-snap-align: start;
+                          aspect-ratio: 16 / 9; background: var(--tbl-card); }
+      .tbl-vetrina-foto img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      /* Il nome in basso a sinistra, piccolo, su una sfumatura scura: si legge
+         su un piatto chiaro come su uno scuro, e non copre il piatto. Bianco
+         scritto qui e non preso dal tema: sta sopra una FOTO, non sul fondo. */
+      .tbl-vetrina-nome { position: absolute; left: 0; right: 0; bottom: 0; text-align: left;
+                          padding: 1.8rem .85rem .6rem; font-size: .78rem; font-weight: 600;
+                          letter-spacing: .02em; color: #fff;
+                          background: linear-gradient(to top, rgba(0, 0, 0, .7), transparent); }
+      .tbl-vetrina-punti { display: flex; justify-content: center; gap: .35rem; margin-top: .55rem; }
+      .tbl-vetrina-punti span { width: 6px; height: 6px; border-radius: 3px; background: var(--tbl-line);
+                                transition: width .2s ease, background-color .2s ease; }
+      .tbl-vetrina-punti span.is-ora { width: 16px; background: var(--tbl-ink); }
+      .tbl-form { display: flex; flex-direction: column; gap: 1rem; }
+      .tbl-campo { display: flex; flex-direction: column; gap: .35rem; }
+      .tbl-lab { display: flex; flex-direction: column; font-weight: 600; }
+      /* La spiegazione sta sotto il campo: piu’ piccola dell’etichetta, e
+         staccata dal campo meno di quanto il campo sia staccato dal prossimo. */
+      .tbl-aiuto { font-weight: 400; font-size: .8rem; color: var(--tbl-muted); margin-top: .3rem; }
+      /* ⚠️ 16px pieni, mai meno: sotto i 16px iOS ZOOMA sul campo appena lo
+         si tocca, e chi ordina si ritrova la pagina ingrandita e storta. */
+      /* ⚠️ I campi hanno un fondo PROPRIO, piu’ scuro della pagina: trasparenti
+         si vedeva solo il bordo, e su uno schermo al sole un bordo sottile
+         sparisce — chi ordina non capisce dove toccare. Il colore viene dal
+         tema del cliente (`input`), non da un grigio scelto qui. */
+      .tbl-input { padding: .8rem .85rem; font-size: 16px; border: 1px solid var(--tbl-line); border-radius: .5rem; background: var(--tbl-campo); color: inherit; }
+      .tbl-input::placeholder { color: var(--tbl-muted); }
+      /* LA TENDINA DEI TAVOLI. ⚠️ `appearance: none` toglie la freccia del
+         sistema, quindi se ne disegna una: senza, il campo sembra un campo di
+         testo e nessuno lo apre. */
+      /* LA RIGA DEL TAVOLO: a sinistra cosa si chiede, a destra la risposta. */
+      .tbl-campo--riga { flex-direction: row; align-items: center; justify-content: space-between;
+                         flex-wrap: wrap; gap: .6rem 1rem; }
+      .tbl-lab--riga { flex-direction: row; align-items: center; gap: .45rem; }
+      /* ⚠️ L’aiuto e’ un BOTTONE, non un `title`: su un telefono non c’e’
+         niente da sorvolare, e quella frase resterebbe scritta solo per chi
+         usa il mouse. 28px, perche’ si deve poter toccare. */
+      .tbl-aiuto-btn { width: 28px; height: 28px; flex: 0 0 auto; border-radius: 50%;
+                       border: 1px solid var(--tbl-line); background: transparent; color: var(--tbl-muted);
+                       font: inherit; font-size: .8rem; font-weight: 700; line-height: 1; cursor: pointer; }
+      .tbl-aiuto-testo { flex: 1 1 100%; margin: 0; font-size: .85rem; color: var(--tbl-muted); }
+      /* LE PERSONE, a pastiglie — come `rw-pgrid` nel widget prenotazioni.
+         ⚠️ SEI COLONNE UGUALI su una riga (1–5 e «6+»): la griglia divide la
+         larghezza vera del pannello, cosi' le pastiglie la riempiono da
+         bordo a bordo senza buco a destra e senza andare a capo, su qualsiasi
+         telefono. `minmax(0, 1fr)`: senza lo 0 una colonna si allargherebbe
+         col suo testo («6+») e le altre si stringerebbero.
+         ⚠️ 44px di ALTEZZA: la misura minima di un bersaglio da toccare, e
+         qui si tocca in piedi, con una mano sola. In larghezza decide la
+         griglia: su un 375px ogni pastiglia ne prende 46. */
+      .tbl-pgrid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .4rem; }
+      .tbl-p { min-width: 0; min-height: 44px; padding: .4rem 0;
+               font: inherit; font-size: .95rem; cursor: pointer;
+               border: 1px solid var(--tbl-line); border-radius: .5rem;
+               background: var(--tbl-card); color: inherit; }
+      .tbl-p--ora { background: var(--tbl-ink); color: var(--tbl-paper);
+                    border-color: var(--tbl-ink); font-weight: 700; }
+      .tbl-p-oltre { margin-top: .5rem; }
+      .tbl-scegli { padding: .6rem 1rem; font: inherit; font-weight: 700; cursor: pointer;
+                    border: 1px solid var(--tbl-ink); border-radius: .5rem;
+                    background: transparent; color: var(--tbl-ink); min-height: 44px; }
+      /* IL MODALE DELLA SCELTA. ⚠️ In fondo allo schermo su un telefono: e’
+         dove arriva il pollice. `max-height` + scorrimento perche’ una sala da
+         sessanta tavoli non ci sta, e senza, gli ultimi non si raggiungono. */
+      .tbl-modale { position: fixed; inset: 0; z-index: 40; display: flex;
+                    align-items: flex-end; justify-content: center;
+                    background: rgba(0, 0, 0, .55); }
+      .tbl-modale-box { width: 100%; max-width: 34rem; max-height: 80vh; overflow: auto;
+                        padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+                        border-radius: .9rem .9rem 0 0; background: var(--tbl-bg);
+                        border-top: 1px solid var(--tbl-line); }
+      .tbl-modale-testa { display: flex; align-items: center; justify-content: space-between; margin-bottom: .9rem; }
+      .tbl-modale-tit { margin: 0; font-size: .9rem; color: var(--tbl-muted); }
+      .tbl-modale-x { width: 36px; height: 36px; border: 0; background: none; color: inherit;
+                      font-size: 1.6rem; line-height: 1; cursor: pointer; }
+      /* ⚠️ SEI COLONNE, come chiesto. I quadrati scendono sotto i 56px su un
+         telefono stretto: si accetta perche’ i numeri sono corti e il
+         riquadro e’ l’unica cosa sullo schermo — ma e’ il punto da riguardare
+         per primo se qualcuno sbaglia tavolo. */
+      .tbl-griglia { display: grid; grid-template-columns: repeat(6, 1fr); gap: .4rem; }
+      /* ⚠️ I quadrati hanno un fondo SUO, preso dal tema: su un fondo scuro
+         un bordo sottile e basta sparisce, e si tocca a caso. */
+      .tbl-tav { display: flex; align-items: center; justify-content: center;
+                 aspect-ratio: 1; padding: .15rem;
+                 font: inherit; font-weight: 700; font-size: .95rem; line-height: 1.05;
+                 text-align: center; overflow: hidden;
+                 border: 1px solid var(--tbl-line); border-radius: .5rem;
+                 background: var(--tbl-card); color: inherit; cursor: pointer; }
+      .tbl-tav--ora { border-color: var(--tbl-ink); box-shadow: inset 0 0 0 2px var(--tbl-ink); }
+      /* IL TAVOLO GIA' APERTO si ACCENDE nel colore del locale (non si spegne
+         piu'): c'e' gia' qualcuno, e sceglierlo vuol dire unirsi a lui. Scelto
+         e aperto insieme: un anello in piu' attorno, per distinguerlo dagli
+         altri aperti. */
+      .tbl-tav--aperto { background: var(--tbl-ink); color: var(--tbl-paper); border-color: var(--tbl-ink); }
+      .tbl-tav--aperto.tbl-tav--ora { box-shadow: inset 0 0 0 3px var(--tbl-paper); }
+      /* Chi c'e' al tavolo, nella barra: un cerchio con l'iniziale per
+         persona, sovrapposti come le facce di una chat di gruppo. */
+      .tbl-avatars { display: flex; align-items: center; margin-left: auto; padding-left: .2rem; }
+      .tbl-avatar { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+                    margin-left: -8px; font-size: .8rem; font-weight: 700; line-height: 1;
+                    background: var(--tbl-bg); color: var(--tbl-ink); border: 2px solid var(--tbl-ink); }
+      .tbl-avatar:first-child { margin-left: 0; }
+      .tbl-barra .tbl-avatars { transition: transform .25s ease; transform-origin: right center; }
+      .tbl-barra--compatta .tbl-avatars { transform: scale(.85); }
+      /* Al posto di «quanti siete», quando ci si unisce a un tavolo aperto. */
+      .tbl-unito { margin: 0; padding: .7rem .85rem; border-radius: .6rem; font-size: .9rem;
+                   border: 1px solid var(--tbl-ink); color: var(--tbl-text); }
+      /* Il tavolo scelto, nella riga: piu’ piccolo del quadrato di prima, pieno,
+         e con la matita in un angolo che dice che si puo’ toccare. */
+      .tbl-tav--scelto { position: relative; flex: 0 0 auto; width: 52px; min-height: 52px;
+                         font-size: 1.05rem; background: var(--tbl-ink); color: var(--tbl-paper);
+                         border-color: var(--tbl-ink); }
+      .tbl-tav-ico { position: absolute; right: 2px; bottom: 2px; width: 13px; height: 13px; opacity: .85; }
+      .tbl-tav-ico svg { width: 100%; height: 100%; }
+      /* ⚠️ L'errore non e' una riga di testo in fondo al modulo: e' la
+         risposta alla cosa che la persona ha appena fatto, e deve leggersi
+         come un blocco. Centrato, con bordo e un velo del suo stesso rosso,
+         perche' su un telefono al sole una riga rossa sottile sparisce —
+         e chi non la vede ripreme il bottone finche' si stanca.
+         ⚠️ Il fondo e' il rosso stesso reso quasi trasparente (`color-mix`),
+         non un rosa fisso: cosi' funziona sul tema chiaro e su quello scuro
+         senza che il motore scelga una seconda tinta. */
+      .tbl-err { --tbl-err-c: #c0392b;
+                 margin: 1.2rem 0 0; padding: .8rem 1rem; text-align: center;
+                 color: var(--tbl-err-c); font-weight: 600; line-height: 1.35;
+                 border: 1px solid color-mix(in srgb, var(--tbl-err-c) 45%, transparent);
+                 border-radius: .6rem;
+                 background: color-mix(in srgb, var(--tbl-err-c) 12%, transparent); }
+      /* ⚠️ Due colori DICHIARATI, non `currentColor`: lo sfondo preso da
+         `currentColor` e il testo che eredita lo stesso colore davano un
+         rettangolo pieno con la scritta invisibile. Sono i due neutri del
+         motore: il sito del cliente li sovrascrive col suo accento. */
+      .tbl-btn { margin-top: 0; width: 100%; min-height: 52px; font-size: 1.05rem; font-weight: 700; border: 0; border-radius: 999px; background: var(--tbl-ink); color: var(--tbl-paper); cursor: pointer; }
+      .tbl-btn:disabled { opacity: .45; cursor: default; }
+      /* SERVIZIO CHIUSO. Il primo passo SPENTO, non «da fare»: niente da
+         scegliere adesso, e un cerchio acceso inviterebbe a provarci. */
+      /* ⚠️ Il modale «chiuso» sta in MEZZO allo schermo, non in fondo come la
+         scelta del tavolo: non e’ una cosa da fare col pollice, e’ una notizia
+         da leggere. */
+      .tbl-modale--chiuso { align-items: center; padding: 1rem; }
+      /* «APPELER LE SERVEUR» — la campanella a destra della barra del carrello.
+         ⚠️ 56px, ESATTAMENTE l'altezza della barra (`order-mobcart`,
+         min-height 56px), e lo stesso fondo: le due cose stanno sulla stessa
+         riga e si leggono come una coppia. Cambiando l'una, si cambia l'altra
+         (e lo spazio che la barra le lascia, in TableOrder.css).
+         ⚠️ BLU, non il colore del locale: e' un'altra azione rispetto al
+         carrello (chiamare qualcuno, non pagare), e due bottoni dello stesso
+         colore uno accanto all'altro sembrerebbero uno solo. Il blu e' una
+         variabile: il cliente lo cambia senza toccare il resto.
+         La scritta gira piano: un bottone fermo in fondo allo schermo si
+         confonde col resto, uno che si muove appena si trova. Con «riduci
+         movimento» sta ferma. */
+      .tbl-campanello { --tbl-chiama: #2563eb;
+                        position: fixed; z-index: 30; right: 1rem;
+                        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+                        width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%;
+                        display: grid; place-items: center; cursor: pointer;
+                        background: var(--tbl-chiama); color: #fff;
+                        box-shadow: 0 6px 20px rgba(0, 0, 0, .35); }
+      .tbl-campanello:disabled { opacity: .6; cursor: progress; }
+      .tbl-campanello > svg, .tbl-campanello > span { grid-area: 1 / 1; }
+      .tbl-campanello-giro { width: 56px; height: 56px; animation: tbl-giro 16s linear infinite; }
+      .tbl-campanello-giro text { fill: currentColor; font-size: 12px; font-weight: 700;
+                                  font-family: inherit; letter-spacing: 0; }
+      .tbl-campanello-ico { width: 19px; height: 19px; fill: none; stroke: currentColor;
+                            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      @keyframes tbl-giro { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .tbl-campanello-giro { animation: none; } }
+      /* La conferma della chiamata: sopra la barra, dove si sta gia' guardando. */
+      .tbl-avviso-zona { position: fixed; z-index: 35; left: 1rem; right: 1rem;
+                         bottom: calc(1rem + 68px + env(safe-area-inset-bottom, 0px));
+                         display: flex; justify-content: center; pointer-events: none; }
+      .tbl-avviso { margin: 0; max-width: 28rem; padding: .8rem 1.1rem; border-radius: .8rem;
+                    background: var(--tbl-paper); color: var(--tbl-text);
+                    border: 1px solid var(--tbl-ink); font-weight: 600; text-align: center;
+                    box-shadow: 0 6px 20px rgba(0, 0, 0, .35); animation: tbl-velo-entra .2s ease-out; }
+      .tbl-avviso--errore { border-color: #c0392b; }
+      .tbl-chiama-form { display: grid; gap: .8rem; }
+      /* La campanella IN ATTESA: il tempo che manca al posto del disegno, e il
+         bottone un po' spento — si vede che c'e' ma che adesso non chiama. */
+      .tbl-campanello--attesa { opacity: .75; }
+      .tbl-campanello-tempo { font-size: .78rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .tbl-chiuso { border-radius: .9rem; border: 1px solid var(--tbl-line); text-align: center;
+                    padding: 1.6rem 1.2rem; }
+      .tbl-chiuso-tit { margin: 0 0 .5rem; font-family: var(--font-title); font-size: 1.15rem;
+                        text-transform: uppercase; letter-spacing: .06em; }
+      .tbl-chiuso-testo { margin: 0 0 1.4rem; color: var(--tbl-muted); line-height: 1.4; }
+    </style>
+  </body>
+</html>

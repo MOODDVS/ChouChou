@@ -18,6 +18,9 @@ import {
 import { colonneDi } from "../src/lib/escpos.ts";
 
 const leggi = (f) => readFileSync(f, "utf8");
+// ⚠️ Via i commenti PRIMA di cercare: una regola citata in una nota non e
+// codice, e una prova che si accontenta di leggerla non prova niente.
+const nudo = (f) => leggi(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 test("chi non ha la stampante si comporta come ieri", () => {
   // ⚠️ La stampa automatica spenta di ripiego: un cliente che non ha comprato
@@ -53,6 +56,27 @@ test("anche l'ordine da incassare va in cucina", () => {
   assert.equal(daStampare("pending", null), false);
   assert.equal(daStampare("cancelled", "card"), false);
   assert.equal(daStampare("done", "card"), false);
+});
+
+test("l'ordine da pagare al banco arriva in cucina da solo", () => {
+  // ⚠️ IL GUASTO CHE QUESTA PROVA TIENE CHIUSO, visto il 14/10/2026: la regola
+  // sopra diceva di stampare l'ordine `pending`+`onsite`, e NESSUNO la
+  // chiamava. Senza Stripe non c'e' webhook, quindi `confermaOrdine` — l'unico
+  // altro punto che accoda — da quella strada non passa mai. Su BROS, che
+  // incassa al banco, dal forno non usciva niente e l'ordine si scopriva
+  // quando il cliente si presentava.
+  const src = nudo("src/pages/api/checkout.ts");
+  const ramo = src.split("if (inCassa)")[1]?.split("return new Response")[0] ?? "";
+  assert.match(ramo, /accodaTicket\s*\(/,
+    "il checkout pubblico non accoda piu' il ticket in cassa: gli ordini da pagare al ritiro non escono in cucina");
+  assert.match(ramo, /payment_method:\s*"onsite"/,
+    "il ticket in cassa non si dichiara `onsite`: `daStampare` lo scarta e non stampa niente");
+  // E NON fuori dal ramo: con la carta il ticket lo accoda `confermaOrdine`
+  // quando il pagamento arriva davvero. Accodarlo anche qui vorrebbe dire una
+  // comanda per ogni carrello, pagato o no.
+  const prima = src.split("if (inCassa)")[0];
+  assert.doesNotMatch(prima, /accodaTicket\s*\(/,
+    "si accoda un ticket prima di sapere come si paga: comande per carrelli mai pagati");
 });
 
 test("i tentativi si allargano invece di martellare", () => {
@@ -388,11 +412,36 @@ test("il ticket parte dallo stesso punto dell'avviso alla cucina", () => {
 
 test("la stampa non puo' far fallire un ordine", () => {
   // ⚠️ Un ticket che non esce e' un fastidio; un ordine che non si registra
-  // perche' la stampante e' spenta e' una perdita. Si chiama con `void`, come
-  // le email, e ogni errore muore qui dentro.
+  // perche' la stampante e' spenta e' una perdita.
+  //
+  // ⚠️ QUESTA PROVA E' CAMBIATA IL 14/10/2026, e vale la pena dire perche'.
+  // Diceva `Promise<void>`: un modo indiretto di garantire che nessuno si
+  // mettesse ad aspettare la stampa. Da quando esiste la RISTAMPA a mano, il
+  // tipo non puo' piu' essere `void` — chi preme il bottone deve sapere se e'
+  // uscito qualcosa, e perche' no. L'invariante vera non era il tipo: era che
+  // `accodaTicket` NON LANCIA MAI, e che chi registra un ordine la chiama e
+  // tira dritto. Quelle due cose si guardano qui, direttamente.
   const coda = leggi("src/lib/stampaCoda.ts");
   assert.match(coda, /\} catch \(e\) \{/, "accodaTicket puo' propagare un errore a chi registra l'ordine");
-  assert.match(coda, /Promise<void>/, "accodaTicket rende qualcosa: qualcuno si mettera' ad aspettarla");
+  // Il `catch` RENDE un esito invece di rilanciare: se un giorno ci finisse
+  // dentro un `throw`, l'ordine tornerebbe a dipendere dalla stampante.
+  const dentroCatch = coda.slice(coda.indexOf("} catch (e) {"));
+  assert.doesNotMatch(dentroCatch.slice(0, 400), /throw/,
+    "il catch rilancia: una stampante spenta farebbe fallire la registrazione dell'ordine");
+
+  // ⚠️ E chi registra un ordine chiama con `void`: la stampa fa un giro lungo
+  // (server, servizio, tablet in cucina) e aspettarla vorrebbe dire far
+  // aspettare il cliente davanti alla cassa.
+  for (const f of ["src/lib/confermaOrdine.ts", "src/pages/api/admin/orders.ts", "src/pages/api/checkout.ts"]) {
+    assert.match(leggi(f), /void accodaTicket\(/,
+      `${f}: il ticket non parte piu' «e via», e un ordine puo' restare appeso alla stampante`);
+  }
+
+  // La ristampa a mano invece l'esito SE LO ASPETTA: e' tutto il suo senso.
+  const rotta = leggi("src/pages/api/admin/print-ticket.ts");
+  assert.match(rotta, /await accodaTicket\(/, "la ristampa non aspetta piu' l'esito: il bottone tornerebbe muto");
+  assert.match(rotta, /origine:\s*"manual"/,
+    "la ristampa non si dichiara manuale: l'indice unico parziale la rifiuterebbe e non uscirebbe niente");
 });
 
 test("il doppio ticket lo impedisce il database, non un controllo", () => {

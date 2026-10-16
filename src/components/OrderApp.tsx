@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import type { ReactNode } from "react";
 import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
@@ -123,6 +124,10 @@ interface OrderStrings {
   consentPre: string;
   consentLink: string;
   privacyHref: string;
+  /** Perche’ l’email serve, quando ordinando dal locale e’ obbligatoria.
+   *  OPZIONALE: una pagina che non la passa non mostra nessuna spiegazione, e
+   *  l’email resta comunque obbligatoria. */
+  emailWhyRequired?: string;
   /** Etichette dei badge e degli stati. OPZIONALI: se la pagina del cliente
    *  non le passa, si usano quelle del motore nella lingua giusta. */
   soldOut?: string;
@@ -213,6 +218,60 @@ interface OrderAppProps {
    * `/api/checkout` a ogni richiesta, perche' una prop la si cambia da
    * console in tre secondi.
    */
+  /**
+   * AL TAVOLO — presente solo sulla pagina del QR. Assente = la pagina di
+   * sempre, quella da asporto, e niente cambia di una virgola per i siti in
+   * produzione il giorno del merge.
+   *
+   * ⚠️ PRIMA SI SCEGLIE, POI SI DICE CHI SI E’, POI SI PAGA. La sessione al
+   * tavolo non si apre piu’ prima del menu ma SUBITO PRIMA DI PAGARE
+   * (`apriSessione`): chi inquadra il QR vuole vedere cosa c’e’ da mangiare,
+   * non compilare un modulo per poterlo vedere. E una sessione aperta da chi
+   * guarda il menu e poi se ne va era un tavolo «seduto» nel piano sala, per
+   * tutta la sera, senza nessuno seduto.
+   *
+   * ⚠️ «Dove e in quanti» li disegna la pagina del tavolo (`campi`), e stanno
+   * nel pannello dei dati AL POSTO dell’ora di ritiro. Nome ed email restano
+   * quelli di sempre di questo componente: chiederli due volte era il
+   * difetto della versione di prima.
+   *
+   * ⚠️ E NON E’ L’AUTORIZZAZIONE, come `pagamento`: che quella prenotazione
+   * sia di oggi, ancora aperta e con quel tavolo lo RILEGGE `/api/checkout`
+   * dal database a ogni richiesta — una prop la si cambia da console in tre
+   * secondi.
+   */
+  tavolo?: {
+    /** Tavolo e coperti. Li disegna la pagina, che e’ del cliente. */
+    campi: ReactNode;
+    /** Quei campi sono completi: senza, il bottone non si accende. */
+    pronto: boolean;
+    /** L’email e’ obbligatoria: nessuno porta il piatto, e l’avviso «c’e’
+     *  pronto» e’ un’email. Lo decide il ristoratore in Reglages. */
+    emailObbligatoria: boolean;
+    /** Apre — o ritrova — la sessione al tavolo. Si chiama al momento di
+     *  pagare, mai prima; l’errore che rende e’ gia’ tradotto. */
+    apriSessione: (chi: { nome: string; email: string }) => Promise<
+      | { ok: true; reservationId: string; tableId: string | null }
+      | { ok: false; errore: string }
+    >;
+    /** Per il percorso a tre passi della pagina: scelta, dati, pagamento. */
+    onVista?: (vista: "menu" | "checkout") => void;
+  } | null;
+  /**
+   * Su quale schermo aprire. `"checkout"` vale SOLO se nel carrello c'e'
+   * qualcosa: chi torna indietro da Stripe ritrova i suoi dati, chi arriva
+   * con un link vecchio e il carrello vuoto vede il menu, non un modulo vuoto.
+   */
+  vistaIniziale?: "menu" | "checkout";
+  /**
+   * Il totale anche SOTTO LE NOTE, in fondo al riepilogo: chi ha appena
+   * riletto i piatti vede subito quanto fa, senza scendere fino al bottone.
+   * ⚠️ Spento di default, come ogni pezzo nuovo: i siti in produzione non
+   * hanno lo stile per `order-recap-totale`, e non devono trovarselo nudo il
+   * giorno del merge. E' LO STESSO numero di quello accanto al bottone
+   * (sconto compreso), mai un secondo calcolo che possa dargli torto.
+   */
+  totaleSottoLeNote?: boolean;
   pagamento?: {
     /** Si puo' pagare con la carta ora (Stripe configurato e acceso). */
     online: boolean;
@@ -287,7 +346,11 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", pagamento = { online: true, locale: false, coupon: true, couponInCassa: false } }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
+  /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
+     cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
+     non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
+  const inSala = tavolo !== null;
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -339,7 +402,9 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
 
   const salvato = leggiStatoSalvato();
 
-  const [vista, setVista] = useState<Vista>("menu");
+  const [vista, setVista] = useState<Vista>(
+    vistaIniziale === "checkout" && (salvato.linee ?? []).length > 0 ? "checkout" : "menu",
+  );
   const [linee, setLinee] = useState<CartLine[]>(salvato.linee ?? []);
   const [attivo, setAttivo] = useState<string>(gruppiVisibili[0]?.slug ?? "");
 
@@ -394,6 +459,17 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [accettato, setAccettato] = useState(false);
 
   const [invio, setInvio] = useState(false);
+  /* ⚠️ IL TASTO INDIETRO DEL TELEFONO, DA STRIPE. Il browser puo' rimettere
+     la pagina com'era quando la si e' lasciata (bfcache): bottone spento e
+     «paiement…» scritto sopra, per sempre — il cliente crede che stia ancora
+     pagando. Una pagina tornata dalla cache riaccende il bottone. */
+  useEffect(() => {
+    const ritorno = (e: PageTransitionEvent) => {
+      if (e.persisted) setInvio(false);
+    };
+    window.addEventListener("pageshow", ritorno);
+    return () => window.removeEventListener("pageshow", ritorno);
+  }, []);
   const [erroreCheckout, setErroreCheckout] = useState<string | null>(null);
 
   useEffect(() => {
@@ -411,6 +487,15 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.scrollTo({ top: 0, behavior: "auto" });
+  }, [vista]);
+
+  /* Al tavolo la pagina disegna il percorso «scelta → dati → pagamento», e
+     deve sapere su quale dei due schermi siamo. ⚠️ Solo `vista` fra le
+     dipendenze: `tavolo` e’ un oggetto nuovo a ogni render della pagina, e
+     metterlo qui farebbe ripartire l’effetto a ogni tasto premuto. */
+  useEffect(() => {
+    tavolo?.onVista?.(vista);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vista]);
 
   const cliccoInCorso = useRef(false);
@@ -529,13 +614,45 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     return m;
   }, [menu]);
 
+  /* ⚠️ IL MODALE ESCE CON LA SUA ANIMAZIONE, SE IL SITO NE HA UNA. Chiudere
+     subito toglierebbe il riquadro dalla pagina prima che la discesa si veda.
+     Ma l'animazione la decide il CSS del SITO (`.order-modal-overlay.is-uscita`),
+     non questo componente: qui si guarda se ce n'e' una e quanto dura, e solo
+     allora si aspetta. Senza animazione — i siti che non la vestono, o chi ha
+     «riduci movimento» — si chiude all'istante come sempre: nessun ritardo
+     regalato a chi non vede niente scendere. */
+  const [modaleInUscita, setModaleInUscita] = useState(false);
+  const modaleRef = useRef<HTMLDivElement | null>(null);
+
   function chiudiModale() {
-    setItemModale(null);
-    setVarianteScelta("");
+    if (modaleInUscita) return;
+    const fine = () => {
+      setItemModale(null);
+      setVarianteScelta("");
+      setModaleInUscita(false);
+    };
+    setModaleInUscita(true);
+    // Al giro dopo, la classe `is-uscita` e' gia' sulla pagina e il browser sa
+    // dire quale animazione le corrisponde.
+    // ⚠️ `setTimeout`, NON `requestAnimationFrame`: a scheda nascosta i
+    // fotogrammi si fermano, e il riquadro restava aperto per sempre con la
+    // classe d'uscita addosso — visto nei test. I timer, rallentati, girano.
+    window.setTimeout(() => {
+      const el = modaleRef.current;
+      const stile = el ? window.getComputedStyle(el) : null;
+      const durata = stile ? parseFloat(stile.animationDuration) * 1000 : 0;
+      if (!stile || stile.animationName === "none" || !durata) {
+        fine();
+        return;
+      }
+      window.setTimeout(fine, durata + 40);
+    }, 0);
   }
 
   function confermaModale() {
-    if (!itemModale) return;
+    // ⚠️ Durante la discesa il bottone e' ancora li': un secondo tocco
+    // aggiungerebbe il piatto due volte.
+    if (!itemModale || modaleInUscita) return;
     const v = itemModale.variants.find((x) => x.key === varianteScelta);
     if (v) aggiungi(itemModale, v);
     chiudiModale();
@@ -682,13 +799,26 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   }, [couponVisibile, couponApplicato]);
 
   const emailValida = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  /* ⚠️ AL TAVOLO SI CHIEDE MENO, e non e’ una svista. Cognome, telefono e
+     ora di ritiro non esistono: il cliente e’ seduto a tre metri, e il nome
+     serve solo a chiamarlo. L’email e’ una SCELTA — chi la lascia riceve la
+     ricevuta — tranne dove nessuno porta il piatto: li’ l’avviso «c’e’
+     pronto» e’ un’email, e senza indirizzo quella persona fisserebbe il
+     bancone. Le stesse tre regole le ricontrolla `/api/checkout`: questa
+     riga decide solo se il bottone si accende. */
+  const emailOk = inSala
+    ? tavolo.emailObbligatoria
+      ? emailValida
+      : email.trim() === "" || emailValida
+    : emailValida;
   const formValido =
     linee.length > 0 &&
-    slot !== null &&
+    (inSala || slot !== null) &&
+    (!inSala || tavolo.pronto) &&
     nome.trim() !== "" &&
-    cognome.trim() !== "" &&
-    telefono.trim() !== "" &&
-    emailValida &&
+    (inSala || cognome.trim() !== "") &&
+    (inSala || telefono.trim() !== "") &&
+    emailOk &&
     accettato;
 
   async function paga() {
@@ -696,12 +826,35 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setInvio(true);
     setErroreCheckout(null);
     try {
+      /* ⚠️ AL TAVOLO LA SESSIONE SI APRE QUI, e non prima: e’ il momento in
+         cui il cliente ha scelto, ha detto chi e’ e preme per pagare. Se il
+         server la rifiuta (servizio appena chiuso, tavolo inesistente) ci si
+         ferma QUI — prima di qualunque incasso. */
+      let sessione: { reservationId: string; tableId: string | null } | null = null;
+      if (inSala) {
+        const s = await tavolo.apriSessione({ nome: nome.trim(), email: email.trim() });
+        if (!s.ok) {
+          setErroreCheckout(s.errore);
+          setInvio(false);
+          return;
+        }
+        sessione = { reservationId: s.reservationId, tableId: s.tableId };
+      }
       const res = await fetch(conSede("/api/checkout"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
-          slot,
+          /* ⚠️ Al tavolo NON si manda nessuno slot: non c’e’ un’ora di ritiro
+             da scegliere, e mandarne una la farebbe scrivere come appuntamento
+             su un ordine che nessuno viene a ritirare. */
+          ...(sessione
+            ? {
+                service: "table",
+                reservation_id: sessione.reservationId,
+                ...(sessione.tableId ? { table_id: sessione.tableId } : {}),
+              }
+            : { slot }),
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
           // ⚠️ Il server non si fida di questo campo: ricontrolla che il punto
@@ -761,13 +914,18 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
    *  Non e' solo il caso dello zero. Due prezzi pieni si confrontano
    *  guardandoli; una differenza va sommata a mente a un numero che sta su
    *  un'altra riga. Nessun formato e' il riferimento degli altri. */
+  /* ⚠️ SI CHIAMA COME FUNZIONE, fra graffe, e non come tag JSX. Definita qui dentro, come componente sarebbe un
+     TIPO NUOVO a ogni render: React la smonterebbe e rimonterebbe a ogni
+     tocco sul formato, e l'animazione d'entrata ripartirebbe da capo ogni
+     volta che il cliente sceglie «grande». Come funzione e' solo un pezzo
+     del render di OrderApp, e il riquadro resta lo stesso. */
   function ModaleVarianti() {
     if (sceltaFormato !== "modale" || !itemModale) return null;
     const ordinabili = variantiOrdinabili(itemModale);
     if (ordinabili.length === 0) return null;
     return (
-      <div className="order-modal-overlay" onClick={chiudiModale}>
-        <div className="order-modal" onClick={(e) => e.stopPropagation()}>
+      <div className={"order-modal-overlay" + (modaleInUscita ? " is-uscita" : "")} onClick={chiudiModale}>
+        <div className="order-modal" ref={modaleRef} onClick={(e) => e.stopPropagation()}>
           <button type="button" className="order-modal-close" onClick={chiudiModale} aria-label={t.ariaRemove}>×</button>
           {itemModale.image_url && (
             <img className="order-modal-img" src={itemModale.image_url} alt={itemModale.name} />
@@ -979,22 +1137,49 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                     onChange={(e) => setNoteOrdine(e.target.value)}
                   />
                 </div>
+                {totaleSottoLeNote && (
+                  <div className="order-cart-total order-recap-totale">
+                    <span>{t.total} ({numArticoli} {t.items})</span>
+                    <strong>{euro(scontoCents > 0 ? totaleFinale : totale)}</strong>
+                  </div>
+                )}
               </>
             )}
           </div>
 
           <aside className="order-cart order-cart--checkout">
             <h2 className="order-cart-title">{t.yourInfo}</h2>
-            <label className="order-field-label">{t.pickupTime}</label>
-            {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
-                che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
-                che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
-            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
+            {/* ⚠️ AL TAVOLO NON SI SCEGLIE NESSUN’ORA. Lasciare il selettore
+                degli slot chiederebbe a chi e’ seduto quando passa a ritirare,
+                e il primo orario scelto finirebbe scritto come appuntamento.
+                Al suo posto: QUALE tavolo e IN QUANTI, disegnati dalla pagina
+                del tavolo. La classe da vestire qui e’ `order-email-why`. */}
+            {inSala ? (
+              tavolo.campi
+            ) : (
+              <>
+                <label className="order-field-label">{t.pickupTime}</label>
+                {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
+                    che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
+                    che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
+                <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
+              </>
+            )}
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
-              <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
-              <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-              <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} />
+              {/* Cognome e telefono: solo da asporto. A chi e’ in sala non si
+                  chiede il cognome, e il telefono non serve a richiamare
+                  nessuno — il cliente e’ a tre metri. */}
+              {!inSala && (
+                <>
+                  <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
+                  <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+                </>
+              )}
+              <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} required={!inSala || tavolo.emailObbligatoria} />
+              {inSala && tavolo.emailObbligatoria && t.emailWhyRequired && (
+                <p className="order-email-why">{t.emailWhyRequired}</p>
+              )}
             </div>
             {/* ⚠️ COMPARE SOLO SE C'E' DAVVERO UNA SCELTA, e solo se la pagina
                 /order del cliente passa `pagamento` con entrambe le strade
@@ -1136,7 +1321,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
         {/* ⚠️ Anche QUI, non solo nella vista menu: un sito che aggiunge un
             piatto con l'evento pubblico mentre il cliente sta compilando i
             dati deve poter chiedere il formato. Era montato solo di la'. */}
-        <ModaleVarianti />
+        {ModaleVarianti()}
       </div>
     );
   }
@@ -1320,7 +1505,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
         )
       )}
 
-      <ModaleVarianti />
+      {ModaleVarianti()}
     </div>
   );
 }

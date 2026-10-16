@@ -14,6 +14,7 @@ import {
   type Ambito,
   type Fonte,
   sedeDettaDa,
+  riconosciSede,
   HEADER_SEDE,
   tabellaConfig,
   appartenenzaConfig,
@@ -222,7 +223,9 @@ export async function ambitoPubblicoChiesto(request: Request): Promise<Ambito> {
     // privilegio — e' un controllo di sanita': un id storto qui vorrebbe dire
     // un ordine che non appartiene a nessuno. Non si trova: si ripiega.
     const sedi = await elencoSedi();
-    if (sedi.some((s) => s.id === chiesta)) return sede_(chiesta);
+    // Per id o per nome breve: `/table?sede=schaerbeek` vale quanto l'id.
+    const id = riconosciSede(sedi, chiesta);
+    if (id) return sede_(id);
   }
   return ambitoPubblico();
 }

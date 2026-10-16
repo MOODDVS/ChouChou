@@ -10,10 +10,16 @@ import { adminT } from "../../../i18n/admin";
 // Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
-  ambitoDiRichiesta, leggiConfig, scriviConfig, cancellaConfig,
+  ambitoDiRichiesta, leggi, leggiConfig, scriviConfig, cancellaConfig,
   leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo,
+  type Ambito,
 } from "../../../lib/admin/sede";
-import { CHIAVI_ORDINI, acceso } from "../../../lib/ordiniRegole";
+import { orfaniDelPiano, type SezioneOrfana } from "../../../lib/pianoSalaRegole";
+import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordiniRegole";
+import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
+import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
+import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
+import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 
 export const prerender = false;
 
@@ -23,6 +29,28 @@ export const prerender = false;
  *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
 async function msg(chiave: string): Promise<string> {
   return adminT(await adminLang())(chiave);
+}
+
+/**
+ * I TAVOLI RIMASTI SENZA SECTION, dopo aver salvato le sections.
+ *
+ * ⚠️ Non blocca MAI il salvataggio. Le sections sono gia' scritte quando si
+ * arriva qui: questa e' una notizia da dare, non una condizione da superare.
+ * Qualunque cosa vada storta nella lettura si tace e si va avanti — il
+ * ristoratore ha chiesto di salvare, non di sapere quanti tavoli perde.
+ *
+ * ⚠️ Il confronto e' con le sections APPENA SALVATE, non con quelle di prima:
+ * cosi' il primo salvataggio dopo questo cambiamento fa emergere anche i
+ * fantasmi accumulati prima, che nessuno aveva mai contato.
+ */
+async function tavoliSenzaSection(ambito: Ambito, zonesJson: string): Promise<SezioneOrfana[]> {
+  try {
+    const { data, error } = await leggi("restaurant_tables", ambito, "id, zone");
+    if (error) return [];
+    return orfaniDelPiano(data ?? [], zonesJson);
+  } catch {
+    return [];
+  }
 }
 
 // Riga oraria di un giorno, come viaggia tra admin e API.
@@ -177,6 +205,8 @@ export const GET: APIRoute = async ({ request }) => {
   const { valori: cfg, marchio, sovrascritte } = await leggiConfig(ambito, [
     "kitchen_email",
     "orders_closed",
+    "orders_table_call_wait",
+    "orders_table_qr_mode",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -206,7 +236,21 @@ export const GET: APIRoute = async ({ request }) => {
   // (`acceso`), cosi' la pagina non deve conoscere i valori di default — che
   // e' il modo in cui due posti finiscono per non essere d'accordo.
   const orders: Record<string, boolean> = {};
-  for (const k of CHIAVI_ORDINI) orders[k] = acceso(cfg.get(k), k);
+  for (const k of CHIAVI_ORDINI) {
+    if (k in RIPIEGO_ORDINI_SCELTA) continue;
+    orders[k] = acceso(cfg.get(k), k);
+  }
+  /* ⚠️ LE CHIAVI A TRE STATI NON PASSANO DA `acceso()`, e il difetto che
+     questa riga evita e’ cattivo: `acceso()` non trova il loro ripiego e
+     rende `false`. La pagina mostrerebbe «avvisa: spento» a uno snack che sta
+     avvisando, il ristoratore salverebbe un campo qualunque, e quel "0"
+     diventerebbe la scelta — i clienti al banco smetterebbero di ricevere
+     l’email senza che nessuno abbia deciso niente. Qui si rende il valore
+     VERO, risolto dalla stessa funzione che decide a ordine fatto. */
+  const linkTavoloBase = await linkBaseTavolo(request, ambito);
+  const tavoliQr = linkTavoloBase ? await tavoliDiSala(ambito) : [];
+  const sala = await opzioniTavolo(ambito);
+  orders.orders_table_notify = sala.avvisa;
 
   return json({
     days,
@@ -225,6 +269,40 @@ export const GET: APIRoute = async ({ request }) => {
     general,
     reservations,
     orders,
+    /* I minuti prima di poter richiamare il cameriere: gia' risolti col
+       ripiego, come gli interruttori — la pagina non deve sapere che e' 5. */
+    chiamata_attesa: attesaChiamata(cfg.get("orders_table_call_wait")),
+    /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
+       di lasciarlo capire: senza, il ristoratore accende «ordinare dal
+       locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
+       un guasto. */
+    sala_con_tavoli: sala.conTavoli,
+    /* ⚠️ IL LINK DEL QR LO SCRIVE IL SERVER, CON LA SEDE DENTRO. Un QR
+       stampato vive anni su un tavolo: se puntasse a `/table` e basta,
+       varrebbe per «la prima sede attiva» — giusto finche' ne e' accesa una
+       sola, sbagliato il giorno in cui se ne riaccende un'altra: i cartoncini
+       di una sede aprirebbero il menu, i tavoli e gli orari di un'altra, e
+       nessuno se ne accorgerebbe (successo il 16/10/2026: tre sedi, una
+       accesa, e dall'admin di quella spenta sembrava un guasto).
+       ⚠️ Il parametro lo attacca `urlConSede`, la stessa regola di tutto il
+       fronte: a sede unica non aggiunge niente e il link resta `/table`.
+       ⚠️ Con «tutte le sedi» il link NON esiste: non e' un posto dove ci si
+       siede, e un QR senza sede e' esattamente il guasto qui sopra. */
+    /* ⚠️ COL NOME BREVE DELLA SEDE (`slug`), non con l'id: un cartoncino con
+       `?sede=schaerbeek` si legge e si controlla a occhio, uno con un uuid no.
+       Lo riconosce `riconosciSede`, nello stesso posto dove si riconosce
+       l'id. Senza slug (non dovrebbe succedere: e' obbligatorio) resta l'id. */
+    link_tavolo: linkTavoloBase,
+    /* I QR della sala: il modo scelto, e i link per sezione e per tavolo —
+       scritti QUI, a partire dal link della sede, mai composti dalla pagina.
+       Vuoti con «tutte le sedi», come il link qui sopra. */
+    qr_modo: modoQr(cfg.get("orders_table_qr_mode")),
+    qr_sezioni: linkTavoloBase
+      ? sezioniConTavoli(tavoliQr).map((z) => ({ nome: z, link: linkSezione(linkTavoloBase, z) }))
+      : [],
+    qr_tavoli: linkTavoloBase
+      ? tavoliQr.map((t) => ({ sezione: t.zone, nome: t.name, link: linkTavolo(linkTavoloBase, t.id) }))
+      : [],
     // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
     // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
     // Senza questo, un interruttore acceso sembrerebbe una promessa mantenuta.
@@ -325,6 +403,10 @@ export const PUT: APIRoute = async ({ request }) => {
     reservations?: Record<string, string>;
     /** Interruttori del tab Ordini: veri/falsi, non testo. */
     orders?: Record<string, boolean>;
+    /** Minuti prima di poter richiamare il cameriere (1, 3, 5, 10). */
+    chiamata_attesa?: number;
+    /** Il tipo di QR della sala: unico, per sezione, per tavolo. */
+    qr_modo?: string;
   };
   try {
     body = await request.json();
@@ -614,9 +696,15 @@ export const PUT: APIRoute = async ({ request }) => {
   // svuotare la cache di boot così il logo nuovo si vede al primo reload.
   if (generalPulito.length > 0) { cacheDel(CACHE_ADMIN_BOOT); cacheDel("public:favicon"); }
 
+  // ⚠️ Gli orfani si contano DOPO la scrittura, mai prima: se si contassero
+  // sul valore in arrivo e il salvataggio poi fallisse, si proporrebbe di
+  // cancellare tavoli che appartengono ancora a una section viva.
+  let orfani: SezioneOrfana[] = [];
   if (resaPulito.length > 0) {
     const err = await scriviConfig(ambitoPut, Object.fromEntries(resaPulito));
     if (err) return json({ error: await msg("err.resSave") }, 500);
+    const zone = resaPulito.find(([k]) => k === "reservation_zones")?.[1];
+    if (zone !== undefined) orfani = await tavoliSenzaSection(ambitoPut, zone);
   }
 
   // ---- Tab Ordini: come si paga in questo punto ----
@@ -643,6 +731,22 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
+  // ⚠️ Solo i valori dell'elenco: un numero qualunque arrivato dal browser
+  // diventerebbe un tablet che suona a ogni tocco, o un cliente che non puo'
+  // piu' chiamare per tutta la sera. Fuori elenco → non si tocca niente.
+  if (body.chiamata_attesa !== undefined) {
+    const v = Number(body.chiamata_attesa);
+    if ((ATTESE_CHIAMATA as readonly number[]).includes(v)) {
+      const err = await scriviConfig(ambitoPut, { orders_table_call_wait: String(v) });
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
+    }
+  }
+
+  if (body.qr_modo !== undefined && (MODI_QR as readonly string[]).includes(String(body.qr_modo))) {
+    const err = await scriviConfig(ambitoPut, { orders_table_qr_mode: String(body.qr_modo) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito
-  return json({ ok: true });
+  return json({ ok: true, tavoli_orfani: orfani });
 };

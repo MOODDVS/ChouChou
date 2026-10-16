@@ -64,20 +64,85 @@ Con piu' punti (piu' societa', un sito solo):
 la newsletter e il tema sono del MARCHIO. Un buono comprato in un punto si
 spende negli altri; un coupon puo' essere ristretto a due punti su tre.
 
-## 4. Variabili d'ambiente (pannello **Hostinger**, non Vercel)
-- [ ] Supabase: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`.
+## 4. Variabili d'ambiente
+
+Due strade a seconda di dove gira il cliente. **Dal 14/10/2026 i clienti nuovi
+vanno sul VPS** (`claude/vps-restohub.md` nel progetto): Hostinger ha un tetto di
+dieci Web App che non si alza pagando, ed e' il motivo per cui il VPS esiste.
+
+- [ ] Supabase: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`,
+      `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`.
+      ⚠️ URL e anon key vanno scritti DUE VOLTE, uguali: la coppia senza
+      `PUBLIC_` la usa il server, quella con `PUBLIC_` il browser. Una delle due
+      sbagliata fa funzionare meta' applicazione.
 - [ ] `PUBLIC_SITE_URL` (dominio, SENZA slash finale).
-- [ ] Email: `RESEND_API_KEY`, `RESEND_FROM` ("Nome <no-reply@dominio>"), `KITCHEN_EMAIL`.
-- [ ] **`CRON_SECRET`** NUOVO per questo cliente (`openssl rand -hex 24`) — mai riusarne uno.
+- [ ] Email: `RESEND_API_KEY`, `RESEND_FROM`, `KITCHEN_EMAIL`.
+      ⚠️ Il mittente deve stare su un dominio VERIFICATO in Resend. Il dominio
+      del cliente appena comprato non lo e': finche' non lo verifichi, usa
+      `moodd.online` o le email vengono rifiutate. (Da ieri il rifiuto finisce
+      nel log col suo motivo — vedi `claude/trappole-del-motore.md` — ma meglio
+      non arrivarci.)
+- [ ] `SECRETS_KEY` (`openssl rand -base64 32`) e **`CRON_SECRET` NUOVO per
+      questo cliente** (`openssl rand -hex 32`) — mai riusarne uno.
 - [ ] Push PWA: `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUBLIC_VAPID_KEY`.
-- [ ] Solo se attivi gli ordini: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (+ `MOODD_STRIPE_SECRET_KEY` per crediti/gift card).
+- [ ] Solo se attivi gli ordini: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+      (+ `MOODD_STRIPE_SECRET_KEY` per crediti/gift card).
 - [ ] Opzionali Google: `GOOGLE_SA_KEY_B64`, `GOOGLE_PLACES_API_KEY`.
 - ⚠️ Le `PUBLIC_*` vengono "cotte" nel bundle: devono esserci PRIMA della build.
 
-## 5. Deploy (Hostinger)
+## 5. Deploy
+
+### 5a. Sul VPS (strada normale dal 14/10/2026)
+
+Prima il DNS: record **A** del dominio nudo → `153.92.222.33`, TTL 300, e `www`
+come **CNAME** verso il dominio nudo. ⚠️ Un ALIAS o CNAME preesistente sullo
+stesso nome va **cancellato**, non affiancato.
+
+1. Dal **Mac**, copia il sorgente (niente `.env`: il repo cliente non ne ha):
+
+        rsync -avz --delete --exclude node_modules --exclude build --exclude .git --exclude .astro -e "ssh -i ~/.ssh/moodd_vps" ~/Developer/<Cliente>/ enzo@153.92.222.33:/home/enzo/app-<cliente>/
+
+2. Sul **server**, il file delle variabili. Le due chiavi casuali le genera lui:
+
+        cd ~/app-<cliente> && cp .env.example .env && chmod 600 .env
+        # poi `nano .env` per i valori di Supabase e Resend
+
+   ⚠️ Dopo aver riempito i valori, **togli i commenti in coda alle righe**:
+   il template li ha, e Node puo' portarseli dentro il valore.
+3. `npm ci && npm run build`
+4. Un `ecosystem.config.cjs` con una **porta libera** (vedi l'elenco sotto) e
+   `HOST=127.0.0.1`, poi `pm2 start ecosystem.config.cjs && pm2 save`.
+5. Un blocco in `/etc/caddy/Caddyfile`:
+
+        <dominio> {
+            encode zstd gzip
+            reverse_proxy 127.0.0.1:<porta>
+        }
+
+        www.<dominio> {
+            redir https://<dominio>{uri} permanent
+        }
+
+   poi `sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`.
+6. Prova: `curl -I http://127.0.0.1:<porta>` (il motore risponde) e poi
+   `curl -I https://<dominio>` (deve avere `via: 1.1 Caddy`).
+
+⚠️ **LE PORTE SONO UNA PER CLIENTE** e stanno scritte qui, o il secondo che
+usa la stessa non parte e il messaggio parla di `EADDRINUSE`, non di porte:
+
+| porta | chi |
+|---|---|
+| 4321 | `app.restohub.cloud` (motore, dimostrazione) |
+| 4322 | `villa77.be` |
+
+### 5b. Su Hostinger (i clienti gia' li)
+
 - [ ] App Node ≥ 22, dominio collegato, env dal pannello.
 - [ ] Build: `npm run build` · Output: `build` · Entry: `build/server/entry.mjs`.
-- (WAF override e `checkOrigin:false` già gestiti dal motore.)
+- (WAF override e `checkOrigin:false` gia' gestiti dal motore.)
+- ⚠️ `NODE_OPTIONS=--v8-pool-size=2` e `UV_THREADPOOL_SIZE=2` servono **li'**,
+  dove il tetto dei processi e' condiviso. Sul VPS restano utili lo stesso,
+  perche' di motori ne gireranno molti sugli stessi processori.
 
 ## 6. Scheduler pg_cron — **TUTTI e 5 i job** (dopo il deploy)
 Nel SQL Editor del Supabase del cliente (sostituisci dominio + il suo CRON_SECRET):

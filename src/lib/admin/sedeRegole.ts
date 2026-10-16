@@ -77,6 +77,9 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   // riempiono: la comanda esce dalla stampante del punto che prepara, e
   // un ticket che si vede da un altro punto e' una pizza fatta due volte.
   print_tickets: "sede",
+  // «Appeler le serveur». ⚠️ Della SEDE: il tavolo 4 di Jourdan che suona sul
+  // tablet di Stockel e' un cameriere che cerca un tavolo nel locale sbagliato.
+  table_calls: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
@@ -143,6 +146,30 @@ export function sedeDettaDa(request: { headers: { get(n: string): string | null 
   const h = (request.headers.get(HEADER_SEDE) ?? "").trim();
   const grezza = h || paramDa(request.url);
   return grezza === CHIESTA_TUTTE ? "" : grezza;
+}
+
+/**
+ * DI QUALE SEDE PARLA LA RICHIESTA — per id o per nome breve (`slug`).
+ *
+ * ⚠️ IL NOME BREVE E' PER GLI UMANI: `/table?sede=schaerbeek` si legge, si
+ * detta al telefono e si controlla a occhio su un cartoncino stampato;
+ * `?sede=5cf85a6a-…` no. L'id resta accettato per sempre: tutti i link e i
+ * QR gia' in giro lo usano, e un id non cambia mai.
+ *
+ * ⚠️ Il nome breve si confronta in minuscolo (lo slug si salva cosi'), e
+ * l'id ha la precedenza: uno slug non puo' «rubare» una sede a un id.
+ * Non trovata = `null`, e chi chiama ripiega come ha sempre fatto.
+ */
+export function riconosciSede(
+  sedi: { id: string; slug?: string | null }[],
+  chiesta: string,
+): string | null {
+  const c = chiesta.trim();
+  if (!c) return null;
+  const perId = sedi.find((s) => s.id === c);
+  if (perId) return perId.id;
+  const breve = c.toLowerCase();
+  return sedi.find((s) => (s.slug ?? "").trim().toLowerCase() === breve)?.id ?? null;
 }
 
 function paramDa(url: string): string {
@@ -515,6 +542,15 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_pay_onsite: "sede",
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
+  /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo
+     con tre punti puo' averne uno con i tavoli e due di solo asporto. Al
+     marchio, un QR sul tavolo comparirebbe anche a chi i tavoli non ce li ha. */
+  orders_table: "sede",
+  orders_table_notify: "sede",
+  // La campanella: chi ha qualcuno che guarda il tablet e' un PUNTO, non il gruppo.
+  orders_table_call: "sede",
+  orders_table_call_wait: "sede", // minuti prima di poter richiamare
+  orders_table_qr_mode: "sede",   // QR unico, per sezione o per tavolo
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",

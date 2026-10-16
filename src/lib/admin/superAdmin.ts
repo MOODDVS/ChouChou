@@ -41,6 +41,7 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
     { key: "site", label: "Site" },
     { key: "images", label: "Images" },
     { key: "documents", label: "Documents" },
+    { key: "qr", label: "QR codes" },
   ],
   menu: [
     { key: "food", label: "Plats" },

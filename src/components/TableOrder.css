@@ -1,0 +1,482 @@
+/**
+ * IL MENU E IL CARRELLO SULLA PAGINA DEL TAVOLO — il vestito di base.
+ *
+ * ⚠️ PERCHE' ESISTE. `OrderApp` non ha uno stile suo: le classi `order-*`
+ * le veste la pagina `/order` di ogni sito, che e' del cliente. Nel motore
+ * quella pagina non c'e', e sulla pagina del QR non si carica: il menu usciva
+ * con i bottoni grigi del sistema, i prezzi in fila sotto ai nomi e nessun
+ * carrello visibile — tecnicamente giusto, e per chi e' seduto al tavolo un
+ * sito rotto (visto il 16/10/2026, appena il menu e' passato per primo).
+ *
+ * ⚠️ PERCHE' NON COMANDA. Ogni regola sta dentro `:where(...)`, che vale
+ * ZERO di specificita': qualunque regola del sito, anche una classe sola,
+ * vince su questa senza `!important` e senza conoscerla. E' un pavimento,
+ * non un soffitto — il sito che ha gia' vestito `/order` copia le sue regole
+ * e questo file sparisce sotto.
+ *
+ * ⚠️ E PARLA SOLO DENTRO `.tbl-pagina`: la pagina `/order` del cliente non
+ * ne viene toccata, nemmeno se un giorno caricasse questo file per sbaglio.
+ *
+ * I colori sono le variabili del tema (`--tbl-*`, scritte da `table.astro`
+ * coi colori dei Réglages): niente tinte decise qui.
+ */
+
+/* ---------- di base ---------- */
+:where(.tbl-pagina button) { font: inherit; color: inherit; }
+:where(.tbl-pagina input[type="checkbox"], .tbl-pagina input[type="radio"]) { accent-color: var(--tbl-ink); }
+
+/* ---------- i filtri: una riga che scorre, non un muro di bottoni ----------
+   ⚠️ Una riga sola che scorre col dito, ferma in cima: su un telefono otto
+   categorie a capo occupavano mezzo schermo prima del primo piatto. */
+/* ⚠️ `top` = l'altezza della barra del tavolo, quando c'e': le due barre
+   fisse si impilano invece di coprirsi. Senza barra, 0 come prima.
+   `--tbl-barra-h` vale l'altezza piena (misurata da TableOrder, in
+   `--tbl-barra-piena`); stretta, la riscrive la pagina. Il `top` scorre
+   insieme alla barra che si stringe, con la stessa durata. */
+:where(.tbl-pagina--barra) { --tbl-barra-h: var(--tbl-barra-piena, 0px); }
+:where(.tbl-pagina--barra .order-filterbar) { transition: top .25s ease; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.tbl-pagina--barra .order-filterbar) { transition: none; }
+}
+:where(.tbl-pagina .order-filterbar) {
+  position: sticky; top: var(--tbl-barra-h, 0px); z-index: 10;
+  margin: 0 -1rem 1rem; padding: .6rem 1rem;
+  background: var(--tbl-bg);
+  border-bottom: 1px solid var(--tbl-line);
+}
+:where(.tbl-pagina .order-filterbar-inner) {
+  display: flex; gap: .4rem; overflow-x: auto; scrollbar-width: none;
+}
+/* ⚠️ I pseudo-elementi stanno FUORI da `:where()`: dentro non sono ammessi, e
+   il browser butta via l'intera regola senza dire niente. */
+:where(.tbl-pagina .order-filterbar-inner)::-webkit-scrollbar { display: none; }
+:where(.tbl-pagina .order-tab) {
+  flex: 0 0 auto; padding: .45rem .9rem; min-height: 38px;
+  border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: var(--tbl-card); color: var(--tbl-text);
+  font-size: .9rem; white-space: nowrap; cursor: pointer;
+}
+:where(.tbl-pagina .order-tab.is-active) {
+  background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); font-weight: 700;
+}
+
+/* ---------- il menu ---------- */
+/* ⚠️ Il fondo lascia posto alla barra del carrello, che e' fissa: senza,
+   l'ultimo piatto della carta resta sotto la barra e non si puo' toccare. */
+:where(.tbl-pagina .order-menu) { padding-bottom: 6rem; }
+/* Sul pannello dei dati la barra non c'e', e quel fondo diventava un buco
+   fra le note e «Vos informations». */
+:where(.tbl-pagina .order-app:has(.order-cart--checkout) > .order-menu) { padding-bottom: 0; }
+/* Il carrello di lato non ha posto in una colonna da telefono: sul menu lo
+   sostituisce la barra in fondo (`order-mobcart`). Quello del pannello dei
+   dati, invece, e' la pagina stessa e resta. */
+:where(.tbl-pagina .order-app > .order-cart:not(.order-cart--checkout)) { display: none; }
+
+:where(.tbl-pagina .order-sec) { margin: 0 0 1.8rem; scroll-margin-top: calc(4.5rem + var(--tbl-barra-h, 0px)); }
+:where(.tbl-pagina .order-sec-title) {
+  margin: 0 0 .8rem; font-family: var(--font-title); font-size: 1.05rem;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+:where(.tbl-pagina .order-subcat) { margin: 0 0 1rem; }
+:where(.tbl-pagina .order-subcat-title) {
+  margin: 1rem 0 .5rem; font-size: .8rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--tbl-muted);
+}
+:where(.tbl-pagina .order-items) { display: flex; flex-direction: column; gap: .5rem; }
+
+/* Un piatto e' una scheda: a sinistra cosa e', a destra il gesto per prenderlo. */
+:where(.tbl-pagina .order-item) {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  padding: .85rem .9rem;
+  border: 1px solid var(--tbl-line); border-radius: .7rem;
+  background: var(--tbl-card);
+}
+:where(.tbl-pagina .order-item-info) { flex: 1 1 auto; min-width: 0; }
+:where(.tbl-pagina .order-item-name) {
+  margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.25;
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .45rem;
+}
+:where(.tbl-pagina .order-item-desc) { margin: .25rem 0 0; font-size: .85rem; line-height: 1.35; color: var(--tbl-muted); }
+:where(.tbl-pagina .order-item-price) { margin: .35rem 0 0; font-weight: 600; }
+:where(.tbl-pagina .order-item-old) { margin-right: .35rem; font-weight: 400; color: var(--tbl-muted); }
+
+/* Le etichette accanto al nome: piccole, staccate, mai incollate al testo. */
+:where(.tbl-pagina .order-b) { font-size: .85rem; line-height: 1; }
+:where(.tbl-pagina .order-sugg) {
+  padding: .15rem .45rem; border-radius: 999px;
+  border: 1px solid var(--tbl-line);
+  font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--tbl-muted);
+}
+:where(.tbl-pagina .order-out) {
+  border-color: color-mix(in srgb, #c0392b 50%, transparent);
+  color: #e0786c;
+}
+
+/* Il tondo si VEDE da 34px, ma si TOCCA da 44: l'alone trasparente
+   (`outline` non conta, `::before` si') allarga il bersaglio senza
+   ingrandire il disegno — 44px e' la misura minima per un pollice, e qui si
+   tocca con una mano sola. */
+:where(.tbl-pagina .order-item-add) {
+  position: relative; flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%;
+  border: 0; background: var(--tbl-ink); color: var(--tbl-paper);
+  font-size: 1.15rem; font-weight: 700; line-height: 1; cursor: pointer;
+}
+:where(.tbl-pagina .order-item-add)::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
+:where(.tbl-pagina .order-item-add:disabled) { opacity: .3; cursor: default; }
+
+/* I formati in linea: ogni bottone dice cosa e quanto. */
+:where(.tbl-pagina .order-item-vars) { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+:where(.tbl-pagina .order-item-var) {
+  display: inline-flex; align-items: center; gap: .55rem;
+  padding: .45rem .8rem; min-height: 40px;
+  border: 1px solid var(--tbl-ink); border-radius: 999px;
+  background: transparent; color: var(--tbl-text); cursor: pointer;
+}
+:where(.tbl-pagina .order-item-var-lb) { display: inline-flex; align-items: center; gap: .35rem; font-size: .88rem; }
+:where(.tbl-pagina .order-item-var-pr) { font-weight: 700; font-size: .88rem; }
+/* ⚠️ Esaurito si vede ESAURITO, non solo piu' chiaro: barrato e con il bordo
+   spento, se no sembra un bottone che non risponde. */
+:where(.tbl-pagina .order-item-var:disabled) { border-color: var(--tbl-line); opacity: .45; cursor: default; }
+:where(.tbl-pagina .order-item-var:disabled .order-item-var-pr) { text-decoration: line-through; }
+
+:where(.tbl-pagina .order-item-photo) {
+  position: relative; flex: 0 0 auto; width: 84px; height: 84px;
+  border-radius: .6rem; overflow: hidden;
+}
+:where(.tbl-pagina .order-item-photo img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Con la foto il + ci sta sopra, nell'angolo: piccolo e con un'ombra che lo
+   stacca da qualunque colore abbia il piatto sotto. */
+:where(.tbl-pagina .order-item-photo .order-item-add) {
+  position: absolute; right: 5px; bottom: 5px; width: 30px; height: 30px; font-size: 1.05rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+}
+
+/* ---------- la barra del carrello, in fondo ----------
+   ⚠️ La stessa pillola fluttuante di prima («Voir la carte»): il pollice
+   arriva in fondo allo schermo, e l'ombra la stacca dal menu che le scorre
+   sotto. `safe-area`: sugli iPhone senza tasto casa la barra di sistema la
+   coprirebbe a meta'. */
+:where(.tbl-pagina .order-mobcart) {
+  position: fixed; z-index: 30;
+  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  max-width: 32rem; margin: 0 auto;
+  display: flex; align-items: center; gap: .7rem;
+  min-height: 56px; padding: .5rem 1.1rem .5rem .6rem;
+  border: 0; border-radius: 999px;
+  background: var(--tbl-ink); color: var(--tbl-paper);
+  font-weight: 700; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+}
+/* Con la campanella «Appeler le serveur» a destra (56px, vedi table.astro),
+   la barra si accorcia e le lascia il posto: le due cose non si coprono mai. */
+:where(.tbl-pagina--campanello .order-mobcart) { right: calc(1rem + 56px + .6rem); }
+/* ⚠️ Accorciata dalla campanella, su un telefono la barra non ha posto per
+   «Voir le panier»: a 375px diventava «Voir le pa…» e il totale andava a
+   capo su due righe («23,00 / €»). Sotto i 420px resta il numero, il totale
+   e la freccia — che dicono gia' tutto. Il totale NON va mai a capo. */
+:where(.tbl-pagina .order-mobcart-label) { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.tbl-pagina .order-mobcart-total) { white-space: nowrap; }
+@media (max-width: 419px) {
+  :where(.tbl-pagina--campanello .order-mobcart-label) { visibility: hidden; }
+}
+/* ---------- «Retour au menu» sul pannello dei dati: in fondo, fluttuante ----------
+   ⚠️ Era la barra fissa in CIMA (la stessa delle categorie, con un solo
+   bottone). Adesso sta IN FONDO, dove sul menu c'e' la barra del carrello:
+   il pollice trova «avanti» e «indietro» nello stesso posto, e accanto la
+   campanella resta dove era. Il pannello lascia in fondo lo spazio per non
+   finire, bottone di pagamento compreso, sotto la pillola. */
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout)) { padding-bottom: 6rem; }
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout) > .order-filterbar) {
+  position: fixed; z-index: 30; top: auto;
+  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  max-width: 32rem; margin: 0 auto; padding: 0;
+  background: none; border: 0; transition: none;
+}
+:where(.tbl-pagina--campanello .order-wrap:has(.order-cart--checkout) > .order-filterbar) { right: calc(1rem + 56px + .6rem); }
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-filterbar-inner) { overflow: visible; }
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-tab) {
+  flex: 1 1 auto; min-height: 56px; padding: .5rem 1.2rem;
+  font-weight: 700; font-size: 1rem;
+  /* Il colore d'accento, come la pillola del carrello: e' la stessa pillola
+     sull'altro schermo, e deve sembrarlo. */
+  background: var(--tbl-ink); color: var(--tbl-paper); border-color: var(--tbl-ink);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+}
+:where(.tbl-pagina .order-mobcart-count) {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 34px; height: 34px; padding: 0 .4rem; border-radius: 999px;
+  background: var(--tbl-paper); color: var(--tbl-ink); font-size: .9rem;
+}
+:where(.tbl-pagina .order-mobcart-label) { flex: 1 1 auto; text-align: left; }
+:where(.tbl-pagina .order-mobcart-arrow svg) {
+  width: 20px; height: 20px; display: block;
+  fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* ---------- la scelta del formato, in un riquadro ----------
+   ⚠️ SALE DAL BASSO E SCENDE QUANDO SI CHIUDE: e' il gesto dei fogli del
+   telefono, e dice da dove viene il riquadro e dove torna. L'uscita la
+   aspetta OrderApp (`is-uscita`), che legge QUESTA durata dal CSS: cambiarla
+   qui basta, il componente si adegua. Con «riduci movimento» niente
+   animazioni, e il riquadro compare e sparisce all'istante. */
+@keyframes tbl-foglio-sale { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes tbl-foglio-scende { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes tbl-velo-entra { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tbl-velo-esce { from { opacity: 1; } to { opacity: 0; } }
+:where(.tbl-pagina .order-modal-overlay) {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, .55);
+}
+:where(.tbl-pagina .order-modal) {
+  position: relative; width: 100%; max-width: 34rem; max-height: 85vh; overflow: auto;
+  padding: 1.2rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  border-radius: .9rem .9rem 0 0; border-top: 1px solid var(--tbl-line);
+  background: var(--tbl-bg); color: var(--tbl-text);
+}
+/* ⚠️ La X sta sopra la foto del piatto: un fondo suo, se no su un piatto
+   chiaro sparisce e il riquadro sembra senza uscita. */
+:where(.tbl-pagina .order-modal-overlay) { animation: tbl-velo-entra .22s ease-out; }
+:where(.tbl-pagina .order-modal) { animation: tbl-foglio-sale .3s cubic-bezier(.2, .8, .2, 1); }
+:where(.tbl-pagina .order-modal-overlay.is-uscita) { animation: tbl-velo-esce .22s ease-in forwards; }
+:where(.tbl-pagina .order-modal-overlay.is-uscita .order-modal) { animation: tbl-foglio-scende .22s ease-in forwards; }
+/* I riquadri della pagina del tavolo (scelta del tavolo, nome per la
+   campanella): stesso gesto, stesse animazioni. L'uscita la aspetta
+   TableOrder (`is-uscita`), leggendo la durata da qui. Il modale «chiuso»
+   (`tbl-modale--chiuso`) resta fermo: non si apre toccando niente, compare
+   gia' li' quando si arriva. */
+:where(.tbl-pagina .tbl-modale:not(.tbl-modale--chiuso)) { animation: tbl-velo-entra .22s ease-out; }
+:where(.tbl-pagina .tbl-modale:not(.tbl-modale--chiuso) > .tbl-modale-box) { animation: tbl-foglio-sale .3s cubic-bezier(.2, .8, .2, 1); }
+:where(.tbl-pagina .tbl-modale.is-uscita) { animation: tbl-velo-esce .22s ease-in forwards; }
+:where(.tbl-pagina .tbl-modale.is-uscita > .tbl-modale-box) { animation: tbl-foglio-scende .22s ease-in forwards; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.tbl-pagina .order-modal-overlay, .tbl-pagina .order-modal) { animation: none; }
+  :where(.tbl-pagina .tbl-modale, .tbl-pagina .tbl-modale-box) { animation: none; }
+}
+:where(.tbl-pagina .order-modal-close) {
+  position: absolute; top: 1.6rem; right: 1.4rem; z-index: 1; width: 36px; height: 36px;
+  border: 0; border-radius: 50%; background: rgba(0, 0, 0, .55); color: #fff;
+  font-size: 1.4rem; line-height: 1; cursor: pointer;
+}
+:where(.tbl-pagina .order-modal-img) { width: 100%; max-height: 200px; object-fit: cover; border-radius: .6rem; margin-bottom: .8rem; }
+:where(.tbl-pagina .order-modal-title) { margin: 0 2.5rem .9rem 0; font-size: 1.1rem; }
+:where(.tbl-pagina .order-modal-variants) { display: flex; flex-direction: column; gap: .45rem; margin-bottom: 1rem; }
+:where(.tbl-pagina .order-modal-variant) {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  min-height: 48px; padding: .6rem .9rem;
+  border: 1px solid var(--tbl-line); border-radius: .6rem;
+  background: var(--tbl-card); cursor: pointer; text-align: left;
+}
+:where(.tbl-pagina .order-modal-variant.is-selected) { border-color: var(--tbl-ink); box-shadow: inset 0 0 0 2px var(--tbl-ink); }
+/* Il nome del formato prende tutto lo spazio: con tre pezzi in riga e lo
+   spazio diviso in parti uguali finiva in mezzo, staccato dal suo pallino. */
+:where(.tbl-pagina .order-modal-variant-label) { flex: 1 1 auto; }
+:where(.tbl-pagina .order-modal-variant-price) { font-weight: 700; }
+:where(.tbl-pagina .order-modal-add) {
+  display: block; width: 100%; min-height: 52px;
+  border: 0; border-radius: 999px;
+  background: var(--tbl-ink); color: var(--tbl-paper);
+  font-size: 1.05rem; font-weight: 700; cursor: pointer;
+}
+
+/* ---------- il pannello dei dati e del pagamento ---------- */
+:where(.tbl-pagina .order-section-title, .tbl-pagina .order-recap-testa) {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  margin: 0 0 .8rem; font-family: var(--font-title); font-size: 1.05rem;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+/* «2 art.» e «Tout vider» sono due pezzi: senza uno spazio fra loro si
+   leggevano «2 art.Tout vider», una parola sola. */
+:where(.tbl-pagina .order-recap-conta) {
+  display: inline-flex; align-items: center; gap: .6rem; margin: 0;
+  font-family: var(--font-body); font-size: .8rem; color: var(--tbl-muted); letter-spacing: 0; text-transform: none;
+}
+:where(.tbl-pagina .order-recap-svuota) {
+  border: 0; background: none; padding: 0; font-size: .8rem;
+  color: var(--tbl-muted); text-decoration: underline; cursor: pointer;
+}
+:where(.tbl-pagina .order-cart-empty) { color: var(--tbl-muted); }
+
+:where(.tbl-pagina .order-cart-lines) { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+:where(.tbl-pagina .order-cart-line) {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: .45rem .8rem; align-items: center;
+  padding: .75rem .85rem; border: 1px solid var(--tbl-line); border-radius: .7rem;
+  background: var(--tbl-card);
+}
+/* ⚠️ La colonna della foto esiste solo se la foto c'e': una colonna vuota
+   con il suo spazio accanto spostava il nome a destra, come un rientro. */
+:where(.tbl-pagina .order-cart-line:has(.order-cart-line-foto)) { grid-template-columns: 64px minmax(0, 1fr); }
+/* La foto QUADRATA, accanto a nome e comandi. ⚠️ Altezza fissa, non «quanto
+   la riga»: stirata sull'altezza diventava un rettangolo alto e stretto, e
+   cambiava forma da una riga all'altra secondo quante righe di testo c'erano. */
+:where(.tbl-pagina .order-cart-line-foto) {
+  grid-row: 1 / span 2; align-self: center; width: 64px; height: 64px;
+  border-radius: .55rem; overflow: hidden;
+}
+:where(.tbl-pagina .order-cart-line-foto img) { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Nome, formato e prezzo unitario uno sotto l'altro a sinistra; il totale
+   della riga a destra, in alto. ⚠️ Una griglia e non `space-between`: con il
+   carrello dettagliato i pezzi sono quattro, e in fila si spargevano per
+   tutta la riga. */
+/* Due colonne: a sinistra nome e, sotto, il formato; a destra il totale
+   della riga e, sotto, il prezzo all'unita'. Ognuno sotto la cosa che
+   spiega. ⚠️ `minmax(0, 1fr)`: senza lo zero la colonna del nome non si
+   restringe mai, e un nome lungo spingeva il prezzo fuori dalla scheda
+   invece di troncarsi. */
+:where(.tbl-pagina .order-cart-line-top) {
+  grid-column: -2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline; column-gap: .7rem; row-gap: .1rem;
+}
+:where(.tbl-pagina .order-cart-line-top > *) { grid-column: 1; min-width: 0; }
+/* Il nome su UNA riga, coi puntini se non ci sta: due righe di nome
+   spostavano i comandi e facevano ogni scheda di un'altezza diversa. */
+:where(.tbl-pagina .order-cart-line-name) {
+  font-weight: 700; line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Il formato: piccolo, sotto il nome, senza cornice — e' un dettaglio del
+   piatto, non un bottone. */
+:where(.tbl-pagina .order-cart-line-variant) {
+  font-size: .78rem; color: var(--tbl-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+:where(.tbl-pagina .order-cart-line-top > .order-cart-line-price) {
+  grid-column: 2; grid-row: 1; font-weight: 700; white-space: nowrap; text-align: right;
+}
+:where(.tbl-pagina .order-cart-line-top > .order-cart-line-unit) {
+  grid-column: 2; grid-row: 2; justify-self: end;
+  font-size: .72rem; color: var(--tbl-muted); white-space: nowrap;
+}
+:where(.tbl-pagina .order-cart-line-controls) { grid-column: -2 / -1; display: flex; align-items: center; gap: .45rem; }
+/* ⚠️ − e + hanno un FONDO, piu' scuro della scheda: un cerchio fatto solo
+   di bordo, su una scheda scura, al sole sparisce. Stessa velatura nera dei
+   passi del percorso, cosi' scurisce qualunque tema. */
+:where(.tbl-pagina .order-cart-line-controls > button) {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--tbl-line); background: rgba(0, 0, 0, .25); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 1.1rem; line-height: 1;
+}
+:where(.tbl-pagina .order-cart-qty) { min-width: 1.6rem; text-align: center; font-weight: 700; }
+
+/* IL CESTINO — lo stesso del motore (`.ibtn-danger` in `styles/button.css`):
+   rosso spento a riposo, e al primo tocco diventa una pillola rossa piena con
+   «Confirmer» dentro. Il secondo tocco cancella. La guardia a due tocchi la fa
+   gia' OrderApp (`.confirm`); qui c'e' solo la sua faccia.
+   ⚠️ Riscritto qui e non importato: `button.css` e' del pannello, parla con
+   le variabili dell'admin (`--c-*`) e porta con se' `.btn`, che sul sito di
+   un cliente e' un altro bottone. Gli stessi valori, le stesse misure — se
+   cambia il cestino del motore, cambia anche questo. */
+:where(.tbl-pagina .order-cart-line-controls > .order-cart-remove) {
+  margin-left: auto; width: 34px; height: 34px; padding: 0;
+  background: rgba(237, 28, 36, .25); border: 1px solid rgba(237, 28, 36, .35); color: #fff;
+  transition: background .15s, border-color .15s;
+}
+:where(.tbl-pagina .order-cart-line-controls > .order-cart-remove:hover) {
+  background: rgba(237, 28, 36, .55); border-color: #ed1c24;
+}
+:where(.tbl-pagina .order-cart-remove svg) {
+  width: 15px; height: 15px; fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+:where(.tbl-pagina .order-cart-line-controls > .order-cart-remove.confirm),
+:where(.tbl-pagina .order-recap-svuota.confirm) {
+  width: auto; padding: 0 .8rem; min-height: 34px; border-radius: 999px;
+  background: #a3320f; border: 1px solid #a3320f; color: #fff;
+  font-size: .75rem; font-weight: 700; white-space: nowrap; text-decoration: none;
+}
+
+:where(.tbl-pagina .order-note) { margin: 0 0 1rem; }
+/* Il totale sotto le note: chiude il riepilogo come una riga di scontrino,
+   staccato dalle note e allineato alle schede dei piatti. */
+:where(.tbl-pagina .order-recap-totale) {
+  margin: 0; padding: .85rem .1rem 0; border-top: 1px solid var(--tbl-line);
+  font-size: 1.1rem;
+}
+:where(.tbl-pagina .order-field-label) { display: block; margin: .9rem 0 .4rem; font-weight: 600; }
+/* ⚠️ 16px pieni, mai meno: sotto i 16px iOS zooma sul campo appena lo si
+   tocca, e la pagina resta ingrandita e storta. */
+:where(.tbl-pagina .order-input, .tbl-pagina .order-note-field) {
+  width: 100%; box-sizing: border-box; padding: .8rem .85rem; font: inherit; font-size: 16px;
+  border: 1px solid var(--tbl-line); border-radius: .5rem;
+  background: var(--tbl-campo); color: inherit;
+}
+:where(.tbl-pagina .order-input, .tbl-pagina .order-note-field)::placeholder { color: var(--tbl-muted); }
+
+/* Il pannello dei dati: una scheda sola, con dentro tavolo, coperti, chi e',
+   come paga. */
+:where(.tbl-pagina .order-cart--checkout) {
+  margin: 1.2rem 0 0; padding: 1rem;
+  border: 1px solid var(--tbl-line); border-radius: .8rem;
+}
+:where(.tbl-pagina .order-cart-title) {
+  margin: 0 0 1rem; font-family: var(--font-title); font-size: 1.05rem;
+  text-transform: uppercase; letter-spacing: .08em;
+}
+:where(.tbl-pagina .order-cart--checkout .tbl-form) { margin-bottom: 1rem; }
+:where(.tbl-pagina .order-form) { display: flex; flex-direction: column; gap: .6rem; }
+:where(.tbl-pagina .order-email-why) { margin: -.2rem 0 0; font-size: .8rem; color: var(--tbl-muted); }
+
+:where(.tbl-pagina .order-pay) { margin: 1rem 0 0; display: flex; flex-direction: column; gap: .4rem; }
+:where(.tbl-pagina .order-pay-opt) {
+  display: flex; align-items: center; gap: .6rem; padding: .7rem .85rem;
+  border: 1px solid var(--tbl-line); border-radius: .6rem; cursor: pointer;
+}
+:where(.tbl-pagina .order-pay-opt:has(input:checked)) { border-color: var(--tbl-ink); box-shadow: inset 0 0 0 1px var(--tbl-ink); }
+
+:where(.tbl-pagina .order-coupon) { margin: 1rem 0 0; }
+:where(.tbl-pagina .order-coupon-ask) {
+  display: flex; align-items: center; gap: .6rem;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+}
+/* ⚠️ Le due caselle del pagamento (codice promo e privacy) hanno la STESSA
+   misura: una regola sola per entrambe, cosi' non tornano a divergere. */
+:where(.tbl-pagina .order-coupon-ask input, .tbl-pagina .order-consent input) {
+  width: 1rem; height: 1rem; margin: 0; flex: none;
+}
+:where(.tbl-pagina .order-coupon-row) { display: flex; gap: .45rem; margin-top: .5rem; }
+:where(.tbl-pagina .order-coupon-row .order-input) { flex: 1 1 auto; min-width: 0; }
+:where(.tbl-pagina .order-coupon-apply) {
+  flex: 0 0 auto; padding: 0 1rem; border: 1px solid var(--tbl-ink); border-radius: .5rem;
+  background: transparent; color: var(--tbl-ink); font-weight: 700; cursor: pointer;
+}
+:where(.tbl-pagina .order-coupon-msg) { margin: .4rem 0 0; font-size: .82rem; color: var(--tbl-muted); }
+:where(.tbl-pagina .order-coupon-applied) { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-top: .5rem; }
+:where(.tbl-pagina .order-coupon-code) { font-weight: 700; }
+:where(.tbl-pagina .order-coupon-remove) {
+  border: 0; background: none; padding: 0; font-size: .82rem;
+  color: var(--tbl-muted); text-decoration: underline; cursor: pointer;
+}
+
+:where(.tbl-pagina .order-consent) {
+  display: flex; align-items: flex-start; gap: .55rem; margin: 1.1rem 0 .4rem;
+  font-size: .85rem; line-height: 1.4; color: var(--tbl-muted); cursor: pointer;
+}
+/* .1rem: la casella da 1rem resta centrata sulla prima riga del testo. */
+:where(.tbl-pagina .order-consent input) { margin-top: .1rem; }
+:where(.tbl-pagina .order-consent a) { color: var(--tbl-text); }
+
+:where(.tbl-pagina .order-cart-subtotal, .tbl-pagina .order-cart-discount, .tbl-pagina .order-cart-total) {
+  display: flex; justify-content: space-between; gap: .6rem; margin: .35rem 0 0;
+}
+:where(.tbl-pagina .order-cart-subtotal, .tbl-pagina .order-cart-discount) { font-size: .9rem; color: var(--tbl-muted); }
+:where(.tbl-pagina .order-cart-total) {
+  margin-top: .7rem; padding-top: .7rem; border-top: 1px solid var(--tbl-line);
+  font-size: 1.05rem; font-weight: 700;
+}
+
+/* Pagare: la stessa pillola piena del percorso. */
+:where(.tbl-pagina .order-cart-checkout) {
+  display: block; width: 100%; min-height: 52px; margin: 1rem 0 0;
+  border: 0; border-radius: 999px;
+  background: var(--tbl-ink); color: var(--tbl-paper);
+  font-size: 1.05rem; font-weight: 700; cursor: pointer;
+}
+:where(.tbl-pagina .order-cart-checkout:disabled) { opacity: .45; cursor: default; }
+/* L'errore come blocco, come `tbl-err`: una riga rossa sottile sparisce. */
+:where(.tbl-pagina .order-cart-error) {
+  margin: .9rem 0 0; padding: .7rem .9rem; text-align: center; font-weight: 600;
+  color: #e0786c; border: 1px solid color-mix(in srgb, #c0392b 45%, transparent);
+  border-radius: .6rem; background: color-mix(in srgb, #c0392b 12%, transparent);
+}
+:where(.tbl-pagina .order-cart-note) { margin: .7rem 0 0; font-size: .8rem; text-align: center; color: var(--tbl-muted); }

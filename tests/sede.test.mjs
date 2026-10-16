@@ -443,7 +443,8 @@ test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
   // NOT NULL; `print_tickets` ce l'ha nullable come gli ordini (un cliente a
   // sede unica scrive NULL), ma e' nata il 04/10/2026, a multi-sede gia'
   // fatto: quando quel SQL ha girato, la tabella non esisteva.
-  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out", "print_tickets"];
+  // `table_calls` (#83, 16/10/2026): stessa storia di `print_tickets`.
+  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out", "print_tickets", "table_calls"];
   const attese = di("sede").filter((t) => !SENZA_STORICO.includes(t)).sort();
 
   assert.deepEqual(nelSql, attese,

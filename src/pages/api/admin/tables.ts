@@ -4,6 +4,7 @@ import {
 } from "../../../lib/admin/sede";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
+import { orfaniDelPiano } from "../../../lib/pianoSalaRegole";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -291,6 +292,37 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
+
+  /* I TAVOLI DELLE SECTIONS SPARITE — la pulizia proposta dai Réglages.
+     ⚠️ Quali siano lo RICALCOLA il server, adesso. Il client manda solo
+     «fallo»: una lista di id costruita dalla pagina sarebbe vecchia di
+     qualche secondo, e in quei secondi una section puo' essere tornata —
+     si cancellerebbero tavoli vivi, senza cestino da cui ripescarli.
+     ⚠️ Nessuna section configurata → `orfaniDelPiano` torna vuoto e qui non
+     si cancella niente. E' la protezione per il locale che non ha mai aperto
+     quei Réglages: per lui «fuori dall'elenco» non vuol dire niente. */
+  if (url.searchParams.get("orphans") === "1") {
+    const [righe, cfg] = await Promise.all([
+      leggi("restaurant_tables", ambito, "id, zone"),
+      leggiConfig(ambito, ["reservation_zones"]),
+    ]);
+    if (righe.error) return json({ error: await msg("err.read") }, 500);
+    const orfani = orfaniDelPiano(righe.data ?? [], cfg.valori.get("reservation_zones") ?? "");
+    if (orfani.length === 0) return json({ ok: true, cancellati: 0 });
+    const zone = orfani.map((o) => o.zone);
+    const { error: errCanc } = await cancella("restaurant_tables", ambito).in("zone", zone);
+    if (errCanc) return json({ error: await msg("err.delete") }, 500);
+    /* ⚠️ Area, liaisons e decori sono mappe { zona: … }: cancellare i tavoli
+       e lasciare le loro chiavi vuol dire che il giorno in cui qualcuno
+       ricrea una section con lo stesso nome si ritrova il perimetro e le
+       unioni di tavoli che non esistono piu'. */
+    for (const z of zone) {
+      await salvaMappa("reservation_plan_areas", z, null, ambito);
+      await salvaMappa("reservation_plan_links", z, null, ambito);
+      await salvaMappa("reservation_plan_decor", z, null, ambito);
+    }
+    return json({ ok: true, cancellati: orfani.reduce((n, o) => n + o.tavoli, 0) });
+  }
 
   const id = url.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);

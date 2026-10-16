@@ -541,6 +541,199 @@ export async function inviaAnnullaOrdine(o: OrdineNotifica, opts: AnnullaOpts): 
   await emailAnnullaCliente(o, opts);
 }
 
+/* ==========================================================================
+   LE DUE EMAIL DI STATO: «c'e' pronto» e «tarda un po'»
+   --------------------------------------------------------------------------
+   ⚠️ Sono la STESSA email con due testi. Scritte separate, la seconda sarebbe
+   nata copiando la prima — e il giorno in cui si cambia il logo o il piede si
+   cambierebbe in un posto solo, con l'altra rimasta indietro. E' gia'
+   successo in questo file con la conferma e la modifica.
+
+   ⚠️ Niente elenco dei piatti, niente totale: il cliente ha gia' ricevuto la
+   conferma, e quello che gli serve adesso e' UN'ORA. Un'email che ripete
+   tutto nasconde l'unica riga che conta.
+   ========================================================================== */
+
+const TXT_STATO = {
+  fr: {
+    pronto: {
+      subject: (num: string) => `Votre commande #${num} est prête`,
+      title: "Commande prête",
+      intro: (name: string, num: string) => `Bonjour ${name},<br>votre commande #${num} est prête. Vous pouvez venir la chercher.`,
+      etichetta: "Prête à",
+    },
+    ritardo: {
+      subject: (num: string, ora: string) => `Commande #${num} — retrait décalé à ${ora}`,
+      title: "Retrait décalé",
+      intro: (name: string, num: string, prima: string) => `Bonjour ${name},<br>votre commande #${num}, prévue à ${prima}, sera prête un peu plus tard. Désolés pour l'attente.`,
+      etichetta: "Nouvelle heure",
+    },
+    callBtn: "Nous contacter",
+  },
+  en: {
+    pronto: {
+      subject: (num: string) => `Your order #${num} is ready`,
+      title: "Order ready",
+      intro: (name: string, num: string) => `Hello ${name},<br>your order #${num} is ready. You can come and collect it.`,
+      etichetta: "Ready at",
+    },
+    ritardo: {
+      subject: (num: string, ora: string) => `Order #${num} — pickup moved to ${ora}`,
+      title: "Pickup moved",
+      intro: (name: string, num: string, prima: string) => `Hello ${name},<br>your order #${num}, due at ${prima}, will be ready a little later. Sorry for the wait.`,
+      etichetta: "New time",
+    },
+    callBtn: "Contact us",
+  },
+  it: {
+    pronto: {
+      subject: (num: string) => `Il tuo ordine #${num} è pronto`,
+      title: "Ordine pronto",
+      intro: (name: string, num: string) => `Ciao ${name},<br>il tuo ordine #${num} è pronto. Puoi venire a ritirarlo.`,
+      etichetta: "Pronto alle",
+    },
+    ritardo: {
+      subject: (num: string, ora: string) => `Ordine #${num} — ritiro spostato alle ${ora}`,
+      title: "Ritiro spostato",
+      intro: (name: string, num: string, prima: string) => `Ciao ${name},<br>il tuo ordine #${num}, previsto per le ${prima}, sarà pronto un po' più tardi. Ci scusiamo per l'attesa.`,
+      etichetta: "Nuovo orario",
+    },
+    callBtn: "Contattaci",
+  },
+  nl: {
+    pronto: {
+      subject: (num: string) => `Uw bestelling #${num} is klaar`,
+      title: "Bestelling klaar",
+      intro: (name: string, num: string) => `Hallo ${name},<br>uw bestelling #${num} is klaar. U kunt ze komen ophalen.`,
+      etichetta: "Klaar om",
+    },
+    ritardo: {
+      subject: (num: string, ora: string) => `Bestelling #${num} — afhaling verzet naar ${ora}`,
+      title: "Afhaling verzet",
+      intro: (name: string, num: string, prima: string) => `Hallo ${name},<br>uw bestelling #${num}, voorzien om ${prima}, is iets later klaar. Sorry voor het wachten.`,
+      etichetta: "Nieuw uur",
+    },
+    callBtn: "Contacteer ons",
+  },
+  es: {
+    pronto: {
+      subject: (num: string) => `Su pedido #${num} está listo`,
+      title: "Pedido listo",
+      intro: (name: string, num: string) => `Hola ${name},<br>su pedido #${num} está listo. Puede venir a recogerlo.`,
+      etichetta: "Listo a las",
+    },
+    ritardo: {
+      subject: (num: string, ora: string) => `Pedido #${num} — recogida aplazada a las ${ora}`,
+      title: "Recogida aplazada",
+      intro: (name: string, num: string, prima: string) => `Hola ${name},<br>su pedido #${num}, previsto a las ${prima}, estará listo un poco más tarde. Disculpe la espera.`,
+      etichetta: "Nueva hora",
+    },
+    callBtn: "Contáctenos",
+  },
+} as const;
+
+/** Il corpo, uno solo. `oraGrande` e' l'unica cosa che il cliente deve leggere
+ *  da lontano, e per questo sta nel riquadro, non dentro la frase. */
+async function emailStatoOrdine(
+  o: OrdineNotifica,
+  variante: "pronto" | "ritardo",
+  oraPrimaIso?: string,
+): Promise<void> {
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+  const from = await ordineFromEmail(ambito);
+  if (!resend || !from) {
+    console.warn("Resend non configurato: salto email di stato ordine");
+    return;
+  }
+  // ⚠️ Un ordine preso al banco puo' non avere email: non e' un guasto.
+  if (!o.customer_email?.trim()) return;
+
+  const t = pick5(TXT_STATO as unknown as Record<string, (typeof TXT_STATO)["fr"]>, o.lang);
+  const v = t[variante];
+  const dati = await datiRistorante(ambito);
+  const tema = await temaEmail();
+  // «Pronto» mostra l'ora di ADESSO, «ritardo» la nuova ora di ritiro.
+  const oraGrande = variante === "pronto"
+    ? oraRitiro(new Date().toISOString(), fuso)
+    : oraRitiro(o.pickup_time, fuso);
+  const oraPrima = oraPrimaIso ? oraRitiro(oraPrimaIso, fuso) : "";
+
+  const intro = variante === "pronto"
+    ? (v as (typeof TXT_STATO)["fr"]["pronto"]).intro(esc(o.customer_name), esc(o.numero))
+    : (v as (typeof TXT_STATO)["fr"]["ritardo"]).intro(esc(o.customer_name), esc(o.numero), esc(oraPrima));
+  const subject = variante === "pronto"
+    ? (v as (typeof TXT_STATO)["fr"]["pronto"]).subject(o.numero)
+    : (v as (typeof TXT_STATO)["fr"]["ritardo"]).subject(o.numero, oraGrande);
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(dati.nome.toUpperCase())}</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${v.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${intro}</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:28px 44px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+            <tr><td style="padding:18px 24px;text-align:center;">
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${v.etichetta}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraGrande}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:24px 44px 38px;text-align:center;">
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:15px 42px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.callBtn}</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  /* ⚠️ DUE CHIAMATE E DUE ETICHETTE SCRITTE A MANO, non una con un ternario
+     dentro. Il nome non serve al codice: serve al LOG. «[email] retrait DECALE
+     client refuse par Resend» dice quale delle ventidue email e' stata
+     rifiutata; un'etichetta calcolata la nasconde, e chi legge i log si
+     ritrova a indovinare. Le opzioni restano una sola: il corpo e' identico,
+     ed e' il nome a cambiare. */
+  const opzioni = {
+    from,
+    to: o.customer_email,
+    subject,
+    bcc: BCC,
+    html: avvolgiTema(html, tema),
+  };
+  if (variante === "pronto") await spedisci("commande PRETE client", opzioni);
+  else await spedisci("retrait DECALE client", opzioni);
+}
+
+/** «C'est prêt». ⚠️ CHI la chiama decide SE: la regola della mezz'ora sta
+ *  nella rotta, non qui — vedi `lib/ordiniRegole.ts`. */
+export async function emailOrdinePronto(o: OrdineNotifica): Promise<void> {
+  await emailStatoOrdine(o, "pronto");
+}
+
+/** «Tarda un po'». `ora_prima` e' l'ora che il cliente aveva in mano: senza,
+ *  l'email direbbe solo la nuova e lui non saprebbe di quanto e' cambiata. */
+export async function emailOrdineRitardato(o: OrdineNotifica & { ora_prima: string }): Promise<void> {
+  await emailStatoOrdine(o, "ritardo", o.ora_prima);
+}
+
 /** Email di conferma al cliente (design dark brand). */
 async function emailCliente(o: OrdineNotifica): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.

@@ -51,6 +51,7 @@ let ssrOrders: unknown[] | null = null;
 // questo valore non puo' restare indietro rispetto al selettore.
 let pagaOnline = true;
 
+
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
@@ -166,6 +167,26 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          riga, e un ordine da due piatti si ritrova mezza card vuota sotto i
          bottoni — che a colpo d'occhio sembra un ordine incompleto. */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; align-items: start; }
+      /* IL NASTRO IN TESTA ALLA CARD: da dove arriva l'ordine e cosa se ne fa.
+         Pieno corallo per la SALA (si porta al tavolo), discreto per il ritiro
+         (si mette sul bancone): la differenza si legge da lontano, prima di
+         leggere qualsiasi cosa, senza dividere la lista in due.
+         ⚠️ Esce dal padding della card e ne prende tutta la larghezza, e porta
+         la STESSA maschera a denti della card (`::before`): senza, il nastro
+         coprirebbe i denti dello scontrino e la card avrebbe il bordo dritto
+         proprio dove e' colorata. Stessa misura e stessa fase (`50% 0`). */
+      .card-nastro {
+        display: flex; align-items: center; gap: 0.45rem;
+        margin: calc(-1 * var(--card-py)) calc(-1 * var(--card-px)) 0.9rem;
+        padding: calc(var(--tk-r) + 0.5rem) var(--card-px) 0.5rem;
+        border-radius: 3px 3px 0 0;
+        font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+        -webkit-mask: radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 100% repeat-x;
+        mask: radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 100% repeat-x;
+      }
+      .card-nastro svg { width: 15px; height: 15px; flex: 0 0 auto; display: block; }
+      .card-nastro--sala { background: var(--c-accent); color: var(--c-bg); }
+      .card-nastro--ritiro { background: color-mix(in srgb, var(--c-text) 7%, transparent); color: var(--c-muted); }
       /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
          sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
          si vede il fondo della pagina attraverso, non un finto dentello
@@ -305,6 +326,17 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .time { font-family: var(--font-title); font-size: 1.85rem; letter-spacing: 0.03em; color: var(--c-accent); display: inline-flex; align-items: center; gap: 0.4rem; }
       .time-ico { flex: 0 0 auto; display: inline-flex; }
       .time-ico svg { width: 0.62em; height: 0.62em; display: block; }
+      /* ORDINE AL TAVOLO: al posto dell’ora, il tavolo.
+         ⚠️ Il segno deve leggersi DA UN METRO. Sul tablet in cucina la lista
+         si guarda di sfuggita, e un’icona piccola non basta a non confondere
+         un tavolo con un ritiro: una comanda portata al banco invece che in
+         sala resta ferma li’ finche’ non si fredda. Percio’ una pastiglia col
+         bordo dell’accento, non un dettaglio in grigio.
+         ⚠️ E un corpo piu’ piccolo dell’ora: «19:30» sono cinque segni, «Table
+         7» o «Terrasse 2» possono essere dodici, e a 1.85rem andrebbero a
+         capo sulla card da 300px. */
+      .time-tavolo { font-size: 1.3rem; border: 1px solid color-mix(in srgb, var(--c-accent) 45%, transparent); border-radius: 999px; padding: 0.1rem 0.7rem 0.16rem; }
+      .time-tavolo .time-ico svg { width: 0.8em; height: 0.8em; }
       .total { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
       .tag { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
       .tag-done { border: 1px solid #fff; color: #fff; border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
@@ -443,15 +475,35 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          freccia circolare, che sarebbe il ripristino con un verso diverso. */
       .btn-refund-ico { background: var(--c-accent); color: var(--c-bg); }
       .btn-refund-ico svg { fill: none; stroke: currentColor; }
-      /* Bottone stampante (ristampa ticket) — predisposto, mostrato solo quando attivo */
+      /* IL BLOCCO DEI CONTATTI — nome, email, telefono, e la stampante.
+         ⚠️ Il piede a destra non e' decorazione: il bottone e' in posizione
+         assoluta, e senza quello spazio riservato un indirizzo email lungo
+         gli finisce sotto. */
+      .contatti { position: relative; padding-right: 52px; }
+      /* Bottone stampante (ristampa ticket), in basso a destra nei contatti.
+         ⚠️ COLORE DEL TESTO, non quello spento dei dettagli: e' un comando, e
+         fra tre righe grigie un bottone grigio non si vede. Il bordo resta
+         chiaro per non gridare quanto le azioni in fondo alla card. */
       .btn-print {
+        position: absolute; right: 0; bottom: 0;
         display: inline-flex; align-items: center; justify-content: center;
-        width: 30px; height: 30px; padding: 0; border-radius: 8px;
-        border: 1px solid var(--c-line); background: transparent; color: var(--c-muted);
-        cursor: pointer; transition: border-color 0.15s, color 0.15s;
+        width: 38px; height: 38px; padding: 0; border-radius: 10px;
+        border: 1px solid color-mix(in srgb, var(--c-text) 34%, transparent);
+        background: transparent; color: var(--c-text);
+        cursor: pointer; transition: border-color 0.15s, background 0.15s;
       }
-      .btn-print:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .btn-print svg { width: 17px; height: 17px; }
+      .btn-print:hover { border-color: var(--c-text); background: color-mix(in srgb, var(--c-text) 8%, transparent); }
+      .btn-print:disabled { opacity: 0.45; cursor: wait; }
+      .btn-print svg { width: 21px; height: 21px; }
+      /* Il modale del ritardo. ⚠️ Quattro colonne e non due: i crediti hanno
+         quattro pacchetti lunghi («+1000», «9,99 €»), qui ci stanno «+10» e
+         un orario — e una griglia a due righe farebbe sembrare le prime due
+         scelte piu' importanti delle altre. */
+      .rit-packs { grid-template-columns: repeat(4, 1fr); }
+      .rit-ora { color: var(--c-muted); font-size: 0.9rem; margin: 0 0 1rem; }
+      .rit-ora b { color: var(--c-text); }
+      .rit-avviso { margin: 1.1rem 0 0; font-size: 0.82rem; color: var(--c-muted); line-height: 1.55; }
+      .rit-avviso b { color: var(--c-text); }
       /* Stato rimborso: il tag in alto (il bottone e' diventato un tondo). */
       .tag-refund {
         border: 1px solid var(--c-accent); color: var(--c-accent);
@@ -933,6 +985,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           </div>
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
+        {/* ⚠️ UNA COLONNA SOLA, come prima (16/10/2026). Le due colonne
+            «Retraits / Salle» costringevano a guardare in due posti per sapere
+            cosa c'era da fare; ora l'ordine e' quello di sempre, e cosa e' un
+            ritiro e cosa va portato al tavolo lo dice il NASTRO in testa a
+            ogni card (`card-nastro`), pieno corallo per la sala. */}
         <div class="grid" id="grid"></div>
         <h2 class="done-title" id="done-title" style="display:none">{t("ord.doneCancelled")}</h2>
         <div class="grid" id="grid-done"></div>
@@ -968,6 +1025,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         <button class="md-btn" type="button" id="sup-anyway"></button>
         <button class="md-btn md-btn-primary" type="button" id="sup-cash"></button>
         <button class="md-btn md-btn-primary" type="button" id="sup-card"></button>
+      </Fragment>
+    </Modal>
+
+    {/* Ritardare il ritiro, e dirlo al cliente.
+        ⚠️ I riquadri sono gli STESSI dei crediti della newsletter
+        (`styles/packs.css`): la stessa domanda — «quale di questi quattro?» —
+        non deve avere due vestiti in due pagine.
+        ⚠️ Ogni riquadro mostra L'ORA CHE RISULTA, non solo i minuti: e' quella
+        che il cliente leggera' nell'email, ed e' l'unica cosa che il
+        ristoratore deve poter confrontare con l'orologio della cucina. */}
+    <Modal id="rit-overlay" title={t("ord.delayTitle")} titleId="rit-title" width="460px">
+      <p class="rit-ora" id="rit-sub"></p>
+      <div class="c-packs rit-packs" id="rit-scelte"></div>
+      <p class="rit-avviso" id="rit-avviso"></p>
+      <Fragment slot="foot">
+        <span class="m-err" id="rit-msg"></span>
+        <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" type="button" id="rit-ok" disabled></button>
       </Fragment>
     </Modal>
 
@@ -1094,6 +1169,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       import { mostraToast } from "../../lib/admin/toast";
       import { collegaLogout } from "../../lib/admin/logout";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
+      /* ⚠️ `ordiniRegole` non importa NIENTE: per questo si puo' portare nel
+         browser. Il servizio lo decide una regola sola, condivisa con il
+         server — scritta due volte, le due meta' si allontanano. */
+      import { alTavolo } from "../../lib/ordiniRegole";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       /* ⚠️ I conti dei soldi NON si riscrivono qui: la colonna della Accueil,
          le statistiche e la mail del mattino contano la stessa giornata, e
@@ -1103,7 +1182,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         incassato, righeIncassate, restaDaIncassare, daServire, fatti,
         piattiVeri, notaCliente,
       } from "../../lib/admin/ordiniConti";
-      import { euroDa } from "../../lib/soldi";
+      import { importoDa } from "../../lib/soldi";
+      import { iconaValuta, valutaDelMotore } from "../../lib/valuta";
+      /* ⚠️ La stessa regola della stampa automatica, non una copia: il bottone
+         della ristampa deve comparire ESATTAMENTE dove un ticket ha senso. */
+      import { daStampare } from "../../lib/stampaRegole";
+      /* ⚠️ L'elenco dei ritardi NON si riscrive qui: il server rifiuta tutto
+         quello che non e' in questa lista, e due liste divergenti vorrebbero
+         dire un bottone che esiste e una rotta che lo rifiuta. */
+      import { RITARDI_MIN } from "../../lib/ordiniRegole";
       import { leggiVariantiDb, etichettaVariante, prezzoEffettivo } from "../../lib/pricing";
       import { metodoCambiabile, METODI_CASSA_SCELTA } from "../../lib/ordiniRegole";
 
@@ -1141,6 +1228,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         refund_due_cents?: number;
         supplement_paid_at?: string | null;
         payment_method?: string | null;
+        /** #29 — 'web' (dal sito) o 'manual' (creato dall'admin): il nastro. */
+        source?: string | null;
+        /** #82 — da asporto ('pickup', o assente) oppure al tavolo ('table'). */
+        service?: string | null;
+        /** Come si chiamava QUEL tavolo quel giorno: e’ cio’ che si dice a voce. */
+        table_label?: string | null;
+        reservation_id?: string | null;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1151,7 +1245,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
        *  pannello. Era la stessa funzione in cinque pagine. */
-      const euro = (cents: number): string => euroDa(cents, LOC);
+      const euro = (cents: number): string => importoDa(cents, LOC);
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       // Chiave-giorno (YYYY-MM-DD) di un istante ISO, nel fuso del ristorante.
@@ -1167,10 +1261,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         });
       }
 
-      // Ristampa ticket — PREDISPOSTO ma NASCOSTO (§4.5 stampante termica).
-      // Domani, con la stampa automatica attiva: mettere STAMPA_TICKET = true
-      // per mostrare il bottone, e collegare ristampaTicket() a /api/admin/print.
-      const STAMPA_TICKET = false;
+      /* La ristampa del ticket: acceso il 14/10/2026 insieme alla rotta
+         `/api/admin/print`. ⚠️ Resta una costante e non una configurazione:
+         il bottone si mostra sempre, ed e' la ROTTA a dire se c'e' una
+         stampante — con il motivo scritto nel toast. Un bottone nascosto
+         perche' la stampante non risponde e' un bottone che sparisce proprio
+         il giorno in cui serve capire perche' non stampa. */
+      const STAMPA_TICKET = true;
       const ICON_PRINT = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>`;
 
       // Cestino (annulla ordine) — coerente con lo stile di ICON_PRINT.
@@ -1190,7 +1287,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Rimborso: la banconota in alto e la freccia che esce e torna indietro.
          Non la freccia circolare da sola, che e' gia' «rimetti in corso» e
          starebbe nel bottone accanto. */
-      const ICON_REFUND = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><polyline points="12.5 8.5 8.5 12 12.5 15.5"/><path d="M8.5 12h7"/></svg>`;
+      /* ⚠️ Il rimborso si annuncia con il SIMBOLO DELLA VALUTA, non con un
+         disegno: vedi `lib/valuta.ts` per il perche' della misura. */
+      /* Orologio del ritardo. ⚠️ Un quadrante, non una clessidra ne' una
+         freccia: il gesto e' «sposta l'ora», e l'ora e' un orologio. */
+      /* Un tavolo visto di lato: il piano e due gambe. ⚠️ Niente sedie e
+         niente tovaglia — a 24px diventerebbero tre macchie. */
+      const ICON_SACCHETTO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
+      const ICON_TAVOLO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="9" x2="7" y2="19"/><line x1="17" y1="9" x2="17" y2="19"/></svg>`;
+      const ICON_RITARDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`;
+      const ICON_REFUND = iconaValuta(valutaDelMotore());
       const ICON_COINS = `<svg viewBox="0 0 314.965 314.965" fill="currentColor" aria-hidden="true"><path d="M104.982,104.987c60.086,0,104.983-23.753,104.983-44.992c0-21.237-44.898-44.991-104.983-44.991S0,38.758,0,59.995C0,81.234,44.896,104.987,104.982,104.987z"/><path d="M104.982,284.961c8.77,0,17.211-0.51,25.24-1.439c-6.768-8.698-12.365-18.35-16.558-28.716c-2.881,0.097-5.772,0.164-8.683,0.164c-34.333,0-66.847-6.803-91.55-19.155C8.567,233.383,4.091,230.77,0,228.004v11.966C0,261.207,44.896,284.961,104.982,284.961z"/><path d="M104.982,224.97c0.308,0,0.611-0.005,0.918-0.006c-0.615-4.916-0.936-9.923-0.936-15.003c0-5.078,0.32-10.082,0.936-14.994c-0.307,0-0.611,0.011-0.918,0.011c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.432-9.342-5.045-13.433-7.81v11.965C0,201.216,44.896,224.97,104.982,224.97z"/><path d="M104.982,164.977c2.976,0,5.912-0.06,8.811-0.174c4.656-11.423,11.019-21.974,18.777-31.331c-8.982,0.99-18.213,1.515-27.588,1.515c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.433-9.342-5.045-13.433-7.811v11.966C0,141.225,44.896,164.977,104.982,164.977z"/><path d="M149.982,160.244c-6.49,9.757-11.127,20.846-13.408,32.762c-1.053,5.493-1.609,11.16-1.609,16.955c0,4.357,0.318,8.641,0.919,12.834c1.477,10.301,4.704,20.041,9.37,28.914c4.896,9.311,11.373,17.666,19.076,24.701c16.008,14.621,37.298,23.551,60.635,23.551c49.626,0,90-40.374,90-90c0-49.627-40.374-90-90-90c-5.129,0-10.158,0.438-15.056,1.266C184.961,125.446,163.473,139.965,149.982,160.244z"/></svg>`;
       const ICON_CARD = `<svg viewBox="0 0 48 48" fill="currentColor" aria-hidden="true"><path d="m42.24 9.6c0-1.58813-1.29188-2.88-2.88-2.88h-36.48c-1.58812 0-2.88 1.29188-2.88 2.88v2.88h42.24z"/><path d="m42.24 32.64v-11.52h-42.24v11.52c0 1.58813 1.29188 2.88 2.88 2.88h36.48c1.58812 0 2.88-1.29188 2.88-2.88zm-31.81266-4.32h-4.66734c-.53016 0-.96-.42984-.96-.96s.42984-.96.96-.96h4.66734c.53016 0 .96.42984.96.96s-.42984.96-.96.96zm8.64 0h-4.66734c-.53016 0-.96-.42984-.96-.96s.42984-.96.96-.96h4.66734c.53016 0 .96.42984.96.96s-.42984.96-.96.96z"/><path d="m0 14.4h42.24v4.8h-42.24z"/><path d="m45.12 12.48h-.96v20.16c0 2.64656-2.15344 4.8-4.8 4.8h-33.6v.96c0 1.58813 1.29187 2.88 2.88 2.88h36.48c1.58813 0 2.88-1.29188 2.88-2.88v-23.04c0-1.58813-1.29187-2.88-2.88-2.88z"/></svg>`;
       const ICON_STRIPE = `<svg viewBox="0 145 512 228" aria-hidden="true"><g fill="currentColor"><path d="M512.02,259.566c0-36.41-17.636-65.14-51.344-65.14c-33.85,0-54.331,28.73-54.331,64.856c0,42.811,24.179,64.429,58.882,64.429c16.925,0,29.726-3.84,39.397-9.245V286.02c-9.672,4.836-20.765,7.823-34.846,7.823c-13.796,0-26.028-4.836-27.592-21.619h69.549C511.736,270.375,512.02,262.979,512.02,259.566z M441.76,246.054c0-16.072,9.814-22.757,18.774-22.757c8.676,0,17.921,6.685,17.921,22.757H441.76z"/><path d="M351.445,194.426c-13.938,0-22.899,6.542-27.877,11.094l-1.849-8.818h-31.29v165.838l35.557-7.538l0.142-40.25c5.12,3.698,12.658,8.96,25.174,8.96c25.459,0,48.642-20.481,48.642-65.567C399.803,216.898,376.335,194.426,351.445,194.426z M342.911,292.421c-8.392,0-13.369-2.987-16.783-6.685l-0.142-52.767c3.698-4.125,8.818-6.969,16.925-6.969c12.943,0,21.903,14.507,21.903,33.139C364.815,278.198,355.996,292.421,342.911,292.421z"/><polygon points="241.503,186.034 277.202,178.354 277.202,149.482 241.503,157.02"/><rect x="241.503" y="196.843" width="35.699" height="124.449"/><path d="M203.244,207.368l-2.276-10.525h-30.721v124.449h35.557v-84.341c8.391-10.952,22.614-8.96,27.023-7.396v-32.712C228.276,195.137,211.635,192.008,203.244,207.368z"/><path d="M132.13,165.98l-34.704,7.396L97.284,287.3c0,21.05,15.787,36.553,36.837,36.553c11.663,0,20.196-2.134,24.89-4.694v-28.872c-4.551,1.849-27.023,8.391-27.023-12.658v-50.491h27.023v-30.294h-27.023L132.13,165.98z"/><path d="M35.984,232.969c0-5.547,4.551-7.68,12.089-7.68c10.809,0,24.463,3.271,35.273,9.103v-33.424c-11.805-4.693-23.468-6.542-35.273-6.542C19.201,194.426,0,209.502,0,234.676c0,39.255,54.047,32.997,54.047,49.922c0,6.543-5.689,8.676-13.654,8.676c-11.805,0-26.881-4.836-38.828-11.378v33.85c13.227,5.689,26.597,8.107,38.828,8.107c29.583,0,49.922-14.65,49.922-40.108C90.173,241.361,35.984,248.899,35.984,232.969z"/></g></svg>`;
@@ -1207,7 +1313,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
       // Livello di ritardo sull'ora di ritiro, SOLO per ordini attivi:
       // 0 = in tempo · 1 = ≥5 min (bianco) · 2 = ≥10 min (arancio) · 3 = ≥15 min (rosso).
-      function ncLivelloRitardo(pickupIso: string, status: string): number {
+      /**
+       * Il semaforo dei ritardatari: giallo a +5, arancione a +10, ROSSO a +15
+       * dall’ora di ritiro.
+       *
+       * ⚠️ AL TAVOLO NON CONTA NIENTE, e questa riga e’ il motivo per cui la
+       * #82 ha aggiunto la colonna `service`. Un ordine al tavolo ha
+       * `pickup_time` = l’istante in cui e’ entrato (non `null`: con `null`
+       * non comparirebbe nemmeno nella lista, che filtra su quella colonna).
+       * Senza questa porta, un quarto d’ora dopo OGNI tavolo diventa rosso
+       * mentre la gente mangia tranquilla, e la lista della sera e’ tutta
+       * rossa — cioe’ il semaforo non dice piu’ niente nemmeno sui ritiri veri.
+       */
+      function ncLivelloRitardo(pickupIso: string, status: string, servizio?: string | null): number {
+        if (alTavolo(servizio)) return 0;
         if (status !== "paid" && status !== "pending") return 0;
         const diffMin = (Date.now() - new Date(pickupIso).getTime()) / 60000;
         if (diffMin >= 15) return 3;
@@ -1242,6 +1361,31 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // uno (la colonna della Accueil) mancava.
         const notaCli = notaCliente(o.items);
         const piatti = piattiVeri(o.items);
+
+        /* ⚠️ QUESTE TRE RIGHE STANNO IN CIMA, e non e’ una preferenza: i
+           bottoni le usano cento righe piu’ sotto, ma `const` ha una zona
+           morta — dichiarate la’, `astro check` direbbe «used before its
+           declaration», e nel caso peggiore (dichiarate in due posti) la
+           pagina girerebbe leggendo sempre la copia sbagliata. Lo stesso
+           inciampo e’ gia’ documentato poco sotto per `incassaId`. */
+        const aTavolo = alTavolo(o.service);
+        /* ⚠️ IN ALTO A SINISTRA: L’ORA, O IL TAVOLO. Non tutt’e due.
+           In sala l’ora esiste (e’ quella d’arrivo) ma non dice niente a chi
+           legge: nessuno viene a ritirare. Il posto buono della card e’ uno, e
+           lo prende il dato che serve a portare i piatti al posto giusto.
+           ⚠️ E dove i tavoli non ci sono — un bistrot senza numeri, uno snack
+           al banco — la pastiglia dice «Sala» e basta: il nome e’ gia’ nella
+           riga sotto, e scrivere «Tavolo» a chi non ne ha sarebbe una bugia
+           piccola che manda a cercare un numero che non esiste. */
+        const oraOTavolo = aTavolo
+          ? `<span class="time time-tavolo" title="${tr("ord.atTable")}"><span class="time-ico">${ICON_TAVOLO}</span>${esc(o.table_label || tr("ord.room"))}</span>`
+          : `<span class="time"><span class="time-ico">${ICON_CLOCK}</span>${esc(oraBrussels(o.pickup_time))}${ricerca ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>`;
+        /* ⚠️ NIENTE BOTTONE «RITARDA» AL TAVOLO. Sposterebbe un’ora di
+           ritiro che non esiste, e manderebbe al cliente un’email che gli dice
+           a che ora venire a prendere il piatto che ha davanti. */
+        const ritardoBtn = aTavolo
+          ? ""
+          : `<button class="btn-edit btn-ritardo" type="button" data-id="${o.id}" data-act="ritardo" title="${tr("ord.delay")}" aria-label="${tr("ord.delay")}">${ICON_RITARDO}</button>`;
 
         // Email e telefono: la riga compare solo se il dato c'e'. Un ordine
         // creato a mano puo' avere solo il telefono.
@@ -1328,6 +1472,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           o.status === "paid"
             ? `<div class="actions">
                  <button class="btn-done" type="button" data-id="${o.id}" data-act="done" title="${tr("ord.terminee")}"><span class="b-lab">✓ ${tr("ord.terminee")}</span></button>
+                 ${ritardoBtn}
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`
@@ -1351,13 +1496,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                      </div>`
                   : `<div class="actions">
                    <button class="btn-done" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>
-                   <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                   ${ritardoBtn}
+                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                    <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                  </div>`
             : o.status === "pending"
               ? `<div class="actions">
                    <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}"><span class="b-lab">${tr("ord.resendShort")}</span></button>
-                   <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                   ${ritardoBtn}
+                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                    <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                  </div>`
               : "";
@@ -1365,7 +1512,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const badgeOk = o.status === "done" ? `<span class="badge-ok" title="${tr("ord.terminee")}">✓</span>` : "";
         const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="${tr("ord.annulee")}">✕</span>` : "";
         // Bottone stampante (ristampa ticket): reso solo se STAMPA_TICKET = true.
-        const stampaBtn = STAMPA_TICKET
+        /* ⚠️ `daStampare`, non «non e' finito»: un ordine `pending` con un link
+           di pagamento mai pagato e' un carrello abbandonato, e ristamparlo
+           vorrebbe dire cibo preparato per nessuno. La regola e' la stessa
+           della stampa automatica, chiesta allo stesso file: due copie
+           divergono, e il giorno che divergono il bottone compare dove non
+           deve. Sulle completate e sulle annullate non c'e' piu' niente da
+           preparare. */
+        const stampaBtn = STAMPA_TICKET && daStampare(o.status, o.payment_method)
           ? `<button class="btn-print" type="button" data-id="${o.id}" data-act="print" title="${tr("ord.reprint")}" aria-label="${tr("ord.reprint")}">${ICON_PRINT}</button>`
           : "";
         /* ⚠️ Quanto e' gia' tornato indietro e quanto resta: dichiarati QUI,
@@ -1433,7 +1587,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           incassoStripe && (o.status === "cancelled" || o.status === "done") && refunded > 0
             ? residuo > 0
               ? barra("diff-bar-refunded", "↩", tr("ord.refunded"), refunded)
-              : barra("diff-bar-refunded", "✓", tr("ord.refunded"))
+              : barra("diff-bar-refunded", "✓", tr("ord.refundedAll"))
             : "";
         // Modifica al ribasso su ordine pagato online: bottone "rimborsa differenza"
         // (1 clic + conferma). Importo esatto = refund_due_cents (tracciato lato server).
@@ -1465,24 +1619,41 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             : vivo && o.supplement_paid_at
               ? barra("diff-bar-paid", "✓", tr("ord.diffPaid"), undefined, tr("ord.diffPaidTitle"))
               : "";
-        const lr = ncLivelloRitardo(o.pickup_time, o.status);
+        const lr = ncLivelloRitardo(o.pickup_time, o.status, o.service);
+        /* ⚠️ LA STAMPANTE STA NEL BLOCCO DEI CONTATTI, non accanto al prezzo.
+           In alto era un'icona piccola in mezzo a badge e pastiglie di
+           pagamento — cioe' in mezzo a cose che si GUARDANO — mentre questo e'
+           un bottone che si PREME. Il blocco dei contatti aveva tre righe
+           corte e un vuoto a destra che non faceva niente: adesso lo fa.
+           ⚠️ E il commento sta QUI e non nel markup: `cardHTML` rende una
+           STRINGA, e un commento in stile Astro dentro un template literal non
+           e' un commento — finisce scritto nella pagina come testo. */
         const cardCls =
           (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
           (refundBtn ? " refundable" : "") +
           (lr ? ` nc-late nc-late-${lr}` : "");
 
+        /* IL NASTRO: sala (corallo, col tavolo) o ritiro (dal sito o creato
+           a mano). `alTavolo` decide, come per il ticket e il semaforo. */
+        const nastro = aTavolo
+          ? `<div class="card-nastro card-nastro--sala">${ICON_TAVOLO}<span>${esc(tr("ord.room"))}${o.table_label ? ` · ${esc(o.table_label)}` : ""}</span></div>`
+          : `<div class="card-nastro card-nastro--ritiro">${ICON_SACCHETTO}<span>${esc(tr(o.source === "manual" ? "ord.ribbonPickup" : "ord.ribbonWeb"))}</span></div>`;
         return `
           <div class="card${cardCls}" data-id="${o.id}">
+            ${nastro}
             ${tag ? `<div class="card-stato">${tag}</div>` : ""}
             <div class="card-top">
               <div class="ct-left">
-                <span class="time"><span class="time-ico">${ICON_CLOCK}</span>${esc(oraBrussels(o.pickup_time))}${ricerca ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>
+                ${oraOTavolo}
               </div>
-              <span class="ct-right">${stampaBtn}${badgeOk}${badgeKo}${payIco}<span class="total">${euro(o.total_cents)}</span></span>
+              <span class="ct-right">${badgeOk}${badgeKo}${payIco}<span class="total">${euro(o.total_cents)}</span></span>
             </div>
-            <p class="name"><span class="name-ico">${ICON_USER}</span>${esc(o.customer_name)}${langBadge}</p>
-            ${email}
-            ${phone}
+            <div class="contatti">
+              <p class="name"><span class="name-ico">${ICON_USER}</span>${esc(o.customer_name)}${langBadge}</p>
+              ${email}
+              ${phone}
+              ${stampaBtn}
+            </div>
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
             ${diffBar}
@@ -1737,6 +1908,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             stateEl.style.display = "none";
           }
 
+          /* Una lista sola, nell'ordine di sempre: ritiro o sala lo dice il
+             nastro di ogni card (`alTavolo`, la stessa regola del ticket). */
           gridEl.innerHTML = attivi.map(cardHTML).join("");
           gridDoneEl.innerHTML = spenti.map(cardHTML).join("");
           doneTitleEl.style.display = spenti.length > 0 ? "block" : "none";
@@ -2041,13 +2214,118 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
         }
 
-        // Ristampa ticket — PREDISPOSTO ma inattivo finché non c'è la stampa
-        // automatica. Domani: implementare qui la POST verso /api/admin/print.
-        function ristampaTicket(id: string) {
-          // TODO (§4.5 stampante): await fetch("/api/admin/print", { method:"POST",
-          //   headers:{...headers,"Content-Type":"application/json"}, body:JSON.stringify({ id }) });
-          void id;
+        /* RISTAMPA DEL TICKET.
+           ⚠️ IL BOTTONE SI SPEGNE MENTRE VA. La stampa fa un giro lungo —
+           server, servizio di stampa, tablet in cucina — e un bottone che
+           resta premibile invita a premerlo di nuovo: due dita impazienti
+           sono due comande, e in cucina due comande sono due piatti.
+           ⚠️ E L'ESITO SI DICE. Il motivo torna dalla rotta gia' scritto nella
+           lingua del pannello: «imprimante non configurée» lo risolve il
+           ristoratore, «l'impression n'est pas partie» vuol dire chiamarci.
+           Un successo muto, davanti a una stampante che tace, e' il guasto. */
+        async function ristampaTicket(id: string, btn?: HTMLButtonElement) {
+          if (btn) btn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/print-ticket", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id }),
+            });
+            let d: { error?: string } = {};
+            try { d = await res.json(); } catch { /* corpo vuoto: resta il codice */ }
+            if (!res.ok) { ncToast(d.error || tr("err.printFailed"), true, 5000); return; }
+            ncToast(tr("ord.reprintOk"));
+          } catch {
+            // Rete assente: non e' la stampante, ed e' giusto dirlo in modo diverso.
+            ncToast(tr("err.network"), true, 5000);
+          } finally {
+            if (btn) btn.disabled = false;
+          }
         }
+
+        /* ---------- RITARDARE UN ORDINE ----------
+           ⚠️ L'ora nuova la calcola il SERVER e la rende indietro: qui si
+           mostra solo una previsione. Contarla nel browser e rimetterla nella
+           card vorrebbe dire due orologi — e quello che conta e' il suo. */
+        const ritOverlay = document.getElementById("rit-overlay") as HTMLDivElement;
+        const ritSub = document.getElementById("rit-sub") as HTMLParagraphElement;
+        const ritScelte = document.getElementById("rit-scelte") as HTMLDivElement;
+        const ritAvviso = document.getElementById("rit-avviso") as HTMLParagraphElement;
+        const ritMsg = document.getElementById("rit-msg") as HTMLSpanElement;
+        const ritOk = document.getElementById("rit-ok") as HTMLButtonElement;
+        let ritId = "";
+        let ritMin = 0;
+        let ritConMail = false;
+
+        /** L'ora che risulta, nel fuso del ristorante. */
+        function oraPiu(iso: string, min: number): string {
+          return oraBrussels(new Date(new Date(iso).getTime() + min * 60000).toISOString());
+        }
+        function ritTesto(chiave: string, h: string): string {
+          return tr(chiave).replace("{h}", h);
+        }
+        function ritSegna(min: number) {
+          ritMin = min;
+          const ord = ordini.find((o) => o.id === ritId);
+          if (!ord) return;
+          const h = oraPiu(ord.pickup_time, min);
+          ritScelte.querySelectorAll<HTMLButtonElement>(".c-pack").forEach((b) => {
+            b.classList.toggle("is-on", Number(b.dataset.min) === min);
+          });
+          ritAvviso.innerHTML = ritConMail
+            ? ritTesto("ord.delayWillMail", `<b>${h}</b>`)
+            : `<b>${tr("ord.delayNoMail")}</b>`;
+          ritOk.textContent = ritTesto(ritConMail ? "ord.delayConfirm" : "ord.delayConfirmNoMail", h);
+          ritOk.disabled = false;
+        }
+        function apriRitardo(id: string) {
+          const ord = ordini.find((o) => o.id === id);
+          if (!ord) return;
+          ritId = id;
+          ritMin = 0;
+          ritConMail = Boolean(String(ord.customer_email ?? "").trim());
+          ritMsg.textContent = "";
+          ritSub.innerHTML = `${tr("ord.delayPlanned")} <b>${esc(oraBrussels(ord.pickup_time))}</b> &nbsp;·&nbsp; ${esc(ord.customer_name)}`;
+          ritScelte.innerHTML = RITARDI_MIN.map((m) =>
+            `<button type="button" class="c-pack" data-min="${m}"><span class="c-pack-n">+${m}</span><span class="c-pack-p">${esc(oraPiu(ord.pickup_time, m))}</span></button>`,
+          ).join("");
+          ritAvviso.innerHTML = "";
+          ritOk.textContent = tr("ord.delayTitle");
+          ritOk.disabled = true;
+          ritOverlay.hidden = false;
+        }
+        function chiudiRitardo() { ritOverlay.hidden = true; }
+        ritOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiRitardo));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !ritOverlay.hidden) chiudiRitardo(); });
+        ritScelte.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest<HTMLButtonElement>(".c-pack");
+          if (b) ritSegna(Number(b.dataset.min));
+        });
+
+        ritOk.addEventListener("click", async () => {
+          if (!ritMin) return;
+          ritOk.disabled = true;
+          ritMsg.textContent = "";
+          try {
+            const r = await fetch("/api/admin/order-delay", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id: ritId, minuti: ritMin }),
+            });
+            const j = (await r.json().catch(() => ({}))) as { error?: string; pickup_time?: string };
+            if (!r.ok || !j.pickup_time) { ritMsg.textContent = j.error || tr("err.update"); ritOk.disabled = false; return; }
+            // ⚠️ Si riscrive l'ora DEL SERVER, non quella prevista qui: se
+            // qualcun altro l'aveva gia' spostata, la card deve dire la sua.
+            const ord = ordini.find((o) => o.id === ritId);
+            if (ord) ord.pickup_time = j.pickup_time;
+            chiudiRitardo();
+            render();
+            ncToast(ritTesto(ritConMail ? "ord.delayOk" : "ord.delayOkNoMail", oraBrussels(j.pickup_time)));
+          } catch {
+            ritMsg.textContent = tr("err.network");
+            ritOk.disabled = false;
+          }
+        });
 
         gridEl.addEventListener("click", (e) => {
           const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
@@ -2055,7 +2333,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const id = btn.dataset.id ?? "";
 
           if (btn.dataset.act === "print") {
-            ristampaTicket(id);
+            void ristampaTicket(id, btn);
+            return;
+          }
+
+          if (btn.dataset.act === "ritardo") {
+            apriRitardo(id);
             return;
           }
           if (btn.dataset.act === "done") {
@@ -2395,7 +2678,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           document.querySelectorAll<HTMLElement>(".card[data-id]").forEach((el) => {
             const o = ordini.find((x) => x.id === el.dataset.id);
             if (!o) return;
-            const lr = ncLivelloRitardo(o.pickup_time, o.status);
+            const lr = ncLivelloRitardo(o.pickup_time, o.status, o.service);
             el.classList.toggle("nc-late", lr > 0);
             el.classList.toggle("nc-late-1", lr === 1);
             el.classList.toggle("nc-late-2", lr === 2);

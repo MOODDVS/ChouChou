@@ -2714,3 +2714,139 @@ alter table public.admin_notes add column if not exists assigned_name text;
 create index if not exists idx_admin_notes_assigned
   on public.admin_notes (assigned_to) where done = false;
 
+
+-- ------------------------------------------------------------
+-- #82 — 082_orders_service_tavolo.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #82 — Ordinare DAL TAVOLO: `service`, il tavolo, la prenotazione.
+--
+--   service        text  'pickup' (da asporto) | 'table' (al tavolo)
+--   table_id       uuid  il tavolo in `restaurant_tables` (NULL se da asporto)
+--   table_label    text  come si chiamava QUEL tavolo quel giorno
+--   reservation_id uuid  la prenotazione `seated` aperta per questo tavolo
+--
+-- ⚠️ `service` ESISTE PERCHE' `pickup_time` NON BASTA PIU'. Un ordine al
+-- tavolo non ha un'ora di ritiro, ma quella colonna la legge mezzo motore: la
+-- colonna della Accueil, il ticket, il bottone del ritardo, le email. E
+-- soprattutto il semaforo dei ritardatari (`ncLivelloRitardo`), che diventa
+-- giallo cinque minuti dopo l'ora di ritiro e ROSSO dopo un quarto d'ora:
+-- scrivendoci «adesso», ogni tavolo diventerebbe rosso mentre la gente mangia,
+-- e la lista della sera sarebbe tutta rossa. Chi legge `pickup_time` adesso
+-- puo' chiedere di che servizio si tratta, invece di indovinarlo.
+--
+-- ⚠️ DUE COLONNE PER IL TAVOLO, come per le note assegnate (#81). L'id serve
+-- a collegare, il nome a LEGGERE: un tavolo rinominato da «7» a «Terrasse 2»,
+-- o tolto dalla sala d'inverno, lascerebbe gli ordini di marzo senza un
+-- numero da dire a voce. Il nome salvato accanto continua a dire dov'era
+-- seduto quel cliente.
+--
+-- ⚠️ `table_id` NON ha una foreign key verso `restaurant_tables`. Un vincolo
+-- costringerebbe a scegliere fra rifiutare la rimozione di un tavolo e
+-- cancellare gli ordini che ci sono passati: due comportamenti sbagliati per
+-- lo stesso fatto. Senza vincolo l'id resta e non trova piu' niente —
+-- l'ordine diventa storia, che e' cio' che e'.
+--
+-- ⚠️ `reservation_id` INVECE ce l'ha, con `on delete set null`: li' la
+-- semantica e' chiara. La prenotazione `seated` e' il tavolo di stasera, e se
+-- qualcuno la cancella l'ordine resta — era un incasso vero — ma smette di
+-- puntare a una riga che non c'e'. Serve a due cose: mostrare «tavolo 7, 4
+-- persone» sulla card, e far ritrovare al secondo giro la stessa
+-- prenotazione invece di aprirne un'altra.
+--
+-- ⚠️ `service` ha un `check` e un `default`, e tutti e due contano. Il
+-- default tiene veri i milioni di righe gia' scritte: erano tutte da asporto.
+-- Il check impedisce che un terzo valore entri senza che nessuno decida cosa
+-- deve farne il ticket, il semaforo e le statistiche.
+-- ============================================================
+alter table public.orders add column if not exists service        text not null default 'pickup';
+alter table public.orders add column if not exists table_id       uuid;
+alter table public.orders add column if not exists table_label    text;
+alter table public.orders add column if not exists reservation_id uuid references public.reservations(id) on delete set null;
+
+-- ⚠️ Il vincolo si aggiunge a parte e in modo idempotente: `add column if not
+-- exists` non lo porta con se' quando la colonna c'e' gia' (installazione che
+-- ripassa le migrazioni), e un `check` perso non si vede finche' qualcuno non
+-- scrive un valore storto.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'orders_service_check' and conrelid = 'public.orders'::regclass
+  ) then
+    alter table public.orders
+      add constraint orders_service_check check (service in ('pickup', 'table'));
+  end if;
+end $$;
+
+-- «Chi c'e' ai tavoli adesso»: la domanda che la pagina Commandes fa a ogni
+-- aggiornamento. Solo i tavoli, perche' i ritiri hanno gia' il loro indice su
+-- (status, pickup_time).
+create index if not exists idx_orders_table
+  on public.orders (table_id, created_at) where service = 'table';
+
+
+-- ------------------------------------------------------------
+-- #83 — 083_table_calls.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #83 — «APPELER LE SERVEUR»: il tavolo chiama, il tablet suona.
+--
+--   location_id  uuid  la sede (NULL a sede unica, come gli ordini)
+--   table_id     uuid  il tavolo in `restaurant_tables` (NULL = sala senza tavoli)
+--   table_label  text  come si chiamava QUEL tavolo in quel momento
+--   caller_name  text  il nome di chi chiama, dove la sala non ha tavoli
+--   status       text  'open' (nessuno ci e' ancora andato) | 'done'
+--   created_at   quando ha chiamato
+--   done_at      quando qualcuno ha toccato il toast per dire «ci vado»
+--
+-- ⚠️ UNA TABELLA E NON UNA RIGA IN `reservations`. La chiamata non e' una
+-- sessione: la puo' fare chi non ha ancora ordinato niente — anzi, e' il
+-- caso piu' comune («possiamo avere la carta dei vini?»). Attaccarla alla
+-- prenotazione vorrebbe dire aprire un conto a chi chiede un bicchiere
+-- d'acqua, e un coperto in piu' nel piano sala per ogni domanda.
+--
+-- ⚠️ DUE COLONNE PER IL TAVOLO, come gli ordini (#82): l'id collega, il nome
+-- si LEGGE — un tavolo rinominato stasera lascerebbe il toast senza numero.
+-- Nessuna foreign key su `table_id`, per la stessa ragione della #82.
+--
+-- ⚠️ DOVE LA SALA NON HA TAVOLI si chiama col NOME («Marc appelle le
+-- serveur»): e' lo stesso modo in cui ordina chi e' li' (#82, ticket col
+-- nome). Per questo `table_id` e' facoltativo e c'e' `caller_name`. Una riga
+-- ha sempre l'uno o l'altro: lo pretende la rotta, che e' l'unica a scrivere.
+--
+-- ⚠️ `location_id` NULLABLE come in `orders`: un cliente a sede unica scrive
+-- NULL, e NULL li' vuol dire «l'unico punto che c'e'».
+--
+-- ⚠️ IL GRANT AL service_role E' OBBLIGATORIO: in questi progetti le tabelle
+-- nuove nascono senza privilegi per l'API, e senza GRANT il server non ci
+-- puo' scrivere — la campanella suonerebbe sul telefono del cliente e su
+-- nessun tablet (il guasto di `print_tickets`, 06/10/2026).
+--
+-- Idempotente: rilanciarla e' sicuro.
+-- ============================================================
+
+create table if not exists public.table_calls (
+  id          uuid primary key default gen_random_uuid(),
+  location_id uuid null references public.locations(id) on delete restrict,
+  table_id    uuid,
+  table_label text not null default '',
+  caller_name text not null default '',
+  status      text not null default 'open' check (status in ('open', 'done')),
+  created_at  timestamptz not null default now(),
+  done_at     timestamptz
+);
+
+-- ⚠️ Per chi aveva gia' lanciato la prima versione di questo file (tavolo
+-- obbligatorio, nessun nome): `create table if not exists` non tocca una
+-- tabella che c'e' gia', quindi le due differenze si portano qui, idempotenti.
+alter table public.table_calls alter column table_id drop not null;
+alter table public.table_calls add column if not exists caller_name text not null default '';
+
+-- «Chi sta chiamando adesso?»: la domanda che ogni tablet fa ogni pochi
+-- secondi. Solo le aperte: le chiuse sono storia e nessuno le cerca.
+create index if not exists table_calls_aperte
+  on public.table_calls (location_id, created_at) where status = 'open';
+
+grant select, insert, update, delete on public.table_calls to service_role;
+

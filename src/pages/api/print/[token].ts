@@ -144,13 +144,16 @@ export const GET: APIRoute = async ({ params }) => {
   if (!Number.isFinite(eta) || eta > 24 * 3600 * 1000) return vuoto();
 
   const ambito = ambitoDiRiga(riga.location_id as string | null);
-  const { data: ordine } = await leggi(
-    "orders",
-    ambito,
-    "id, status, payment_method, customer_name, customer_phone, items, pickup_time",
-  )
-    .eq("id", riga.order_id)
-    .maybeSingle();
+  /* ⚠️ DUE TENTATIVI, e il secondo non e’ prudenza eccessiva: su un cliente
+     che non ha ancora passato la #82 una `select` con `service` FALLISCE, e
+     qui un ordine che non si legge vuol dire `vuoto()` — cioe’ NESSUN TICKET,
+     per tutti gli ordini, compresi quelli da asporto che col tavolo non hanno
+     niente a che fare. Meglio perdere il nome del tavolo che la comanda. */
+  const CAMPI = "id, status, payment_method, customer_name, customer_phone, items, pickup_time";
+  const leggiOrdine = (campi: string) =>
+    leggi("orders", ambito, campi).eq("id", riga.order_id).maybeSingle();
+  let { data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label`);
+  if (!ordine) ({ data: ordine } = await leggiOrdine(CAMPI));
   if (!ordine) return vuoto();
 
   const cfg = await leggiConfig(ambito, ["timezone", "print_printer_id", CHIAVE_DESTINAZIONI]);

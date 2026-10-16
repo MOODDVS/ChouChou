@@ -197,6 +197,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           <button class="tab is-active" data-t="site"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="3" y1="12" x2="21" y2="12" /><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" /></svg>{t("as.site")}</button>
           <button class="tab" data-t="images"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>{t("as.images")}</button>
           <button class="tab" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>{t("tab.settings.documents")}</button>
+          <button class="tab" data-t="qr"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4" /></svg>{t("as.qr")}</button>
         </div>
 
         <style>
@@ -255,6 +256,40 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           <div class="state" id="doc-state">{t("sup.loading")}</div>
           <div class="grid" id="doc-grid" style="display:none"></div>
         </section>
+
+        {/* I QR CODES DEI TAVOLI: si vedono, si copiano, si stampano. Il tipo
+            predefinito si sceglie in Réglages › Cuisine; qui le schede in alto
+            fanno vedere anche gli altri, senza cambiare la scelta. */}
+        <section data-tab="qr" style="display:none">
+          <div class="tabs tabs-sub" id="qr-modi">
+            <button type="button" class="tab" data-qr="unico">{t("set.ord.qrUnico")}</button>
+            <button type="button" class="tab" data-qr="sezione">{t("set.ord.qrSezione")}</button>
+            <button type="button" class="tab" data-qr="tavolo">{t("set.ord.qrTavolo")}</button>
+            {/* La stampa sulla STESSA riga dei filtri, in fondo a destra, piena
+                nel colore d'accento: e' l'azione della scheda, e sotto i filtri
+                si perdeva fra la spiegazione e i QR. */}
+            <button type="button" class="btn btn-primary qr-stampa" id="qr-stampa" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
+              {t("set.ord.qrPrint")}
+            </button>
+          </div>
+          <p class="site-hint">{t("as.qrHint")}</p>
+          <div class="state" id="qr-state">{t("sup.loading")}</div>
+          {/* ⚠️ La STESSA scheda di tutti gli asset (`.card`: immagine, nome,
+              etichette, bottoni tondi in fondo): un QR e' un asset come una
+              foto, e deve sembrarlo. */}
+          <div class="grid" id="qr-griglia" style="display:none"></div>
+        </section>
+        <style>
+          #qr-modi { align-items: center; }
+          #qr-modi .qr-stampa { margin-left: auto; flex-shrink: 0; }
+          /* Il QR su fondo BIANCO, sempre, al posto della foto: su un tema
+             scuro un QR nero sul fondo della scheda non lo legge nessun
+             telefono. Quadrato come le foto delle altre schede. */
+          .qr-img { aspect-ratio: 1; background: #fff; padding: 10%; display: grid; place-items: center; }
+          .qr-img svg { display: block; width: 100%; height: 100%; }
+          a.i-btn { text-decoration: none; }
+        </style>
       </main>
       <AdminFooter />
     <ImagePicker />
@@ -893,10 +928,15 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         const secImgs = document.querySelector('section[data-tab="images"]') as HTMLElement;
         const secDocs = document.querySelector('section[data-tab="documents"]') as HTMLElement;
         const secSite = document.querySelector('section[data-tab="site"]') as HTMLElement;
+        const secQr = document.querySelector('section[data-tab="qr"]') as HTMLElement;
         function mostraTab(t: string) {
           secImgs.style.display = t === "images" ? "" : "none";
           secDocs.style.display = t === "documents" ? "" : "none";
           secSite.style.display = t === "site" ? "" : "none";
+          secQr.style.display = t === "qr" ? "" : "none";
+          // I QR si caricano la prima volta che si apre la scheda, non prima:
+          // disegnarli costa, e chi apre Assets per una foto non li guarda.
+          if (t === "qr" && !qrCaricati) void caricaQr();
           addBtn.style.display = t === "images" ? "" : "none";
           addDocBtn.style.display = t === "documents" ? "" : "none";
           // Il FAB compare o sparisce cambiando tab: AdminNav rimisura sul
@@ -912,6 +952,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
 
         // Tab spenti dal super admin (Réglages). Il super vede sempre tutto.
         let tabIniziale = sessionStorage.getItem("lm-adm-assets-tab") ?? "site";
+        // `?tab=qr` (il bottone «Voir les QR codes» dei Réglages) vince sul ricordo.
+        const tabDaUrl = new URLSearchParams(location.search).get("tab");
+        if (tabDaUrl && mainTabs.querySelector(`.tab[data-t="${CSS.escape(tabDaUrl)}"]`)) tabIniziale = tabDaUrl;
         try {
           const rp = await fetch("/api/admin/pages", { headers });
           if (rp.ok) {
@@ -933,6 +976,145 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           }
         } catch {
           /* rete assente: si mostra tutto */
+        }
+        // ---------- Tab QR codes ----------
+        const qrModi = document.getElementById("qr-modi") as HTMLDivElement;
+        const qrState = document.getElementById("qr-state") as HTMLDivElement;
+        const qrGriglia = document.getElementById("qr-griglia") as HTMLDivElement;
+        const qrStampa = document.getElementById("qr-stampa") as HTMLButtonElement;
+        let qrCaricati = false;
+        let qrModo = "";
+        let qrCarte: { titolo: string; sotto: string; link: string; svg: string }[] = [];
+        async function caricaQr(modo?: string) {
+          qrCaricati = true;
+          qrState.style.display = "";
+          qrState.textContent = tr("sup.loading");
+          qrGriglia.style.display = "none";
+          qrStampa.hidden = true;
+          try {
+            const res = await fetch("/api/admin/qr" + (modo ? `?modo=${encodeURIComponent(modo)}` : ""), { headers });
+            const j = (await res.json()) as { modo?: string; attivo?: boolean; cartoncini?: typeof qrCarte };
+            qrModo = j.modo ?? "unico";
+            qrModi.querySelectorAll<HTMLElement>(".tab").forEach((b) => b.classList.toggle("is-active", b.dataset.qr === qrModo));
+            qrCarte = j.cartoncini ?? [];
+            if (!j.attivo) {
+              qrState.textContent = tr("as.qrOff");
+              return;
+            }
+            if (qrCarte.length === 0) {
+              qrState.textContent = tr("set.ord.qrNone");
+              return;
+            }
+            /* ⚠️ Titolo e sezione li scrive il ristoratore: `esc` come ovunque
+               in questa pagina. L'SVG del QR lo disegna il server, da un link. */
+            const icoCopia = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>';
+            const icoScarica = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>';
+            const icoApri = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6" /><path d="M20 4 10 14" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>';
+            qrGriglia.innerHTML = qrCarte
+              .map((c, i) => `<div class="card qr-card">
+                <div class="card-img qr-img">${c.svg}</div>
+                <div class="card-body">
+                  <div class="card-name">${esc(c.titolo || tr("as.qr"))}</div>
+                  ${c.sotto ? `<div class="card-meta"><span class="tag tag-l">${esc(c.sotto)}</span></div>` : ""}
+                </div>
+                <div class="card-actions">
+                  <button type="button" class="i-btn qr-copia" data-i="${i}" title="${esc(tr("as.qrCopy"))}" aria-label="${esc(tr("as.qrCopy"))}">${icoCopia}</button>
+                  <button type="button" class="i-btn qr-scarica" data-i="${i}" title="${esc(tr("as.qrSvg"))}" aria-label="${esc(tr("as.qrSvg"))}">${icoScarica}</button>
+                  <span class="spacer"></span>
+                  <a class="i-btn" href="${esc(c.link)}" target="_blank" rel="noopener" title="${esc(tr("as.qrOpen"))}" aria-label="${esc(tr("as.qrOpen"))}">${icoApri}</a>
+                </div>
+              </div>`)
+              .join("");
+            qrState.style.display = "none";
+            qrGriglia.style.display = "";
+            qrStampa.hidden = false;
+          } catch {
+            qrState.textContent = tr("res.connErr");
+          }
+        }
+        qrModi.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
+          if (b?.dataset.qr && b.dataset.qr !== qrModo) void caricaQr(b.dataset.qr);
+        });
+        /* «Scarica l'SVG»: il file del QR, per chi lo mette in un menu stampato,
+           su un adesivo o lo passa a un grafico. SVG e non PNG: resta netto a
+           qualunque misura, dal cartoncino al cavalletto in vetrina. Il nome
+           del file dice di che tavolo e': dieci «qr.svg» uguali in una
+           cartella non si distinguono. */
+        qrGriglia.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".qr-scarica") as HTMLButtonElement | null;
+          if (!b) return;
+          const c = qrCarte[Number(b.dataset.i)];
+          if (!c) return;
+          const nome = ("qr-" + [c.sotto, c.titolo].filter(Boolean).join("-"))
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "qr";
+          const url = URL.createObjectURL(new Blob([c.svg], { type: "image/svg+xml" }));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${nome}.svg`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        });
+        qrGriglia.addEventListener("click", async (e) => {
+          const b = (e.target as HTMLElement).closest(".qr-copia") as HTMLButtonElement | null;
+          if (!b) return;
+          const c = qrCarte[Number(b.dataset.i)];
+          if (!c) return;
+          try {
+            await navigator.clipboard.writeText(c.link);
+            toast(tr("set.ord.tableLinkCopied"));
+          } catch {
+            /* senza permesso agli appunti: niente */
+          }
+        });
+        /* LA STAMPA: fogli A4 con due cartoncini per riga, da ritagliare.
+           ⚠️ I cartoncini sono GIA' caricati: la finestra si apre e si riempie
+           nello stesso tocco — dopo un'attesa di rete il browser la
+           prenderebbe per un pop-up non chiesto e la bloccherebbe. */
+        qrStampa.addEventListener("click", () => {
+          let carte = qrCarte;
+          // QR unico: un foglio intero di copie, una per tavolo da ritagliare.
+          if (qrModo === "unico" && carte.length === 1) carte = Array.from({ length: 6 }, () => carte[0]);
+          const invito = esc(tr("set.ord.qrCard"));
+          const html = `<!doctype html><html><head><meta charset="utf-8"><title>QR</title><style>
+            @page { size: A4; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #111; }
+            .foglio { display: grid; grid-template-columns: repeat(2, 1fr); }
+            .carta { height: 92mm; padding: 6mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2mm;
+                     border: 0.3mm dashed #bbb; break-inside: avoid; page-break-inside: avoid; text-align: center; }
+            .titolo { font-size: 15mm; font-weight: 800; line-height: 1; }
+            .sotto { font-size: 4mm; color: #555; text-transform: uppercase; letter-spacing: .08em; }
+            .qr { width: 52mm; height: 52mm; }
+            .qr svg { width: 100%; height: 100%; display: block; }
+            .invito { font-size: 4.5mm; font-weight: 600; }
+          </style></head><body><div class="foglio">${carte.map((c) => `<div class="carta">${c.titolo ? `<div class="titolo">${esc(c.titolo)}</div>` : ""}${c.sotto ? `<div class="sotto">${esc(c.sotto)}</div>` : ""}<div class="qr">${c.svg}</div><div class="invito">${invito}</div></div>`).join("")}</div></body></html>`;
+          const w = window.open("", "_blank");
+          if (!w) return;
+          w.document.open();
+          w.document.write(html);
+          w.document.close();
+          w.focus();
+          setTimeout(() => w.print(), 300);
+        });
+
+        /* ⚠️ LA SCHEDA «QR CODES» C'E' SOLO SE L'ORDINE DAL TAVOLO E' ACCESO.
+           Per un ristorante che non lo usa sono QR verso una pagina che non
+           esiste: una scheda in piu' che non serve e fa domandare a cosa
+           serva. Si toglie il BOTTONE (la sezione resta, nascosta), come per
+           le schede spente dal super admin. Rete assente: si tiene, e dentro
+           la scheda lo dice lei. */
+        try {
+          const rs = await fetch("/api/admin/qr?stato=1", { headers });
+          if (rs.ok && !((await rs.json()) as { attivo?: boolean }).attivo) {
+            mainTabs.querySelector('.tab[data-t="qr"]')?.remove();
+            if (tabIniziale === "qr") tabIniziale = mainTabs.querySelector<HTMLElement>(".tab")?.dataset.t ?? "site";
+          }
+        } catch {
+          /* niente rete: la scheda resta */
         }
         mostraTab(tabIniziale);
 

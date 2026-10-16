@@ -23,6 +23,9 @@ import {
   tabellaConfig,
 } from "../src/lib/admin/sedeRegole.ts";
 import { CHIAVI_ORDINI } from "../src/lib/ordiniRegole.ts";
+// ⚠️ Da `brandRegole`, non da `brandPubblico`: quello arriva a `db.ts`, che
+// in vitest lancia all’import e farebbe morire tutto questo file.
+import { CHIAVI_BRAND } from "../src/lib/brandRegole.ts";
 
 /**
  * GLI ELENCHI DI CHIAVI DICHIARATI ALTROVE.
@@ -41,6 +44,7 @@ import { CHIAVI_ORDINI } from "../src/lib/ordiniRegole.ts";
  */
 const ELENCHI_CHIAVI = new Map([
   ["CHIAVI_ORDINI", CHIAVI_ORDINI],
+  ["CHIAVI_BRAND", CHIAVI_BRAND],
 ]);
 
 const SEDE_UNICA = { modo: "unica" };

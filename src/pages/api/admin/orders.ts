@@ -14,9 +14,10 @@ import {
   ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
 } from "../../../lib/admin/sede";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
-import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA } from "../../../lib/ordiniRegole";
+import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA, avvisaChePronto, alTavolo } from "../../../lib/ordiniRegole";
+import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { applicaStatoSede } from "../../../lib/menuStato";
-import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
+import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine, emailOrdinePronto } from "../../../lib/notifications";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -211,7 +212,14 @@ export const GET: APIRoute = async ({ request, url }) => {
   // Colonne #50 (differenza dopo modifica). Se la migrazione non e' ancora
   // stata lanciata, il primo select fallisce e si ripiega sui campi base:
   // la lista continua a funzionare, la feature differenza resta dormiente.
-  const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method";
+  // `source` (#29, piu' vecchia della #50): «en ligne» o creato a mano, per il
+  // nastro in testa alla card. Assente → il nastro dice solo «à emporter».
+  const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method, source";
+  /* Colonne #82 (ordinare dal tavolo). ⚠️ Un tentativo A PARTE, non
+     attaccato a EXTRA_50: uniti, un cliente che ha la #50 ma non la #82
+     ricadrebbe sui soli campi base e perderebbe `payment_method` — cioe’ gli
+     ordini da incassare tornerebbero a sembrare carrelli abbandonati. */
+  const EXTRA_82 = ", service, table_label, reservation_id";
   // ⚠️ Nome esplicito: `leggi` e' il passaggio obbligato importato da
   // `sede.ts`, e una funzione locale con lo stesso nome lo ombreggerebbe in
   // TUTTO il corpo dell'handler — comprese le righe SOPRA di lei, che
@@ -247,7 +255,8 @@ export const GET: APIRoute = async ({ request, url }) => {
       q3.order("pickup_time", { ascending: true }),
     ]);
   };
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE);
 
   if (princ.error) {
@@ -628,7 +637,11 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   // Leggo l'ordine PRIMA di aggiornarlo: serve lo stato/metodo precedenti per
   // decidere l'email di annullamento (rimborso online / in cassa / non pagato).
-  const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method";
+  /* ⚠️ `service` serve all’email «c’e’ pronto»: in sala si manda solo dove
+     nessuno porta il piatto. Se la colonna non c’e’ (#82 non lanciata) il
+     secondo tentativo qui sotto la lascia cadere, e si torna al
+     comportamento di prima — che per un locale senza sala e’ quello giusto. */
+  const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method, service";
   let prima: Record<string, unknown> | null = null;
   {
     const r = await leggi("orders", ambito, SEL_ANN).eq("id", id).maybeSingle();
@@ -712,6 +725,48 @@ export const PATCH: APIRoute = async ({ request }) => {
     // (Stesso trattamento di `inviaNotifiche` alla creazione dell'ordine.)
     void inviaAnnullaOrdine(notif, { refundMode, refund_cents: residuo }).catch(() => {
       /* l'annullamento resta valido anche se l'email fallisce */
+    });
+  }
+
+  /* «VOTRE COMMANDE EST PRETE» — e solo quando vuol dire davvero quello.
+     ⚠️ Tre condizioni, e nessuna e' di contorno:
+     · la TRANSIZIONE (`prima.status !== "done"`): ripremere un bottone gia'
+       premuto non deve far partire una seconda email;
+     · l'EMAIL, che un ordine preso al banco puo' non avere;
+     · la FINESTRA (`avvisaChePronto`): oltre mezz'ora dall'ora di ritiro,
+       «Terminée» non vuol dire «e' pronto» ma «il cliente e' passato e
+       nessuno aveva cambiato lo stato». Scrivergli che il suo ordine e'
+       pronto, col sacchetto gia' a casa sua, e' peggio del silenzio.
+     ⚠️ E sta QUI, nella rotta che il pannello chiama: il cron che chiude gli
+     ordini rimasti aperti aggiorna la riga per conto suo e non passa di qua.
+     Un'email partita da sola alle tre di notte non la spiega nessuno. */
+  /* ⚠️ L’INTERRUTTORE SI LEGGE SOLO PER UN ORDINE IN SALA, e dalla sede
+     dell’ORDINE (`contoAnn`), non da quella selezionata nell’header: in un
+     gruppo, lo snack e il ristorante col cameriere stanno nello stesso
+     account e vogliono il contrario l’uno dell’altro. */
+  let avvisaInSala = false;
+  if (status === "done" && alTavolo(prima?.service)) {
+    avvisaInSala = (await opzioniTavolo(contoAnn)).avvisa;
+  }
+  if (
+    status === "done" &&
+    prima &&
+    prima.status !== "done" &&
+    String(prima.customer_email ?? "").trim() &&
+    avvisaChePronto(prima.pickup_time, Date.now(), prima.service, avvisaInSala)
+  ) {
+    void emailOrdinePronto({
+      location_id: contoAnn.modo === "sede" ? contoAnn.id : null,
+      numero: String(prima.id).slice(0, 8),
+      customer_name: String(prima.customer_name ?? ""),
+      customer_email: String(prima.customer_email ?? ""),
+      customer_phone: (prima.customer_phone as string | null) ?? null,
+      pickup_time: String(prima.pickup_time ?? new Date().toISOString()),
+      items: [],
+      total_cents: Number(prima.total_cents ?? 0),
+      lang: String(prima.lang ?? "fr"),
+    }).catch(() => {
+      /* l'ordine e' chiuso lo stesso: l'email e' un di piu' */
     });
   }
 

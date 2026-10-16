@@ -106,6 +106,12 @@ const ROTTE_DEL_MOTORE = {
   "src/pages/reservation/cancel.astro": "le email di prenotazione mandano qui: annulla col token",
   "src/pages/reservation-embed.astro": "il widget di prenotazione da mettere in un iframe",
   "src/pages/reservation-test.astro": "banco di prova del widget, per chi installa",
+  "src/pages/table.astro":
+    "la pagina del QR sul tavolo. ⚠️ E’ nel CONTRATTO perche’ il QR e’ STAMPATO: " +
+    "un cartoncino plastificato su ogni tavolo vive anni, e l’indirizzo che porta deve " +
+    "esistere su ogni installazione che accende la sala. Se la pagina fosse del cliente, " +
+    "i QR già sui tavoli darebbero 404 il giorno che qualcuno rifà il sito. Resta " +
+    "sostituibile: src/pages/** è merge=ours, quindi chi la rifà col suo disegno tiene la sua.",
 };
 
 test("il motore si riconosce, e un cliente non si spaccia per il motore", () => {
@@ -336,7 +342,7 @@ test("i componenti condivisi li carica AdminHead, non le pagine a memoria", () =
   // perche' la pagina non lo importava. Il CSS mancante non si rompe: si
   // vede, e solo se qualcuno guarda.
   const head = readFileSync("src/components/admin/AdminHead.astro", "utf8");
-  for (const f of ["modal", "switch", "toast", "field", "button", "prep", "filters", "rte"]) {
+  for (const f of ["modal", "switch", "toast", "field", "button", "prep", "filters", "rte", "packs"]) {
     assert.ok(head.includes(`styles/${f}.css`), `AdminHead non importa piu' styles/${f}.css: le pagine lo perdono tutte insieme`);
   }
 

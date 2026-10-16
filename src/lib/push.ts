@@ -87,14 +87,18 @@ interface TradPush {
   avisMulti: string;
   avisMultiBody: (n: number) => string;
   msg: string;
+  /** «Appeler le serveur»: il titolo col nome del tavolo dentro. */
+  chiamata: (tavolo: string) => string;
+  chiamataNome: (nome: string) => string;
+  chiamataBody: string;
 }
 
 const TRAD_PUSH: Record<AdminLang, TradPush> = {
-  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", ordreAnnul: "Commande annulée", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message" },
-  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", ordreAnnul: "Order cancelled", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message" },
-  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", ordreAnnul: "Ordine annullato", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio" },
-  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", ordreAnnul: "Bestelling geannuleerd", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht" },
-  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", ordreAnnul: "Pedido anulado", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje" },
+  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", ordreAnnul: "Commande annulée", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message", chiamata: (t) => `Table ${t} appelle le serveur`, chiamataNome: (n) => `${n} appelle le serveur`, chiamataBody: "Quelqu'un vous attend en salle." },
+  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", ordreAnnul: "Order cancelled", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message", chiamata: (t) => `Table ${t} is calling the waiter`, chiamataNome: (n) => `${n} is calling the waiter`, chiamataBody: "Someone is waiting in the dining room." },
+  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", ordreAnnul: "Ordine annullato", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio", chiamata: (t) => `Il tavolo ${t} chiama il cameriere`, chiamataNome: (n) => `${n} chiama il cameriere`, chiamataBody: "Qualcuno vi aspetta in sala." },
+  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", ordreAnnul: "Bestelling geannuleerd", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht", chiamata: (t) => `Tafel ${t} roept de ober`, chiamataNome: (n) => `${n} roept de ober`, chiamataBody: "Er wacht iemand in de zaal." },
+  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", ordreAnnul: "Pedido anulado", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje", chiamata: (t) => `La mesa ${t} llama al camarero`, chiamataNome: (n) => `${n} llama al camarero`, chiamataBody: "Alguien le espera en sala." },
 };
 
 /** Testi delle notifiche nella lingua admin (fallback FR, mai lancia). */
@@ -242,4 +246,20 @@ export async function inviaPushConDettagli(
     try { await supabaseAdmin.from("push_subscriptions").delete().in("id", morti); } catch { /* best-effort */ }
   }
   return { sent, found: subs.length, puliti: morti.length, dettagli };
+}
+
+/** «Appeler le serveur»: un tavolo chiama.
+ *
+ * ⚠️ Il `tag` per tavolo: tre tocchi dallo stesso tavolo sostituiscono la
+ * notifica sul telefono invece di impilarne tre — il cameriere deve sapere
+ * CHI chiama, non quante volte. Due tavoli diversi restano due righe. */
+export async function inviaPushChiamata(
+  chi: { tavolo?: string; nome?: string },
+  ambito: Ambito,
+): Promise<PushEsito> {
+  const L = await tradPush();
+  const tavolo = String(chi.tavolo ?? "").trim().slice(0, 30);
+  const nome = String(chi.nome ?? "").trim().slice(0, 40);
+  const title = tavolo ? L.chiamata(tavolo) : L.chiamataNome(nome);
+  return inviaPush({ title, body: L.chiamataBody, url: "/admin/orders", tag: `chiamata-${tavolo || nome}` }, ambito);
 }
