@@ -24,6 +24,7 @@ CLIENTI=(
   "$HOME/Developer/450Gradi"
   "$HOME/Developer/BROS"
   "$HOME/Developer/Laperitivo"
+  "$HOME/Developer/Villa77"
 )
 ENGINE_URL="https://github.com/MOODDVS/MOODD-Admin.git"
 BRANCH="main"
