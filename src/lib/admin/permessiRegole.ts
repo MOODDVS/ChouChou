@@ -200,6 +200,7 @@ export const API_PAGINA: Record<string, string> = {
   "docs": "settings",
   "team": "settings",
   "tables": "settings",
+  "qr": "assets",                // i cartoncini QR: la scheda «QR codes» di Assets
   "site-images": "settings",
   // --- Solo MOODD -------------------------------------------------------
   "users": "super",
@@ -232,6 +233,11 @@ export const API_PAGINA: Record<string, string> = {
   "notes": PAGINA_APERTA,          // tile Notes: nessun data-admin-page
   "home-layout": PAGINA_APERTA,    // layout PERSONALE di chi guarda
   "pages": PAGINA_APERTA,          // e' AdminNav a chiederla, per sapere cosa mostrare
+  // «Appeler le serveur»: la chiede AdminNav su OGNI pagina. ⚠️ Aperta a chi
+  // ha fatto il login, qualunque pagina veda: il cameriere che ha solo la
+  // home e' proprio quello che deve sentire la campanella. Dentro ci sono
+  // solo un numero di tavolo e un'ora — niente nomi, niente importi.
+  "table-calls": PAGINA_APERTA,
   "search-console": PAGINA_APERTA, // tile Visibilite': nessun data-admin-page
   "events": PAGINA_APERTA,         // eventi del locale, tile «Prossimi eventi»
   // L'abitudine oraria della Accueil: la fascia della giornata la chiede

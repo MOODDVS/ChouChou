@@ -26,6 +26,7 @@
     "luxon": "^3.7.2",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.3.289",
+    "qrcode-generator": "2.0.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "resend": "^6.12.4",

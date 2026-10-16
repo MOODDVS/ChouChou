@@ -263,6 +263,15 @@ interface OrderAppProps {
    * con un link vecchio e il carrello vuoto vede il menu, non un modulo vuoto.
    */
   vistaIniziale?: "menu" | "checkout";
+  /**
+   * Il totale anche SOTTO LE NOTE, in fondo al riepilogo: chi ha appena
+   * riletto i piatti vede subito quanto fa, senza scendere fino al bottone.
+   * ⚠️ Spento di default, come ogni pezzo nuovo: i siti in produzione non
+   * hanno lo stile per `order-recap-totale`, e non devono trovarselo nudo il
+   * giorno del merge. E' LO STESSO numero di quello accanto al bottone
+   * (sconto compreso), mai un secondo calcolo che possa dargli torto.
+   */
+  totaleSottoLeNote?: boolean;
   pagamento?: {
     /** Si puo' pagare con la carta ora (Stripe configurato e acceso). */
     online: boolean;
@@ -337,7 +346,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu" }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
   /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
      cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
      non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
@@ -1128,6 +1137,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                     onChange={(e) => setNoteOrdine(e.target.value)}
                   />
                 </div>
+                {totaleSottoLeNote && (
+                  <div className="order-cart-total order-recap-totale">
+                    <span>{t.total} ({numArticoli} {t.items})</span>
+                    <strong>{euro(scontoCents > 0 ? totaleFinale : totale)}</strong>
+                  </div>
+                )}
               </>
             )}
           </div>

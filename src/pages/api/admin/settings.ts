@@ -10,15 +10,16 @@ import { adminT } from "../../../i18n/admin";
 // Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
-  ambitoDiRichiesta, leggi, leggiConfig, scriviConfig, cancellaConfig, elencoSedi,
+  ambitoDiRichiesta, leggi, leggiConfig, scriviConfig, cancellaConfig,
   leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo,
   type Ambito,
 } from "../../../lib/admin/sede";
 import { orfaniDelPiano, type SezioneOrfana } from "../../../lib/pianoSalaRegole";
 import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordiniRegole";
-import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
-import { indirizzoPubblico } from "../../../lib/indirizzoPubblico";
-import { urlConSede } from "../../../lib/sedeUrl";
+import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
+import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
+import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
+import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 
 export const prerender = false;
 
@@ -42,15 +43,6 @@ async function msg(chiave: string): Promise<string> {
  * cosi' il primo salvataggio dopo questo cambiamento fa emergere anche i
  * fantasmi accumulati prima, che nessuno aveva mai contato.
  */
-/** Il nome breve di una sede per i link pubblici; l'id se non ne ha uno. */
-async function nomeBreveSede(id: string): Promise<string> {
-  try {
-    return (await elencoSedi()).find((s) => s.id === id)?.slug?.trim() || id;
-  } catch {
-    return id;
-  }
-}
-
 async function tavoliSenzaSection(ambito: Ambito, zonesJson: string): Promise<SezioneOrfana[]> {
   try {
     const { data, error } = await leggi("restaurant_tables", ambito, "id, zone");
@@ -213,6 +205,8 @@ export const GET: APIRoute = async ({ request }) => {
   const { valori: cfg, marchio, sovrascritte } = await leggiConfig(ambito, [
     "kitchen_email",
     "orders_closed",
+    "orders_table_call_wait",
+    "orders_table_qr_mode",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -253,6 +247,8 @@ export const GET: APIRoute = async ({ request }) => {
      diventerebbe la scelta — i clienti al banco smetterebbero di ricevere
      l’email senza che nessuno abbia deciso niente. Qui si rende il valore
      VERO, risolto dalla stessa funzione che decide a ordine fatto. */
+  const linkTavoloBase = await linkBaseTavolo(request, ambito);
+  const tavoliQr = linkTavoloBase ? await tavoliDiSala(ambito) : [];
   const sala = await opzioniTavolo(ambito);
   orders.orders_table_notify = sala.avvisa;
 
@@ -273,6 +269,9 @@ export const GET: APIRoute = async ({ request }) => {
     general,
     reservations,
     orders,
+    /* I minuti prima di poter richiamare il cameriere: gia' risolti col
+       ripiego, come gli interruttori — la pagina non deve sapere che e' 5. */
+    chiamata_attesa: attesaChiamata(cfg.get("orders_table_call_wait")),
     /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
@@ -293,9 +292,17 @@ export const GET: APIRoute = async ({ request }) => {
        `?sede=schaerbeek` si legge e si controlla a occhio, uno con un uuid no.
        Lo riconosce `riconosciSede`, nello stesso posto dove si riconosce
        l'id. Senza slug (non dovrebbe succedere: e' obbligatorio) resta l'id. */
-    link_tavolo: ambito.modo === "tutte"
-      ? ""
-      : urlConSede(`${indirizzoPubblico(request)}/table`, ambito.modo === "sede" ? await nomeBreveSede(ambito.id) : ""),
+    link_tavolo: linkTavoloBase,
+    /* I QR della sala: il modo scelto, e i link per sezione e per tavolo —
+       scritti QUI, a partire dal link della sede, mai composti dalla pagina.
+       Vuoti con «tutte le sedi», come il link qui sopra. */
+    qr_modo: modoQr(cfg.get("orders_table_qr_mode")),
+    qr_sezioni: linkTavoloBase
+      ? sezioniConTavoli(tavoliQr).map((z) => ({ nome: z, link: linkSezione(linkTavoloBase, z) }))
+      : [],
+    qr_tavoli: linkTavoloBase
+      ? tavoliQr.map((t) => ({ sezione: t.zone, nome: t.name, link: linkTavolo(linkTavoloBase, t.id) }))
+      : [],
     // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
     // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
     // Senza questo, un interruttore acceso sembrerebbe una promessa mantenuta.
@@ -396,6 +403,10 @@ export const PUT: APIRoute = async ({ request }) => {
     reservations?: Record<string, string>;
     /** Interruttori del tab Ordini: veri/falsi, non testo. */
     orders?: Record<string, boolean>;
+    /** Minuti prima di poter richiamare il cameriere (1, 3, 5, 10). */
+    chiamata_attesa?: number;
+    /** Il tipo di QR della sala: unico, per sezione, per tavolo. */
+    qr_modo?: string;
   };
   try {
     body = await request.json();
@@ -718,6 +729,22 @@ export const PUT: APIRoute = async ({ request }) => {
       const err = await scriviConfig(ambitoPut, Object.fromEntries(ordPulito));
       if (err) return json({ error: await msg("err.generalSave") }, 500);
     }
+  }
+
+  // ⚠️ Solo i valori dell'elenco: un numero qualunque arrivato dal browser
+  // diventerebbe un tablet che suona a ogni tocco, o un cliente che non puo'
+  // piu' chiamare per tutta la sera. Fuori elenco → non si tocca niente.
+  if (body.chiamata_attesa !== undefined) {
+    const v = Number(body.chiamata_attesa);
+    if ((ATTESE_CHIAMATA as readonly number[]).includes(v)) {
+      const err = await scriviConfig(ambitoPut, { orders_table_call_wait: String(v) });
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
+    }
+  }
+
+  if (body.qr_modo !== undefined && (MODI_QR as readonly string[]).includes(String(body.qr_modo))) {
+    const err = await scriviConfig(ambitoPut, { orders_table_qr_mode: String(body.qr_modo) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito

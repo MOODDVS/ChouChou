@@ -85,10 +85,13 @@ Tre livelli, dal più economico al più libero. **Nessuno dei tre richiede di
 modificare il motore.**
 
 1. **Solo CSS.** Il sito veste le classi: `tbl-pagina`, `tbl-titolo`,
-   `tbl-passi`/`tbl-passo` per il percorso in tre passi (scelta → dati →
-   pagamento); `tbl-form`, `tbl-campo`, `tbl-lab`, `tbl-tav`, `tbl-scegli`,
-   `tbl-pgrid`, `tbl-p`, `tbl-input` per tavolo e coperti, che compaiono nel
-   pannello dei dati del carrello; `tbl-modale` per la scelta del tavolo e,
+   `tbl-barra` per il tavolo in cima, fisso mentre si scorre (dentro:
+   `tbl-campo--riga`, `tbl-lab`, `tbl-tav`, `tbl-scegli`; la barra delle
+   categorie si mette sotto di lei con `--tbl-barra-h`, misurata
+   dall'isola); `tbl-form`, `tbl-campo`, `tbl-pgrid`, `tbl-p`, `tbl-input`
+   per i coperti, nel pannello dei dati del carrello, dove
+   `tbl-scegli--manca` ricorda il tavolo se non e' stato scelto; la
+   campanella `tbl-campanello` (+ `tbl-avviso`); `tbl-modale` per la scelta del tavolo e,
    con `tbl-chiuso` e `tbl-btn`, per il modale a servizio chiuso; `order-*`
    per il menù e il carrello (le stesse di `/order`), più `order-email-why`
    che compare solo in sala. I colori passano da due variabili:

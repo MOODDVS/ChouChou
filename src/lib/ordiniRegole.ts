@@ -64,6 +64,8 @@ export interface OpzioniOrdini {
   couponInCassa: boolean;
   /** Si puo' ordinare dal tavolo col QR. */
   tavolo: boolean;
+  /** La campanella «Appeler le serveur» sulla pagina del tavolo. */
+  chiamata: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -87,6 +89,11 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      sola gli darebbe un QR che porta a un modulo senza senso. Lo accende chi
      ha una sala. */
   orders_table: "0",
+  /* ⚠️ SPENTO di ripiego anche questo: la campanella fa suonare un tablet, e
+     chi non ha nessuno che lo guardi riceverebbe chiamate che nessuno sente
+     — un cliente che aspetta e non vede arrivare nessuno. Serve anche la
+     migrazione #83: accenderlo e' il momento in cui la si controlla. */
+  orders_table_call: "0",
 };
 
 /**

@@ -28,8 +28,18 @@
 /* ---------- i filtri: una riga che scorre, non un muro di bottoni ----------
    ⚠️ Una riga sola che scorre col dito, ferma in cima: su un telefono otto
    categorie a capo occupavano mezzo schermo prima del primo piatto. */
+/* ⚠️ `top` = l'altezza della barra del tavolo, quando c'e': le due barre
+   fisse si impilano invece di coprirsi. Senza barra, 0 come prima.
+   `--tbl-barra-h` vale l'altezza piena (misurata da TableOrder, in
+   `--tbl-barra-piena`); stretta, la riscrive la pagina. Il `top` scorre
+   insieme alla barra che si stringe, con la stessa durata. */
+:where(.tbl-pagina--barra) { --tbl-barra-h: var(--tbl-barra-piena, 0px); }
+:where(.tbl-pagina--barra .order-filterbar) { transition: top .25s ease; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.tbl-pagina--barra .order-filterbar) { transition: none; }
+}
 :where(.tbl-pagina .order-filterbar) {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: var(--tbl-barra-h, 0px); z-index: 10;
   margin: 0 -1rem 1rem; padding: .6rem 1rem;
   background: var(--tbl-bg);
   border-bottom: 1px solid var(--tbl-line);
@@ -62,7 +72,7 @@
    dati, invece, e' la pagina stessa e resta. */
 :where(.tbl-pagina .order-app > .order-cart:not(.order-cart--checkout)) { display: none; }
 
-:where(.tbl-pagina .order-sec) { margin: 0 0 1.8rem; scroll-margin-top: 4.5rem; }
+:where(.tbl-pagina .order-sec) { margin: 0 0 1.8rem; scroll-margin-top: calc(4.5rem + var(--tbl-barra-h, 0px)); }
 :where(.tbl-pagina .order-sec-title) {
   margin: 0 0 .8rem; font-family: var(--font-title); font-size: 1.05rem;
   text-transform: uppercase; letter-spacing: .08em;
@@ -158,6 +168,41 @@
   font-weight: 700; cursor: pointer;
   box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
 }
+/* Con la campanella «Appeler le serveur» a destra (56px, vedi table.astro),
+   la barra si accorcia e le lascia il posto: le due cose non si coprono mai. */
+:where(.tbl-pagina--campanello .order-mobcart) { right: calc(1rem + 56px + .6rem); }
+/* ⚠️ Accorciata dalla campanella, su un telefono la barra non ha posto per
+   «Voir le panier»: a 375px diventava «Voir le pa…» e il totale andava a
+   capo su due righe («23,00 / €»). Sotto i 420px resta il numero, il totale
+   e la freccia — che dicono gia' tutto. Il totale NON va mai a capo. */
+:where(.tbl-pagina .order-mobcart-label) { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:where(.tbl-pagina .order-mobcart-total) { white-space: nowrap; }
+@media (max-width: 419px) {
+  :where(.tbl-pagina--campanello .order-mobcart-label) { visibility: hidden; }
+}
+/* ---------- «Retour au menu» sul pannello dei dati: in fondo, fluttuante ----------
+   ⚠️ Era la barra fissa in CIMA (la stessa delle categorie, con un solo
+   bottone). Adesso sta IN FONDO, dove sul menu c'e' la barra del carrello:
+   il pollice trova «avanti» e «indietro» nello stesso posto, e accanto la
+   campanella resta dove era. Il pannello lascia in fondo lo spazio per non
+   finire, bottone di pagamento compreso, sotto la pillola. */
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout)) { padding-bottom: 6rem; }
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout) > .order-filterbar) {
+  position: fixed; z-index: 30; top: auto;
+  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  max-width: 32rem; margin: 0 auto; padding: 0;
+  background: none; border: 0; transition: none;
+}
+:where(.tbl-pagina--campanello .order-wrap:has(.order-cart--checkout) > .order-filterbar) { right: calc(1rem + 56px + .6rem); }
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-filterbar-inner) { overflow: visible; }
+:where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-tab) {
+  flex: 1 1 auto; min-height: 56px; padding: .5rem 1.2rem;
+  font-weight: 700; font-size: 1rem;
+  /* Il colore d'accento, come la pillola del carrello: e' la stessa pillola
+     sull'altro schermo, e deve sembrarlo. */
+  background: var(--tbl-ink); color: var(--tbl-paper); border-color: var(--tbl-ink);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+}
 :where(.tbl-pagina .order-mobcart-count) {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 34px; height: 34px; padding: 0 .4rem; border-radius: 999px;
@@ -196,8 +241,18 @@
 :where(.tbl-pagina .order-modal) { animation: tbl-foglio-sale .3s cubic-bezier(.2, .8, .2, 1); }
 :where(.tbl-pagina .order-modal-overlay.is-uscita) { animation: tbl-velo-esce .22s ease-in forwards; }
 :where(.tbl-pagina .order-modal-overlay.is-uscita .order-modal) { animation: tbl-foglio-scende .22s ease-in forwards; }
+/* I riquadri della pagina del tavolo (scelta del tavolo, nome per la
+   campanella): stesso gesto, stesse animazioni. L'uscita la aspetta
+   TableOrder (`is-uscita`), leggendo la durata da qui. Il modale «chiuso»
+   (`tbl-modale--chiuso`) resta fermo: non si apre toccando niente, compare
+   gia' li' quando si arriva. */
+:where(.tbl-pagina .tbl-modale:not(.tbl-modale--chiuso)) { animation: tbl-velo-entra .22s ease-out; }
+:where(.tbl-pagina .tbl-modale:not(.tbl-modale--chiuso) > .tbl-modale-box) { animation: tbl-foglio-sale .3s cubic-bezier(.2, .8, .2, 1); }
+:where(.tbl-pagina .tbl-modale.is-uscita) { animation: tbl-velo-esce .22s ease-in forwards; }
+:where(.tbl-pagina .tbl-modale.is-uscita > .tbl-modale-box) { animation: tbl-foglio-scende .22s ease-in forwards; }
 @media (prefers-reduced-motion: reduce) {
   :where(.tbl-pagina .order-modal-overlay, .tbl-pagina .order-modal) { animation: none; }
+  :where(.tbl-pagina .tbl-modale, .tbl-pagina .tbl-modale-box) { animation: none; }
 }
 :where(.tbl-pagina .order-modal-close) {
   position: absolute; top: 1.6rem; right: 1.4rem; z-index: 1; width: 36px; height: 36px;
@@ -332,6 +387,12 @@
 }
 
 :where(.tbl-pagina .order-note) { margin: 0 0 1rem; }
+/* Il totale sotto le note: chiude il riepilogo come una riga di scontrino,
+   staccato dalle note e allineato alle schede dei piatti. */
+:where(.tbl-pagina .order-recap-totale) {
+  margin: 0; padding: .85rem .1rem 0; border-top: 1px solid var(--tbl-line);
+  font-size: 1.1rem;
+}
 :where(.tbl-pagina .order-field-label) { display: block; margin: .9rem 0 .4rem; font-weight: 600; }
 /* ⚠️ 16px pieni, mai meno: sotto i 16px iOS zooma sul campo appena lo si
    tocca, e la pagina resta ingrandita e storta. */
@@ -364,7 +425,15 @@
 :where(.tbl-pagina .order-pay-opt:has(input:checked)) { border-color: var(--tbl-ink); box-shadow: inset 0 0 0 1px var(--tbl-ink); }
 
 :where(.tbl-pagina .order-coupon) { margin: 1rem 0 0; }
-:where(.tbl-pagina .order-coupon-ask) { display: flex; align-items: center; gap: .55rem; font-size: .9rem; cursor: pointer; }
+:where(.tbl-pagina .order-coupon-ask) {
+  display: flex; align-items: center; gap: .6rem;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+}
+/* ⚠️ Le due caselle del pagamento (codice promo e privacy) hanno la STESSA
+   misura: una regola sola per entrambe, cosi' non tornano a divergere. */
+:where(.tbl-pagina .order-coupon-ask input, .tbl-pagina .order-consent input) {
+  width: 1rem; height: 1rem; margin: 0; flex: none;
+}
 :where(.tbl-pagina .order-coupon-row) { display: flex; gap: .45rem; margin-top: .5rem; }
 :where(.tbl-pagina .order-coupon-row .order-input) { flex: 1 1 auto; min-width: 0; }
 :where(.tbl-pagina .order-coupon-apply) {
@@ -383,7 +452,8 @@
   display: flex; align-items: flex-start; gap: .55rem; margin: 1.1rem 0 .4rem;
   font-size: .85rem; line-height: 1.4; color: var(--tbl-muted); cursor: pointer;
 }
-:where(.tbl-pagina .order-consent input) { margin-top: .2rem; }
+/* .1rem: la casella da 1rem resta centrata sulla prima riga del testo. */
+:where(.tbl-pagina .order-consent input) { margin-top: .1rem; }
 :where(.tbl-pagina .order-consent a) { color: var(--tbl-text); }
 
 :where(.tbl-pagina .order-cart-subtotal, .tbl-pagina .order-cart-discount, .tbl-pagina .order-cart-total) {

@@ -567,6 +567,9 @@ const t = adminT(lang);
         cursor: pointer;
       }
       .kemail-add:hover { background: var(--c-accent); color: var(--c-bg); }
+      /* «Voir les QR codes» e' un link che porta in Assets: stesso aspetto
+         del bottone, senza la sottolineatura del link. */
+      a.kemail-add { display: inline-block; text-decoration: none; }
 
       @media (min-width: 900px) {
         #content { grid-template-columns: 1fr 1fr; }
@@ -675,6 +678,24 @@ const t = adminT(lang);
          trova sempre allo stesso posto scorrendo l'elenco. */
       .field:has(> label.switch) > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .field > label.switch { margin-left: auto; }
+      /* ⚠️ LA STESSA REGOLA per una fila di bottoni a scelta (`.prep-btns`,
+         es. l'attesa della campanella): la spiegazione prende tutta la
+         larghezza, i bottoni stanno al margine destro come un interruttore.
+         Stretta in 220px la descrizione diventava una colonna di cinque
+         righe accanto a un grande vuoto. Sul telefono i bottoni vanno sotto. */
+      .field:has(> .prep-btns) { flex-wrap: nowrap; }
+      .field:has(> .prep-btns) > label:not(.switch) { flex: 1 1 auto; max-width: none; }
+      .field > .prep-btns { flex: 0 0 auto; flex-wrap: nowrap; margin-left: auto; }
+      /* ⚠️ Dentro una scheda dei Réglages il bottone ha lo STESSO colore della
+         scheda (`--c-card`), e sembrava un contorno senza fondo. Una velatura
+         nera lo stacca, come le pastiglie spente di altre pagine: scurisce
+         qualunque tema senza scegliere un colore. L'acceso resta quello di
+         prep.css (`:not(.active)`). */
+      .field > .prep-btns .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
+      @media (max-width: 640px) {
+        .field:has(> .prep-btns) { flex-wrap: wrap; }
+        .field > .prep-btns { margin-left: 0; flex-wrap: wrap; }
+      }
       /* ⚠️ Una riga fra un interruttore e l'altro: con due righe di
          descrizione ciascuno, senza separazione non si capisce dove finisce
          una spiegazione e dove comincia la successiva. Stesso tratto di
@@ -701,6 +722,17 @@ const t = adminT(lang);
          a mano in un generatore di QR. Monospazio: un carattere sbagliato in
          un id e il cartoncino apre un altro locale. */
       .qr-link input { width: 100%; font-family: ui-monospace, Menlo, monospace; font-size: .82rem; margin-bottom: .4rem; }
+      /* L'elenco dei QR per sezione / per tavolo: una riga per QR, il nome a
+         sinistra, il link al centro, «Copier» a destra. Il titolo di sezione
+         separa i tavoli di piani diversi. */
+      .qr-lista { gap: .4rem; }
+      .qr-lista .qr-sez { margin: .6rem 0 .1rem; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--c-muted); }
+      .qr-lista .qr-sez:first-child { margin-top: 0; }
+      .qr-lista .qr-riga { display: flex; align-items: center; gap: .5rem; }
+      .qr-lista .qr-nome { flex: 0 0 auto; min-width: 3.5rem; font-weight: 700; }
+      .qr-lista .qr-riga input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: .78rem; }
+      .qr-lista .qr-vuoto { margin: 0; color: var(--c-muted); font-size: .85rem; }
+      .qr-stampa-riga { justify-content: flex-end; }
       .dyn-col .kemails, .dyn-col .rzones { width: 100%; }
       /* Righe "sezione sala": nome + coperti + elimina */
       .rzones { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -1460,6 +1492,26 @@ const t = adminT(lang);
               <label>{t("set.ord.table")}<span class="lab-hint">{t("set.ord.tableHint")}</span><span class="lab-hint" id="o-table-notables" style="display:none">{t("set.ord.tableNoTables")}</span></label>
               <label class="switch"><input type="checkbox" id="o-table" /><span class="track"></span></label>
             </div>
+            {/* «Appeler le serveur». ⚠️ Anche questa solo a sala accesa: la
+                campanella vive sulla pagina del tavolo, e senza quella pagina
+                non c'e' niente da toccare. */}
+            <div class="field" id="o-table-call-row" style="display:none">
+              <label>{t("set.ord.tableCall")}<span class="lab-hint">{t("set.ord.tableCallHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-call" /><span class="track"></span></label>
+            </div>
+            {/* Quanto si aspetta prima di poter richiamare: compare solo con la
+                campanella accesa. Quattro valori fissi (`ATTESE_CHIAMATA`).
+                ⚠️ GLI STESSI BOTTONI DEL TEMPO DI PREPARAZIONE (`.prep-btn`,
+                styles/prep.css): «quanti minuti» si sceglie con un tocco in
+                tutto l'admin, non con una tendina qui e dei bottoni la'. */}
+            <div class="field" id="o-table-call-wait-row" style="display:none">
+              <label>{t("set.ord.tableCallWait")}<span class="lab-hint">{t("set.ord.tableCallWaitHint")}</span></label>
+              <div class="prep-btns" id="o-table-call-wait" role="group" aria-label={t("set.ord.tableCallWait")}>
+                {[1, 3, 5, 10].map((m) => (
+                  <button type="button" class="prep-btn" data-attesa={String(m)} aria-pressed="false"><span class="m">{m} min</span></button>
+                ))}
+              </div>
+            </div>
             {/* ⚠️ Compare solo a sala accesa: a chi fa solo asporto, «avvisare
                 quando e' pronto» non vuol dire niente. */}
             <div class="field" id="o-table-notify-row" style="display:none">
@@ -1471,12 +1523,34 @@ const t = adminT(lang);
                 compone — una pagina che attacca da sola `?sede=` e' la
                 prossima che se lo dimentica. Compare a sala accesa, come la
                 riga sopra: a chi non ordina dal tavolo un QR non serve. */}
+            {/* IL TIPO DI QR: uno solo, uno per sezione, uno per tavolo. Gli
+                stessi bottoni a scelta del resto della scheda. I link li
+                scrive il server (`qr_sezioni`, `qr_tavoli`): qui si mostrano,
+                si copiano e si stampano, mai si compongono. */}
+            <div class="field" id="o-table-qr-row" style="display:none">
+              <label>{t("set.ord.qrMode")}<span class="lab-hint">{t("set.ord.qrModeHint")}</span></label>
+              <div class="prep-btns" id="o-table-qr-mode" role="group" aria-label={t("set.ord.qrMode")}>
+                <button type="button" class="prep-btn" data-qr="unico" aria-pressed="false"><span class="m">{t("set.ord.qrUnico")}</span></button>
+                <button type="button" class="prep-btn" data-qr="sezione" aria-pressed="false"><span class="m">{t("set.ord.qrSezione")}</span></button>
+                <button type="button" class="prep-btn" data-qr="tavolo" aria-pressed="false"><span class="m">{t("set.ord.qrTavolo")}</span></button>
+              </div>
+            </div>
+            <div class="field" id="o-table-qr-list-row" style="display:none">
+              <label>{t("set.ord.qrList")}<span class="lab-hint">{t("set.ord.qrListHint")}</span></label>
+              <div class="dyn-col qr-lista" id="o-table-qr-list"></div>
+            </div>
             <div class="field" id="o-table-link-row" style="display:none">
               <label>{t("set.ord.tableLink")}<span class="lab-hint">{t("set.ord.tableLinkHint")}</span></label>
               <div class="dyn-col qr-link">
                 <input type="text" id="o-table-link" readonly data-noauto="1" />
                 <button type="button" class="kemail-add" id="o-table-link-copy">{t("common.copy")}</button>
               </div>
+            </div>
+            {/* I cartoncini si VEDONO e si stampano in Assets › QR codes: e' li'
+                che vivono le cose da mettere in mano a qualcuno (immagini,
+                documenti). Qui si sceglie il tipo; li' lo si guarda. */}
+            <div class="field qr-stampa-riga" id="o-table-qr-print-row" style="display:none">
+              <a class="kemail-add" id="o-table-qr-see" href="/admin/assets?tab=qr">{t("set.ord.qrSee")}</a>
             </div>
           </div>
 
@@ -3853,7 +3927,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4048,6 +4122,17 @@ const t = adminT(lang);
         met("o-coupons", "orders_coupons");
         met("o-coupons-onsite", "orders_coupons_onsite");
         met("o-table", "orders_table");
+        met("o-table-call", "orders_table_call");
+        // L'attesa della campanella: un bottone acceso fra quattro.
+        const bottoniAttesa = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn"));
+        const accendiAttesa = (minuti: string) => {
+          for (const b of bottoniAttesa) {
+            const si = b.dataset.attesa === minuti;
+            b.classList.toggle("active", si);
+            b.setAttribute("aria-pressed", si ? "true" : "false");
+          }
+        };
+        accendiAttesa(String(dati.chiamata_attesa ?? 5));
         /* ⚠️ Questo interruttore arriva dal server GIA' RISOLTO: a chiave
            vuota il valore dipende dai tavoli, e il server e' l'unico che li
            puo' contare. La pagina non deve indovinare — ed e' il motivo per
@@ -4068,22 +4153,115 @@ const t = adminT(lang);
         // La riga dell'avviso segue la sala, anche mentre la si tocca.
         const rigaAvviso = document.getElementById("o-table-notify-row") as HTMLElement | null;
         const swTavolo = document.getElementById("o-table") as HTMLInputElement | null;
+        const rigaChiamata = document.getElementById("o-table-call-row") as HTMLElement | null;
+        const rigaAttesa = document.getElementById("o-table-call-wait-row") as HTMLElement | null;
+        const swChiamata = document.getElementById("o-table-call") as HTMLInputElement | null;
         const aggiornaRigaAvviso = () => {
+          if (rigaChiamata) rigaChiamata.style.display = swTavolo?.checked ? "" : "none";
+          // L'attesa ha senso solo se la campanella c'e'.
+          if (rigaAttesa) rigaAttesa.style.display = swTavolo?.checked && swChiamata?.checked ? "" : "none";
           if (!rigaAvviso) return;
           rigaAvviso.style.display = swTavolo?.checked ? "" : "none";
         };
         aggiornaRigaAvviso();
         swTavolo?.addEventListener("change", aggiornaRigaAvviso);
+        swChiamata?.addEventListener("change", aggiornaRigaAvviso);
         // Il link del QR: arriva gia' fatto dal server, con la sede dentro.
         const rigaLink = document.getElementById("o-table-link-row") as HTMLElement | null;
         const campoLink = document.getElementById("o-table-link") as HTMLInputElement | null;
         const copiaLink = document.getElementById("o-table-link-copy") as HTMLButtonElement | null;
         if (campoLink) campoLink.value = dati.link_tavolo ?? "";
+        // --- I QR della sala: il tipo (unico / per sezione / per tavolo),
+        // l'elenco dei link e la stampa dei cartoncini ---
+        const rigaQr = document.getElementById("o-table-qr-row") as HTMLElement | null;
+        const rigaListaQr = document.getElementById("o-table-qr-list-row") as HTMLElement | null;
+        const boxListaQr = document.getElementById("o-table-qr-list") as HTMLElement | null;
+        const rigaStampaQr = document.getElementById("o-table-qr-print-row") as HTMLElement | null;
+        const bottoniQr = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-qr-mode .prep-btn"));
+        let modoQrOra = String(dati.qr_modo ?? "unico");
+        function accendiModoQr() {
+          for (const b of bottoniQr) {
+            const si = b.dataset.qr === modoQrOra;
+            b.classList.toggle("active", si);
+            b.setAttribute("aria-pressed", si ? "true" : "false");
+          }
+        }
+        /* L'elenco si DISEGNA dai link del server, con `textContent` e `value`:
+           i nomi di sezione e di tavolo li scrive il ristoratore, e messi in
+           `innerHTML` un nome con un «<» romperebbe la pagina. */
+        function disegnaListaQr() {
+          if (!boxListaQr) return;
+          boxListaQr.innerHTML = "";
+          const voci = modoQrOra === "sezione"
+            ? (dati.qr_sezioni ?? []).map((x) => ({ sez: "", nome: x.nome, link: x.link }))
+            : (dati.qr_tavoli ?? []).map((x) => ({ sez: x.sezione, nome: x.nome, link: x.link }));
+          if (voci.length === 0) {
+            const vuoto = document.createElement("p");
+            vuoto.className = "qr-vuoto";
+            vuoto.textContent = tr("set.ord.qrNone");
+            boxListaQr.appendChild(vuoto);
+            return;
+          }
+          let ultima: string | null = null;
+          for (const v of voci) {
+            if (modoQrOra === "tavolo" && v.sez !== ultima) {
+              const sez = document.createElement("div");
+              sez.className = "qr-sez";
+              sez.textContent = v.sez;
+              boxListaQr.appendChild(sez);
+              ultima = v.sez;
+            }
+            const riga = document.createElement("div");
+            riga.className = "qr-riga";
+            const nome = document.createElement("span");
+            nome.className = "qr-nome";
+            nome.textContent = v.nome;
+            const campo = document.createElement("input");
+            campo.type = "text";
+            campo.readOnly = true;
+            campo.value = v.link;
+            campo.addEventListener("focus", () => campo.select());
+            const copia = document.createElement("button");
+            copia.type = "button";
+            copia.className = "kemail-add";
+            copia.textContent = tr("common.copy");
+            copia.addEventListener("click", async () => {
+              try {
+                await navigator.clipboard.writeText(v.link);
+              } catch {
+                campo.focus();
+                return;
+              }
+              copia.textContent = tr("set.ord.tableLinkCopied");
+              setTimeout(() => { copia.textContent = tr("common.copy"); }, 1600);
+            });
+            riga.append(nome, campo, copia);
+            boxListaQr.appendChild(riga);
+          }
+        }
+        function aggiornaQr() {
+          // ⚠️ Senza link (vista «tutte le sedi») nessuna di queste righe
+          // compare: un campo vuoto con «Copier» accanto copierebbe il niente.
+          const acceso = Boolean(swTavolo?.checked && dati.link_tavolo);
+          if (rigaQr) rigaQr.style.display = acceso ? "" : "none";
+          if (rigaLink) rigaLink.style.display = acceso && modoQrOra === "unico" ? "" : "none";
+          if (rigaListaQr) rigaListaQr.style.display = acceso && modoQrOra !== "unico" ? "" : "none";
+          if (rigaStampaQr) rigaStampaQr.style.display = acceso ? "" : "none";
+        }
+        accendiModoQr();
+        disegnaListaQr();
+        for (const b of bottoniQr) {
+          b.addEventListener("click", () => {
+            if (b.dataset.qr === modoQrOra) return;
+            modoQrOra = b.dataset.qr ?? "unico";
+            accendiModoQr();
+            disegnaListaQr();
+            aggiornaQr();
+            dirty();
+          });
+        }
         const aggiornaRigaLink = () => {
-          if (!rigaLink) return;
-          // ⚠️ Senza link (vista «tutte le sedi») la riga non compare affatto:
-          // un campo vuoto con «Copier» accanto copierebbe il niente.
-          rigaLink.style.display = swTavolo?.checked && dati.link_tavolo ? "" : "none";
+          aggiornaQr();
         };
         aggiornaRigaLink();
         swTavolo?.addEventListener("change", aggiornaRigaLink);
@@ -4213,6 +4391,26 @@ const t = adminT(lang);
           saveBar.classList.add("is-visible");
         }
         daysEl.addEventListener("change", dirty);
+        /* ⚠️ GLI INTERRUTTORI DEGLI ORDINI NON ACCENDEVANO «ENREGISTRER».
+           Nessuno li aveva mai collegati a `dirty`: toccandone uno la barra
+           restava nascosta, il ristoratore cambiava pagina convinto di aver
+           salvato, e il valore tornava com'era — senza un errore da nessuna
+           parte (trovato il 16/10/2026 con «Appeler le serveur»). Si
+           collegano TUTTI insieme, per selettore: un interruttore nuovo in
+           quella scheda e' gia' collegato senza che nessuno debba ricordarsene. */
+        document
+          .querySelectorAll<HTMLInputElement>('.section[data-tab="cuisine"] input[type="checkbox"][id^="o-"]')
+          .forEach((el) => el.addEventListener("change", dirty));
+        document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn").forEach((b) =>
+          b.addEventListener("click", () => {
+            if (b.classList.contains("active")) return;
+            document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn").forEach((x) => {
+              x.classList.toggle("active", x === b);
+              x.setAttribute("aria-pressed", x === b ? "true" : "false");
+            });
+            dirty();
+          }),
+        );
         daysEl.addEventListener("click", (e) => {
           const t = e.target as HTMLElement;
           if (t.classList.contains("m-continu") || t.classList.contains("m-coupe")) dirty();
@@ -4451,6 +4649,8 @@ const t = adminT(lang);
               body: JSON.stringify({
                 days,
                 prep_time_minutes: prepCorrente,
+                chiamata_attesa: Number(document.querySelector<HTMLButtonElement>("#o-table-call-wait .prep-btn.active")?.dataset.attesa ?? 5),
+                qr_modo: document.querySelector<HTMLButtonElement>("#o-table-qr-mode .prep-btn.active")?.dataset.qr ?? "unico",
                 slot_duration_minutes: Number(slotEl.value),
                 kitchen_email: emailsCucina(),
                 // ⚠️ Interruttori: si mandano come veri/falsi. Il server li
@@ -4461,6 +4661,7 @@ const t = adminT(lang);
                   orders_coupons: (document.getElementById("o-coupons") as HTMLInputElement | null)?.checked ?? true,
                   orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_call: (document.getElementById("o-table-call") as HTMLInputElement | null)?.checked ?? false,
                   /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un
                      no esplicito, e va bene cosi': il ristoratore ha visto la
                      casella col valore vero e l'ha confermata. Per questo la

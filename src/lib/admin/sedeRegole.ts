@@ -77,6 +77,9 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   // riempiono: la comanda esce dalla stampante del punto che prepara, e
   // un ticket che si vede da un altro punto e' una pizza fatta due volte.
   print_tickets: "sede",
+  // «Appeler le serveur». ⚠️ Della SEDE: il tavolo 4 di Jourdan che suona sul
+  // tablet di Stockel e' un cameriere che cerca un tavolo nel locale sbagliato.
+  table_calls: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
@@ -544,6 +547,10 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
      marchio, un QR sul tavolo comparirebbe anche a chi i tavoli non ce li ha. */
   orders_table: "sede",
   orders_table_notify: "sede",
+  // La campanella: chi ha qualcuno che guarda il tablet e' un PUNTO, non il gruppo.
+  orders_table_call: "sede",
+  orders_table_call_wait: "sede", // minuti prima di poter richiamare
+  orders_table_qr_mode: "sede",   // QR unico, per sezione o per tavolo
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",

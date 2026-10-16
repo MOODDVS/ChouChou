@@ -11,7 +11,8 @@ import { DateTime } from "luxon";
 import { CHIAVI_ORDINI, acceso, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
 import { configGiornoEffettiva } from "./schedule";
 import { fusoDi } from "./fuso";
-import { tavoliDelPiano, type TavoloDiSala } from "./pianoSalaRegole";
+import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
+import { attesaChiamata } from "./chiamateRegole";
 
 export { CHIAVI_ORDINI, acceso, RIPIEGO_ORDINI, type OpzioniOrdini } from "./ordiniRegole";
 
@@ -25,6 +26,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       coupon: acceso(valori.get("orders_coupons"), "orders_coupons"),
       couponInCassa: acceso(valori.get("orders_coupons_onsite"), "orders_coupons_onsite"),
       tavolo: acceso(valori.get("orders_table"), "orders_table"),
+      chiamata: acceso(valori.get("orders_table_call"), "orders_table_call"),
       avvisoScelto: String(valori.get("orders_table_notify") ?? ""),
     };
   } catch {
@@ -34,7 +36,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
        muto non deve spegnere gli ordini — da sempre si continua a prenderli —
        ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
        porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
-    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, avvisoScelto: "" };
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "" };
   }
 }
 
@@ -91,6 +93,9 @@ export interface OpzioniTavolo {
   conTavoli: boolean;
   /** Si manda l’email «c’e’ pronto» a chi ordina dal locale. */
   avvisa: boolean;
+  /** La campanella «Appeler le serveur»: interruttore acceso E sala accesa.
+   *  Col piano si sceglie il tavolo, senza si dice il nome. */
+  chiamata: boolean;
 }
 
 /**
@@ -113,10 +118,26 @@ export interface OpzioniTavolo {
 export async function opzioniTavolo(ambito: Ambito): Promise<OpzioniTavolo> {
   const [opz, quanti] = await Promise.all([opzioniOrdini(ambito), contaTavoli(ambito)]);
   const conTavoli = quanti > 0;
-  return { attivo: opz.tavolo, conTavoli, avvisa: avvisaIlCliente(opz.avvisoScelto, conTavoli) };
+  return {
+    attivo: opz.tavolo,
+    conTavoli,
+    avvisa: avvisaIlCliente(opz.avvisoScelto, conTavoli),
+    chiamata: opz.tavolo && opz.chiamata,
+  };
 }
 
 export type { TavoloDiSala } from "./pianoSalaRegole";
+
+/** Quanti minuti si aspetta prima di poter richiamare il cameriere
+ *  (Réglages, `orders_table_call_wait`). Lettura muta → il ripiego. */
+export async function attesaChiamataDi(ambito: Ambito): Promise<number> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_table_call_wait"]);
+    return attesaChiamata(valori.get("orders_table_call_wait"));
+  } catch {
+    return attesaChiamata(undefined);
+  }
+}
 
 /**
  * I TAVOLI DELLA SALA, per il menu a tendina del QR.
@@ -181,5 +202,60 @@ export async function statoServizioSala(ambito: Ambito): Promise<StatoServizio> 
     return { aperto: false, riapre: prossimaApertura(cfg, hhmm) };
   } catch {
     return { aperto: false, riapre: null };
+  }
+}
+
+/**
+ * I TAVOLI GIA' APERTI DAL QR, adesso, con le iniziali di chi c'e' seduto —
+ * per accenderli nel selettore e mostrarle nella barra (non si spengono
+ * piu': vedi `tavoliApertiAlQr`).
+ *
+ * ⚠️ NON LANCIA MAI, e nel dubbio non blocca niente: una lettura fallita, o
+ * un'installazione senza la colonna `source` (migrazione #74 non lanciata),
+ * rende un elenco vuoto. Un tavolo bloccato per errore e' un cliente che non
+ * puo' ordinare dal posto dove e' seduto; uno sceglibile per errore finisce,
+ * al peggio, nello stesso conto di chi l'aveva aperto.
+ */
+export async function tavoliApertiAdesso(ambito: Ambito): Promise<TavoloAperto[]> {
+  try {
+    const ora = DateTime.now().setZone(await fusoDi(ambito));
+    const [righe, cfg] = await Promise.all([
+      leggi("reservations", ambito, "id, heure, tables, service_key, extra_minutes, source, status, first_name")
+        .eq("date", ora.toFormat("yyyy-MM-dd"))
+        .eq("status", "seated"),
+      leggiConfig(ambito, ["reservation_services", "reservation_hold_minutes"]),
+    ]);
+    if (righe.error) {
+      // Mai bloccante, ma DETTO: un elenco vuoto per errore e' indistinguibile
+      // da «nessun tavolo aperto», e senza questa riga non lo si scopre.
+      console.error("[tavoli aperti] lettura sessioni fallita:", righe.error);
+      return [];
+    }
+    const durate = durateDelServizio(
+      cfg.valori.get("reservation_services") ?? "",
+      cfg.valori.get("reservation_hold_minutes") ?? "",
+    );
+    /* Gli ordini CONFERMATI su quelle sessioni: decidono se il tavolo e'
+       aperto e di chi sono le iniziali (vedi `tavoliApertiAlQr`).
+       Confermato = pagato (`paid`, `done`), oppure da pagare in cassa
+       (`pending` + `onsite`): quello e' gia' partito in cucina. Un `pending`
+       con la carta e' qualcuno fermo su Stripe — o tornato indietro.
+       ⚠️ Lettura muta → nessun tavolo acceso, mai un errore. */
+    const ids = ((righe.data ?? []) as unknown as { id: string }[]).map((r) => String(r.id));
+    let ordini: { reservation_id?: unknown; customer_name?: unknown }[] = [];
+    if (ids.length) {
+      const o = await leggi("orders", ambito, "reservation_id, customer_name, status, payment_method")
+        .in("reservation_id", ids)
+        .in("status", ["paid", "done", "pending"]);
+      if (o.error) console.error("[tavoli aperti] lettura ordini fallita:", o.error);
+      else {
+        ordini = ((o.data ?? []) as unknown as { reservation_id?: unknown; customer_name?: unknown; status?: unknown; payment_method?: unknown }[])
+          .filter((r) => r.status !== "pending" || r.payment_method === "onsite");
+      }
+    }
+    return tavoliApertiAlQr(righe.data ?? [], ora.toFormat("HH:mm"), durate, ordini);
+  } catch (e) {
+    console.error("[tavoli aperti]", e);
+    return [];
   }
 }
