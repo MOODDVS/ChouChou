@@ -158,7 +158,34 @@ export interface OrdineNotifica {
    *            parte): altrimenti lo porta un cameriere
    */
   sala?: { tavolo: string; alBanco: boolean } | null;
+  /**
+   * ⚠️ ORDINE DA CONSEGNARE (`service = 'delivery'`, migrazione #84). Senza,
+   * ogni email parla di RITIRO: «venez la chercher à 19:30» a chi aspetta a
+   * casa, e in cucina una comanda senza indirizzo. `null`/assente = ritiro.
+   *   indirizzo  la riga composta («Rue de la Loi 16/3, 1000 Bruxelles»)
+   *   mappa      il link che la apre su una mappa
+   *   note       per il fattorino (piano, campanello), puo' essere vuota
+   */
+  consegna?: { indirizzo: string; mappa: string; note: string } | null;
 }
+
+/* I testi della CONSEGNA, a parte e non dentro `TXT`/`K_TXT`: sono le stesse
+   cinque lingue, ma una consegna e' un ritiro con un indirizzo — cambiano tre
+   parole, non l'email. */
+const TXT_CONSEGNA_CLIENTE: Record<string, { subject: (num: string, ora: string) => string; etichetta: string; dove: string; paga: string }> = {
+  fr: { subject: (num, ora) => `Commande #${num} confirmée — livraison vers ${ora}`, etichetta: "Livraison prévue vers", dove: "Adresse de livraison", paga: "À régler à la livraison" },
+  en: { subject: (num, ora) => `Order #${num} confirmed — delivery around ${ora}`, etichetta: "Delivery around", dove: "Delivery address", paga: "To pay on delivery" },
+  it: { subject: (num, ora) => `Ordine #${num} confermato — consegna verso le ${ora}`, etichetta: "Consegna prevista verso le", dove: "Indirizzo di consegna", paga: "Da pagare alla consegna" },
+  nl: { subject: (num, ora) => `Bestelling #${num} bevestigd — levering rond ${ora}`, etichetta: "Levering rond", dove: "Leveradres", paga: "Te betalen bij levering" },
+  es: { subject: (num, ora) => `Pedido #${num} confirmado — entrega hacia las ${ora}`, etichetta: "Entrega prevista hacia las", dove: "Dirección de entrega", paga: "A pagar en la entrega" },
+};
+const K_CONSEGNA: Record<string, { at: string; subject: (num: string, ora: string) => string; mappa: string }> = {
+  fr: { at: "Livraison à", subject: (num, ora) => `Nouvelle commande #${num} — LIVRAISON ${ora}`, mappa: "Ouvrir le plan" },
+  en: { at: "Delivery at", subject: (num, ora) => `New order #${num} — DELIVERY ${ora}`, mappa: "Open map" },
+  it: { at: "Consegna alle", subject: (num, ora) => `Nuovo ordine #${num} — CONSEGNA ${ora}`, mappa: "Apri la mappa" },
+  nl: { at: "Levering om", subject: (num, ora) => `Nieuwe bestelling #${num} — LEVERING ${ora}`, mappa: "Kaart openen" },
+  es: { at: "Entrega a las", subject: (num, ora) => `Nuevo pedido #${num} — ENTREGA ${ora}`, mappa: "Abrir el mapa" },
+};
 
 function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
@@ -297,12 +324,44 @@ const TXT = {
 /** Ora di ritiro formattata in HH:mm, nel fuso DELLA SEDE.
  *  ⚠️ Prima leggeva la variabile globale `TIMEZONE`: l'ora scritta al
  *  cliente era quella dell'ultima sede che aveva toccato quella variabile. */
-function oraRitiro(iso: string, fuso: string): string {
-  return new Date(iso).toLocaleTimeString("fr-FR", {
+function oraRitiro(iso: string, fuso: string, lingua?: string): string {
+  const quando = new Date(iso);
+  const ora = quando.toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: fuso,
   });
+  /* UN ALTRO GIORNO, SCRITTO. Da quando il sito puo' prendere ordini per i
+     giorni seguenti (Réglages → Commandes), «19:30» da solo e' quello di
+     oggi per chiunque legga: la cucina lo preparerebbe stasera, il cliente
+     verrebbe stasera. Se il ritiro non e' oggi (nel fuso DELLA SEDE) l'ora
+     si porta dietro il giorno: «19:30 · sam. 24/10». Oggi resta com'era.
+     ⚠️ Senza `lingua` (chi non l'ha passata) niente giorno: chi chiama
+     l'ora di ADESSO («pronto») non deve scrivere date. */
+  if (!lingua) return ora;
+  const giornoDi = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: fuso });
+  if (giornoDi(quando) === giornoDi(new Date())) return ora;
+  let giorno: string;
+  try {
+    const sett = quando.toLocaleDateString(lingua, { weekday: "short", timeZone: fuso });
+    const data = quando.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", timeZone: fuso });
+    giorno = `${sett} ${data}`;
+  } catch {
+    giorno = quando.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", timeZone: fuso });
+  }
+  return `${ora}${SEP_GIORNO}${giorno}`;
+}
+
+const SEP_GIORNO = " · ";
+
+/** L'ora per i riquadri in GRANDE (44-52px): «19:30 · sam. 24/10» su una
+ *  riga non ci sta in un telefono. L'ora resta grande, il giorno va a capo
+ *  piu' piccolo, sotto. Oggi (nessun giorno) non cambia niente. */
+function oraInGrande(testo: string): string {
+  const i = testo.indexOf(SEP_GIORNO);
+  if (i < 0) return testo;
+  const giorno = testo.slice(i + SEP_GIORNO.length);
+  return `${testo.slice(0, i)}<br><span style="font-size:20px;line-height:1.6;">${giorno}</span>`;
 }
 
 /**
@@ -731,7 +790,7 @@ async function emailStatoOrdine(
   // «Pronto» mostra l'ora di ADESSO, «ritardo» la nuova ora di ritiro.
   const oraGrande = variante === "pronto"
     ? oraRitiro(new Date().toISOString(), fuso)
-    : oraRitiro(o.pickup_time, fuso);
+    : oraRitiro(o.pickup_time, fuso, o.lang ?? "fr");
   const oraPrima = oraPrimaIso ? oraRitiro(oraPrimaIso, fuso) : "";
 
   /* Ordinato dal tavolo e da ritirare al banco: «venez la chercher au
@@ -765,7 +824,7 @@ async function emailStatoOrdine(
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
               <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${v.etichetta}</p>
-              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraGrande}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraInGrande(oraGrande)}</p>
             </td></tr>
           </table>
         </td>
@@ -827,7 +886,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   if (!o.customer_email?.trim()) return; // ordine pagato di persona senza email
   const t = pick5(TXT, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time, fuso);
+  const ora = oraRitiro(o.pickup_time, fuso, o.lang ?? "fr");
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
@@ -842,16 +901,22 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
      arriva un'email quando e' pronto. Vedi `OrdineNotifica.sala`. */
   const sala = o.sala ?? null;
   const ts = t.sala;
-  const etichettaRiquadro = sala ? (sala.alBanco ? ts.banco : ts.tavolo) : t.pickup;
-  const valoreRiquadro = sala ? esc(sala.tavolo) : ora;
+  const consegna = !sala ? o.consegna ?? null : null;
+  const tcc = pick5(TXT_CONSEGNA_CLIENTE, o.lang);
+  const etichettaRiquadro = sala ? (sala.alBanco ? ts.banco : ts.tavolo) : consegna ? tcc.etichetta : t.pickup;
+  const valoreRiquadro = sala ? esc(sala.tavolo) : oraInGrande(ora);
   const riquadro = sala && !valoreRiquadro
     ? `<p style="margin:0;color:${tema.accent};font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichettaRiquadro}</p>`
     : `<p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichettaRiquadro}</p>
               <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${valoreRiquadro}</p>`;
   const messaggioSala = sala
     ? `<p style="margin:14px 0 0;color:${tema.text};font-size:15px;line-height:1.6;text-align:center;font-family:Arial,Helvetica,sans-serif;">${sala.alBanco ? ts.msgBanco : ts.msgTavolo}</p>`
-    : "";
-  const oggetto = !sala ? t.subject(o.numero, ora)
+    : consegna
+      // ⚠️ L'indirizzo SCRITTO NELL'EMAIL: e' l'unico modo che ha il cliente
+      // di accorgersi di un errore di battitura prima che parta il fattorino.
+      ? `<p style="margin:14px 0 0;color:${tema.text};font-size:15px;line-height:1.6;text-align:center;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${tcc.dove}</strong><br>${esc(consegna.indirizzo)}${consegna.note ? `<br><span style="color:${tema.muted};font-size:13px;">${esc(consegna.note)}</span>` : ""}</p>`
+      : "";
+  const oggetto = !sala ? (consegna ? tcc.subject(o.numero, ora) : t.subject(o.numero, ora))
     : sala.alBanco ? ts.subjectBanco(o.numero)
     : sala.tavolo ? ts.subjectTavolo(o.numero, sala.tavolo)
     : ts.subject(o.numero);
@@ -887,7 +952,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? (sala ? ts.payOnSite : t.payAtPickup) : t.total}</td>
+              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? (sala ? ts.payOnSite : consegna ? tcc.paga : t.payAtPickup) : t.total}</td>
               <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
@@ -1041,7 +1106,7 @@ async function emailModificaCliente(
   if (!o.customer_email?.trim()) return;
   const t = pick5(TXT_MOD, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time, fuso);
+  const ora = oraRitiro(o.pickup_time, fuso, o.lang ?? "fr");
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
@@ -1114,7 +1179,7 @@ async function emailModificaCliente(
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
               <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
-              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraInGrande(ora)}</p>
               ${wasHtml}
             </td></tr>
           </table>
@@ -1235,7 +1300,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   }
   const t = pick5(TXT_PAY, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time, fuso);
+  const ora = oraRitiro(o.pickup_time, fuso, o.lang ?? "fr");
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
@@ -1264,7 +1329,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
               <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
-              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraInGrande(ora)}</p>
             </td></tr>
           </table>
         </td>
@@ -1332,7 +1397,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
     return;
   }
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time, fuso);
+  const ora = oraRitiro(o.pickup_time, fuso, await adminLang().catch(() => "fr"));
   const tema = await temaEmail();
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
   const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
@@ -1343,9 +1408,17 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
      leggere da lontano, non un'ora di ritiro che non esiste. Al banco, «au
      comptoir» (il nome del cliente e' gia' sotto). */
   const sala = o.sala ?? null;
-  const testaCucina = sala ? (sala.alBanco ? k.counter : k.table) : k.pickupAt;
-  const valoreCucina = sala ? (sala.alBanco ? esc(sala.tavolo) : esc(sala.tavolo || "—")) : ora;
-  const oggettoCucina = !sala ? k.subject(o.numero, ora)
+  /* ⚠️ DA CONSEGNARE: «LIVRAISON» nell'oggetto e in testa, e l'indirizzo con
+     il link alla mappa sotto il cliente. Chi prepara deve distinguere il
+     sacchetto da portare da quello che aspetta sul banco. */
+  const consegna = !sala ? o.consegna ?? null : null;
+  const kc = K_CONSEGNA[await adminLang().catch(() => "fr" as const)] ?? K_CONSEGNA.fr;
+  const testaCucina = sala ? (sala.alBanco ? k.counter : k.table) : consegna ? kc.at : k.pickupAt;
+  const valoreCucina = sala ? (sala.alBanco ? esc(sala.tavolo) : esc(sala.tavolo || "—")) : oraInGrande(ora);
+  const indirizzoCucina = consegna
+    ? `<p style="margin:14px 0 0;color:${tema.title};font-size:17px;font-weight:bold;line-height:1.5;">📍 ${esc(consegna.indirizzo)}</p>${consegna.note ? `<p style="margin:4px 0 0;color:${tema.text};font-size:14px;line-height:1.5;">${esc(consegna.note)}</p>` : ""}<p style="margin:8px 0 0;"><a href="${esc(consegna.mappa)}" style="color:${tema.accent};font-size:13px;font-weight:bold;">${kc.mappa}</a></p>`
+    : "";
+  const oggettoCucina = !sala ? (consegna ? kc.subject(o.numero, ora) : k.subject(o.numero, ora))
     : sala.alBanco || !sala.tavolo ? k.subjCounter(o.numero)
     : k.subjTable(o.numero, sala.tavolo);
 
@@ -1382,6 +1455,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
           <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
           <p style="margin:0 0 ${callHtml ? "16px" : "0"};color:${tema.muted};font-size:14px;line-height:1.7;">${esc(o.customer_phone ?? "—")} · ${esc(o.customer_email)}</p>
           ${callHtml}
+          ${indirizzoCucina}
         </td>
       </tr>
       <tr>
@@ -1442,7 +1516,7 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
     return;
   }
   const { piatti } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time, fuso);
+  const ora = oraRitiro(o.pickup_time, fuso, await adminLang().catch(() => "fr"));
   const tema = await temaEmail();
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
   const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CUCINA);
@@ -1465,7 +1539,7 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
       <tr>
         <td class="em-pad" style="padding:16px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
           <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${k.pickupAt}</p>
-          <p class="em-big" style="margin:6px 0 0;color:${ROSSO};font-size:52px;font-weight:bold;line-height:1;text-decoration:line-through;">${ora}</p>
+          <p class="em-big" style="margin:6px 0 0;color:${ROSSO};font-size:52px;font-weight:bold;line-height:1;text-decoration:line-through;">${oraInGrande(ora)}</p>
           <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
         </td>
       </tr>
@@ -1527,7 +1601,9 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
       `*${k.email}:* ${o.customer_email}\n` +
       (o.sala
         ? `*${o.sala.alBanco ? k.counter : k.table}:* ${o.sala.tavolo || "—"}\n`
-        : `*${k.pickupAt}:* ${oraRitiro(o.pickup_time, fuso)}\n`) +
+        : o.consegna
+          ? `*${(K_CONSEGNA[await adminLang().catch(() => "fr" as const)] ?? K_CONSEGNA.fr).at}:* ${oraRitiro(o.pickup_time, fuso, await adminLang().catch(() => "fr"))}\n📍 ${o.consegna.indirizzo}${o.consegna.note ? ` — ${o.consegna.note}` : ""}\n`
+          : `*${k.pickupAt}:* ${oraRitiro(o.pickup_time, fuso, await adminLang().catch(() => "fr"))}\n`) +
       `*${k.payment}:* ${k.paid} ✅\n\n` +
       `*${k.order}:*\n${righe}${notaRiga}\n\n` +
       `*${k.total}:* ${euro(o.total_cents)}`;

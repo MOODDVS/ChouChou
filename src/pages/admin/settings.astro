@@ -684,6 +684,10 @@ const t = adminT(lang);
          Stretta in 220px la descrizione diventava una colonna di cinque
          righe accanto a un grande vuoto. Sul telefono i bottoni vanno sotto. */
       .field:has(> .prep-btns) { flex-wrap: nowrap; }
+      /* Un campo numerico come risposta: domanda a sinistra, numero sul bordo
+         destro, come gli interruttori e i bottoni. */
+      .field.field--numero > label:not(.switch) { flex: 1 1 auto; max-width: none; }
+      .field.field--numero > input { flex: 0 0 6.5rem; width: 6.5rem; margin-left: auto; text-align: right; }
       .field:has(> .prep-btns) > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .field > .prep-btns { flex: 0 0 auto; flex-wrap: nowrap; margin-left: auto; }
       /* ⚠️ Dentro una scheda dei Réglages il bottone ha lo STESSO colore della
@@ -701,7 +705,9 @@ const t = adminT(lang);
          una spiegazione e dove comincia la successiva. Stesso tratto di
          `.rgroup-sep`, e non sotto l'ultimo: li' chiuderebbe la scheda due
          volte, insieme al bordo del riquadro. */
-      .field:has(> label.switch):not(:last-child) {
+      .field:has(> label.switch):not(:last-child),
+      .section[data-tab="cuisine"] .field.field--numero,
+      .section[data-tab="cuisine"] .field:has(> .prep-btns):not(:last-child) {
         border-bottom: 1px solid var(--c-line);
         padding-bottom: 0.9rem;
       }
@@ -1452,9 +1458,45 @@ const t = adminT(lang);
               ritiro disponibili fra un minuto. */}
           <div class="section" data-tab="cuisine" style="display:none">
             <h2>{t("set.ord.onlineTitle")}</h2>
-            <div class="field">
+            {/* ⚠️ La durata a destra, come gli interruttori sotto: la
+                domanda a sinistra, la risposta allineata sul bordo. */}
+            <div class="field field--numero">
               <label for="slot">{t("set.cui.slotDuration")}</label>
               <input type="number" id="slot" min="5" max="120" step="5" />
+            </div>
+            {/* Da dove vengono gli orari di ritiro: d'apertura o dai service
+                delle prenotazioni (`orders_slot_source`). Due bottoni come i
+                minuti della campanella: si sceglie con un tocco. */}
+            <div class="field">
+              <label>{t("set.ord.slotSource")}<span class="lab-hint">{t("set.ord.slotSourceHint")}</span></label>
+              <div class="prep-btns" id="o-slot-source" role="group" aria-label={t("set.ord.slotSource")}>
+                <button type="button" class="prep-btn" data-fonte="hours" aria-pressed="false"><span class="m">{t("set.ord.slotSourceHours")}</span></button>
+                <button type="button" class="prep-btn" data-fonte="services" aria-pressed="false"><span class="m">{t("set.ord.slotSourceServices")}</span></button>
+              </div>
+            </div>
+            {/* Ordini per i prossimi giorni (`orders_future_days`): spento =
+                solo oggi, com'e' sempre stato. ⚠️ L'interruttore NON e' una
+                chiave sua: acceso vuol dire «un numero di giorni», e la
+                riga sotto dice quale. */}
+            <div class="field">
+              <label>{t("set.ord.futureDays")}<span class="lab-hint">{t("set.ord.futureDaysHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-future" /><span class="track"></span></label>
+            </div>
+            <div class="field" id="o-future-days-row" style="display:none">
+              <label>{t("set.ord.futureDaysMax")}<span class="lab-hint">{t("set.ord.futureDaysMaxHint")}</span></label>
+              <div class="prep-btns" id="o-future-days" role="group" aria-label={t("set.ord.futureDaysMax")}>
+                {[2, 7, 14, 30].map((g) => (
+                  <button type="button" class="prep-btn" data-giorni={String(g)} aria-pressed="false"><span class="m">{g} {t("set.ord.daysShort")}</span></button>
+                ))}
+              </div>
+            </div>
+            {/* La consegna (`orders_delivery`): accesa, il cliente sceglie al
+                checkout fra ritiro e consegna e lascia l'indirizzo. ⚠️ Il
+                ritiro resta SEMPRE possibile: questo interruttore aggiunge una
+                strada, non toglie quella di prima. */}
+            <div class="field">
+              <label>{t("set.ord.delivery")}<span class="lab-hint">{t("set.ord.deliveryHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-delivery" /><span class="track"></span></label>
             </div>
             {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
                 si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
@@ -3927,7 +3969,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4123,6 +4165,7 @@ const t = adminT(lang);
         met("o-coupons-onsite", "orders_coupons_onsite");
         met("o-table", "orders_table");
         met("o-table-call", "orders_table_call");
+        met("o-delivery", "orders_delivery");
         // L'attesa della campanella: un bottone acceso fra quattro.
         const bottoniAttesa = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn"));
         const accendiAttesa = (minuti: string) => {
@@ -4133,6 +4176,27 @@ const t = adminT(lang);
           }
         };
         accendiAttesa(String(dati.chiamata_attesa ?? 5));
+        // Gli orari di ritiro: la fonte (un bottone fra due) e i giorni in
+        // anticipo (interruttore + un bottone fra quattro). Arrivano gia'
+        // risolti dal server: 0 giorni = interruttore spento.
+        const accendiGruppo = (sel: string, attr: string, valore: string) => {
+          document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((b) => {
+            const si = b.dataset[attr] === valore;
+            b.classList.toggle("active", si);
+            b.setAttribute("aria-pressed", si ? "true" : "false");
+          });
+        };
+        accendiGruppo("#o-slot-source", "fonte", dati.ritiro_fonte ?? "hours");
+        const giorniRitiro = Number(dati.ritiro_giorni ?? 0);
+        const swFuturo = document.getElementById("o-future") as HTMLInputElement | null;
+        const rigaGiorni = document.getElementById("o-future-days-row") as HTMLElement | null;
+        if (swFuturo) swFuturo.checked = giorniRitiro > 0;
+        accendiGruppo("#o-future-days", "giorni", String(giorniRitiro > 0 ? giorniRitiro : 7));
+        const aggiornaRigaGiorni = () => {
+          if (rigaGiorni) rigaGiorni.style.display = swFuturo?.checked ? "" : "none";
+        };
+        aggiornaRigaGiorni();
+        swFuturo?.addEventListener("change", aggiornaRigaGiorni);
         /* ⚠️ Questo interruttore arriva dal server GIA' RISOLTO: a chiave
            vuota il valore dipende dai tavoli, e il server e' l'unico che li
            puo' contare. La pagina non deve indovinare — ed e' il motivo per
@@ -4401,6 +4465,19 @@ const t = adminT(lang);
         document
           .querySelectorAll<HTMLInputElement>('.section[data-tab="cuisine"] input[type="checkbox"][id^="o-"]')
           .forEach((el) => el.addEventListener("change", dirty));
+        // Fonte degli orari e giorni in anticipo: un bottone acceso per gruppo.
+        for (const sel of ["#o-slot-source", "#o-future-days"]) {
+          document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((b) =>
+            b.addEventListener("click", () => {
+              if (b.classList.contains("active")) return;
+              document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((x) => {
+                x.classList.toggle("active", x === b);
+                x.setAttribute("aria-pressed", x === b ? "true" : "false");
+              });
+              dirty();
+            }),
+          );
+        }
         document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn").forEach((b) =>
           b.addEventListener("click", () => {
             if (b.classList.contains("active")) return;
@@ -4651,6 +4728,11 @@ const t = adminT(lang);
                 prep_time_minutes: prepCorrente,
                 chiamata_attesa: Number(document.querySelector<HTMLButtonElement>("#o-table-call-wait .prep-btn.active")?.dataset.attesa ?? 5),
                 qr_modo: document.querySelector<HTMLButtonElement>("#o-table-qr-mode .prep-btn.active")?.dataset.qr ?? "unico",
+                ritiro_fonte: document.querySelector<HTMLButtonElement>("#o-slot-source .prep-btn.active")?.dataset.fonte ?? "hours",
+                // Interruttore spento = 0 (solo oggi), qualunque bottone sia acceso sotto.
+                ritiro_giorni: (document.getElementById("o-future") as HTMLInputElement | null)?.checked
+                  ? Number(document.querySelector<HTMLButtonElement>("#o-future-days .prep-btn.active")?.dataset.giorni ?? 7)
+                  : 0,
                 slot_duration_minutes: Number(slotEl.value),
                 kitchen_email: emailsCucina(),
                 // ⚠️ Interruttori: si mandano come veri/falsi. Il server li
@@ -4662,6 +4744,7 @@ const t = adminT(lang);
                   orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_call: (document.getElementById("o-table-call") as HTMLInputElement | null)?.checked ?? false,
+                  orders_delivery: (document.getElementById("o-delivery") as HTMLInputElement | null)?.checked ?? false,
                   /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un
                      no esplicito, e va bene cosi': il ristoratore ha visto la
                      casella col valore vero e l'ha confermata. Per questo la

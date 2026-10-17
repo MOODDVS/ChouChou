@@ -7,7 +7,7 @@ import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from 
 import { basePubblicaOpz } from "../../../lib/basePubblica";
 import { calcolaSlotGiorno } from "../../../lib/slots";
 import { fusoDi } from "../../../lib/fuso";
-import { configGiornoEffettiva } from "../../../lib/schedule";
+import { configRitiro } from "../../../lib/schedule";
 // Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
 // quindi l'importazione e' rinominata invece di rinominare le loro.
 import {
@@ -255,7 +255,12 @@ export const GET: APIRoute = async ({ request, url }) => {
       q3.order("pickup_time", { ascending: true }),
     ]);
   };
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
+  /* #84 (la consegna): un tentativo in piu', davanti. Senza la colonna si
+     ripiega sulla #82 e la lista resta quella di ieri — che senza la #84 e'
+     anche la verita': nessuna consegna puo' essere stata salvata. */
+  const EXTRA_84 = ", delivery_address";
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE);
 
@@ -450,7 +455,7 @@ export const POST: APIRoute = async ({ request }) => {
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   // Créneau valido per QUELLA data (stessa fonte del sito: /api/slots)
-  const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
+  const config = await configRitiro(ora, await ambitoDiRichiesta(request, staff));
   if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
   const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   if (![...lunch, ...dinner].includes(slot)) return json({ error: await msg("err.slotGone") }, 409);
@@ -861,7 +866,7 @@ export const PUT: APIRoute = async ({ request }) => {
     if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
-  const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
+  const config = await configRitiro(ora, await ambitoDiRichiesta(request, staff));
   if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
   const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   // Orario originale dell'ordine (fuso ristorante): se lo staff NON lo cambia,

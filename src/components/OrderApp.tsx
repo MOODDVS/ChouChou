@@ -159,6 +159,22 @@ const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: strin
   es: { titolo: "Pago", ora: "Pagar ahora con tarjeta", ritiro: "Pagar al recoger", ordina: "Pedir", ordinando: "Enviando…" },
 };
 
+/* LA CONSEGNA (Réglages → «Livraison»). Testi del motore come
+ * `TXT_PAGAMENTO`, e per la stessa ragione: la pagina /order e' del cliente,
+ * e chiedergli parole nuove vorrebbe dire siti che non compilano piu' il
+ * giorno del merge. */
+const TXT_CONSEGNA: Record<string, {
+  titolo: string; ritiro: string; consegna: string; quando: string;
+  via: string; numero: string; box: string; cap: string; comune: string; note: string;
+  pagaConsegna: string;
+}> = {
+  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison" },
+  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery" },
+  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna" },
+  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering" },
+  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega" },
+};
+
 interface OrderAppProps {
   menu: MenuCategoria[];
   t: OrderStrings;
@@ -329,6 +345,9 @@ interface StatoSalvato {
   email: string;
   noteOrdine: string;
   coupon: string;
+  /** L'indirizzo della consegna: chi torna indietro dal pagamento non deve
+   *  riscriverlo. ⚠️ sessionStorage come il resto: muore con la scheda. */
+  indirizzo?: { via: string; numero: string; box: string; cap: string; comune: string; note: string };
 }
 
 function leggiStatoSalvato(): Partial<StatoSalvato> {
@@ -346,7 +365,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
   /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
      cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
      non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
@@ -409,6 +428,16 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [attivo, setAttivo] = useState<string>(gruppiVisibili[0]?.slug ?? "");
 
   const [slot, setSlot] = useState<string | null>(null);
+  /* Il giorno del ritiro scelto nella fila dei giorni (SlotPicker). `null` =
+     oggi, ed e' quello che il checkout riceve quando il ristoratore non ha
+     aperto gli ordini per i giorni seguenti. */
+  const [giorno, setGiorno] = useState<string | null>(null);
+  /* CHIUSO OGGI, MA SI PUO' ORDINARE PER DOMANI. La pagina del cliente calcola
+     `closedToday` sugli orari di OGGI e non sa della finestra dei giorni
+     (Réglages → Commandes). Se il ristoratore l'ha aperta e c'e' almeno un
+     giorno con orari, il carrello resta aperto: il cliente sceglie il giorno
+     al checkout. ⚠️ Al tavolo no: si mangia adesso o niente. */
+  const [closedToday, setClosedToday] = useState(chiusoOggiPagina);
   const [nome, setNome] = useState(salvato.nome ?? "");
   const [cognome, setCognome] = useState(salvato.cognome ?? "");
   const [telefono, setTelefono] = useState(salvato.telefono ?? "");
@@ -435,6 +464,41 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
    *  mostrarlo che mostrarlo e poi rifiutarlo al momento di confermare. */
   const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa);
   const tp = TXT_PAGAMENTO[lang] ?? TXT_PAGAMENTO.fr;
+  const tc = TXT_CONSEGNA[lang] ?? TXT_CONSEGNA.fr;
+
+  /* LA CONSEGNA: la offre questo punto? Lo chiede il carrello da solo
+     (`/api/order-options`): la pagina /order e' del cliente e non lo sa.
+     Spenta di ripiego — e finche' la risposta non arriva — cosi' il checkout
+     e' quello di sempre. ⚠️ Al tavolo non si chiede neanche: si mangia li'. */
+  const [consegnaPossibile, setConsegnaPossibile] = useState(false);
+  const [modoServizio, setModoServizio] = useState<"ritiro" | "consegna">("ritiro");
+  const vuotoIndirizzo = { via: "", numero: "", box: "", cap: "", comune: "", note: "" };
+  const [indirizzo, setIndirizzo] = useState(salvato.indirizzo ?? vuotoIndirizzo);
+  const campoIndirizzo = (k: keyof typeof vuotoIndirizzo) => (e: { target: { value: string } }) =>
+    setIndirizzo((x) => ({ ...x, [k]: e.target.value }));
+  useEffect(() => {
+    if (inSala) return;
+    let vivo = true;
+    fetch(conSede("/api/order-options"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { consegna?: boolean } | null) => {
+        if (vivo) setConsegnaPossibile(d?.consegna === true);
+      })
+      .catch(() => {
+        // Senza risposta: niente consegna, il ritiro di sempre.
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [inSala, sede]);
+  // ⚠️ Spenta nel frattempo (o mai accesa): si torna al ritiro, mai a una
+  // consegna scelta che il server rifiuterebbe al momento di pagare.
+  const aConsegna = consegnaPossibile && !inSala && modoServizio === "consegna";
+  const indirizzoOk =
+    indirizzo.via.trim() !== "" &&
+    indirizzo.numero.trim() !== "" &&
+    indirizzo.comune.trim() !== "" &&
+    /^[0-9A-Za-z][0-9A-Za-z -]{2,9}$/.test(indirizzo.cap.trim());
 
   const [coupon, setCoupon] = useState(salvato.coupon ?? "");
   const [couponApplicato, setCouponApplicato] = useState<{ code: string; discount_cents: number; label: string } | null>(null);
@@ -464,6 +528,23 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
      «paiement…» scritto sopra, per sempre — il cliente crede che stia ancora
      pagando. Una pagina tornata dalla cache riaccende il bottone. */
   useEffect(() => {
+    setClosedToday(chiusoOggiPagina);
+    if (!chiusoOggiPagina || inSala) return;
+    let vivo = true;
+    fetch(conSede("/api/slots?days=1"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { giorni?: string[] } | null) => {
+        if (vivo && (d?.giorni?.length ?? 0) > 0) setClosedToday(false);
+      })
+      .catch(() => {
+        // Senza risposta resta chiuso, come prima della finestra dei giorni.
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [chiusoOggiPagina, inSala, sede]);
+
+  useEffect(() => {
     const ritorno = (e: PageTransitionEvent) => {
       if (e.persisted) setInvio(false);
     };
@@ -475,12 +556,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const dati: StatoSalvato = { linee, nome, cognome, telefono, email, noteOrdine, coupon };
+      const dati: StatoSalvato = { linee, nome, cognome, telefono, email, noteOrdine, coupon, indirizzo };
       window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(dati));
     } catch {
       // sessionStorage non disponibile: l'app funziona comunque.
     }
-  }, [linee, nome, cognome, telefono, email, noteOrdine, coupon]);
+  }, [linee, nome, cognome, telefono, email, noteOrdine, coupon, indirizzo]);
 
   // Al cambio vista (menu <-> checkout) riporta la pagina in cima:
   // senza questo, passando al checkout la pagina resta scrollata in basso.
@@ -818,6 +899,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     nome.trim() !== "" &&
     (inSala || cognome.trim() !== "") &&
     (inSala || telefono.trim() !== "") &&
+    (!aConsegna || indirizzoOk) &&
     emailOk &&
     accettato;
 
@@ -854,7 +936,14 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 reservation_id: sessione.reservationId,
                 ...(sessione.tableId ? { table_id: sessione.tableId } : {}),
               }
-            : { slot }),
+            : {
+                slot,
+                ...(giorno ? { date: giorno } : {}),
+                /* ⚠️ Il server ricontrolla tutto: che la consegna sia accesa
+                   in questo punto, e che l'indirizzo sia completo. Qui si
+                   dice solo cosa ha scelto il cliente. */
+                ...(aConsegna ? { service: "delivery", delivery: indirizzo } : {}),
+              }),
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
           // ⚠️ Il server non si fida di questo campo: ricontrolla che il punto
@@ -1158,11 +1247,53 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               tavolo.campi
             ) : (
               <>
-                <label className="order-field-label">{t.pickupTime}</label>
+                {/* ⚠️ COMPARE SOLO DOVE LA CONSEGNA E' ACCESA (Réglages), come
+                    la scelta del pagamento: su tutti gli altri siti il checkout
+                    resta identico al pixel. Classi da vestire: `order-servizio`
+                    (+ quelle del pagamento, `order-pay-opt` / `order-pay-lab`,
+                    cosi' chi le ha gia' vestite le ritrova uguali) e
+                    `order-indirizzo`. */}
+                {consegnaPossibile && (
+                  <div className="order-pay order-servizio">
+                    <span className="order-field-label">{tc.titolo}</span>
+                    {([
+                      { v: "ritiro" as const, testo: tc.ritiro },
+                      { v: "consegna" as const, testo: tc.consegna },
+                    ]).map((o) => (
+                      <label key={o.v} className="order-pay-opt">
+                        <input
+                          type="radio"
+                          name="order-servizio"
+                          value={o.v}
+                          checked={modoServizio === o.v}
+                          onChange={() => setModoServizio(o.v)}
+                        />
+                        <span className="order-pay-lab">{o.testo}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {aConsegna && (
+                  <div className="order-form order-indirizzo">
+                    <input className="order-input" type="text" autoComplete="address-line1" placeholder={tc.via} value={indirizzo.via} onChange={campoIndirizzo("via")} />
+                    <input className="order-input" type="text" placeholder={tc.numero} value={indirizzo.numero} onChange={campoIndirizzo("numero")} />
+                    <input className="order-input" type="text" autoComplete="address-line2" placeholder={tc.box} value={indirizzo.box} onChange={campoIndirizzo("box")} />
+                    <input className="order-input" type="text" inputMode="numeric" autoComplete="postal-code" placeholder={tc.cap} value={indirizzo.cap} onChange={campoIndirizzo("cap")} />
+                    <input className="order-input" type="text" autoComplete="address-level2" placeholder={tc.comune} value={indirizzo.comune} onChange={campoIndirizzo("comune")} />
+                    <textarea className="order-input" rows={2} placeholder={tc.note} value={indirizzo.note} onChange={campoIndirizzo("note")} />
+                  </div>
+                )}
+                <label className="order-field-label">{aConsegna ? tc.quando : t.pickupTime}</label>
                 {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
                     che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
                     che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
-                <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
+                <SlotPicker
+                  onSelect={setSlot}
+                  onGiorno={setGiorno}
+                  lang={lang === "en" ? "en" : "fr"}
+                  lingua={lang}
+                  sede={sede}
+                />
               </>
             )}
             <div className="order-form">
@@ -1192,7 +1323,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 <span className="order-field-label">{tp.titolo}</span>
                 {([
                   { v: "online" as const, testo: tp.ora },
-                  { v: "onsite" as const, testo: tp.ritiro },
+                  { v: "onsite" as const, testo: aConsegna ? tc.pagaConsegna : tp.ritiro },
                 ]).map((o) => (
                   <label key={o.v} className="order-pay-opt">
                     <input

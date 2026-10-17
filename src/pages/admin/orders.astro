@@ -186,6 +186,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       .card-nastro svg { width: 15px; height: 15px; flex: 0 0 auto; display: block; }
       .card-nastro--sala { background: var(--c-accent); color: var(--c-bg); }
+      /* La consegna: tinta d'accento, fra il pieno della sala e il grigio del
+         ritiro — e' un ritiro che esce dalla porta. */
+      .card-nastro--consegna { background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); }
+      .row-nota { color: var(--c-muted); }
       .card-nastro--ritiro { background: color-mix(in srgb, var(--c-text) 7%, transparent); color: var(--c-muted); }
       /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
          sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
@@ -1172,7 +1176,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ⚠️ `ordiniRegole` non importa NIENTE: per questo si puo' portare nel
          browser. Il servizio lo decide una regola sola, condivisa con il
          server — scritta due volte, le due meta' si allontanano. */
-      import { alTavolo } from "../../lib/ordiniRegole";
+      import { alTavolo, aConsegna } from "../../lib/ordiniRegole";
+      import { indirizzoDaRiga, rigaIndirizzo, linkMappa } from "../../lib/consegnaRegole";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       /* ⚠️ I conti dei soldi NON si riscrivono qui: la colonna della Accueil,
          le statistiche e la mail del mattino contano la stessa giornata, e
@@ -1235,6 +1240,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         /** Come si chiamava QUEL tavolo quel giorno: e’ cio’ che si dice a voce. */
         table_label?: string | null;
         reservation_id?: string | null;
+        /** #84 — dove portarla (jsonb), solo se `service = 'delivery'`. */
+        delivery_address?: unknown;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1294,6 +1301,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ⚠️ Niente icona del tavolo (16/10–17/10/2026): piano e due gambe, a
          quella misura, si leggevano «TT» — due lettere davanti al numero del
          tavolo. Basta la parola «Sala» e il numero. */
+      const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
       const ICON_SACCHETTO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
       const ICON_RITARDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`;
       const ICON_REFUND = iconaValuta(valutaDelMotore());
@@ -1396,6 +1404,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           ? `<p class="row"><span class="row-ico">${ICON_PHONE}</span><a href="tel:${esc(o.customer_phone)}" aria-label="${tr("ord.telLabel")}">${esc(o.customer_phone)}</a></p>`
           : "";
         const langBadge = o.lang ? `<span class="badge">${esc(o.lang)}</span>` : "";
+        /* LA CONSEGNA: l'indirizzo sotto il telefono, con il link alla mappa
+           (sul telefono apre l'app). ⚠️ Riga storta o colonna assente → nessun
+           indirizzo, e la card resta quella del ritiro: senza la #84 una
+           consegna non puo' essere stata salvata. */
+        const consegna = aConsegna(o.service) ? indirizzoDaRiga(o.delivery_address) : null;
+        const indirizzoRiga = consegna
+          ? `<p class="row"><span class="row-ico">${ICON_PIN}</span><a href="${esc(linkMappa(consegna))}" target="_blank" rel="noopener">${esc(rigaIndirizzo(consegna))}</a>${consegna.note ? `<span class="row-nota"> · ${esc(consegna.note)}</span>` : ""}</p>`
+          : "";
 
         const itemsHTML = piatti
           .map((i) => {
@@ -1637,6 +1653,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            a mano). `alTavolo` decide, come per il ticket e il semaforo. */
         const nastro = aTavolo
           ? `<div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.room"))}${o.table_label ? ` · ${esc(o.table_label)}` : ""}</span></div>`
+          : consegna
+          ? `<div class="card-nastro card-nastro--consegna">${ICON_PIN}<span>${esc(tr("ord.ribbonDelivery"))}</span></div>`
           : `<div class="card-nastro card-nastro--ritiro">${ICON_SACCHETTO}<span>${esc(tr(o.source === "manual" ? "ord.ribbonPickup" : "ord.ribbonWeb"))}</span></div>`;
         return `
           <div class="card${cardCls}" data-id="${o.id}">
@@ -1652,6 +1670,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <p class="name"><span class="name-ico">${ICON_USER}</span>${esc(o.customer_name)}${langBadge}</p>
               ${email}
               ${phone}
+              ${indirizzoRiga}
               ${stampaBtn}
             </div>
             <div class="items">${itemsHTML}</div>

@@ -44,7 +44,8 @@
  */
 import { accodaTicket } from "./stampaCoda";
 import { aggiorna, leggi, ambitoDiRiga, type Ambito } from "./admin/sede";
-import { alTavolo } from "./ordiniRegole";
+import { alTavolo, aConsegna } from "./ordiniRegole";
+import { indirizzoDaRiga, rigaIndirizzo, linkMappa } from "./consegnaRegole";
 import { opzioniTavolo } from "./ordiniOpzioni";
 import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
@@ -149,7 +150,10 @@ export async function annunciaOrdine(
   // puo' essere nullo su una riga vecchia, `items` e' JSON e non ha forma.
   // Si adatta QUI, in un posto solo, invece di allentare `OrdineNotifica` —
   // che e' il tipo che garantisce a chi scrive un'email di avere un nome.
-  const sala = await salaDellOrdine(String(ordine.id), ordine.location_id ?? null);
+  const [sala, consegna] = await Promise.all([
+    salaDellOrdine(String(ordine.id), ordine.location_id ?? null),
+    consegnaDellOrdine(String(ordine.id), ordine.location_id ?? null),
+  ]);
 
   await inviaNotifiche({
     // La sede la dice la RIGA: e' lei che decide indirizzo, mittente e cucina
@@ -168,6 +172,7 @@ export async function annunciaOrdine(
     lang: ordine.lang ?? "fr",
     da_incassare: daIncassare,
     sala,
+    consegna,
   });
 
   // ⚠️ La sede la dice la RIGA, non la richiesta: senza, un ordine di Stockel
@@ -244,6 +249,34 @@ async function registraCliente(c: {
  * l'ordine pagato non verrebbe confermato. Qui un errore vuol dire soltanto
  * «asporto», che per un locale senza sala e' la verita'.
  */
+/**
+ * L'ordine e' DA CONSEGNARE? E allora dove. `null` = ritiro (o tavolo).
+ *
+ * ⚠️ UNA LETTURA A PARTE, come `salaDellOrdine` e per la stessa ragione:
+ * `delivery_address` arriva con la #84, e su un cliente che non l'ha ancora
+ * lanciata una `select` piu' larga farebbe fallire la conferma di un ordine
+ * pagato. Qui un errore vuol dire soltanto «non e' una consegna» — e senza la
+ * #84 una consegna non puo' neanche essere stata salvata.
+ */
+async function consegnaDellOrdine(
+  id: string,
+  location_id: string | null,
+): Promise<{ indirizzo: string; mappa: string; note: string } | null> {
+  try {
+    const { data, error } = await leggi("orders", ambitoDiRiga(location_id), "service, delivery_address")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return null;
+    const riga = data as { service?: unknown; delivery_address?: unknown };
+    if (!aConsegna(riga.service)) return null;
+    const ind = indirizzoDaRiga(riga.delivery_address);
+    if (!ind) return null;
+    return { indirizzo: rigaIndirizzo(ind), mappa: linkMappa(ind), note: ind.note };
+  } catch {
+    return null;
+  }
+}
+
 async function salaDellOrdine(
   id: string,
   location_id: string | null,

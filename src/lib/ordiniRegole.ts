@@ -66,6 +66,8 @@ export interface OpzioniOrdini {
   tavolo: boolean;
   /** La campanella «Appeler le serveur» sulla pagina del tavolo. */
   chiamata: boolean;
+  /** Si puo' scegliere la consegna a domicilio (accanto al ritiro, che resta). */
+  consegna: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -94,6 +96,10 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      — un cliente che aspetta e non vede arrivare nessuno. Serve anche la
      migrazione #83: accenderlo e' il momento in cui la si controlla. */
   orders_table_call: "0",
+  /* ⚠️ SPENTA di ripiego: la consegna vuol dire qualcuno che esce col
+     sacchetto. Accesa da sola, un ristorante senza fattorino si troverebbe
+     ordini da portare a casa di gente che aspetta. Serve anche la #84. */
+  orders_delivery: "0",
 };
 
 /**
@@ -229,6 +235,10 @@ export function avvisaChePronto(
      cliente che fissa il bancone. Chi invece ha i camerieri resta col
      silenzio di prima. */
   if (alTavolo(servizio) && !avvisaInSala) return false;
+  /* ⚠️ ALLA CONSEGNA NIENTE «VENEZ LA CHERCHER». Il cliente aspetta a casa:
+     dirgli che il piatto e' pronto al banco lo farebbe uscire per niente, e
+     incrociare il fattorino per strada. */
+  if (aConsegna(servizio)) return false;
   const t = new Date(String(pickupIso ?? "")).getTime();
   // ⚠️ Una data illeggibile non e' «adesso»: senza questa riga `NaN` farebbe
   // fallire il confronto e l'email partirebbe sempre, anche a mezzanotte.
@@ -255,7 +265,7 @@ export function ritardoAmmesso(min: unknown): boolean {
    ritardo mentre la gente mangia.
    ========================================================================== */
 
-export type Servizio = "pickup" | "table";
+export type Servizio = "pickup" | "table" | "delivery";
 
 /**
  * Di che servizio e' questo ordine.
@@ -265,7 +275,13 @@ export type Servizio = "pickup" | "table";
  * prima — ticket con l'ora, semaforo dei ritardi, email di ritiro.
  */
 export function servizioDi(valore: unknown): Servizio {
-  return String(valore ?? "") === "table" ? "table" : "pickup";
+  const v = String(valore ?? "");
+  return v === "table" || v === "delivery" ? v : "pickup";
+}
+
+/** Scorciatoia per chi deve solo sapere «va portato a casa?». */
+export function aConsegna(valore: unknown): boolean {
+  return servizioDi(valore) === "delivery";
 }
 
 /** Scorciatoia per chi deve solo sapere «e' uno in sala?». */

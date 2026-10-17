@@ -28,6 +28,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       tavolo: acceso(valori.get("orders_table"), "orders_table"),
       chiamata: acceso(valori.get("orders_table_call"), "orders_table_call"),
       avvisoScelto: String(valori.get("orders_table_notify") ?? ""),
+      consegna: acceso(valori.get("orders_delivery"), "orders_delivery"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
@@ -36,7 +37,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
        muto non deve spegnere gli ordini — da sempre si continua a prenderli —
        ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
        porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
-    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "" };
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false };
   }
 }
 
@@ -64,6 +65,8 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
    *  `online`: ordinare dal tavolo non dipende da Stripe — se il locale
    *  incassa solo al banco, al tavolo paga il cameriere. */
   tavolo: boolean;
+  /** La consegna e' accesa (Réglages). Il ritiro resta sempre possibile. */
+  consegna: boolean;
 }> {
   const [volute, stripePronto] = await Promise.all([
     opzioniOrdini(ambito),
@@ -79,6 +82,7 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
     couponInCassa: volute.coupon && volute.couponInCassa,
     nessuno: !online && !volute.locale,
     tavolo: volute.tavolo,
+    consegna: volute.consegna,
   };
 }
 

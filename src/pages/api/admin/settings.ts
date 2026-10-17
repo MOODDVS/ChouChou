@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 import { cacheDel } from "../../../lib/cache";
+import { scadeOrariRitiro } from "../../../lib/schedule";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -20,6 +21,7 @@ import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
 import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
+import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
 
 export const prerender = false;
 
@@ -207,6 +209,8 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_closed",
     "orders_table_call_wait",
     "orders_table_qr_mode",
+    "orders_slot_source",
+    "orders_future_days",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -272,6 +276,10 @@ export const GET: APIRoute = async ({ request }) => {
     /* I minuti prima di poter richiamare il cameriere: gia' risolti col
        ripiego, come gli interruttori — la pagina non deve sapere che e' 5. */
     chiamata_attesa: attesaChiamata(cfg.get("orders_table_call_wait")),
+    /* Gli orari di ritiro: «hours» (apertura) o «services» (prenotazioni),
+       e fino a quanti giorni in anticipo (0 = solo oggi). Gia' risolti. */
+    ritiro_fonte: fonteOrari(cfg.get("orders_slot_source")),
+    ritiro_giorni: giorniAvanti(cfg.get("orders_future_days")),
     /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
@@ -407,6 +415,10 @@ export const PUT: APIRoute = async ({ request }) => {
     chiamata_attesa?: number;
     /** Il tipo di QR della sala: unico, per sezione, per tavolo. */
     qr_modo?: string;
+    /** Da dove vengono gli orari di ritiro: "hours" o "services". */
+    ritiro_fonte?: string;
+    /** Giorni in anticipo per gli ordini da asporto: 0, 2, 7, 14, 30. */
+    ritiro_giorni?: number;
   };
   try {
     body = await request.json();
@@ -725,6 +737,15 @@ export const PUT: APIRoute = async ({ request }) => {
     if (!vuole("orders_pay_online") && !vuole("orders_pay_onsite")) {
       return json({ error: await msg("err.noPayment") }, 400);
     }
+    /* ⚠️ LA CONSEGNA SI ACCENDE SOLO SE IL DATABASE LA SA SALVARE (#84).
+       Senza la colonna dell'indirizzo il checkout rifiuterebbe ogni ordine con
+       consegna: il ristoratore vedrebbe l'interruttore acceso e nessun ordine
+       arrivare. Accenderlo e' il momento in cui qualcuno legge — lo si dice
+       adesso, non al primo cliente. */
+    if (mappa.get("orders_delivery") === "1") {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_address").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
+    }
     if (ordPulito.length > 0) {
       const err = await scriviConfig(ambitoPut, Object.fromEntries(ordPulito));
       if (err) return json({ error: await msg("err.generalSave") }, 500);
@@ -742,11 +763,26 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
+  // ⚠️ Solo valori dell'elenco, come la campanella: un numero qualunque
+  // aprirebbe gli ordini per l'anno prossimo. Fuori elenco → non si tocca.
+  if (body.ritiro_fonte !== undefined && (FONTI_ORARI as readonly string[]).includes(String(body.ritiro_fonte))) {
+    const err = await scriviConfig(ambitoPut, { orders_slot_source: String(body.ritiro_fonte) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+  if (body.ritiro_giorni !== undefined) {
+    const v = Number(body.ritiro_giorni);
+    if (v === 0 || (GIORNI_AVANTI as readonly number[]).includes(v)) {
+      const err = await scriviConfig(ambitoPut, { orders_future_days: String(v) });
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
+    }
+  }
+
   if (body.qr_modo !== undefined && (MODI_QR as readonly string[]).includes(String(body.qr_modo))) {
     const err = await scriviConfig(ambitoPut, { orders_table_qr_mode: String(body.qr_modo) });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito
+  scadeOrariRitiro(); // fonte e giorni del ritiro: il sito li deve vedere subito
   return json({ ok: true, tavoli_orfani: orfani });
 };

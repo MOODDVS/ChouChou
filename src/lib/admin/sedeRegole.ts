@@ -540,6 +540,7 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // salvando, perche' il PUT manda tutto il modulo insieme.
   orders_pay_online: "sede",
   orders_pay_onsite: "sede",
+  orders_delivery: "sede",
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
   /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo
@@ -551,6 +552,10 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_table_call: "sede",
   orders_table_call_wait: "sede", // minuti prima di poter richiamare
   orders_table_qr_mode: "sede",   // QR unico, per sezione o per tavolo
+  // Orari di ritiro (d'apertura o dai service) e giorni in anticipo: sono
+  // della CUCINA che prepara, cioe' del punto.
+  orders_slot_source: "sede",
+  orders_future_days: "sede",
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",

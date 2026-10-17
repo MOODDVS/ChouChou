@@ -1,0 +1,49 @@
+/* La fila dei giorni del ritiro (Réglages → Commandes → «Commander pour les
+   jours suivants»). ⚠️ Tutto dentro `:where()`, specificita' zero: e' una
+   base neutra che eredita colori e caratteri dal sito; il sito che vuole
+   vestirla scrive `.slotpicker-giorno { … }` e vince senza `!important`. */
+
+:where(.slotpicker-col-giorni) {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+:where(.slotpicker-giorni) {
+  display: flex;
+  gap: 0.5rem;
+  /* Con 14 o 30 giorni la fila scorre di lato invece di andare a capo:
+     su un telefono trenta bottoni impilati spingerebbero gli orari giu'. */
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+:where(.slotpicker-giorno) {
+  flex: 0 0 auto;
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+:where(.slotpicker-giorno:hover) {
+  border-color: currentColor;
+}
+
+/* Il giorno scelto si legge senza conoscere i colori del sito: fondo pieno
+   del colore del testo, testo del colore del fondo. Il sito lo rifa' col suo
+   accento come per `.slotpicker-btn.is-selected`. */
+:where(.slotpicker-giorno.is-selected) {
+  background: var(--accent, currentColor);
+  border-color: var(--accent, currentColor);
+  color: var(--accent-fg, Canvas);
+}

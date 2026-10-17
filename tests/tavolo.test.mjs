@@ -345,7 +345,9 @@ test("da asporto non cambia niente: slot, cognome e telefono restano obbligatori
      quando il cliente non si presenta. */
   assert.match(CK, /if \(!body\.slot \|\| !body\.customer\?\.email\)/);
   assert.match(CK, /body\.customer\.surname \?\? ""\)\.trim\(\) \|\| !String\(body\.customer\.phone/);
-  assert.match(CK, /calcolaSlotGiorno\(ora, config, fuso\)/);
+  // Il giorno del ritiro e' oggi oppure quello scelto (ordini per i giorni
+  // seguenti): gli orari si calcolano su quello, non sempre su adesso.
+  assert.match(CK, /calcolaSlotGiorno\(giornoRitiro, config, fuso\)/);
   assert.match(CK, /Orario di ritiro non pi/,
     "lo slot non si controlla piu': si ordinerebbe per un'ora che non esiste");
 });
@@ -374,7 +376,7 @@ const ORD = nudo("src/pages/admin/orders.astro");
 test("il semaforo dei ritardatari tace al tavolo", () => {
   // La regola e' una sola, condivisa col server: `alTavolo` sta in
   // ordiniRegole.ts, che non importa niente e quindi gira anche nel browser.
-  assert.match(ORD, /import \{ alTavolo \} from "\.\.\/\.\.\/lib\/ordiniRegole"/,
+  assert.match(ORD, /import \{ alTavolo(, aConsegna)? \} from "\.\.\/\.\.\/lib\/ordiniRegole"/,
     "la pagina decide il servizio da sola: due meta' della stessa regola si allontanano");
   assert.match(ORD, /function ncLivelloRitardo\(pickupIso: string, status: string, servizio\?: string \| null\)/);
   assert.match(ORD, /if \(alTavolo\(servizio\)\) return 0;/);
@@ -790,7 +792,7 @@ test("al tavolo niente slot, niente cognome, niente telefono", () => {
   assert.match(OAPP, /\(inSala \|\| telefono\.trim\(\) !== ""\) &&/);
   // E al checkout si manda il servizio al posto dello slot.
   assert.match(OAPP, /\? \{\n\s*service: "table",\n\s*reservation_id: sessione\.reservationId,/);
-  assert.match(OAPP, /: \{ slot \}\),/,
+  assert.match(OAPP, /: \{\n\s*slot,\n\s*\.\.\.\(giorno \? \{ date: giorno \} : \{\}\),/,
     "lo slot si manda sempre: al tavolo diventerebbe un orario di ritiro inventato");
 });
 
@@ -2060,10 +2062,11 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   assert.match(n, /sala\?: \{ tavolo: string; alBanco: boolean \} \| null;/);
   // Cliente: oggetto, titolo, riquadro e messaggio dal tavolo, in 5 lingue.
   assert.equal((n.match(/\n    sala: \{\n      subjectTavolo:/g) ?? []).length, 5, "manca `sala` in qualche lingua");
-  assert.match(n, /const etichettaRiquadro = sala \? \(sala\.alBanco \? ts\.banco : ts\.tavolo\) : t\.pickup;/);
+  // (La consegna si aggiunge in coda: il tavolo resta il primo a decidere.)
+  assert.match(n, /const etichettaRiquadro = sala \? \(sala\.alBanco \? ts\.banco : ts\.tavolo\) : (consegna \? tcc\.etichetta : )?t\.pickup;/);
   assert.match(n, /subject: oggetto,/);
   // Cucina e Slack: in grande il tavolo, non l'ora.
-  assert.match(n, /const testaCucina = sala \? \(sala\.alBanco \? k\.counter : k\.table\) : k\.pickupAt;/);
+  assert.match(n, /const testaCucina = sala \? \(sala\.alBanco \? k\.counter : k\.table\) : (consegna \? kc\.at : )?k\.pickupAt;/);
   assert.match(n, /subject: oggettoCucina,/);
   assert.equal((n.match(/subjTable: \(num: string, tav: string\) =>/g) ?? []).length, 5);
   // «C'est prêt» al banco dice «au comptoir».
@@ -2071,7 +2074,8 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   // Chi annuncia legge il tavolo A PARTE: senza la #82 la select intera
   // fallirebbe, e l'ordine pagato non verrebbe confermato.
   const co = nudo("src/lib/confermaOrdine.ts");
-  assert.match(co, /const sala = await salaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\);/);
+  // (Insieme alla consegna, che si legge a parte per la stessa ragione — #84.)
+  assert.match(co, /salaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\)/);
   assert.match(co, /leggi\("orders", ambito, "service, table_label"\)\.eq\("id", id\)\.maybeSingle\(\);\n\s*if \(error \|\| !data\) return null;/);
   // ⚠️ La lingua com'e': «en o fr» mandava in francese chi ordinava in italiano.
   assert.doesNotMatch(co, /ordine\.lang === "en" \? "en" : "fr"/);

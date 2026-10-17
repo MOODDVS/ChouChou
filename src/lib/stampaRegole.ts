@@ -15,7 +15,8 @@
  * copre quelle tre.
  */
 
-import { inCassa, alTavolo } from "./ordiniRegole";
+import { inCassa, alTavolo, aConsegna, servizioDi } from "./ordiniRegole";
+import { indirizzoDaRiga, rigaIndirizzo } from "./consegnaRegole";
 import { piattiVeri, notaCliente } from "./admin/ordiniConti";
 
 /** Chiavi di STAMPA, per sede. Un gruppo puo' avere la stampante in un punto
@@ -349,6 +350,24 @@ export interface OrdineDaStampare {
    * logo l'ha caricato davvero, nel suo `config/ticket.ts`.
    */
   logo?: boolean;
+  /**
+   * IL GIORNO DEL RITIRO, solo quando NON e' oggi («SAB 24/10»). Assente =
+   * oggi, come tutti gli ordini prima della finestra dei giorni (Réglages →
+   * Commandes → giorni seguenti).
+   * ⚠️ Il ticket esce quando arriva l'ordine, non quando va preparato: un
+   * ordine per sabato si stampa venerdi'. Senza il giorno, «RITIRO 19:30» su
+   * quel foglio vuol dire stasera, e la cucina lo prepara stasera.
+   */
+  giorno?: string | null;
+  /**
+   * DOVE PORTARLA, quando e' una consegna (`servizio = 'delivery'`, #84): la
+   * riga composta («Rue de la Loi 16/3, 1000 Bruxelles»). Assente = ritiro o
+   * tavolo. ⚠️ In fondo al foglio, accanto a nome e telefono: e' il pezzo che
+   * il fattorino strappa e si porta via.
+   */
+  indirizzo?: string | null;
+  /** Per il fattorino: piano, campanello, codice. */
+  notaConsegna?: string | null;
 }
 
 /** Una riga di `orders` per quel poco che serve a stampare. Scritta qui e non
@@ -366,6 +385,8 @@ export interface RigaOrdine {
    *  `restaurant_tables`: il ticket deve dire dov’era seduto il cliente quel
    *  giorno, non come si chiama quel tavolo adesso. */
   table_label?: string | null;
+  /** #84 — l'indirizzo della consegna (jsonb). Assente = non e' una consegna. */
+  delivery_address?: unknown;
   items?: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; notes?: string }[];
 }
 
@@ -392,8 +413,12 @@ export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
        per non far ricadere il ticket su quello da asporto; separati, l’assenza
        del tavolo e’ semplicemente l’assenza del tavolo, e chi disegna il
        ticket sa ancora che la persona e’ in sala. */
-    servizio: alTavolo(o.service) ? "table" : "pickup",
+    servizio: servizioDi(o.service),
     tavolo: alTavolo(o.service) ? String(o.table_label ?? "").trim() || null : null,
+    ...(() => {
+      const ind = aConsegna(o.service) ? indirizzoDaRiga(o.delivery_address) : null;
+      return ind ? { indirizzo: rigaIndirizzo(ind), notaConsegna: ind.note || null } : {};
+    })(),
     cliente: String(o.customer_name ?? "").trim(),
     telefono: String(o.customer_phone ?? "").trim() || null,
     // La nota del cliente sta in una riga finta di `items`: la trova
@@ -455,6 +480,9 @@ export function doveVa(o: Pick<OrdineDaStampare, "tavolo" | "servizio" | "client
   const nome = String(o.cliente ?? "").trim().toUpperCase() || "IN SALA";
   if (o.tavolo) return { breve: `TAVOLO ${o.tavolo}`, grande: `TAVOLO ${o.tavolo}`, inSala: true };
   if (inSala) return { breve: nome, grande: nome, inSala: true };
+  // ⚠️ «CONSEGNA», non «RITIRO»: e' il sacchetto che esce dalla porta, e chi
+  // lo prepara deve saperlo dalla prima riga — non scoprirlo in fondo.
+  if (aConsegna(o.servizio)) return { breve: `CONSEGNA ${o.ora}`, grande: o.ora, inSala: false };
   return { breve: `RITIRO ${o.ora}`, grande: o.ora, inSala: false };
 }
 
@@ -487,6 +515,13 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
     testo: `#${o.numero} · ${dove.breve}`,
     taglia: "largo", grassetto: true, centrato: true, linea: true,
   });
+
+  // ⚠️ UN ALTRO GIORNO, in negativo e in grande: e' l'unica cosa che separa
+  // questo foglio da un ordine di stasera (vedi `giorno`). Al tavolo non
+  // succede: si mangia adesso.
+  if (o.giorno && !dove.inSala) {
+    righe.push({ testo: o.giorno, taglia: "gigante", grassetto: true, centrato: true, inverso: true });
+  }
 
   // ⚠️ «DA INCASSARE» sta in ALTO, non in fondo. Chi prepara passa il
   // sacchetto a chi sta in cassa, e deve sapere prima di consegnarlo che quei
@@ -531,6 +566,9 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   righe.push({ testo: dove.grande, taglia: "gigante", grassetto: true, centrato: true, linea: true });
   righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
   if (o.telefono) righe.push({ testo: o.telefono, taglia: "largo" });
+  // L'indirizzo sotto il telefono: nome, numero e dove, insieme, per chi esce.
+  if (o.indirizzo) righe.push({ testo: o.indirizzo, taglia: "largo", grassetto: true });
+  if (o.indirizzo && o.notaConsegna) righe.push({ testo: o.notaConsegna, taglia: "largo" });
   if (o.note) righe.push({ testo: o.note, taglia: "largo", grassetto: true });
   return righe;
 }

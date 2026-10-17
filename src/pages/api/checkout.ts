@@ -7,7 +7,8 @@ import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno } from "../../lib/slots";
 import { fusoDi } from "../../lib/fuso";
-import { configGiornoEffettiva } from "../../lib/schedule";
+import { configGiornoEffettiva, configRitiro } from "../../lib/schedule";
+import { giornoAmmesso } from "../../lib/slotsApi";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
@@ -17,7 +18,8 @@ import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
 import { modiDiPagamento, opzioniTavolo, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
-import { servizioDi, alTavolo, servizioInCorso } from "../../lib/ordiniRegole";
+import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordiniRegole";
+import { indirizzoDaRichiesta, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
@@ -49,6 +51,9 @@ const SUPPL_LABEL: Record<Supplemento, string> = {
 interface CheckoutRequest {
   items: { id: string; qty: number; supplement?: Supplemento; variant?: string }[];
   slot: string;
+  /** Il GIORNO del ritiro (YYYY-MM-DD), se il cliente ne ha scelto uno che
+   *  non e' oggi. Assente = oggi, come e' sempre stato. */
+  date?: string;
   note?: string;
   coupon?: string;
   /** Come vuole pagare, quando il punto offre entrambe le strade. */
@@ -73,6 +78,9 @@ interface CheckoutRequest {
    *  tavolo di qualcun altro cambiando un id in una richiesta. */
   table_id?: string;
   reservation_id?: string;
+  /** L'indirizzo, quando `service` e' "delivery". Ripulito e ricontrollato
+   *  da `indirizzoDaRichiesta`: dal browser arriva com'e'. */
+  delivery?: unknown;
 }
 
 function isPizza(categoryOrder: number): boolean {
@@ -96,6 +104,17 @@ export const POST: APIRoute = async ({ request }) => {
      non hanno la colonna e restano da asporto, come sono sempre state. */
   const servizio = servizioDi(body.service);
   const aTavolo = alTavolo(servizio);
+  /* LA CONSEGNA e' un ritiro con un indirizzo: stesso slot, stessi dati
+     obbligatori (il telefono serve ancora di piu' — il fattorino davanti al
+     portone), e in piu' dove portarla. ⚠️ Un indirizzo incompleto non
+     diventa un ritiro: il cliente aspetterebbe a casa un sacchetto rimasto
+     sul banco. Si rifiuta, e il modulo glielo fa completare. */
+  const consegna = aConsegna(servizio);
+  let indirizzo: IndirizzoConsegna | null = null;
+  if (consegna) {
+    indirizzo = indirizzoDaRichiesta(body.delivery);
+    if (!indirizzo) return err(400, "Dati mancanti");
+  }
 
   // Il form pubblico (OrderApp) esige nome, cognome, telefono ed email: qui si
   // ricontrolla, perche' l'API e' raggiungibile anche senza passare dal form e
@@ -190,6 +209,12 @@ export const POST: APIRoute = async ({ request }) => {
      asporto non lo guarderebbe nessuno. */
   /* ⚠️ Si legge SOLO per un ordine dal locale: un ordine da asporto non deve
      pagare una lettura in piu' per una sala che non lo riguarda. */
+  /* ⚠️ L'INTERRUTTORE DELLA CONSEGNA VALE ANCHE QUI, come quello della sala:
+     il modulo la propone solo dove e' accesa, ma questa rotta si raggiunge
+     anche senza passare dal modulo. */
+  if (consegna && !modi.consegna) {
+    return err(403, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
+  }
   let sala: OpzioniTavolo | null = null;
   if (aTavolo) {
     sala = await opzioniTavolo(ambitoPub);
@@ -222,7 +247,23 @@ export const POST: APIRoute = async ({ request }) => {
   // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
   // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
   // (calcolato piu' sopra: serve gia' al controllo di chiusura)
-  const config = await configGiornoEffettiva(ora, ambitoPub);
+  /* IL GIORNO DEL RITIRO: oggi, oppure uno dei prossimi giorni se il
+     ristoratore ha aperto gli ordini in anticipo (`orders_future_days`).
+     ⚠️ La finestra si ricontrolla QUI: il sito propone solo i giorni
+     ammessi, ma questa rotta si raggiunge anche senza passare dal sito. */
+  const giornoChiesto = !aTavolo ? String(body.date ?? "").trim() : "";
+  if (giornoChiesto && !(await giornoAmmesso(giornoChiesto, ambitoPub))) {
+    return err(409, "Giorno di ritiro non disponibile");
+  }
+  const giornoRitiro = giornoChiesto
+    ? (() => { const d = DateTime.fromISO(giornoChiesto, { zone: fuso }); return d.hasSame(ora, "day") ? ora : d.startOf("day"); })()
+    : ora;
+
+  /* ⚠️ DUE CONFIG, NON UNA. Da asporto contano gli orari di RITIRO — che
+     possono seguire i service delle prenotazioni (`configRitiro`); al tavolo
+     contano gli orari d'APERTURA: un «Soir» chiuso perche' complet non deve
+     fermare chi e' gia' seduto. */
+  const config = aTavolo ? await configGiornoEffettiva(ora, ambitoPub) : await configRitiro(giornoRitiro, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
   }
@@ -239,7 +280,7 @@ export const POST: APIRoute = async ({ request }) => {
       return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
     }
   } else {
-    const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
+    const { lunch, dinner } = calcolaSlotGiorno(giornoRitiro, config, fuso);
     const slotValidi = [...lunch, ...dinner];
     if (!slotValidi.includes(body.slot)) {
       return err(409, "Orario di ritiro non più disponibile");
@@ -428,7 +469,7 @@ export const POST: APIRoute = async ({ request }) => {
   let pickup = ora;
   if (!aTavolo) {
     const [h, m] = body.slot.split(":").map((n) => parseInt(n, 10));
-    pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+    pickup = giornoRitiro.set({ hour: h, minute: m, second: 0, millisecond: 0 });
   }
 
   /* ⚠️ IL TAVOLO E LA PRENOTAZIONE SI RILEGGONO DAL DATABASE. Dal browser
@@ -498,6 +539,12 @@ export const POST: APIRoute = async ({ request }) => {
           reservation_id: String(body.reservation_id),
         }
       : {}),
+    /* ⚠️ Come il tavolo: SOLO se e' una consegna, e SENZA ripiego. Se la #84
+       manca l'inserimento fallisce e il cliente non paga — meglio di un
+       ordine salvato come ritiro, cioe' un sacchetto sul banco e qualcuno
+       che lo aspetta a casa. (Réglages non lascia accendere la consegna
+       senza la #84: questo e' il secondo cancello.) */
+    ...(consegna && indirizzo ? { service: "delivery", delivery_address: indirizzo } : {}),
     customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname ?? ""}`),
     customer_email: body.customer.email ?? "",
     customer_phone: body.customer.phone ?? "",

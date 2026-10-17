@@ -63,6 +63,24 @@ function oraDi(iso: string | null | undefined, fuso: string): string {
   }
 }
 
+/** Il giorno del ritiro, solo se NON e' oggi (nel fuso del ristorante):
+ *  «SAB 24/10». Oggi = null, e il ticket resta quello di sempre. */
+function giornoDi(iso: string | null | undefined, fuso: string): string | null {
+  if (!iso) return null;
+  try {
+    const quando = new Date(iso);
+    const giorno = (d: Date) => d.toLocaleDateString("sv-SE", { timeZone: fuso });
+    if (giorno(quando) === giorno(new Date())) return null;
+    // ⚠️ In italiano come il resto del ticket del motore («RITIRO», «TAVOLO»),
+    // e senza il punto delle abbreviazioni: la stampante non ne ha bisogno.
+    const sett = quando.toLocaleDateString("it-IT", { weekday: "short", timeZone: fuso }).replace(".", "");
+    const data = quando.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", timeZone: fuso });
+    return `${sett} ${data}`.toUpperCase();
+  } catch {
+    return null;
+  }
+}
+
 export const GET: APIRoute = async ({ params }) => {
   const token = String(params.token ?? "");
   if (!RE_TOKEN.test(token)) return vuoto();
@@ -152,13 +170,18 @@ export const GET: APIRoute = async ({ params }) => {
   const CAMPI = "id, status, payment_method, customer_name, customer_phone, items, pickup_time";
   const leggiOrdine = (campi: string) =>
     leggi("orders", ambito, campi).eq("id", riga.order_id).maybeSingle();
-  let { data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label`);
+  // ⚠️ Tre tentativi, dal piu' largo: #84 (l'indirizzo), poi #82, poi la base.
+  let { data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label, delivery_address`);
+  if (!ordine) ({ data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label`));
   if (!ordine) ({ data: ordine } = await leggiOrdine(CAMPI));
   if (!ordine) return vuoto();
 
   const cfg = await leggiConfig(ambito, ["timezone", "print_printer_id", CHIAVE_DESTINAZIONI]);
-  const ora = oraDi((ordine as { pickup_time?: string }).pickup_time, String(cfg.valori.get("timezone") || "Europe/Brussels"));
+  const fuso = String(cfg.valori.get("timezone") || "Europe/Brussels");
+  const pickupIso = (ordine as { pickup_time?: string }).pickup_time;
+  const ora = oraDi(pickupIso, fuso);
   const dati = ordineDaRiga(ordine as unknown as RigaOrdine, ora);
+  dati.giorno = giornoDi(pickupIso, fuso);
   // L'insegna in testa al ticket: il nome del locale, non un titolo scritto a
   // mano. ⚠️ Il LOGO vero non puo' passare di qui: un'immagine ESC/POS porta
   // byte oltre il 128 e il servizio di stampa legge il corpo COME TESTO —
