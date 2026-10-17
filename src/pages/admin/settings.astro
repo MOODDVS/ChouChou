@@ -711,6 +711,26 @@ const t = adminT(lang);
         border-bottom: 1px solid var(--c-line);
         padding-bottom: 0.9rem;
       }
+      /* I gruppi di «Commandes en ligne». Il titolo e' una piccola etichetta,
+         non un secondo h2: la scheda resta una, divisa in tre. */
+      .ord-gruppo + .ord-gruppo { margin-top: 1.6rem; }
+      .ord-gruppo-titolo {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--c-accent);
+        margin: 0 0 0.4rem;
+      }
+      /* ⚠️ La riga sotto l'ultimo campo VISIBILE di un gruppo, no: se l'ultimo
+         e' una riga nascosta (i giorni a interruttore spento, i coupon in
+         cassa), quello prima diventa l'ultimo e la sua riga resterebbe a
+         penzolare sopra il titolo del gruppo dopo. */
+      .ord-gruppo > .field:last-child,
+      .ord-gruppo > .field:has(+ .field[style*="none"]:last-child) {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
       .lab-hint {
         display: block;
         color: var(--c-muted);
@@ -1458,68 +1478,80 @@ const t = adminT(lang);
               ritiro disponibili fra un minuto. */}
           <div class="section" data-tab="cuisine" style="display:none">
             <h2>{t("set.ord.onlineTitle")}</h2>
-            {/* ⚠️ La durata a destra, come gli interruttori sotto: la
-                domanda a sinistra, la risposta allineata sul bordo. */}
-            <div class="field field--numero">
-              <label for="slot">{t("set.cui.slotDuration")}</label>
-              <input type="number" id="slot" min="5" max="120" step="5" />
-            </div>
-            {/* Da dove vengono gli orari di ritiro: d'apertura o dai service
-                delle prenotazioni (`orders_slot_source`). Due bottoni come i
-                minuti della campanella: si sceglie con un tocco. */}
-            <div class="field">
-              <label>{t("set.ord.slotSource")}<span class="lab-hint">{t("set.ord.slotSourceHint")}</span></label>
-              <div class="prep-btns" id="o-slot-source" role="group" aria-label={t("set.ord.slotSource")}>
-                <button type="button" class="prep-btn" data-fonte="hours" aria-pressed="false"><span class="m">{t("set.ord.slotSourceHours")}</span></button>
-                <button type="button" class="prep-btn" data-fonte="services" aria-pressed="false"><span class="m">{t("set.ord.slotSourceServices")}</span></button>
+            {/* TRE GRUPPI, ognuno col suo titolo: quando e per che giorno, come
+                si paga, la consegna. ⚠️ Solo raggruppati, niente spostato di
+                significato: ogni interruttore resta la stessa chiave di prima. */}
+            <div class="ord-gruppo">
+              <h3 class="ord-gruppo-titolo">{t("set.ord.grpTime")}</h3>
+              {/* ⚠️ La durata a destra, come gli interruttori sotto: la
+                  domanda a sinistra, la risposta allineata sul bordo. */}
+              <div class="field field--numero">
+                <label for="slot">{t("set.cui.slotDuration")}</label>
+                <input type="number" id="slot" min="5" max="120" step="5" />
+              </div>
+              {/* Da dove vengono gli orari di ritiro: d'apertura o dai service
+                  delle prenotazioni (`orders_slot_source`). Due bottoni come i
+                  minuti della campanella: si sceglie con un tocco. */}
+              <div class="field">
+                <label>{t("set.ord.slotSource")}<span class="lab-hint">{t("set.ord.slotSourceHint")}</span></label>
+                <div class="prep-btns" id="o-slot-source" role="group" aria-label={t("set.ord.slotSource")}>
+                  <button type="button" class="prep-btn" data-fonte="hours" aria-pressed="false"><span class="m">{t("set.ord.slotSourceHours")}</span></button>
+                  <button type="button" class="prep-btn" data-fonte="services" aria-pressed="false"><span class="m">{t("set.ord.slotSourceServices")}</span></button>
+                </div>
+              </div>
+              {/* Ordini per i prossimi giorni (`orders_future_days`): spento =
+                  solo oggi, com'e' sempre stato. ⚠️ L'interruttore NON e' una
+                  chiave sua: acceso vuol dire «un numero di giorni», e la
+                  riga sotto dice quale. */}
+              <div class="field">
+                <label>{t("set.ord.futureDays")}<span class="lab-hint">{t("set.ord.futureDaysHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-future" /><span class="track"></span></label>
+              </div>
+              <div class="field" id="o-future-days-row" style="display:none">
+                <label>{t("set.ord.futureDaysMax")}<span class="lab-hint">{t("set.ord.futureDaysMaxHint")}</span></label>
+                <div class="prep-btns" id="o-future-days" role="group" aria-label={t("set.ord.futureDaysMax")}>
+                  {[2, 7, 14, 30].map((g) => (
+                    <button type="button" class="prep-btn" data-giorni={String(g)} aria-pressed="false"><span class="m">{g} {t("set.ord.daysShort")}</span></button>
+                  ))}
+                </div>
               </div>
             </div>
-            {/* Ordini per i prossimi giorni (`orders_future_days`): spento =
-                solo oggi, com'e' sempre stato. ⚠️ L'interruttore NON e' una
-                chiave sua: acceso vuol dire «un numero di giorni», e la
-                riga sotto dice quale. */}
-            <div class="field">
-              <label>{t("set.ord.futureDays")}<span class="lab-hint">{t("set.ord.futureDaysHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-future" /><span class="track"></span></label>
-            </div>
-            <div class="field" id="o-future-days-row" style="display:none">
-              <label>{t("set.ord.futureDaysMax")}<span class="lab-hint">{t("set.ord.futureDaysMaxHint")}</span></label>
-              <div class="prep-btns" id="o-future-days" role="group" aria-label={t("set.ord.futureDaysMax")}>
-                {[2, 7, 14, 30].map((g) => (
-                  <button type="button" class="prep-btn" data-giorni={String(g)} aria-pressed="false"><span class="m">{g} {t("set.ord.daysShort")}</span></button>
-                ))}
+            <div class="ord-gruppo">
+              <h3 class="ord-gruppo-titolo">{t("set.ord.grpPay")}</h3>
+              {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
+                  si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
+                  niente, e il salvataggio lo rifiuta invece di lasciare un
+                  ristorante muto senza che nessun errore lo dica. */}
+              <div class="field">
+                <label>{t("set.ord.payOnline")}<span class="lab-hint">{t("set.ord.payOnlineHint")}</span><span class="lab-hint" id="o-stripe-off" style="display:none">{t("set.ord.stripeOff")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-pay-online" /><span class="track"></span></label>
+              </div>
+              <div class="field">
+                <label>{t("set.ord.payOnsite")}<span class="lab-hint">{t("set.ord.payOnsiteHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-pay-onsite" /><span class="track"></span></label>
+              </div>
+              <div class="field">
+                <label>{t("set.ord.coupons")}<span class="lab-hint">{t("set.ord.couponsHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-coupons" /><span class="track"></span></label>
+              </div>
+              {/* ⚠️ Compare solo quando ha senso: se i coupon sono spenti, o se
+                  non si paga in cassa, questa domanda non vuol dire niente e
+                  sarebbe un interruttore che non fa mai niente. */}
+              <div class="field" id="o-coupons-onsite-row" style="display:none">
+                <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
               </div>
             </div>
-            {/* La consegna (`orders_delivery`): accesa, il cliente sceglie al
-                checkout fra ritiro e consegna e lascia l'indirizzo. ⚠️ Il
-                ritiro resta SEMPRE possibile: questo interruttore aggiunge una
-                strada, non toglie quella di prima. */}
-            <div class="field">
-              <label>{t("set.ord.delivery")}<span class="lab-hint">{t("set.ord.deliveryHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-delivery" /><span class="track"></span></label>
-            </div>
-            {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
-                si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
-                niente, e il salvataggio lo rifiuta invece di lasciare un
-                ristorante muto senza che nessun errore lo dica. */}
-            <div class="field">
-              <label>{t("set.ord.payOnline")}<span class="lab-hint">{t("set.ord.payOnlineHint")}</span><span class="lab-hint" id="o-stripe-off" style="display:none">{t("set.ord.stripeOff")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-pay-online" /><span class="track"></span></label>
-            </div>
-            <div class="field">
-              <label>{t("set.ord.payOnsite")}<span class="lab-hint">{t("set.ord.payOnsiteHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-pay-onsite" /><span class="track"></span></label>
-            </div>
-            <div class="field">
-              <label>{t("set.ord.coupons")}<span class="lab-hint">{t("set.ord.couponsHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-coupons" /><span class="track"></span></label>
-            </div>
-            {/* ⚠️ Compare solo quando ha senso: se i coupon sono spenti, o se
-                non si paga in cassa, questa domanda non vuol dire niente e
-                sarebbe un interruttore che non fa mai niente. */}
-            <div class="field" id="o-coupons-onsite-row" style="display:none">
-              <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
+            <div class="ord-gruppo">
+              <h3 class="ord-gruppo-titolo">{t("set.ord.grpDelivery")}</h3>
+              {/* La consegna (`orders_delivery`): accesa, il cliente sceglie al
+                  checkout fra ritiro e consegna e lascia l'indirizzo. ⚠️ Il
+                  ritiro resta SEMPRE possibile: questo interruttore aggiunge una
+                  strada, non toglie quella di prima. */}
+              <div class="field">
+                <label>{t("set.ord.delivery")}<span class="lab-hint">{t("set.ord.deliveryHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-delivery" /><span class="track"></span></label>
+              </div>
             </div>
           </div>
 
