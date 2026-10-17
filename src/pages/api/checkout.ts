@@ -19,7 +19,7 @@ import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
 import { modiDiPagamento, opzioniTavolo, soglieConsegna, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
 import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordiniRegole";
-import { indirizzoDaRichiesta, mancaAlMinimo, type IndirizzoConsegna } from "../../lib/consegnaRegole";
+import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
@@ -459,8 +459,14 @@ export const POST: APIRoute = async ({ request }) => {
   /* ⚠️ LA SPESA MINIMA DELLA CONSEGNA si ricontrolla QUI, dopo il codice
      promo: il modulo spegne il bottone, ma questa rotta si raggiunge anche
      senza passarci. Sui piatti scontati, che e' quello che entra in cucina. */
+  /* IL COSTO DELLA CONSEGNA, deciso QUI dal server — dal browser non arriva
+     nessun prezzo, nemmeno questo. Gratis sopra la soglia, misurata come il
+     minimo: piatti dopo lo sconto. Si somma al totale e diventa una voce sua
+     su Stripe, cosi' la ricevuta del cliente la mostra separata. */
+  let costoCons = 0;
   if (consegna) {
-    const { minimo } = await soglieConsegna(ambitoPub);
+    const { minimo, gratis, costo } = await soglieConsegna(ambitoPub);
+    costoCons = costoConsegna(totaleIncassato, costo, gratis);
     const manca = mancaAlMinimo(totaleIncassato, minimo);
     if (manca > 0) {
       const eur = (c: number) => (c / 100).toFixed(2).replace(".", ",") + " €";
@@ -472,6 +478,10 @@ export const POST: APIRoute = async ({ request }) => {
         es: `Faltan ${eur(manca)} para la entrega (mínimo ${eur(minimo)}).`,
       };
       return err(409, TXT_MINIMO[lang] ?? TXT_MINIMO.fr);
+    }
+    if (costoCons > 0) {
+      const TXT_VOCE: Record<string, string> = { fr: "Livraison", en: "Delivery", it: "Consegna", nl: "Levering", es: "Entrega" };
+      voci.push({ name: TXT_VOCE[lang] ?? TXT_VOCE.fr, price_cents: costoCons, qty: 1 });
     }
   }
 
@@ -564,11 +574,17 @@ export const POST: APIRoute = async ({ request }) => {
        che lo aspetta a casa. (Réglages non lascia accendere la consegna
        senza la #84: questo e' il secondo cancello.) */
     ...(consegna && indirizzo ? { service: "delivery", delivery_address: indirizzo } : {}),
+    /* La #85, solo se la consegna COSTA: un ordine senza costo inserisce le
+       stesse colonne di prima, e funziona anche dove la #85 non e' passata.
+       Con un costo invece NESSUN ripiego — un totale con dentro 3,50 € che
+       nessuna colonna spiega diventerebbe un «rimborso» alla prima modifica. */
+    ...(costoCons > 0 ? { delivery_fee_cents: costoCons } : {}),
     customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname ?? ""}`),
     customer_email: body.customer.email ?? "",
     customer_phone: body.customer.phone ?? "",
     items: itemsOrdine,
-    total_cents: totaleIncassato,
+    // Il totale INCASSATO: piatti scontati + consegna (0 se non c'e').
+    total_cents: totaleIncassato + costoCons,
     lang,
   };
   if (couponId) {

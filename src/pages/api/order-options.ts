@@ -21,7 +21,7 @@ export const prerender = false;
 export const GET: APIRoute = async ({ request }) => {
   let consegna = false;
   // Le soglie si dicono: sono scritte sul sito («minimum 50 €»), non segreti.
-  let soglie = { minimo: 0, gratis: 0 };
+  let soglie = { minimo: 0, gratis: 0, costo: 0 };
   try {
     const ambito = await ambitoPubblicoChiesto(request);
     consegna = (await opzioniOrdini(ambito)).consegna;
@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ request }) => {
   } catch {
     consegna = false;
   }
-  return new Response(JSON.stringify({ consegna, minimo_cents: soglie.minimo, gratis_cents: soglie.gratis }), {
+  return new Response(JSON.stringify({ consegna, minimo_cents: soglie.minimo, gratis_cents: soglie.gratis, costo_cents: soglie.costo }), {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 };

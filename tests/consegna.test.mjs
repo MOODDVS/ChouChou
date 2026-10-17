@@ -102,7 +102,7 @@ test("il carrello chiede la consegna da solo, non alla pagina del cliente", () =
 
 test("email, Slack, conferma e lista leggono la consegna", () => {
   const n = nudo("src/lib/notifications.ts");
-  assert.match(n, /consegna\?: \{ indirizzo: string; mappa: string; note: string \} \| null;/);
+  assert.match(n, /consegna\?: \{ indirizzo: string; mappa: string; note: string; costo_cents\?: number \} \| null;/);
   assert.equal((n.match(/subject: \(num, ora\) => `/g) ?? []).length, 10, "5 lingue cliente + 5 cucina");
   const co = nudo("src/lib/confermaOrdine.ts");
   assert.match(co, /consegnaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\)/);
@@ -140,10 +140,43 @@ test("quanto manca al minimo", () => {
 test("il minimo vale sui piatti scontati, nel carrello e nel checkout", () => {
   const co = nudo("src/pages/api/checkout.ts");
   // Dopo il codice promo: si misura su `totaleIncassato`.
-  assert.match(co, /if \(consegna\) \{\n\s*const \{ minimo \} = await soglieConsegna\(ambitoPub\);\n\s*const manca = mancaAlMinimo\(totaleIncassato, minimo\);/);
+  assert.match(co, /const \{ minimo, gratis, costo \} = await soglieConsegna\(ambitoPub\);[\s\S]{0,120}const manca = mancaAlMinimo\(totaleIncassato, minimo\);/);
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /const mancaMinimo = aConsegna && soglie\.minimo > 0 \? Math\.max\(0, soglie\.minimo - totaleFinale\) : 0;/);
   assert.match(app, /mancaMinimo === 0 &&/);
   // Il PUT rifiuta un importo illeggibile invece di azzerarlo.
   assert.match(nudo("src/pages/api/admin/settings.ts"), /if \(c === null\) return json\(\{ error: await msg\("err\.deliveryAmount"\) \}, 400\);/);
+});
+
+/* ───────── Punto 7: il costo della consegna ───────── */
+import { costoConsegna } from "../src/lib/consegnaRegole.ts";
+
+test("il costo: quello del ristoratore, gratis sopra la soglia", () => {
+  assert.equal(costoConsegna(3000, 350, 0), 350);
+  assert.equal(costoConsegna(3000, 350, 10000), 350);
+  assert.equal(costoConsegna(10000, 350, 10000), 0, "alla soglia esatta e' gia' gratis");
+  assert.equal(costoConsegna(12000, 350, 10000), 0);
+  assert.equal(costoConsegna(3000, 0, 10000), 0, "nessun costo, nessuna soglia da guardare");
+});
+
+test("il server decide il costo, lo somma al totale e lo salva a parte", () => {
+  const co = nudo("src/pages/api/checkout.ts");
+  assert.match(co, /costoCons = costoConsegna\(totaleIncassato, costo, gratis\);/);
+  assert.match(co, /total_cents: totaleIncassato \+ costoCons,/);
+  assert.match(co, /\.\.\.\(costoCons > 0 \? \{ delivery_fee_cents: costoCons \} : \{\}\),/);
+  // Una voce sua su Stripe: la ricevuta la mostra separata.
+  assert.match(co, /voci\.push\(\{ name: TXT_VOCE\[lang\] \?\? TXT_VOCE\.fr, price_cents: costoCons, qty: 1 \}\);/);
+  // Il carrello mostra lo stesso numero con la stessa regola.
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /const costoCons = aConsegna \? costoConsegna\(totaleFinale, soglie\.costo, soglie\.gratis\) : 0;/);
+});
+
+test("modificare un ordine non toglie la consegna dal totale", () => {
+  const ord = nudo("src/pages/api/admin/orders.ts");
+  assert.match(ord, /const totale = itemsOrdine\.reduce\(\(t, i\) => t \+ i\.price_cents \* i\.qty, 0\) \+ costoConsegna;/);
+});
+
+test("Réglages non mette un costo senza la #85", () => {
+  const st = nudo("src/pages/api/admin/settings.ts");
+  assert.match(st, /campo === "consegna_costo" && c > 0[\s\S]{0,160}"delivery_fee_cents"[\s\S]{0,120}err\.deliveryMigration/);
 });

@@ -214,6 +214,7 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_future_days",
     "orders_delivery_min_cents",
     "orders_delivery_free_cents",
+    "orders_delivery_fee_cents",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -287,6 +288,7 @@ export const GET: APIRoute = async ({ request }) => {
        scrive in euro: la conversione e' una sola, qui e nel PUT. */
     consegna_minimo_cents: sogliaCents(cfg.get("orders_delivery_min_cents")),
     consegna_gratis_cents: sogliaCents(cfg.get("orders_delivery_free_cents")),
+    consegna_costo_cents: sogliaCents(cfg.get("orders_delivery_fee_cents")),
     /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
@@ -429,6 +431,7 @@ export const PUT: APIRoute = async ({ request }) => {
     /** Soglie della consegna, IN EURO come le scrive il ristoratore. */
     consegna_minimo?: string;
     consegna_gratis?: string;
+    consegna_costo?: string;
   };
   try {
     body = await request.json();
@@ -792,12 +795,20 @@ export const PUT: APIRoute = async ({ request }) => {
      a lettere diventerebbe «nessun minimo», e il ristoratore lo scoprirebbe
      al primo ordine da 8 € da portare dall'altra parte della citta'. */
   for (const [campo, chiave] of [
+    ["consegna_costo", "orders_delivery_fee_cents"],
     ["consegna_minimo", "orders_delivery_min_cents"],
     ["consegna_gratis", "orders_delivery_free_cents"],
   ] as const) {
     if (body[campo] === undefined) continue;
     const c = euroInCents(body[campo]);
     if (c === null) return json({ error: await msg("err.deliveryAmount") }, 400);
+    /* ⚠️ UN COSTO SOLO SE IL DATABASE LO SA SCRIVERE (#85). Senza la colonna
+       il checkout non salverebbe nessuna consegna a pagamento: meglio dirlo
+       adesso, a chi sta scrivendo la cifra. */
+    if (campo === "consegna_costo" && c > 0) {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_fee_cents").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
+    }
     const err = await scriviConfig(ambitoPut, { [chiave]: String(c) });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }

@@ -261,17 +261,26 @@ async function registraCliente(c: {
 async function consegnaDellOrdine(
   id: string,
   location_id: string | null,
-): Promise<{ indirizzo: string; mappa: string; note: string } | null> {
+): Promise<{ indirizzo: string; mappa: string; note: string; costo_cents: number } | null> {
   try {
-    const { data, error } = await leggi("orders", ambitoDiRiga(location_id), "service, delivery_address")
+    const ambito = ambitoDiRiga(location_id);
+    // ⚠️ Il costo (#85) in un tentativo a parte: senza la colonna l'ordine
+    // resta una consegna, solo senza la riga del costo nelle email.
+    let { data, error } = await leggi("orders", ambito, "service, delivery_address, delivery_fee_cents")
       .eq("id", id)
       .maybeSingle();
+    if (error) ({ data, error } = await leggi("orders", ambito, "service, delivery_address").eq("id", id).maybeSingle());
     if (error || !data) return null;
-    const riga = data as { service?: unknown; delivery_address?: unknown };
+    const riga = data as { service?: unknown; delivery_address?: unknown; delivery_fee_cents?: unknown };
     if (!aConsegna(riga.service)) return null;
     const ind = indirizzoDaRiga(riga.delivery_address);
     if (!ind) return null;
-    return { indirizzo: rigaIndirizzo(ind), mappa: linkMappa(ind), note: ind.note };
+    return {
+      indirizzo: rigaIndirizzo(ind),
+      mappa: linkMappa(ind),
+      note: ind.note,
+      costo_cents: Math.max(0, Math.round(Number(riga.delivery_fee_cents ?? 0)) || 0),
+    };
   } catch {
     return null;
   }

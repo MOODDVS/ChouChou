@@ -4,6 +4,7 @@ import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 import { urlConSede } from "../lib/sedeUrl";
+import { costoConsegna } from "../lib/consegnaRegole";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
  *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
@@ -170,12 +171,17 @@ const TXT_CONSEGNA: Record<string, {
   /** «Minimum 50,00 € pour la livraison», e quanto manca. */
   minimo: (m: string) => string;
   manca: (x: string) => string;
+  /** La riga del totale, «Livraison offerte», e la soglia della gratuita'. */
+  costo: string;
+  offerta: string;
+  gratisDa: (g: string) => string;
+  gratisManca: (x: string) => string;
 }> = {
-  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison", minimo: (m) => `Livraison à partir de ${m} de commande`, manca: (x) => `Il manque ${x}.` },
-  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery", minimo: (m) => `Delivery from ${m} per order`, manca: (x) => `${x} to go.` },
-  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.` },
-  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.` },
-  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.` },
+  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison", minimo: (m) => `Livraison à partir de ${m} de commande`, manca: (x) => `Il manque ${x}.`, costo: "Livraison", offerta: "Offerte", gratisDa: (g) => `Livraison offerte dès ${g} de commande`, gratisManca: (x) => `encore ${x}` },
+  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery", minimo: (m) => `Delivery from ${m} per order`, manca: (x) => `${x} to go.`, costo: "Delivery", offerta: "Free", gratisDa: (g) => `Free delivery from ${g} per order`, gratisManca: (x) => `${x} to go` },
+  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.`, costo: "Consegna", offerta: "Gratis", gratisDa: (g) => `Consegna gratuita da ${g} di ordine`, gratisManca: (x) => `mancano ${x}` },
+  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.`, costo: "Levering", offerta: "Gratis", gratisDa: (g) => `Gratis levering vanaf ${g} per bestelling`, gratisManca: (x) => `nog ${x}` },
+  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.`, costo: "Entrega", offerta: "Gratis", gratisDa: (g) => `Entrega gratuita desde ${g} de pedido`, gratisManca: (x) => `faltan ${x}` },
 };
 
 interface OrderAppProps {
@@ -474,10 +480,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      Spenta di ripiego — e finche' la risposta non arriva — cosi' il checkout
      e' quello di sempre. ⚠️ Al tavolo non si chiede neanche: si mangia li'. */
   const [consegnaPossibile, setConsegnaPossibile] = useState(false);
-  /* Le soglie della consegna (centesimi, 0 = nessuna). `gratis` aspetta il
-     costo di consegna: finche' la consegna non costa niente non si scrive
-     «gratuite à partir de», che farebbe credere il contrario. */
-  const [soglie, setSoglie] = useState({ minimo: 0, gratis: 0 });
+  /* Le soglie e il costo della consegna (centesimi, 0 = nessuno). ⚠️ Il
+     costo qui serve solo a MOSTRARLO: quello che si paga lo decide il server,
+     che lo ricalcola con la stessa regola (`costoConsegna`). */
+  const [soglie, setSoglie] = useState({ minimo: 0, gratis: 0, costo: 0 });
   const [modoServizio, setModoServizio] = useState<"ritiro" | "consegna">("ritiro");
   const vuotoIndirizzo = { via: "", numero: "", box: "", cap: "", comune: "", note: "" };
   const [indirizzo, setIndirizzo] = useState(salvato.indirizzo ?? vuotoIndirizzo);
@@ -488,10 +494,14 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     let vivo = true;
     fetch(conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number } | null) => {
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number } | null) => {
         if (!vivo) return;
         setConsegnaPossibile(d?.consegna === true);
-        setSoglie({ minimo: Math.max(0, Number(d?.minimo_cents) || 0), gratis: Math.max(0, Number(d?.gratis_cents) || 0) });
+        setSoglie({
+          minimo: Math.max(0, Number(d?.minimo_cents) || 0),
+          gratis: Math.max(0, Number(d?.gratis_cents) || 0),
+          costo: Math.max(0, Number(d?.costo_cents) || 0),
+        });
       })
       .catch(() => {
         // Senza risposta: niente consegna, il ritiro di sempre.
@@ -829,6 +839,15 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      misura il server (`mancaAlMinimo`): se il carrello dicesse «ok» e il
      server «manca», il cliente scoprirebbe il minimo dopo aver compilato tutto. */
   const mancaMinimo = aConsegna && soglie.minimo > 0 ? Math.max(0, soglie.minimo - totaleFinale) : 0;
+  /* Il costo della consegna per QUESTO carrello, e il totale da pagare. Stessa
+     regola del server (`costoConsegna`): gratis quando i piatti scontati
+     arrivano alla soglia. */
+  const costoCons = aConsegna ? costoConsegna(totaleFinale, soglie.costo, soglie.gratis) : 0;
+  const totaleDaPagare = totaleFinale + costoCons;
+  // La riga «Livraison» nel totale c'e' solo se la consegna ha un prezzo:
+  // dove e' sempre gratis, una riga «Offerte» sarebbe rumore.
+  const rigaConsegna = aConsegna && soglie.costo > 0;
+  const mancaGratis = rigaConsegna && soglie.gratis > 0 ? Math.max(0, soglie.gratis - totaleFinale) : 0;
 
   // Se il carrello cambia dopo aver applicato un coupon, l'importo dello sconto
   // potrebbe non essere più corretto: si annulla e il cliente lo riapplica.
@@ -1243,7 +1262,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 {totaleSottoLeNote && (
                   <div className="order-cart-total order-recap-totale">
                     <span>{t.total} ({numArticoli} {t.items})</span>
-                    <strong>{euro(scontoCents > 0 ? totaleFinale : totale)}</strong>
+                    <strong>{euro(scontoCents > 0 || rigaConsegna ? totaleDaPagare : totale)}</strong>
                   </div>
                 )}
               </>
@@ -1293,6 +1312,14 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                   <p className="order-consegna-minimo" role={mancaMinimo > 0 ? "alert" : undefined}>
                     {tc.minimo(euro(soglie.minimo))}
                     {mancaMinimo > 0 ? ` — ${tc.manca(euro(mancaMinimo))}` : ""}
+                  </p>
+                )}
+                {/* La soglia della gratuita': solo se la consegna costa, e
+                    finche' non e' raggiunta (raggiunta, lo dice il totale).
+                    Classe da vestire: `order-consegna-gratis`. */}
+                {rigaConsegna && mancaGratis > 0 && (
+                  <p className="order-consegna-gratis">
+                    {tc.gratisDa(euro(soglie.gratis))} — {tc.gratisManca(euro(mancaGratis))}
                   </p>
                 )}
                 {aConsegna && (
@@ -1436,19 +1463,31 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 <a href={t.privacyHref} target="_blank" rel="noopener">{t.consentLink}</a>
               </span>
             </label>
-            {scontoCents > 0 ? (
+            {scontoCents > 0 || rigaConsegna ? (
               <>
                 <div className="order-cart-subtotal">
                   <span>{t.subtotal}</span>
                   <span>{euro(totale)}</span>
                 </div>
-                <div className="order-cart-discount">
-                  <span>{t.discount} ({couponApplicato?.code})</span>
-                  <span>−{euro(scontoCents)}</span>
-                </div>
+                {scontoCents > 0 && (
+                  <div className="order-cart-discount">
+                    <span>{t.discount} ({couponApplicato?.code})</span>
+                    <span>−{euro(scontoCents)}</span>
+                  </div>
+                )}
+                {/* ⚠️ La consegna come riga a parte, con la classe del
+                    subtotale (cosi' ogni sito la veste gia') piu' la sua,
+                    `order-cart-livraison`. «Offerte» quando la soglia e'
+                    raggiunta: il cliente deve VEDERE il regalo. */}
+                {rigaConsegna && (
+                  <div className="order-cart-subtotal order-cart-livraison">
+                    <span>{tc.costo}</span>
+                    <span>{costoCons > 0 ? euro(costoCons) : tc.offerta}</span>
+                  </div>
+                )}
                 <div className="order-cart-total">
                   <span>{t.total} ({numArticoli} {t.items})</span>
-                  <strong>{euro(totaleFinale)}</strong>
+                  <strong>{euro(totaleDaPagare)}</strong>
                 </div>
               </>
             ) : (

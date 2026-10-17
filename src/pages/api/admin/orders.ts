@@ -259,7 +259,10 @@ export const GET: APIRoute = async ({ request, url }) => {
      ripiega sulla #82 e la lista resta quella di ieri — che senza la #84 e'
      anche la verita': nessuna consegna puo' essere stata salvata. */
   const EXTRA_84 = ", delivery_address";
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
+  // #85 (il costo della consegna): ancora un passo davanti, stesso ripiego.
+  const EXTRA_85 = ", delivery_fee_cents";
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE);
@@ -900,7 +903,17 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   const noteText = String(body.note ?? "").trim().slice(0, 500);
   if (noteText) itemsOrdine.push({ id: "note", name: "NOTE CLIENT", qty: 0, price_cents: 0, notes: noteText });
-  const totale = itemsOrdine.reduce((t, i) => t + i.price_cents * i.qty, 0);
+  /* ⚠️ IL COSTO DELLA CONSEGNA RESTA NEL TOTALE. `items` si ricostruisce dai
+     piatti scelti, e la consegna non e' un piatto: senza questa riga il totale
+     scenderebbe di 3,50 € e il pannello proporrebbe di RIMBORSARE una
+     consegna che c'e' ancora. Lettura a parte (#85): colonna assente → 0, che
+     senza la #85 e' anche la verita'. */
+  let costoConsegna = 0;
+  {
+    const r = await leggi("orders", ambito, "delivery_fee_cents").eq("id", id).maybeSingle();
+    if (!r.error) costoConsegna = Math.max(0, Math.round(Number((r.data as { delivery_fee_cents?: unknown } | null)?.delivery_fee_cents ?? 0)) || 0);
+  }
+  const totale = itemsOrdine.reduce((t, i) => t + i.price_cents * i.qty, 0) + costoConsegna;
 
   const [h, m] = slot.split(":").map((n) => parseInt(n, 10));
   const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });

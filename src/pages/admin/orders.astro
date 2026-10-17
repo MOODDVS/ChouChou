@@ -1242,6 +1242,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         reservation_id?: string | null;
         /** #84 — dove portarla (jsonb), solo se `service = 'delivery'`. */
         delivery_address?: unknown;
+        /** #85 — quanto e' costata la consegna (gia' dentro `total_cents`). */
+        delivery_fee_cents?: number | null;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1410,7 +1412,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            consegna non puo' essere stata salvata. */
         const consegna = aConsegna(o.service) ? indirizzoDaRiga(o.delivery_address) : null;
         const indirizzoRiga = consegna
-          ? `<p class="row"><span class="row-ico">${ICON_PIN}</span><a href="${esc(linkMappa(consegna))}" target="_blank" rel="noopener">${esc(rigaIndirizzo(consegna))}</a>${consegna.note ? `<span class="row-nota"> · ${esc(consegna.note)}</span>` : ""}</p>`
+          ? `<p class="row"><span class="row-ico">${ICON_PIN}</span><a href="${esc(linkMappa(consegna))}" target="_blank" rel="noopener">${esc(rigaIndirizzo(consegna))}</a>${consegna.note ? `<span class="row-nota"> · ${esc(consegna.note)}</span>` : ""}</p>` +
+            // Il costo: e' gia' nel totale in alto, qui si dice QUANTO di
+            // quel totale e' consegna (chi incassa al banco lo vuole sapere).
+            (Number(o.delivery_fee_cents ?? 0) > 0
+              ? `<p class="row row-nota">${esc(tr("ord.deliveryFee"))} · ${euro(Number(o.delivery_fee_cents))}</p>`
+              : "")
           : "";
 
         const itemsHTML = piatti

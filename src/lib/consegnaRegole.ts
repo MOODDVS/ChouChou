@@ -89,8 +89,8 @@ export function linkMappa(ind: IndirizzoConsegna): string {
  *
  * Due importi del ristoratore, in centesimi, chiavi di sede:
  *   `orders_delivery_min_cents`   sotto questa cifra non si consegna;
- *   `orders_delivery_free_cents`  da questa cifra la consegna e' gratis
- *                                 (vale quando esistera' il costo di consegna).
+ *   `orders_delivery_free_cents`  da questa cifra la consegna e' gratis;
+ *   `orders_delivery_fee_cents`   quanto costa la consegna (migrazione #85).
  * 0 o vuoto = nessuna soglia, cioe' il comportamento di oggi.
  *
  * ⚠️ SI CONFRONTANO CON I PIATTI DOPO LO SCONTO, senza costo di consegna ne'
@@ -125,4 +125,17 @@ export function euroInCents(v: unknown): number | null {
 /** Quanto manca al minimo per la consegna. 0 = si puo' consegnare. */
 export function mancaAlMinimo(piattiCents: number, minimoCents: number): number {
   return minimoCents > 0 ? Math.max(0, minimoCents - Math.max(0, Math.round(piattiCents))) : 0;
+}
+
+/**
+ * IL COSTO DELLA CONSEGNA per questo carrello: quello del ristoratore, oppure
+ * 0 se i piatti (dopo lo sconto) raggiungono la soglia «gratuite dès».
+ * ⚠️ Stessa misura del minimo: piatti scontati, senza mancia. Se il carrello
+ * e il server misurassero due cose diverse, il cliente vedrebbe «offerte» e
+ * pagherebbe la consegna.
+ */
+export function costoConsegna(piattiCents: number, costoCents: number, gratisCents: number): number {
+  if (costoCents <= 0) return 0;
+  if (gratisCents > 0 && Math.round(piattiCents) >= gratisCents) return 0;
+  return costoCents;
 }

@@ -175,15 +175,18 @@ export async function tavoliDiSala(ambito: Ambito): Promise<TavoloDiSala[]> {
 /** Le soglie della consegna di questo punto, in centesimi (0 = nessuna).
  *  Lettura muta → nessuna soglia: meglio una consegna sotto il minimo che
  *  nessuna consegna per un database che non risponde. */
-export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; gratis: number }> {
+export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; gratis: number; costo: number }> {
   try {
-    const { valori } = await leggiConfig(ambito, ["orders_delivery_min_cents", "orders_delivery_free_cents"]);
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_min_cents", "orders_delivery_free_cents", "orders_delivery_fee_cents"]);
     return {
       minimo: sogliaCents(valori.get("orders_delivery_min_cents")),
       gratis: sogliaCents(valori.get("orders_delivery_free_cents")),
+      // ⚠️ Anche il costo: lettura muta → gratis. Meglio una consegna regalata
+      // una volta che un carrello che non sa quanto chiedere.
+      costo: sogliaCents(valori.get("orders_delivery_fee_cents")),
     };
   } catch {
-    return { minimo: 0, gratis: 0 };
+    return { minimo: 0, gratis: 0, costo: 0 };
   }
 }
 

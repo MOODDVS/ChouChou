@@ -693,7 +693,7 @@ const t = adminT(lang);
       .field.field--soglie { align-items: flex-start; flex-wrap: nowrap; }
       .field.field--soglie > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .soglie { display: flex; gap: 0.75rem; margin-left: auto; flex: 0 0 auto; }
-      .soglia { display: flex; flex-direction: column; align-items: stretch; width: 6.5rem; }
+      .soglia { display: flex; flex-direction: column; align-items: stretch; width: 5.5rem; }
       .soglia input { width: 100%; text-align: right; }
       .soglia-lab { margin-top: 0.3rem; font-size: 0.72rem; line-height: 1.3; color: var(--c-muted); text-align: right; }
       @media (max-width: 640px) {
@@ -1574,6 +1574,10 @@ const t = adminT(lang);
               <div class="field field--soglie o-delivery-row" style="display:none">
                 <label>{t("set.ord.deliveryAmounts")}<span class="lab-hint">{t("set.ord.deliveryAmountsHint")}</span></label>
                 <div class="soglie">
+                  <div class="soglia">
+                    <input type="text" inputmode="decimal" id="o-delivery-fee" placeholder="0" aria-label={t("set.ord.deliveryFee")} />
+                    <span class="soglia-lab">{t("set.ord.deliveryFee")}</span>
+                  </div>
                   <div class="soglia">
                     <input type="text" inputmode="decimal" id="o-delivery-min" placeholder="0" aria-label={t("set.ord.deliveryMin")} />
                     <span class="soglia-lab">{t("set.ord.deliveryMin")}</span>
@@ -4033,7 +4037,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4237,6 +4241,8 @@ const t = adminT(lang);
         };
         const campoMin = document.getElementById("o-delivery-min") as HTMLInputElement | null;
         const campoGratis = document.getElementById("o-delivery-free") as HTMLInputElement | null;
+        const campoCosto = document.getElementById("o-delivery-fee") as HTMLInputElement | null;
+        if (campoCosto) campoCosto.value = inEuro(dati.consegna_costo_cents);
         if (campoMin) campoMin.value = inEuro(dati.consegna_minimo_cents);
         if (campoGratis) campoGratis.value = inEuro(dati.consegna_gratis_cents);
         const swConsegna = document.getElementById("o-delivery") as HTMLInputElement | null;
@@ -4248,6 +4254,7 @@ const t = adminT(lang);
         aggiornaRigheConsegna();
         swConsegna?.addEventListener("change", aggiornaRigheConsegna);
         campoMin?.addEventListener("input", dirty);
+        campoCosto?.addEventListener("input", dirty);
         campoGratis?.addEventListener("input", dirty);
         // L'attesa della campanella: un bottone acceso fra quattro.
         const bottoniAttesa = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn"));
@@ -4818,6 +4825,7 @@ const t = adminT(lang);
                   : 0,
                 slot_duration_minutes: Number(slotEl.value),
                 // In euro come scritti: la conversione (e il rifiuto) la fa il server.
+                consegna_costo: (document.getElementById("o-delivery-fee") as HTMLInputElement | null)?.value ?? "",
                 consegna_minimo: (document.getElementById("o-delivery-min") as HTMLInputElement | null)?.value ?? "",
                 consegna_gratis: (document.getElementById("o-delivery-free") as HTMLInputElement | null)?.value ?? "",
                 kitchen_email: emailsCucina(),

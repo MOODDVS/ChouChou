@@ -543,6 +543,7 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_delivery: "sede",
   orders_delivery_min_cents: "sede",  // spesa minima per la consegna
   orders_delivery_free_cents: "sede", // consegna gratis da questa cifra
+  orders_delivery_fee_cents: "sede",  // quanto costa la consegna
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
   /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo

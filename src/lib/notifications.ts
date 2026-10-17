@@ -166,25 +166,42 @@ export interface OrdineNotifica {
    *   mappa      il link che la apre su una mappa
    *   note       per il fattorino (piano, campanello), puo' essere vuota
    */
-  consegna?: { indirizzo: string; mappa: string; note: string } | null;
+  consegna?: { indirizzo: string; mappa: string; note: string; costo_cents?: number } | null;
 }
 
 /* I testi della CONSEGNA, a parte e non dentro `TXT`/`K_TXT`: sono le stesse
    cinque lingue, ma una consegna e' un ritiro con un indirizzo — cambiano tre
    parole, non l'email. */
-const TXT_CONSEGNA_CLIENTE: Record<string, { subject: (num: string, ora: string) => string; etichetta: string; dove: string; paga: string }> = {
-  fr: { subject: (num, ora) => `Commande #${num} confirmée — livraison vers ${ora}`, etichetta: "Livraison prévue vers", dove: "Adresse de livraison", paga: "À régler à la livraison" },
-  en: { subject: (num, ora) => `Order #${num} confirmed — delivery around ${ora}`, etichetta: "Delivery around", dove: "Delivery address", paga: "To pay on delivery" },
-  it: { subject: (num, ora) => `Ordine #${num} confermato — consegna verso le ${ora}`, etichetta: "Consegna prevista verso le", dove: "Indirizzo di consegna", paga: "Da pagare alla consegna" },
-  nl: { subject: (num, ora) => `Bestelling #${num} bevestigd — levering rond ${ora}`, etichetta: "Levering rond", dove: "Leveradres", paga: "Te betalen bij levering" },
-  es: { subject: (num, ora) => `Pedido #${num} confirmado — entrega hacia las ${ora}`, etichetta: "Entrega prevista hacia las", dove: "Dirección de entrega", paga: "A pagar en la entrega" },
+const TXT_CONSEGNA_CLIENTE: Record<string, { subject: (num: string, ora: string) => string; etichetta: string; dove: string; paga: string; costo: string }> = {
+  fr: { subject: (num, ora) => `Commande #${num} confirmée — livraison vers ${ora}`, etichetta: "Livraison prévue vers", dove: "Adresse de livraison", paga: "À régler à la livraison", costo: "Livraison" },
+  en: { subject: (num, ora) => `Order #${num} confirmed — delivery around ${ora}`, etichetta: "Delivery around", dove: "Delivery address", paga: "To pay on delivery", costo: "Delivery" },
+  it: { subject: (num, ora) => `Ordine #${num} confermato — consegna verso le ${ora}`, etichetta: "Consegna prevista verso le", dove: "Indirizzo di consegna", paga: "Da pagare alla consegna", costo: "Consegna" },
+  nl: { subject: (num, ora) => `Bestelling #${num} bevestigd — levering rond ${ora}`, etichetta: "Levering rond", dove: "Leveradres", paga: "Te betalen bij levering", costo: "Levering" },
+  es: { subject: (num, ora) => `Pedido #${num} confirmado — entrega hacia las ${ora}`, etichetta: "Entrega prevista hacia las", dove: "Dirección de entrega", paga: "A pagar en la entrega", costo: "Entrega" },
 };
-const K_CONSEGNA: Record<string, { at: string; subject: (num: string, ora: string) => string; mappa: string }> = {
-  fr: { at: "Livraison à", subject: (num, ora) => `Nouvelle commande #${num} — LIVRAISON ${ora}`, mappa: "Ouvrir le plan" },
-  en: { at: "Delivery at", subject: (num, ora) => `New order #${num} — DELIVERY ${ora}`, mappa: "Open map" },
-  it: { at: "Consegna alle", subject: (num, ora) => `Nuovo ordine #${num} — CONSEGNA ${ora}`, mappa: "Apri la mappa" },
-  nl: { at: "Levering om", subject: (num, ora) => `Nieuwe bestelling #${num} — LEVERING ${ora}`, mappa: "Kaart openen" },
-  es: { at: "Entrega a las", subject: (num, ora) => `Nuevo pedido #${num} — ENTREGA ${ora}`, mappa: "Abrir el mapa" },
+
+/** La riga «Livraison 3,50 €» sopra il totale, per le email. Vuota se la
+ *  consegna non e' costata niente: il totale e' gia' quello giusto, e una
+ *  riga «0,00 €» sembrerebbe un errore. */
+function rigaCostoConsegna(
+  consegna: OrdineNotifica["consegna"],
+  etichetta: string,
+  tema: { text: string; title: string; border: string },
+  pad: string,
+): string {
+  const c = Math.round(Number(consegna?.costo_cents ?? 0));
+  if (!consegna || !(c > 0)) return "";
+  return `<tr>
+              <td style="padding:${pad};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${etichetta}</td>
+              <td style="padding:${pad};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(c)}</td>
+            </tr>`;
+}
+const K_CONSEGNA: Record<string, { at: string; subject: (num: string, ora: string) => string; mappa: string; costo: string }> = {
+  fr: { at: "Livraison à", subject: (num, ora) => `Nouvelle commande #${num} — LIVRAISON ${ora}`, mappa: "Ouvrir le plan", costo: "Livraison" },
+  en: { at: "Delivery at", subject: (num, ora) => `New order #${num} — DELIVERY ${ora}`, mappa: "Open map", costo: "Delivery" },
+  it: { at: "Consegna alle", subject: (num, ora) => `Nuovo ordine #${num} — CONSEGNA ${ora}`, mappa: "Apri la mappa", costo: "Consegna" },
+  nl: { at: "Levering om", subject: (num, ora) => `Nieuwe bestelling #${num} — LEVERING ${ora}`, mappa: "Kaart openen", costo: "Levering" },
+  es: { at: "Entrega a las", subject: (num, ora) => `Nuevo pedido #${num} — ENTREGA ${ora}`, mappa: "Abrir el mapa", costo: "Entrega" },
 };
 
 function euro(cents: number): string {
@@ -951,6 +968,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             ${righeHtml}
             ${noteHtml}
+            ${rigaCostoConsegna(consegna, tcc.costo, tema, "12px 24px 0")}
             <tr>
               <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? (sala ? ts.payOnSite : consegna ? tcc.paga : t.payAtPickup) : t.total}</td>
               <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
@@ -1468,7 +1486,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       ${noteHtml}
       <tr>
         <td class="em-pad" style="padding:16px 32px 26px;">
-          <table role="presentation" width="100%"><tr>
+          <table role="presentation" width="100%">${rigaCostoConsegna(consegna, kc.costo, tema, "0 0 8px")}<tr>
             <td style="color:${tema.title};font-size:22px;font-weight:bold;">${k.total}</td>
             <td style="color:${tema.accent};font-size:22px;font-weight:bold;text-align:right;">${euro(o.total_cents)}</td>
           </tr></table>
