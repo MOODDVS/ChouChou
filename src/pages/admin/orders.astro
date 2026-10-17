@@ -1291,10 +1291,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          disegno: vedi `lib/valuta.ts` per il perche' della misura. */
       /* Orologio del ritardo. ⚠️ Un quadrante, non una clessidra ne' una
          freccia: il gesto e' «sposta l'ora», e l'ora e' un orologio. */
-      /* Un tavolo visto di lato: il piano e due gambe. ⚠️ Niente sedie e
-         niente tovaglia — a 24px diventerebbero tre macchie. */
+      /* ⚠️ Niente icona del tavolo (16/10–17/10/2026): piano e due gambe, a
+         quella misura, si leggevano «TT» — due lettere davanti al numero del
+         tavolo. Basta la parola «Sala» e il numero. */
       const ICON_SACCHETTO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
-      const ICON_TAVOLO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="9" x2="7" y2="19"/><line x1="17" y1="9" x2="17" y2="19"/></svg>`;
       const ICON_RITARDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`;
       const ICON_REFUND = iconaValuta(valutaDelMotore());
       const ICON_COINS = `<svg viewBox="0 0 314.965 314.965" fill="currentColor" aria-hidden="true"><path d="M104.982,104.987c60.086,0,104.983-23.753,104.983-44.992c0-21.237-44.898-44.991-104.983-44.991S0,38.758,0,59.995C0,81.234,44.896,104.987,104.982,104.987z"/><path d="M104.982,284.961c8.77,0,17.211-0.51,25.24-1.439c-6.768-8.698-12.365-18.35-16.558-28.716c-2.881,0.097-5.772,0.164-8.683,0.164c-34.333,0-66.847-6.803-91.55-19.155C8.567,233.383,4.091,230.77,0,228.004v11.966C0,261.207,44.896,284.961,104.982,284.961z"/><path d="M104.982,224.97c0.308,0,0.611-0.005,0.918-0.006c-0.615-4.916-0.936-9.923-0.936-15.003c0-5.078,0.32-10.082,0.936-14.994c-0.307,0-0.611,0.011-0.918,0.011c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.432-9.342-5.045-13.433-7.81v11.965C0,201.216,44.896,224.97,104.982,224.97z"/><path d="M104.982,164.977c2.976,0,5.912-0.06,8.811-0.174c4.656-11.423,11.019-21.974,18.777-31.331c-8.982,0.99-18.213,1.515-27.588,1.515c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.433-9.342-5.045-13.433-7.811v11.966C0,141.225,44.896,164.977,104.982,164.977z"/><path d="M149.982,160.244c-6.49,9.757-11.127,20.846-13.408,32.762c-1.053,5.493-1.609,11.16-1.609,16.955c0,4.357,0.318,8.641,0.919,12.834c1.477,10.301,4.704,20.041,9.37,28.914c4.896,9.311,11.373,17.666,19.076,24.701c16.008,14.621,37.298,23.551,60.635,23.551c49.626,0,90-40.374,90-90c0-49.627-40.374-90-90-90c-5.129,0-10.158,0.438-15.056,1.266C184.961,125.446,163.473,139.965,149.982,160.244z"/></svg>`;
@@ -1378,7 +1378,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            riga sotto, e scrivere «Tavolo» a chi non ne ha sarebbe una bugia
            piccola che manda a cercare un numero che non esiste. */
         const oraOTavolo = aTavolo
-          ? `<span class="time time-tavolo" title="${tr("ord.atTable")}"><span class="time-ico">${ICON_TAVOLO}</span>${esc(o.table_label || tr("ord.room"))}</span>`
+          ? `<span class="time time-tavolo" title="${tr("ord.atTable")}">${esc(o.table_label || tr("ord.room"))}</span>`
           : `<span class="time"><span class="time-ico">${ICON_CLOCK}</span>${esc(oraBrussels(o.pickup_time))}${ricerca ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>`;
         /* ⚠️ NIENTE BOTTONE «RITARDA» AL TAVOLO. Sposterebbe un’ora di
            ritiro che non esiste, e manderebbe al cliente un’email che gli dice
@@ -1636,7 +1636,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         /* IL NASTRO: sala (corallo, col tavolo) o ritiro (dal sito o creato
            a mano). `alTavolo` decide, come per il ticket e il semaforo. */
         const nastro = aTavolo
-          ? `<div class="card-nastro card-nastro--sala">${ICON_TAVOLO}<span>${esc(tr("ord.room"))}${o.table_label ? ` · ${esc(o.table_label)}` : ""}</span></div>`
+          ? `<div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.room"))}${o.table_label ? ` · ${esc(o.table_label)}` : ""}</span></div>`
           : `<div class="card-nastro card-nastro--ritiro">${ICON_SACCHETTO}<span>${esc(tr(o.source === "manual" ? "ord.ribbonPickup" : "ord.ribbonWeb"))}</span></div>`;
         return `
           <div class="card${cardCls}" data-id="${o.id}">

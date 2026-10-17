@@ -958,6 +958,8 @@ test("il nastro: sala in corallo col tavolo, ritiro discreto, deciso da alTavolo
   assert.match(ORD, /const nastro = aTavolo\s*\?\s*`<div class="card-nastro card-nastro--sala">/);
   assert.match(ORD, /card-nastro--ritiro/);
   assert.match(ORD, /\.card-nastro--sala \{ background: var\(--c-accent\);/);
+  // ⚠️ Niente icona del tavolo: a quella misura si leggeva «TT».
+  assert.doesNotMatch(ORD, /ICON_TAVOLO/);
   // Il nastro porta la stessa maschera a denti della card: senza, coprirebbe i denti.
   assert.match(ORD, /\.card-nastro \{[\s\S]*?mask: radial-gradient\(var\(--tk-r\) at 50% 0/);
   // La provenienza arriva dall'API (e' nei campi della #50, con il suo ripiego).
