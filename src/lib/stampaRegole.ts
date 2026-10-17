@@ -417,6 +417,48 @@ export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
 }
 
 /**
+ * LA FIRMA IN TESTA: «RESTOhUB» in lettere, la prima riga di ogni ticket,
+ * con la «h» minuscola come nel marchio e una linea sotto che la separa dal
+ * nome del locale.
+ *
+ * ⚠️ IN LETTERE, NON UN LOGO. Un'immagine non passa dal ticket: andrebbe
+ * caricata a mano nella memoria di OGNI stampante, con l'utility del
+ * costruttore (vedi `C.logo` in `escpos.ts`). Le lettere escono da qualunque
+ * stampante, il primo giorno, senza che nessuno faccia niente.
+ * ⚠️ `gigante` come il nome del locale (17/10/2026: in `largo` era troppo
+ * piccola). E' la LINEA a dire che sono due cose diverse — la firma sopra,
+ * di chi e' l'ordine sotto — non la misura delle lettere.
+ * Esportata perche' un cliente col disegno suo (`config/ticket.ts`) la
+ * metta in testa con una riga, senza riscriverla.
+ */
+export const RIGA_RESTOHUB: RigaTicket = { testo: "RESTOhUB", taglia: "gigante", grassetto: true, centrato: true, linea: true };
+
+/**
+ * DOVE VA QUESTO ORDINE — tre risposte, non due:
+ *   · ha un tavolo       → «TAVOLO 7»
+ *   · in sala, senza     → il NOME, che e' l'unica cosa che permette di
+ *                          consegnare: il cameriere cerca Marc, o lo snack lo
+ *                          chiama al banco;
+ *   · da asporto         → l'ora di ritiro, come e' sempre stato.
+ * `breve` va nella riga di servizio in cima («RITIRO 19:45» / «TAVOLO 7» /
+ * «JULIE»), `grande` nella riga grossa in fondo («19:45» / «TAVOLO 7» /
+ * «JULIE»).
+ * ⚠️ Esportata per i disegni dei clienti: stampare «RITIRO» su un ordine in
+ * sala e' il difetto peggiore che un ticket possa avere — il sacchetto
+ * finisce sul banco e ci resta, mentre quattro persone aspettano ai tavoli —
+ * e ogni disegno proprio lo rifarebbe, se dovesse ricordarselo da solo.
+ */
+export function doveVa(o: Pick<OrdineDaStampare, "tavolo" | "servizio" | "cliente" | "ora">): {
+  breve: string; grande: string; inSala: boolean;
+} {
+  const inSala = alTavolo(o.servizio);
+  const nome = String(o.cliente ?? "").trim().toUpperCase() || "IN SALA";
+  if (o.tavolo) return { breve: `TAVOLO ${o.tavolo}`, grande: `TAVOLO ${o.tavolo}`, inSala: true };
+  if (inSala) return { breve: nome, grande: nome, inSala: true };
+  return { breve: `RITIRO ${o.ora}`, grande: o.ora, inSala: false };
+}
+
+/**
  * IL TICKET DI RIPIEGO del motore: quello che esce se il cliente non ha un
  * disegno suo. Ogni cliente puo' sostituirlo con il proprio file; questo deve
  * restare leggibile da solo, perche' e' quello che vedranno i primi giorni.
@@ -425,6 +467,7 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   const righe: RigaTicket[] = [];
 
   // ---- La testa: di chi e' questo ordine ----
+  righe.push(RIGA_RESTOHUB);
   if (o.logo) righe.push({ testo: "", logo: true });
   if (o.insegna) {
     righe.push({ testo: o.insegna.toUpperCase(), taglia: "gigante", grassetto: true, centrato: true });
@@ -438,20 +481,10 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   // col carattere piu' piccolo che la stampante possiede (il Font B
   // condensato): sta in 64 colonne perche' e' stretto, non perche' serva.
   // Qui ci stanno 24 colonne e «#A1B2 · RITIRO 19:45» ne occupa 20.
-  /* ⚠️ DOVE VA QUESTO ORDINE — tre risposte, non due.
-       · ha un tavolo       → «TAVOLO 7»
-       · in sala, senza     → il NOME, che e’ l’unica cosa che permette di
-                              consegnare: il cameriere cerca Marc, o lo snack
-                              lo chiama al banco;
-       · da asporto         → l’ora di ritiro, come e’ sempre stato.
-     ⚠️ Stampare «RITIRO» su un ordine in sala e’ il difetto peggiore che
-     questo ticket possa avere: il sacchetto finisce sul banco e ci resta,
-     mentre quattro persone aspettano ai tavoli. */
-  const inSala = alTavolo(o.servizio);
-  const nomeGrosso = String(o.cliente ?? "").trim().toUpperCase();
-  const dove = o.tavolo ? `TAVOLO ${o.tavolo}` : inSala ? nomeGrosso || "IN SALA" : o.ora;
+  // Dove va: tavolo, nome o ora — vedi `doveVa`.
+  const dove = doveVa(o);
   righe.push({
-    testo: `#${o.numero} · ${o.tavolo || inSala ? dove : `RITIRO ${o.ora}`}`,
+    testo: `#${o.numero} · ${dove.breve}`,
     taglia: "largo", grassetto: true, centrato: true, linea: true,
   });
 
@@ -495,7 +528,7 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   /* ⚠️ La riga grossa in fondo e’ quella che si legge col ticket in mano,
      appoggiando il sacchetto o portando il piatto: dice DOVE va. Da asporto
      l’ora, col tavolo il tavolo, in sala senza tavoli il nome. */
-  righe.push({ testo: dove, taglia: "gigante", grassetto: true, centrato: true, linea: true });
+  righe.push({ testo: dove.grande, taglia: "gigante", grassetto: true, centrato: true, linea: true });
   righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
   if (o.telefono) righe.push({ testo: o.telefono, taglia: "largo" });
   if (o.note) righe.push({ testo: o.note, taglia: "largo", grassetto: true });
