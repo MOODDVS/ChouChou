@@ -111,10 +111,15 @@ test("il ticket di cucina non e' uno scontrino", () => {
   });
   const testo = righe.map((r) => r.testo).join("\n");
 
-  // ⚠️ In testa DI CHI e' l'ordine. In una cucina che prepara per due marchi
-  // (o per due punti) e' la prima domanda, prima di «che cosa contiene».
-  assert.equal(righe[0].testo, "450 GRADI");
+  // In cima la firma, in lettere: esce da qualunque stampante, senza un
+  // logo da caricare a mano in ognuna (17/10/2026).
+  assert.equal(righe[0].testo, "RESTOhUB", "la «h» del marchio e' minuscola");
   assert.equal(righe[0].taglia, "gigante");
+  assert.equal(righe[0].linea, true, "manca la linea che separa la firma dal nome del locale");
+  // ⚠️ Poi DI CHI e' l'ordine. In una cucina che prepara per due marchi
+  // (o per due punti) e' la prima domanda, prima di «che cosa contiene».
+  assert.equal(righe[1].testo, "450 GRADI");
+  assert.equal(righe[1].taglia, "gigante");
 
   // ⚠️ L'ora due volte, e non e' una svista: sul ferma-comande si vede solo
   // la prima riga di ogni ticket, il resto lo copre quello davanti. Una in
@@ -127,8 +132,8 @@ test("il ticket di cucina non e' uno scontrino", () => {
   // servissero 64 colonne per venti caratteri. 450 Gradi l'ha visto sulla
   // carta prima che io nel codice (09/10/2026). Qui non si impone una taglia,
   // si impone che sia larga il doppio: `escpos.ts` dice quante colonne vale.
-  assert.match(righe[1].testo, /RITIRO 19:30/);
-  assert.equal(colonneDi(righe[1].taglia), 24, `la riga del ritiro e' tornata stretta (${righe[1].taglia})`);
+  assert.match(righe[2].testo, /RITIRO 19:30/);
+  assert.equal(colonneDi(righe[2].taglia), 24, `la riga del ritiro e' tornata stretta (${righe[2].taglia})`);
   const grossa = righe.filter((r) => r.testo === "19:30" && r.taglia === "gigante");
   assert.equal(grossa.length, 1, "l'ora grossa non c'e' piu', o ce n'e' piu' d'una");
 
@@ -198,8 +203,10 @@ test("senza insegna il ticket comincia dalla riga di servizio", () => {
   // Un cliente che non vuole il nome in testa non deve ritrovarsi una riga
   // vuota grande come un titolo.
   const righe = ticketCucina({ numero: "4F2A", ora: "19:45", cliente: "Marco Rossi", piatti: [{ qty: 1, nome: "Margherita" }] });
-  assert.match(righe[0].testo, /^#4F2A/);
-  assert.equal(colonneDi(righe[0].taglia), 24, "la riga di servizio e' tornata stretta");
+  // Dopo la firma, subito la riga di servizio.
+  assert.equal(righe[0].testo, "RESTOhUB");
+  assert.match(righe[1].testo, /^#4F2A/);
+  assert.equal(colonneDi(righe[1].taglia), 24, "la riga di servizio e' tornata stretta");
 });
 
 test("un ordine pagato non puo' avere due ticket automatici", () => {
@@ -649,3 +656,18 @@ test("una configurazione gonfiata non diventa la configurazione", () => {
   assert.deepEqual(r[0].cat, ["Bibite"]);
   assert.deepEqual(categorieDoppie(r), [], "una riga sola non puo' essere in conflitto con se stessa");
 });
+
+test("al tavolo il ticket non dice mai RITIRO: il tavolo, o il nome", () => {
+  const base = { numero: "A1B2", ora: "19:45", cliente: "Julie", piatti: [{ qty: 1, nome: "Margherita" }] };
+  const conTavolo = ticketCucina({ ...base, servizio: "table", tavolo: "T7" }).map((r) => r.testo);
+  assert.ok(conTavolo.includes("#A1B2 · TAVOLO T7") && conTavolo.includes("TAVOLO T7"));
+  const senza = ticketCucina({ ...base, servizio: "table", tavolo: null }).map((r) => r.testo);
+  assert.ok(senza.includes("#A1B2 · JULIE") && senza.includes("JULIE"));
+  for (const t of [...conTavolo, ...senza]) {
+    assert.doesNotMatch(t, /RITIRO|19:45/, "un ordine in sala con l'ora di ritiro: il sacchetto resta sul banco");
+  }
+  // Da asporto come sempre.
+  const asporto = ticketCucina(base).map((r) => r.testo);
+  assert.ok(asporto.includes("#A1B2 · RITIRO 19:45") && asporto.includes("19:45"));
+});
+
