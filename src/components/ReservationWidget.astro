@@ -430,10 +430,12 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       // almeno uno slot ≥ soglia. È la lista su cui è indicizzato servIdx (tabs,
       // slot, label, prenotazione): DEVE essere identica ovunque, altrimenti
       // servIdx punta al servizio sbagliato (es. "Midi" con orari della Soir).
-      function serviziDisp(): { key: string; label: string; da: number; a: number; hold: number; slot: number; slots: number[] }[] {
+      /* `ignoraChiusure`: come sarebbe il giorno se il ristoratore non avesse
+         chiuso nessun service. Serve a una domanda sola — vedi `render()`. */
+      function serviziDisp(ignoraChiusure = false): { key: string; label: string; da: number; a: number; hold: number; slot: number; slots: number[] }[] {
         if (closedSet.has(isoSel)) return [];
         const dg = dayCache.get(isoSel);
-        const svcClosed = dg?.svcClosed ?? [];
+        const svcClosed = ignoraChiusure ? [] : (dg?.svcClosed ?? []);
         // Jour spécial "ouvert": scavalca i giorni dei services e, se ha orari
         // propri, limita ogni service all'intersezione con le sue fasce
         const spOpen = dg?.spOpen ?? false;
@@ -512,6 +514,16 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       function render() {
         // Giorno "complet" (capienza esaurita o tutti i services chiusi):
         // niente scelta persone/sezione/orari — messaggio e Téléphoner
+        /* ⚠️ «COMPLET» ANCHE QUANDO LO DICE L'ORA. Visto su L'Aperitivo
+           (17/10/2026): il manager chiude la cena di stasera perche' e'
+           piena, il pranzo e' gia' passato — e il calendario, che non sa che
+           ore sono, lascia oggi prenotabile. Si sceglieva oggi e si leggeva
+           «Aucune heure disponible ce jour»: sembra un guasto, ed e' un
+           «complet». La domanda giusta e': senza le chiusure del ristoratore
+           ci sarebbe ancora un orario oggi? Se si', e' pieno — e si dice
+           come per un giorno pieno, col bottone per telefonare. */
+        const chiusoPerchePieno = serviziDisp().length === 0 && serviziDisp(true).length > 0;
+        if (chiusoPerchePieno) fullSet.add(isoSel);
         const giornoPieno = fullSet.has(isoSel);
         /* ⚠️ Azzerato a ogni passata: lo rileggono i bottoni, e un «pieno»
            rimasto dal giorno prima farebbe telefonare chi poteva prenotare. */
