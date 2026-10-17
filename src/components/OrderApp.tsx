@@ -167,12 +167,15 @@ const TXT_CONSEGNA: Record<string, {
   titolo: string; ritiro: string; consegna: string; quando: string;
   via: string; numero: string; box: string; cap: string; comune: string; note: string;
   pagaConsegna: string;
+  /** «Minimum 50,00 € pour la livraison», e quanto manca. */
+  minimo: (m: string) => string;
+  manca: (x: string) => string;
 }> = {
-  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison" },
-  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery" },
-  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna" },
-  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering" },
-  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega" },
+  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison", minimo: (m) => `Livraison à partir de ${m} de commande`, manca: (x) => `Il manque ${x}.` },
+  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery", minimo: (m) => `Delivery from ${m} per order`, manca: (x) => `${x} to go.` },
+  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.` },
+  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.` },
+  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.` },
 };
 
 interface OrderAppProps {
@@ -471,6 +474,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      Spenta di ripiego — e finche' la risposta non arriva — cosi' il checkout
      e' quello di sempre. ⚠️ Al tavolo non si chiede neanche: si mangia li'. */
   const [consegnaPossibile, setConsegnaPossibile] = useState(false);
+  /* Le soglie della consegna (centesimi, 0 = nessuna). `gratis` aspetta il
+     costo di consegna: finche' la consegna non costa niente non si scrive
+     «gratuite à partir de», che farebbe credere il contrario. */
+  const [soglie, setSoglie] = useState({ minimo: 0, gratis: 0 });
   const [modoServizio, setModoServizio] = useState<"ritiro" | "consegna">("ritiro");
   const vuotoIndirizzo = { via: "", numero: "", box: "", cap: "", comune: "", note: "" };
   const [indirizzo, setIndirizzo] = useState(salvato.indirizzo ?? vuotoIndirizzo);
@@ -481,8 +488,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     let vivo = true;
     fetch(conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { consegna?: boolean } | null) => {
-        if (vivo) setConsegnaPossibile(d?.consegna === true);
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number } | null) => {
+        if (!vivo) return;
+        setConsegnaPossibile(d?.consegna === true);
+        setSoglie({ minimo: Math.max(0, Number(d?.minimo_cents) || 0), gratis: Math.max(0, Number(d?.gratis_cents) || 0) });
       })
       .catch(() => {
         // Senza risposta: niente consegna, il ritiro di sempre.
@@ -816,6 +825,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   // Sconto coupon (indicativo lato client: il checkout lo ricalcola e valida).
   const scontoCents = couponApplicato ? Math.min(couponApplicato.discount_cents, totale) : 0;
   const totaleFinale = Math.max(0, totale - scontoCents);
+  /* ⚠️ Il minimo della consegna si misura sui piatti DOPO lo sconto, come lo
+     misura il server (`mancaAlMinimo`): se il carrello dicesse «ok» e il
+     server «manca», il cliente scoprirebbe il minimo dopo aver compilato tutto. */
+  const mancaMinimo = aConsegna && soglie.minimo > 0 ? Math.max(0, soglie.minimo - totaleFinale) : 0;
 
   // Se il carrello cambia dopo aver applicato un coupon, l'importo dello sconto
   // potrebbe non essere più corretto: si annulla e il cliente lo riapplica.
@@ -900,6 +913,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     (inSala || cognome.trim() !== "") &&
     (inSala || telefono.trim() !== "") &&
     (!aConsegna || indirizzoOk) &&
+    mancaMinimo === 0 &&
     emailOk &&
     accettato;
 
@@ -1272,6 +1286,14 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                       </label>
                     ))}
                   </div>
+                )}
+                {/* Il minimo si dice SUBITO, appena si sceglie la consegna — non
+                    al momento di pagare. Classe da vestire: `order-consegna-minimo`. */}
+                {aConsegna && soglie.minimo > 0 && (
+                  <p className="order-consegna-minimo" role={mancaMinimo > 0 ? "alert" : undefined}>
+                    {tc.minimo(euro(soglie.minimo))}
+                    {mancaMinimo > 0 ? ` — ${tc.manca(euro(mancaMinimo))}` : ""}
+                  </p>
                 )}
                 {aConsegna && (
                   <div className="order-form order-indirizzo">

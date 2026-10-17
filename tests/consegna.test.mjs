@@ -109,3 +109,41 @@ test("email, Slack, conferma e lista leggono la consegna", () => {
   assert.match(nudo("src/pages/api/admin/orders.ts"), /EXTRA_84 = ", delivery_address"/);
   assert.match(nudo("src/pages/api/print/[token].ts"), /service, table_label, delivery_address/);
 });
+
+/* ───────── Punto 5: spesa minima e consegna gratuita ───────── */
+import { sogliaCents, euroInCents, mancaAlMinimo } from "../src/lib/consegnaRegole.ts";
+
+test("le soglie: euro scritti dal ristoratore, centesimi nel database", () => {
+  assert.equal(euroInCents("50"), 5000);
+  assert.equal(euroInCents("49,90"), 4990);
+  assert.equal(euroInCents("49.9"), 4990);
+  assert.equal(euroInCents(""), 0, "vuoto = nessuna soglia");
+  // ⚠️ Illeggibile → null, cioe' rifiutato: mai «nessun minimo» per sbaglio.
+  assert.equal(euroInCents("cinquante"), null);
+  assert.equal(euroInCents("-5"), null);
+  assert.equal(euroInCents("50,999"), null);
+  assert.equal(euroInCents("100000000"), null);
+  // Rilette dal database: storte → nessuna soglia, mai un blocco.
+  assert.equal(sogliaCents("5000"), 5000);
+  assert.equal(sogliaCents(undefined), 0);
+  assert.equal(sogliaCents("abc"), 0);
+  assert.equal(sogliaCents("-1"), 0);
+});
+
+test("quanto manca al minimo", () => {
+  assert.equal(mancaAlMinimo(3800, 5000), 1200);
+  assert.equal(mancaAlMinimo(5000, 5000), 0);
+  assert.equal(mancaAlMinimo(8000, 5000), 0);
+  assert.equal(mancaAlMinimo(800, 0), 0, "nessun minimo");
+});
+
+test("il minimo vale sui piatti scontati, nel carrello e nel checkout", () => {
+  const co = nudo("src/pages/api/checkout.ts");
+  // Dopo il codice promo: si misura su `totaleIncassato`.
+  assert.match(co, /if \(consegna\) \{\n\s*const \{ minimo \} = await soglieConsegna\(ambitoPub\);\n\s*const manca = mancaAlMinimo\(totaleIncassato, minimo\);/);
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /const mancaMinimo = aConsegna && soglie\.minimo > 0 \? Math\.max\(0, soglie\.minimo - totaleFinale\) : 0;/);
+  assert.match(app, /mancaMinimo === 0 &&/);
+  // Il PUT rifiuta un importo illeggibile invece di azzerarlo.
+  assert.match(nudo("src/pages/api/admin/settings.ts"), /if \(c === null\) return json\(\{ error: await msg\("err\.deliveryAmount"\) \}, 400\);/);
+});

@@ -13,6 +13,7 @@ import { configGiornoEffettiva } from "./schedule";
 import { fusoDi } from "./fuso";
 import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
 import { attesaChiamata } from "./chiamateRegole";
+import { sogliaCents } from "./consegnaRegole";
 
 export { CHIAVI_ORDINI, acceso, RIPIEGO_ORDINI, type OpzioniOrdini } from "./ordiniRegole";
 
@@ -168,6 +169,21 @@ export async function tavoliDiSala(ambito: Ambito): Promise<TavoloDiSala[]> {
     return tavoliDelPiano(righe.data ?? [], cfg.valori.get("reservation_zones") ?? "");
   } catch {
     return [];
+  }
+}
+
+/** Le soglie della consegna di questo punto, in centesimi (0 = nessuna).
+ *  Lettura muta → nessuna soglia: meglio una consegna sotto il minimo che
+ *  nessuna consegna per un database che non risponde. */
+export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; gratis: number }> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_min_cents", "orders_delivery_free_cents"]);
+    return {
+      minimo: sogliaCents(valori.get("orders_delivery_min_cents")),
+      gratis: sogliaCents(valori.get("orders_delivery_free_cents")),
+    };
+  } catch {
+    return { minimo: 0, gratis: 0 };
   }
 }
 

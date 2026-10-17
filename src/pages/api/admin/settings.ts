@@ -22,6 +22,7 @@ import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
+import { sogliaCents, euroInCents } from "../../../lib/consegnaRegole";
 
 export const prerender = false;
 
@@ -211,6 +212,8 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_table_qr_mode",
     "orders_slot_source",
     "orders_future_days",
+    "orders_delivery_min_cents",
+    "orders_delivery_free_cents",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -280,6 +283,10 @@ export const GET: APIRoute = async ({ request }) => {
        e fino a quanti giorni in anticipo (0 = solo oggi). Gia' risolti. */
     ritiro_fonte: fonteOrari(cfg.get("orders_slot_source")),
     ritiro_giorni: giorniAvanti(cfg.get("orders_future_days")),
+    /* Le soglie della consegna, in centesimi (0 = nessuna). La pagina le
+       scrive in euro: la conversione e' una sola, qui e nel PUT. */
+    consegna_minimo_cents: sogliaCents(cfg.get("orders_delivery_min_cents")),
+    consegna_gratis_cents: sogliaCents(cfg.get("orders_delivery_free_cents")),
     /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
@@ -419,6 +426,9 @@ export const PUT: APIRoute = async ({ request }) => {
     ritiro_fonte?: string;
     /** Giorni in anticipo per gli ordini da asporto: 0, 2, 7, 14, 30. */
     ritiro_giorni?: number;
+    /** Soglie della consegna, IN EURO come le scrive il ristoratore. */
+    consegna_minimo?: string;
+    consegna_gratis?: string;
   };
   try {
     body = await request.json();
@@ -775,6 +785,21 @@ export const PUT: APIRoute = async ({ request }) => {
       const err = await scriviConfig(ambitoPut, { orders_future_days: String(v) });
       if (err) return json({ error: await msg("err.generalSave") }, 500);
     }
+  }
+
+  /* LE SOGLIE DELLA CONSEGNA, in euro dalla pagina → centesimi nel database.
+     ⚠️ Un importo illeggibile si RIFIUTA, non si azzera: «50 euro» scritto
+     a lettere diventerebbe «nessun minimo», e il ristoratore lo scoprirebbe
+     al primo ordine da 8 € da portare dall'altra parte della citta'. */
+  for (const [campo, chiave] of [
+    ["consegna_minimo", "orders_delivery_min_cents"],
+    ["consegna_gratis", "orders_delivery_free_cents"],
+  ] as const) {
+    if (body[campo] === undefined) continue;
+    const c = euroInCents(body[campo]);
+    if (c === null) return json({ error: await msg("err.deliveryAmount") }, 400);
+    const err = await scriviConfig(ambitoPut, { [chiave]: String(c) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
   if (body.qr_modo !== undefined && (MODI_QR as readonly string[]).includes(String(body.qr_modo))) {

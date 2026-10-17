@@ -84,3 +84,45 @@ export function rigaIndirizzo(ind: IndirizzoConsegna): string {
 export function linkMappa(ind: IndirizzoConsegna): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rigaIndirizzo(ind))}`;
 }
+
+/* ───────── Spesa minima e consegna gratuita ─────────
+ *
+ * Due importi del ristoratore, in centesimi, chiavi di sede:
+ *   `orders_delivery_min_cents`   sotto questa cifra non si consegna;
+ *   `orders_delivery_free_cents`  da questa cifra la consegna e' gratis
+ *                                 (vale quando esistera' il costo di consegna).
+ * 0 o vuoto = nessuna soglia, cioe' il comportamento di oggi.
+ *
+ * ⚠️ SI CONFRONTANO CON I PIATTI DOPO LO SCONTO, senza costo di consegna ne'
+ * mancia: un minimo che si raggiunge pagando la consegna o lasciando una mancia
+ * non e' un minimo d'ordine. E dopo il codice promo, perche' e' quello che il
+ * ristorante incassa davvero per la cucina.
+ */
+
+/** Il tetto oltre il quale un importo e' certamente un errore di battitura
+ *  (100 000 € al posto di 100,00). */
+export const SOGLIA_MAX_CENTS = 1_000_000;
+
+/** Un importo salvato (centesimi, testo) riletto. Illeggibile, negativo o
+ *  esagerato → 0, cioe' nessuna soglia: un valore storto non deve fermare
+ *  tutte le consegne. */
+export function sogliaCents(v: unknown): number {
+  const n = Math.round(Number(String(v ?? "").trim()));
+  return Number.isFinite(n) && n > 0 && n <= SOGLIA_MAX_CENTS ? n : 0;
+}
+
+/** Un importo scritto in euro dal ristoratore («50», «49,90», «49.9») in
+ *  centesimi. Vuoto = 0. `null` = illeggibile: il salvataggio lo rifiuta
+ *  invece di scrivere qualcosa che nessuno ha chiesto. */
+export function euroInCents(v: unknown): number | null {
+  const t = String(v ?? "").trim().replace(",", ".");
+  if (t === "") return 0;
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const c = Math.round(Number(t) * 100);
+  return c <= SOGLIA_MAX_CENTS ? c : null;
+}
+
+/** Quanto manca al minimo per la consegna. 0 = si puo' consegnare. */
+export function mancaAlMinimo(piattiCents: number, minimoCents: number): number {
+  return minimoCents > 0 ? Math.max(0, minimoCents - Math.max(0, Math.round(piattiCents))) : 0;
+}

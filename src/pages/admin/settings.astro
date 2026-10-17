@@ -1552,6 +1552,17 @@ const t = adminT(lang);
                 <label>{t("set.ord.delivery")}<span class="lab-hint">{t("set.ord.deliveryHint")}</span></label>
                 <label class="switch"><input type="checkbox" id="o-delivery" /><span class="track"></span></label>
               </div>
+              {/* Le soglie: solo a consegna accesa (`o-delivery-row`). In
+                  euro, come le pensa il ristoratore; il server le salva in
+                  centesimi e rifiuta un importo illeggibile. */}
+              <div class="field field--numero o-delivery-row" style="display:none">
+                <label for="o-delivery-min">{t("set.ord.deliveryMin")}<span class="lab-hint">{t("set.ord.deliveryMinHint")}</span></label>
+                <input type="text" inputmode="decimal" id="o-delivery-min" placeholder="0" />
+              </div>
+              <div class="field field--numero o-delivery-row" style="display:none">
+                <label for="o-delivery-free">{t("set.ord.deliveryFree")}<span class="lab-hint">{t("set.ord.deliveryFreeHint")}</span></label>
+                <input type="text" inputmode="decimal" id="o-delivery-free" placeholder="0" />
+              </div>
             </div>
           </div>
 
@@ -4198,6 +4209,25 @@ const t = adminT(lang);
         met("o-table", "orders_table");
         met("o-table-call", "orders_table_call");
         met("o-delivery", "orders_delivery");
+        // Le soglie in euro («50» e non «50,00»: si legge meglio, e si salva uguale).
+        const inEuro = (c: unknown) => {
+          const n = Number(c) || 0;
+          return n > 0 ? (n % 100 === 0 ? String(n / 100) : (n / 100).toFixed(2).replace(".", ",")) : "";
+        };
+        const campoMin = document.getElementById("o-delivery-min") as HTMLInputElement | null;
+        const campoGratis = document.getElementById("o-delivery-free") as HTMLInputElement | null;
+        if (campoMin) campoMin.value = inEuro(dati.consegna_minimo_cents);
+        if (campoGratis) campoGratis.value = inEuro(dati.consegna_gratis_cents);
+        const swConsegna = document.getElementById("o-delivery") as HTMLInputElement | null;
+        const aggiornaRigheConsegna = () => {
+          document.querySelectorAll<HTMLElement>(".o-delivery-row").forEach((r) => {
+            r.style.display = swConsegna?.checked ? "" : "none";
+          });
+        };
+        aggiornaRigheConsegna();
+        swConsegna?.addEventListener("change", aggiornaRigheConsegna);
+        campoMin?.addEventListener("input", dirty);
+        campoGratis?.addEventListener("input", dirty);
         // L'attesa della campanella: un bottone acceso fra quattro.
         const bottoniAttesa = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn"));
         const accendiAttesa = (minuti: string) => {
@@ -4766,6 +4796,9 @@ const t = adminT(lang);
                   ? Number(document.querySelector<HTMLButtonElement>("#o-future-days .prep-btn.active")?.dataset.giorni ?? 7)
                   : 0,
                 slot_duration_minutes: Number(slotEl.value),
+                // In euro come scritti: la conversione (e il rifiuto) la fa il server.
+                consegna_minimo: (document.getElementById("o-delivery-min") as HTMLInputElement | null)?.value ?? "",
+                consegna_gratis: (document.getElementById("o-delivery-free") as HTMLInputElement | null)?.value ?? "",
                 kitchen_email: emailsCucina(),
                 // ⚠️ Interruttori: si mandano come veri/falsi. Il server li
                 // traduce in "1"/"0" e rifiuta di spegnerli tutti e due.

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 // Multi-sede: quale punto sta guardando il sito pubblico.
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
-import { opzioniOrdini } from "../../lib/ordiniOpzioni";
+import { opzioniOrdini, soglieConsegna } from "../../lib/ordiniOpzioni";
 
 export const prerender = false;
 
@@ -20,12 +20,16 @@ export const prerender = false;
  */
 export const GET: APIRoute = async ({ request }) => {
   let consegna = false;
+  // Le soglie si dicono: sono scritte sul sito («minimum 50 €»), non segreti.
+  let soglie = { minimo: 0, gratis: 0 };
   try {
-    consegna = (await opzioniOrdini(await ambitoPubblicoChiesto(request))).consegna;
+    const ambito = await ambitoPubblicoChiesto(request);
+    consegna = (await opzioniOrdini(ambito)).consegna;
+    if (consegna) soglie = await soglieConsegna(ambito);
   } catch {
     consegna = false;
   }
-  return new Response(JSON.stringify({ consegna }), {
+  return new Response(JSON.stringify({ consegna, minimo_cents: soglie.minimo, gratis_cents: soglie.gratis }), {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 };

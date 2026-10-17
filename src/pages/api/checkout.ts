@@ -17,9 +17,9 @@ import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
-import { modiDiPagamento, opzioniTavolo, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
+import { modiDiPagamento, opzioniTavolo, soglieConsegna, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
 import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordiniRegole";
-import { indirizzoDaRichiesta, type IndirizzoConsegna } from "../../lib/consegnaRegole";
+import { indirizzoDaRichiesta, mancaAlMinimo, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
@@ -455,6 +455,25 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const totaleIncassato = Math.max(0, totalCents - scontoCents);
+
+  /* ⚠️ LA SPESA MINIMA DELLA CONSEGNA si ricontrolla QUI, dopo il codice
+     promo: il modulo spegne il bottone, ma questa rotta si raggiunge anche
+     senza passarci. Sui piatti scontati, che e' quello che entra in cucina. */
+  if (consegna) {
+    const { minimo } = await soglieConsegna(ambitoPub);
+    const manca = mancaAlMinimo(totaleIncassato, minimo);
+    if (manca > 0) {
+      const eur = (c: number) => (c / 100).toFixed(2).replace(".", ",") + " €";
+      const TXT_MINIMO: Record<string, string> = {
+        fr: `Il manque ${eur(manca)} pour la livraison (minimum ${eur(minimo)}).`,
+        en: `${eur(manca)} more needed for delivery (minimum ${eur(minimo)}).`,
+        it: `Mancano ${eur(manca)} per la consegna (minimo ${eur(minimo)}).`,
+        nl: `Nog ${eur(manca)} nodig voor levering (minimum ${eur(minimo)}).`,
+        es: `Faltan ${eur(manca)} para la entrega (mínimo ${eur(minimo)}).`,
+      };
+      return err(409, TXT_MINIMO[lang] ?? TXT_MINIMO.fr);
+    }
+  }
 
   /* ⚠️ AL TAVOLO `pickup_time` E' L'ISTANTE IN CUI L'ORDINE ENTRA, non `null`.
      Sembrerebbe piu' pulito lasciarla vuota — al tavolo non si ritira niente
