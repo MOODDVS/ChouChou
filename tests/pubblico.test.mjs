@@ -274,3 +274,14 @@ test("i campi del widget non scendono sotto i 16px sul tocco", () => {
     }
   }
 });
+
+test("prenotazioni: un service chiuso perche' pieno dice «complet», non «aucune heure»", () => {
+  /* ⚠️ L'Aperitivo, 17/10/2026: cena di stasera chiusa dal manager perche'
+     piena, pranzo gia' passato. Il calendario non sa che ore sono e lascia
+     oggi prenotabile; scelto oggi, si leggeva «Aucune heure disponible». */
+  const W = readFileSync("src/components/ReservationWidget.astro", "utf8");
+  assert.match(W, /function serviziDisp\(ignoraChiusure = false\)/);
+  assert.match(W, /const svcClosed = ignoraChiusure \? \[\] : \(dg\?\.svcClosed \?\? \[\]\);/);
+  assert.match(W, /const chiusoPerchePieno = serviziDisp\(\)\.length === 0 && serviziDisp\(true\)\.length > 0;\n\s*if \(chiusoPerchePieno\) fullSet\.add\(isoSel\);\n\s*const giornoPieno = fullSet\.has\(isoSel\);/);
+});
+
