@@ -1009,6 +1009,10 @@ const AMMESSI_AGGREGATO = {
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":
       "l'ordine si trova con il suo cancel_token, che e' un segreto: il token E' l'autorizzazione",
+    // ⚠️ Stessa forma dell'annullo: chi torna sulla pagina del tavolo dopo
+    // aver pagato non dice da quale punto ha ordinato.
+    "src/lib/ritornoTavolo.ts":
+      "il ritorno sulla pagina del tavolo ritrova l'ordine col suo cancel_token: il token E' l'autorizzazione",
     // ⚠️ Stessa forma dell'annullo: il servizio di stampa non sa fare login e
     // non sa niente di sedi — ha solo l'indirizzo del ticket. Filtrando per
     // sede, la stampa funzionerebbe per il primo punto e per gli altri non

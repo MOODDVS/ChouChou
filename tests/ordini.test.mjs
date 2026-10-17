@@ -144,7 +144,8 @@ test("la comanda non dice «pagato» su un ordine da incassare", () => {
   assert.match(n, /const pastigliaPagamento = o\.da_incassare/);
   assert.match(n, /\$\{k\.toCollect\} · \$\{euro\(o\.total_cents\)\}/);
   // E il cliente deve sapere di uscire con i contanti.
-  assert.match(n, /o\.da_incassare \? t\.payAtPickup : t\.total/);
+  // Dal tavolo «à régler sur place», non «au retrait».
+  assert.match(n, /o\.da_incassare \? \(sala \? ts\.payOnSite : t\.payAtPickup\) : t\.total/);
   // L'ordine in cassa lo dichiara: senza, la riga direbbe solo `pending`.
   assert.match(leggi("src/pages/api/checkout.ts"), /annunciaOrdine\(ordine, true\)/);
 });

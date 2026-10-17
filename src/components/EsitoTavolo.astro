@@ -1,0 +1,284 @@
+---
+/**
+ * L'ESITO DELL'ORDINE, SULLA PAGINA DEL TAVOLO.
+ *
+ * Ci si arriva tornando da Stripe, o subito dopo aver confermato un ordine
+ * da pagare sul posto (`?order=<token>`). Dice cosa succede ADESSO a chi e'
+ * seduto: servito al tavolo, oppure da ritirare al banco con l'email
+ * «c'est prêt» — mai «venez la chercher à 19:30», che e' la conferma del
+ * ritiro online. Tutti i casi stanno in `esitoTavolo` (regola pura).
+ *
+ * Le parole in cinque lingue stanno QUI, come in `PaginaTavolo`: il
+ * dizionario pubblico e' del cliente e una chiave nuova non gli arriverebbe.
+ */
+import type { EsitoTavolo } from "../lib/esitoTavoloRegole";
+import { TENTATIVI_VERIFICA } from "../lib/esitoTavoloRegole";
+import type { OrdineTavolo } from "../lib/ritornoTavolo";
+import { importoDa } from "../lib/soldi";
+
+interface Props {
+  esito: EsitoTavolo;
+  ordine: OrdineTavolo | null;
+  lang: string;
+  /** La pagina del tavolo senza l'esito: «commander autre chose». */
+  hrefMenu: string;
+  /** Quante volte la pagina si e' gia' ricaricata aspettando Stripe. */
+  tentativo: number;
+}
+const { esito, ordine, lang, hrefMenu, tentativo } = Astro.props;
+
+interface Testi {
+  ricevuto: string; grazie: string; tavolo: string; banco: string; bancoEmail: string;
+  servitoTavolo: string; servitoBanco: string; pagato: string; inCassa: string;
+  etichettaTavolo: string; numero: string; totale: string; nota: string; ancora: string;
+  verificaTit: string; verificaTesto: string; verificaLungo: string; aggiorna: string;
+  annullatoTit: string; annullatoTesto: string; nonTrovatoTit: string; nonTrovatoTesto: string;
+}
+const TESTI: Record<string, Testi> = {
+  fr: {
+    ricevuto: "Commande reçue", grazie: "Merci {nome} !",
+    tavolo: "Vous serez servis à votre table au plus vite.",
+    banco: "Nous vous prévenons par email dès qu’elle est prête : venez alors la chercher au comptoir.",
+    bancoEmail: "Nous vous prévenons à {email} dès qu’elle est prête : venez alors la chercher au comptoir.",
+    servitoTavolo: "Votre commande a été servie. Bon appétit !",
+    servitoBanco: "Votre commande est prête : vous pouvez la chercher au comptoir.",
+    pagato: "Payée en ligne", inCassa: "À régler sur place",
+    etichettaTavolo: "Table", numero: "Commande n°", totale: "Total", nota: "Remarque",
+    ancora: "Commander autre chose",
+    verificaTit: "Paiement en cours de vérification",
+    verificaTesto: "Ça ne prend que quelques secondes : la page se met à jour toute seule.",
+    verificaLungo: "La confirmation tarde. Si le paiement est passé, vous recevrez un email ; sinon, demandez à un membre de l’équipe.",
+    aggiorna: "Actualiser",
+    annullatoTit: "Commande annulée",
+    annullatoTesto: "Cette commande a été annulée. Pour toute question, adressez-vous à un membre de l’équipe.",
+    nonTrovatoTit: "Commande introuvable",
+    nonTrovatoTesto: "Nous ne retrouvons pas cette commande. Si vous avez payé, vous recevrez un email de confirmation ; sinon, demandez à un membre de l’équipe.",
+  },
+  en: {
+    ricevuto: "Order received", grazie: "Thank you {nome}!",
+    tavolo: "We’ll bring it to your table as soon as possible.",
+    banco: "We’ll email you as soon as it’s ready: then come and collect it at the counter.",
+    bancoEmail: "We’ll email you at {email} as soon as it’s ready: then come and collect it at the counter.",
+    servitoTavolo: "Your order has been served. Enjoy your meal!",
+    servitoBanco: "Your order is ready: you can collect it at the counter.",
+    pagato: "Paid online", inCassa: "To be paid on site",
+    etichettaTavolo: "Table", numero: "Order no.", totale: "Total", nota: "Note",
+    ancora: "Order something else",
+    verificaTit: "Checking your payment",
+    verificaTesto: "It only takes a few seconds: the page updates by itself.",
+    verificaLungo: "Confirmation is taking a while. If the payment went through you’ll get an email; otherwise, please ask a member of staff.",
+    aggiorna: "Refresh",
+    annullatoTit: "Order cancelled",
+    annullatoTesto: "This order has been cancelled. If you have any questions, please ask a member of staff.",
+    nonTrovatoTit: "Order not found",
+    nonTrovatoTesto: "We can’t find this order. If you paid, you’ll receive a confirmation email; otherwise, please ask a member of staff.",
+  },
+  it: {
+    ricevuto: "Ordine ricevuto", grazie: "Grazie {nome}!",
+    tavolo: "Vi serviremo al tavolo al più presto.",
+    banco: "Ti avvisiamo via email appena è pronto: poi passa a ritirarlo al banco.",
+    bancoEmail: "Ti avvisiamo a {email} appena è pronto: poi passa a ritirarlo al banco.",
+    servitoTavolo: "Il tuo ordine è stato servito. Buon appetito!",
+    servitoBanco: "Il tuo ordine è pronto: puoi ritirarlo al banco.",
+    pagato: "Pagato online", inCassa: "Da pagare sul posto",
+    etichettaTavolo: "Tavolo", numero: "Ordine n.", totale: "Totale", nota: "Nota",
+    ancora: "Ordina qualcos’altro",
+    verificaTit: "Verifica del pagamento in corso",
+    verificaTesto: "Ci vuole qualche secondo: la pagina si aggiorna da sola.",
+    verificaLungo: "La conferma tarda. Se il pagamento è andato a buon fine riceverai un’email; altrimenti chiedi al personale.",
+    aggiorna: "Aggiorna",
+    annullatoTit: "Ordine annullato",
+    annullatoTesto: "Questo ordine è stato annullato. Per qualsiasi domanda, rivolgiti al personale.",
+    nonTrovatoTit: "Ordine non trovato",
+    nonTrovatoTesto: "Non troviamo questo ordine. Se hai pagato riceverai un’email di conferma; altrimenti chiedi al personale.",
+  },
+  nl: {
+    ricevuto: "Bestelling ontvangen", grazie: "Bedankt {nome}!",
+    tavolo: "We brengen het zo snel mogelijk naar uw tafel.",
+    banco: "We mailen u zodra het klaar is: haal het dan op aan de toog.",
+    bancoEmail: "We mailen u op {email} zodra het klaar is: haal het dan op aan de toog.",
+    servitoTavolo: "Uw bestelling is geserveerd. Smakelijk!",
+    servitoBanco: "Uw bestelling is klaar: u kunt ze ophalen aan de toog.",
+    pagato: "Online betaald", inCassa: "Ter plaatse te betalen",
+    etichettaTavolo: "Tafel", numero: "Bestelling nr.", totale: "Totaal", nota: "Opmerking",
+    ancora: "Nog iets bestellen",
+    verificaTit: "Betaling wordt gecontroleerd",
+    verificaTesto: "Dit duurt maar enkele seconden: de pagina werkt zichzelf bij.",
+    verificaLungo: "De bevestiging laat op zich wachten. Als de betaling gelukt is, krijgt u een e-mail; zo niet, vraag het aan een medewerker.",
+    aggiorna: "Vernieuwen",
+    annullatoTit: "Bestelling geannuleerd",
+    annullatoTesto: "Deze bestelling is geannuleerd. Met vragen kunt u terecht bij een medewerker.",
+    nonTrovatoTit: "Bestelling niet gevonden",
+    nonTrovatoTesto: "We vinden deze bestelling niet terug. Als u betaald hebt, krijgt u een bevestigingsmail; zo niet, vraag het aan een medewerker.",
+  },
+  es: {
+    ricevuto: "Pedido recibido", grazie: "¡Gracias {nome}!",
+    tavolo: "Se lo serviremos en su mesa lo antes posible.",
+    banco: "Le avisaremos por email en cuanto esté listo: entonces recójalo en la barra.",
+    bancoEmail: "Le avisaremos en {email} en cuanto esté listo: entonces recójalo en la barra.",
+    servitoTavolo: "Su pedido ha sido servido. ¡Buen provecho!",
+    servitoBanco: "Su pedido está listo: puede recogerlo en la barra.",
+    pagato: "Pagado en línea", inCassa: "A pagar en el local",
+    etichettaTavolo: "Mesa", numero: "Pedido n.º", totale: "Total", nota: "Nota",
+    ancora: "Pedir algo más",
+    verificaTit: "Verificando el pago",
+    verificaTesto: "Solo tarda unos segundos: la página se actualiza sola.",
+    verificaLungo: "La confirmación tarda. Si el pago se realizó recibirá un email; si no, pregunte al personal.",
+    aggiorna: "Actualizar",
+    annullatoTit: "Pedido cancelado",
+    annullatoTesto: "Este pedido ha sido cancelado. Para cualquier pregunta, diríjase al personal.",
+    nonTrovatoTit: "Pedido no encontrado",
+    nonTrovatoTesto: "No encontramos este pedido. Si ha pagado, recibirá un email de confirmación; si no, pregunte al personal.",
+  },
+};
+const tx = TESTI[lang] ?? TESTI.fr;
+const LOCALI: Record<string, string> = { fr: "fr-BE", en: "en-GB", it: "it-IT", nl: "nl-BE", es: "es-ES" };
+const soldi = (c: unknown) => importoDa(c, LOCALI[lang] ?? "fr-BE");
+
+const voci = (ordine?.items ?? []).filter((i) => Number(i.qty) > 0);
+const nota = (ordine?.items ?? []).find((i) => Number(i.qty) === 0 && i.notes)?.notes ?? "";
+const nome = String(ordine?.customer_name ?? "").trim().split(/\s+/)[0] ?? "";
+const email = String(ordine?.customer_email ?? "").trim();
+const tavolo = String(ordine?.table_label ?? "").trim();
+const numero = ordine ? ordine.id.slice(0, 8).toUpperCase() : "";
+
+const ricevuto = esito.tipo === "ricevuto" ? esito : null;
+const messaggio = !ricevuto ? "" :
+  ricevuto.servito ? (ricevuto.consegna === "tavolo" ? tx.servitoTavolo : tx.servitoBanco)
+  : ricevuto.consegna === "tavolo" ? tx.tavolo
+  : email ? tx.bancoEmail.replace("{email}", email) : tx.banco;
+/* Aspettando Stripe la pagina si ricarica da sola, ma non per sempre. */
+const ancoraAttesa = esito.tipo === "inVerifica" && tentativo < TENTATIVI_VERIFICA;
+---
+
+<section class="tbl-esito" aria-live="polite">
+  {ricevuto && (
+    <>
+      <div class="tbl-esito-segno tbl-esito-segno--ok" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      </div>
+      <h1 class="tbl-esito-tit">{tx.ricevuto}</h1>
+      {nome && <p class="tbl-esito-grazie">{tx.grazie.replace("{nome}", nome)}</p>}
+
+      {tavolo && (
+        <div class="tbl-esito-tavolo">
+          <span class="tbl-esito-tavolo-lab">{tx.etichettaTavolo}</span>
+          <span class="tbl-esito-tavolo-num">{tavolo}</span>
+        </div>
+      )}
+
+      <p class="tbl-esito-msg">{messaggio}</p>
+
+      <div class="tbl-esito-recap">
+        <div class="tbl-esito-riga tbl-esito-riga--testa">
+          <span>{tx.numero} {numero}</span>
+          <span class={"tbl-esito-pag" + (ricevuto.pagamento === "inCassa" ? " tbl-esito-pag--cassa" : "")}>
+            {ricevuto.pagamento === "inCassa" ? tx.inCassa : tx.pagato}
+          </span>
+        </div>
+        <ul class="tbl-esito-voci">
+          {voci.map((v) => (
+            <li class="tbl-esito-riga">
+              <span><b>{v.qty}×</b> {v.name}</span>
+              <span>{soldi(Number(v.price_cents) * Number(v.qty))}</span>
+            </li>
+          ))}
+        </ul>
+        {nota && <p class="tbl-esito-nota"><b>{tx.nota} :</b> {nota}</p>}
+        <div class="tbl-esito-riga tbl-esito-totale">
+          <span>{tx.totale}</span>
+          <strong>{soldi(ordine?.total_cents)}</strong>
+        </div>
+      </div>
+
+      <a class="tbl-btn tbl-esito-btn" href={hrefMenu}>{tx.ancora}</a>
+    </>
+  )}
+
+  {esito.tipo === "inVerifica" && (
+    <>
+      <div class="tbl-esito-segno" aria-hidden="true">
+        <span class="tbl-esito-giro"></span>
+      </div>
+      <h1 class="tbl-esito-tit">{tx.verificaTit}</h1>
+      <p class="tbl-esito-msg">{ancoraAttesa ? tx.verificaTesto : tx.verificaLungo}</p>
+      {!ancoraAttesa && <a class="tbl-btn tbl-esito-btn" href={Astro.url.pathname + Astro.url.search}>{tx.aggiorna}</a>}
+    </>
+  )}
+
+  {(esito.tipo === "annullato" || esito.tipo === "nonTrovato") && (
+    <>
+      <div class="tbl-esito-segno tbl-esito-segno--ko" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17" /></svg>
+      </div>
+      <h1 class="tbl-esito-tit">{esito.tipo === "annullato" ? tx.annullatoTit : tx.nonTrovatoTit}</h1>
+      <p class="tbl-esito-msg">{esito.tipo === "annullato" ? tx.annullatoTesto : tx.nonTrovatoTesto}</p>
+      <a class="tbl-btn tbl-esito-btn" href={hrefMenu}>{tx.ancora}</a>
+    </>
+  )}
+</section>
+
+{/* ⚠️ ORDINE RICEVUTO = CARRELLO VUOTO. Il carrello di `OrderApp` vive nella
+    scheda (`lm-order-cart`) e la scheda e' la stessa che e' andata su Stripe:
+    tornando al menu il cliente ritroverebbe i piatti appena pagati, e un
+    secondo «Payer» li ordinerebbe due volte. Si svuotano le righe, il codice
+    promo e la nota; nome ed email restano, per il prossimo giro. */}
+{ricevuto && (
+  <script is:inline>
+    (function () {
+      try {
+        var k = "lm-order-cart";
+        var raw = window.sessionStorage.getItem(k);
+        if (!raw) return;
+        var d = JSON.parse(raw) || {};
+        d.linee = []; d.coupon = ""; d.noteOrdine = "";
+        window.sessionStorage.setItem(k, JSON.stringify(d));
+      } catch (e) {}
+    })();
+  </script>
+)}
+
+{/* Stripe e' piu' lento del cliente: si riprova ogni 3 secondi, contando i
+    giri nell'indirizzo (`n`), fino a TENTATIVI_VERIFICA. */}
+{ancoraAttesa && (
+  <script is:inline define:vars={{ prossimo: tentativo + 1 }}>
+    window.setTimeout(function () {
+      var u = new URL(window.location.href);
+      u.searchParams.set("n", String(prossimo));
+      window.location.replace(u.toString());
+    }, 3000);
+  </script>
+)}
+
+<style>
+  .tbl-esito { display: flex; flex-direction: column; align-items: center; text-align: center;
+               padding: 1.6rem 0 2rem; }
+  .tbl-esito-segno { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+                     margin-bottom: 1rem; border: 2px solid var(--tbl-line); color: var(--tbl-text); }
+  .tbl-esito-segno--ok { background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); }
+  .tbl-esito-segno--ko { color: var(--tbl-muted); }
+  .tbl-esito-giro { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--tbl-line);
+                    border-top-color: var(--tbl-ink); animation: tbl-esito-gira .9s linear infinite; }
+  @keyframes tbl-esito-gira { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .tbl-esito-giro { animation: none; } }
+  .tbl-esito-tit { margin: 0 0 .4rem; font-family: var(--font-title); font-size: 1.6rem; line-height: 1.15; }
+  .tbl-esito-grazie { margin: 0 0 1.1rem; color: var(--tbl-muted); font-size: 1.05rem; }
+  .tbl-esito-tavolo { display: flex; flex-direction: column; align-items: center; gap: .15rem;
+                      min-width: 7rem; padding: .7rem 1.4rem; margin-bottom: 1.1rem;
+                      border: 1px solid var(--tbl-line); border-radius: .9rem; background: var(--tbl-card); }
+  .tbl-esito-tavolo-lab { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--tbl-muted); }
+  .tbl-esito-tavolo-num { font-size: 2.2rem; font-weight: 800; line-height: 1.05; }
+  .tbl-esito-msg { margin: 0 0 1.4rem; max-width: 26rem; line-height: 1.45; font-size: 1.02rem; }
+  .tbl-esito-recap { width: 100%; text-align: left; border: 1px solid var(--tbl-line); border-radius: .9rem;
+                     background: var(--tbl-card); padding: .4rem 1rem; margin-bottom: 1.4rem; }
+  .tbl-esito-voci { list-style: none; margin: 0; padding: 0; }
+  .tbl-esito-riga { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0;
+                    border-bottom: 1px solid var(--tbl-line); font-size: .95rem; }
+  .tbl-esito-riga b { color: var(--tbl-ink); font-weight: 800; }
+  .tbl-esito-riga--testa { font-size: .82rem; color: var(--tbl-muted); align-items: center; }
+  .tbl-esito-pag { font-weight: 700; color: var(--tbl-text); }
+  .tbl-esito-pag--cassa { color: var(--tbl-ink); }
+  .tbl-esito-nota { margin: .55rem 0 0; font-size: .9rem; color: var(--tbl-muted); }
+  .tbl-esito-totale { border-bottom: 0; font-size: 1.05rem; }
+  .tbl-esito-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+</style>
