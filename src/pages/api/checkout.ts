@@ -11,6 +11,7 @@ import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
+import { PARAM_ORDINE } from "../../lib/esitoTavoloRegole";
 import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prefissoLingua } from "../../lib/linguaUrl";
@@ -513,9 +514,11 @@ export const POST: APIRoute = async ({ request }) => {
   // L'ordine in cassa ha bisogno del suo `cancel_token` subito: e' con quello
   // che la pagina di ritorno lo ritrova, visto che nessuna sessione Stripe
   // esiste.
+  // ⚠️ Anche l'ordine dal TAVOLO pagato online: si torna sulla pagina del
+  // tavolo, e la' l'ordine si ritrova col suo token (vedi `ritornoTavolo`).
   const campiResa = inCassa
     ? "id, cancel_token, customer_name, customer_email, customer_phone, pickup_time, items, total_cents, lang, location_id"
-    : "id";
+    : aTavolo ? "id, cancel_token" : "id";
   // ⚠️ `select` con una stringa VARIABILE fa perdere a TypeScript la forma
   // della riga (rende un `ParserError`): si dichiara qui cosa ci si aspetta,
   // che e' esattamente quello che `campiResa` chiede.
@@ -538,6 +541,25 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
+
+  /* LA PAGINA DEL TAVOLO, nella lingua in cui si ordinava e con la sede con
+     cui si era arrivati. E' li' che si torna, sia dopo il pagamento (con
+     `?order=` → «Commande reçue», tavolo, recap) sia col tasto «indietro»
+     (`?ripresa=1` → il carrello). ⚠️ NON la conferma del ritiro: «venez la
+     chercher a 19:30» a chi e' seduto al tavolo 7 e' falso.
+     ⚠️ `/table` sta alla radice per contratto (il QR e' stampato): niente
+     prefisso del SITO (vedi `basePubblica`), a differenza delle pagine di
+     conferma. Il prefisso di LINGUA si': chi ordinava da `/en/table` tornava
+     sulla pagina francese. Per la lingua di default e' vuoto, quindi un sito
+     che ha solo `/table` ci torna come prima. */
+  const paginaTavolo = (parametri: Record<string, string>): URL => {
+    const u = new URL(`${siteUrl.replace(/\/$/, "")}${prefissoLingua(lang, defaultLang)}/table`);
+    const sedeChiesta = sedeDettaDa(request);
+    if (sedeChiesta) u.searchParams.set(PARAM_SEDE, sedeChiesta);
+    for (const [k, v] of Object.entries(parametri)) u.searchParams.set(k, v);
+    return u;
+  };
+  const token = String(ordine.cancel_token ?? "");
 
   // ---- L'ORDINE DA PAGARE IN CASSA ----
   // ⚠️ Niente Stripe, e quindi niente webhook: se l'ordine non lo annunciamo
@@ -583,7 +605,9 @@ export const POST: APIRoute = async ({ request }) => {
     const base = (await basePubblicaOpz(ambitoPub)) ?? "";
     return new Response(
       JSON.stringify({
-        url: `${base}/order-confirm?token=${encodeURIComponent(String(ordine.cancel_token ?? ""))}`,
+        url: aTavolo
+          ? (() => { const u = paginaTavolo({ [PARAM_ORDINE]: token }); return `${u.pathname}${u.search}`; })()
+          : `${base}/order-confirm?token=${encodeURIComponent(token)}`,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -593,21 +617,16 @@ export const POST: APIRoute = async ({ request }) => {
      torna indietro dal pagamento vuole cambiare qualcosa — un piatto, i
      coperti, un'altra carta — e trovava «Commande annulée» e un link al
      sito: il carrello sparito dalla vista, la sala da rifare. Si torna alla
-     pagina del tavolo, con la stessa sede con cui e' arrivato (id o nome
-     breve, com'era), dritti sui dati (`ripresa=1`): carrello, tavolo e
-     coperti li ritrova lui, sono nel suo browser.
-     ⚠️ `/table` sta alla radice per contratto (il QR e' stampato): niente
-     prefisso del SITO qui (vedi `basePubblica`), a differenza delle pagine di
-     conferma. Il prefisso di LINGUA si': chi ordinava da `/en/table` tornava
-     sulla pagina francese. Per la lingua di default e' vuoto, quindi un sito
-     che ha solo `/table` ci torna come prima. */
+     pagina del tavolo dritti sui dati (`ripresa=1`): carrello, tavolo e
+     coperti li ritrova lui, sono nel suo browser. */
   let ritornoTavolo: string | undefined;
+  let pagatoTavolo: string | undefined;
   if (aTavolo) {
-    const u = new URL(`${siteUrl.replace(/\/$/, "")}${prefissoLingua(lang, defaultLang)}/table`);
-    const sedeChiesta = sedeDettaDa(request);
-    if (sedeChiesta) u.searchParams.set(PARAM_SEDE, sedeChiesta);
-    u.searchParams.set("ripresa", "1");
-    ritornoTavolo = u.toString();
+    ritornoTavolo = paginaTavolo({ ripresa: "1" }).toString();
+    /* ⚠️ `{CHECKOUT_SESSION_ID}` va scritto COSI', graffe comprese: e' Stripe
+       a sostituirlo. Passato da `searchParams` diventerebbe `%7B…%7D` e
+       arriverebbe com'e'. */
+    pagatoTavolo = `${paginaTavolo({ [PARAM_ORDINE]: token }).toString()}&session_id={CHECKOUT_SESSION_ID}`;
   }
 
   try {
@@ -623,6 +642,7 @@ export const POST: APIRoute = async ({ request }) => {
       // un demo scritto qui dentro. Vedi `lib/basePubblica.ts`.
       returnBase: await basePubblicaOpz(ambitoPub),
       cancelUrl: ritornoTavolo,
+      successUrl: pagatoTavolo,
       discount:
         scontoCents > 0
           ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }

@@ -1668,8 +1668,8 @@ test("indietro da Stripe, al tavolo, riporta al carrello e non annulla", () => {
      annulée» e a un link al sito, col carrello sparito dalla vista. Al
      tavolo e' un ripensamento, non un annullamento. */
   // Nella lingua in cui si ordinava: `/en/table` torna su `/en/table`.
-  assert.match(CK, /if \(aTavolo\) \{\n\s*const u = new URL\(`\$\{siteUrl\.replace\(\/\\\/\$\/, ""\)\}\$\{prefissoLingua\(lang, defaultLang\)\}\/table`\);/);
-  assert.match(CK, /u\.searchParams\.set\("ripresa", "1"\);/);
+  assert.match(CK, /const u = new URL\(`\$\{siteUrl\.replace\(\/\\\/\$\/, ""\)\}\$\{prefissoLingua\(lang, defaultLang\)\}\/table`\);/);
+  assert.match(CK, /ritornoTavolo = paginaTavolo\(\{ ripresa: "1" \}\)\.toString\(\);/);
   assert.match(CK, /cancelUrl: ritornoTavolo,/);
   // La sede torna com'era arrivata (id o nome breve).
   assert.match(CK, /if \(sedeChiesta\) u\.searchParams\.set\(PARAM_SEDE, sedeChiesta\);/);
@@ -1995,5 +1995,58 @@ test("la scelta della lingua: un globo, e un modale vero con le bandiere", () =>
     assert.match(sl, new RegExp(`${l}: "${nome}"`));
     assert.match(sl, new RegExp(`code === "${l}" && \\(`), `manca la bandiera ${l}`);
   }
+});
+
+test("dopo l'ordine dal tavolo si torna sul tavolo, non sulla conferma del ritiro", () => {
+  /* ⚠️ Visto il 17/10/2026: pagato al tavolo, il cliente finiva su
+     /order-confirm — «votre commande sera prête à 19:30, venez la chercher» —
+     a chi era seduto al tavolo 7. */
+  assert.match(CK, /pagatoTavolo = `\$\{paginaTavolo\(\{ \[PARAM_ORDINE\]: token \}\)\.toString\(\)\}&session_id=\{CHECKOUT_SESSION_ID\}`;/,
+    "le graffe vanno scritte a mano: da searchParams arriverebbero a Stripe codificate");
+  assert.match(CK, /successUrl: pagatoTavolo,/);
+  // Anche l'ordine da pagare sul posto: niente /order-confirm.
+  assert.match(CK, /url: aTavolo\s*\? /);
+  // Il token serve anche all'ordine pagato online, non solo a quello in cassa.
+  assert.match(CK, /: aTavolo \? "id, cancel_token" : "id";/);
+  const stripe = nudo("src/lib/stripe.ts");
+  assert.match(stripe, /success_url: successUrl \?\? `\$\{siteUrl\}\$\{returnBase \?\? prefix\}\/order-confirm/);
+  // La pagina, con `?order=`, mostra l'esito al posto del menu.
+  assert.match(TPAG, /\{esito \? \(\s*<EsitoTavolo /);
+  assert.match(TPAG, /for \(const k of \[PARAM_ORDINE, "session_id", "n"\]\) urlMenu\.searchParams\.delete\(k\);/);
+  const es = leggi("src/components/EsitoTavolo.astro");
+  // ⚠️ Ordine ricevuto = carrello vuoto, o un secondo «Payer» lo rifarebbe.
+  assert.match(es, /d\.linee = \[\]; d\.coupon = ""; d\.noteOrdine = "";/);
+  for (const l of ["fr", "en", "it", "nl", "es"]) {
+    assert.match(es, new RegExp(`\\n  ${l}: \\{\\n    ricevuto: "`), `manca la lingua ${l} nell'esito`);
+  }
+  // Ritorno: l'ordine si trova col token, e una sessione qualunque non conferma niente.
+  const rt = nudo("src/lib/ritornoTavolo.ts");
+  assert.match(rt, /\.eq\("cancel_token", token\)/);
+  assert.match(rt, /idSessioneStripe\(ordine\.stripe_session_id\) !== sid\) return ordine;/);
+  assert.match(rt, /confermaOrdinePagato\(\{ orderId: ordine\.id, ambito: suo, sessionId: sid \}\)/);
+});
+
+test("l'esito al tavolo: tutti i casi", async () => {
+  const { esitoTavolo, idSessioneStripe } = await import("../src/lib/esitoTavoloRegole.ts");
+  assert.deepEqual(esitoTavolo(null, false), { tipo: "nonTrovato" });
+  assert.deepEqual(esitoTavolo({ status: "cancelled" }, false), { tipo: "annullato" });
+  // Online e ancora `pending`: aspetta Stripe, non si promette niente.
+  assert.deepEqual(esitoTavolo({ status: "pending", payment_method: null }, false), { tipo: "inVerifica" });
+  // Da pagare sul posto: e' gia' in cucina.
+  assert.deepEqual(esitoTavolo({ status: "pending", payment_method: "onsite" }, false),
+    { tipo: "ricevuto", consegna: "tavolo", pagamento: "inCassa", servito: false });
+  // Pagato, sala coi camerieri → al tavolo; sala che avvisa → al banco, con l'email.
+  assert.deepEqual(esitoTavolo({ status: "paid" }, false),
+    { tipo: "ricevuto", consegna: "tavolo", pagamento: "pagato", servito: false });
+  assert.deepEqual(esitoTavolo({ status: "paid" }, true),
+    { tipo: "ricevuto", consegna: "banco", pagamento: "pagato", servito: false });
+  // Incassato in cassa e chiuso: pagato, e servito.
+  assert.deepEqual(esitoTavolo({ status: "done", payment_method: "onsite" }, true),
+    { tipo: "ricevuto", consegna: "banco", pagamento: "pagato", servito: true });
+  assert.deepEqual(esitoTavolo({ status: "boh" }, false), { tipo: "nonTrovato" });
+  // L'id di sessione: dall'URL di pagamento o gia' pulito.
+  assert.equal(idSessioneStripe("https://checkout.stripe.com/c/pay/cs_test_a1B2#frag"), "cs_test_a1B2");
+  assert.equal(idSessioneStripe("cs_live_xyz"), "cs_live_xyz");
+  assert.equal(idSessioneStripe(null), "");
 });
 

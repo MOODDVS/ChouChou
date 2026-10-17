@@ -34,6 +34,9 @@ import "./TableOrder.css";
 import { brandPubblico, coloreTema } from "../lib/brandPubblico";
 import type { BrandPubblico } from "../lib/brandPubblico";
 import { CLIENT } from "../config/client";
+import EsitoTavolo from "./EsitoTavolo.astro";
+import { esitoTavolo, PARAM_ORDINE } from "../lib/esitoTavoloRegole";
+import { ordineDelRitorno } from "../lib/ritornoTavolo";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
@@ -60,6 +63,21 @@ interface Props {
   vestito?: "reglages" | "sito";
 }
 const { ambito, sala, brand: brandDato, vestito = "reglages" } = Astro.props;
+
+/* L'ESITO DELL'ORDINE (`?order=<token>`): ci si torna dopo il pagamento, o
+   dopo un ordine da pagare sul posto. Al posto del menu, «Commande reçue»,
+   il tavolo e il recap — vedi `EsitoTavolo` e `esitoTavolo`. */
+const tokenOrdine = (Astro.url.searchParams.get(PARAM_ORDINE) ?? "").trim();
+const ordineTornato = tokenOrdine
+  ? await ordineDelRitorno(tokenOrdine, Astro.url.searchParams.get("session_id") ?? "")
+  : null;
+const esito = tokenOrdine ? esitoTavolo(ordineTornato, sala.avvisa) : null;
+/* «Commander autre chose»: la stessa pagina, senza l'esito (tavolo, sezione
+   e sede restano: li aveva scritti il QR). */
+const urlMenu = new URL(Astro.url);
+for (const k of [PARAM_ORDINE, "session_id", "n"]) urlMenu.searchParams.delete(k);
+const hrefMenu = urlMenu.pathname + urlMenu.search;
+const tentativo = Math.max(0, Number.parseInt(Astro.url.searchParams.get("n") ?? "0", 10) || 0);
 /* Minuti prima di poter richiamare il cameriere: si legge solo se la
    campanella c'e'. */
 const attesaChiamataMin = sala.chiamata ? await attesaChiamataDi(ambito) : 5;
@@ -304,29 +322,33 @@ const testiOrdine = {
       riepilogo la foto del piatto, il formato a parte e il prezzo unitario
       — questa pagina ha gia' lo stile pronto (`TableOrder.css`). Scelte del blocco: una
       pagina che vuole altro monta `TableOrder` da se' (ENGINE.md, livello 3). */}
-  <TableOrder
-    client:load
-    menu={menu}
-    testiOrdine={testiOrdine}
-    testi={TESTI[lang] ?? TESTI.fr}
-    lang={lang}
-    sede={sede}
-    tavoli={tavoliDellaZona(tavoli, zonaDaUrl)}
-    avvisa={sala.avvisa}
-    tavoloDaUrl={tavoloDaUrl}
-    aperti={aperti}
-    ripresa={ripresa}
-    chiuso={pagamento.nessuno
-      ? { riapre: null, motivo: "pagamento" }
-      : servizio.aperto ? null : { riapre: servizio.riapre, motivo: "orario" }}
-    immagine={brand.immagine}
-    sceltaFormato="modale"
-    foto={true}
-    carrelloDettagliato={true}
-    chiamata={sala.chiamata}
-    attesaChiamata={attesaChiamataMin}
-    pagamento={pagamento}
-  />
+  {esito ? (
+    <EsitoTavolo esito={esito} ordine={ordineTornato} lang={lang} hrefMenu={hrefMenu} tentativo={tentativo} />
+  ) : (
+    <TableOrder
+      client:load
+      menu={menu}
+      testiOrdine={testiOrdine}
+      testi={TESTI[lang] ?? TESTI.fr}
+      lang={lang}
+      sede={sede}
+      tavoli={tavoliDellaZona(tavoli, zonaDaUrl)}
+      avvisa={sala.avvisa}
+      tavoloDaUrl={tavoloDaUrl}
+      aperti={aperti}
+      ripresa={ripresa}
+      chiuso={pagamento.nessuno
+        ? { riapre: null, motivo: "pagamento" }
+        : servizio.aperto ? null : { riapre: servizio.riapre, motivo: "orario" }}
+      immagine={brand.immagine}
+      sceltaFormato="modale"
+      foto={true}
+      carrelloDettagliato={true}
+      chiamata={sala.chiamata}
+      attesaChiamata={attesaChiamataMin}
+      pagamento={pagamento}
+    />
+  )}
 </div>
 {/* ⚠️ `is:global`, E NON E’ PIGRIZIA. Astro marca con `data-astro-…`
     solo gli elementi del SUO template; questo modulo lo disegna React
