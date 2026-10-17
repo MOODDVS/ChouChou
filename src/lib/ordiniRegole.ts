@@ -68,6 +68,8 @@ export interface OpzioniOrdini {
   chiamata: boolean;
   /** Si puo' scegliere la consegna a domicilio (accanto al ritiro, che resta). */
   consegna: boolean;
+  /** Le mance al momento di pagare online (tutti gli ordini). */
+  mance: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -100,6 +102,10 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      sacchetto. Accesa da sola, un ristorante senza fattorino si troverebbe
      ordini da portare a casa di gente che aspetta. Serve anche la #84. */
   orders_delivery: "0",
+  /* ⚠️ SPENTE di ripiego: chiedere una mancia e' una scelta di tono del
+     ristorante, e comparire da sola nel checkout di nove siti sarebbe
+     l'ultima cosa che un ristoratore si aspetta. Serve anche la #86. */
+  orders_tips: "0",
 };
 
 /**

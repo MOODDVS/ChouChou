@@ -1244,6 +1244,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         delivery_address?: unknown;
         /** #85 — quanto e' costata la consegna (gia' dentro `total_cents`). */
         delivery_fee_cents?: number | null;
+        /** #86 — la mancia lasciata pagando online (gia' dentro `total_cents`). */
+        tip_cents?: number | null;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1678,6 +1680,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               ${email}
               ${phone}
               ${indirizzoRiga}
+              ${Number(o.tip_cents ?? 0) > 0 ? `<p class="row row-nota">${esc(tr("ord.tip"))} · ${euro(Number(o.tip_cents))}</p>` : ""}
               ${stampaBtn}
             </div>
             <div class="items">${itemsHTML}</div>

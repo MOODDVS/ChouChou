@@ -23,6 +23,7 @@ import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
 import { sogliaCents, euroInCents } from "../../../lib/consegnaRegole";
+import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
 export const prerender = false;
 
@@ -215,6 +216,8 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_delivery_min_cents",
     "orders_delivery_free_cents",
     "orders_delivery_fee_cents",
+    "orders_tips_type",
+    "orders_tips_values",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -289,6 +292,10 @@ export const GET: APIRoute = async ({ request }) => {
     consegna_minimo_cents: sogliaCents(cfg.get("orders_delivery_min_cents")),
     consegna_gratis_cents: sogliaCents(cfg.get("orders_delivery_free_cents")),
     consegna_costo_cents: sogliaCents(cfg.get("orders_delivery_fee_cents")),
+    /* Le mance: tipo e tre valori gia' risolti (percentuali intere o
+       centesimi), col ripiego dentro — la pagina non deve sapere che e' 5/10/15. */
+    mance_tipo: tipoMance(cfg.get("orders_tips_type")),
+    mance_valori: valoriMance(tipoMance(cfg.get("orders_tips_type")), cfg.get("orders_tips_values")),
     /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
@@ -432,6 +439,9 @@ export const PUT: APIRoute = async ({ request }) => {
     consegna_minimo?: string;
     consegna_gratis?: string;
     consegna_costo?: string;
+    /** Le mance: "percent" | "fixed", e i tre valori come scritti nella pagina. */
+    mance_tipo?: string;
+    mance_valori?: unknown;
   };
   try {
     body = await request.json();
@@ -755,6 +765,12 @@ export const PUT: APIRoute = async ({ request }) => {
        consegna: il ristoratore vedrebbe l'interruttore acceso e nessun ordine
        arrivare. Accenderlo e' il momento in cui qualcuno legge — lo si dice
        adesso, non al primo cliente. */
+    /* Le mance, stesso cancello: senza la colonna (#86) il checkout non
+       saprebbe dove scrivere la mancia, e non salverebbe l'ordine. */
+    if (mappa.get("orders_tips") === "1") {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "tip_cents").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.tipsMigration") }, 409);
+    }
     if (mappa.get("orders_delivery") === "1") {
       const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_address").limit(1);
       if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
@@ -810,6 +826,17 @@ export const PUT: APIRoute = async ({ request }) => {
       if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
     }
     const err = await scriviConfig(ambitoPut, { [chiave]: String(c) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* LE MANCE: tipo e tre valori, nelle unita' del tipo. ⚠️ Uno illeggibile
+     o fuori limite (oltre 50 %, oltre 100 €) → salvataggio rifiutato: un
+     bottone «100 %» scritto per sbaglio raddoppierebbe un conto. */
+  if (body.mance_tipo !== undefined && body.mance_valori !== undefined) {
+    const tipo = tipoMance(body.mance_tipo);
+    const valori = valoriDaPagina(tipo, body.mance_valori);
+    if (!valori) return json({ error: await msg("err.tipsAmount") }, 400);
+    const err = await scriviConfig(ambitoPut, { orders_tips_type: tipo, orders_tips_values: valori.join(",") });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 

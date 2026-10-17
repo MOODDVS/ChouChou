@@ -14,6 +14,7 @@ import { fusoDi } from "./fuso";
 import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
 import { attesaChiamata } from "./chiamateRegole";
 import { sogliaCents } from "./consegnaRegole";
+import { tipoMance, valoriMance, type TipoMance } from "./manceRegole";
 
 export { CHIAVI_ORDINI, acceso, RIPIEGO_ORDINI, type OpzioniOrdini } from "./ordiniRegole";
 
@@ -30,6 +31,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       chiamata: acceso(valori.get("orders_table_call"), "orders_table_call"),
       avvisoScelto: String(valori.get("orders_table_notify") ?? ""),
       consegna: acceso(valori.get("orders_delivery"), "orders_delivery"),
+      mance: acceso(valori.get("orders_tips"), "orders_tips"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
@@ -38,7 +40,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
        muto non deve spegnere gli ordini — da sempre si continua a prenderli —
        ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
        porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
-    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false };
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false, mance: false };
   }
 }
 
@@ -187,6 +189,22 @@ export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; 
     };
   } catch {
     return { minimo: 0, gratis: 0, costo: 0 };
+  }
+}
+
+/**
+ * LE MANCE di questo punto: tipo e tre valori, oppure `null` se spente.
+ * ⚠️ Lettura muta → `null`, cioe' nessuna mancia: meglio un checkout senza
+ * il bottone che uno che chiede una cifra che nessuno ha deciso.
+ */
+export async function manceDi(ambito: Ambito): Promise<{ tipo: TipoMance; valori: [number, number, number] } | null> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_tips", "orders_tips_type", "orders_tips_values"]);
+    if (!acceso(valori.get("orders_tips"), "orders_tips")) return null;
+    const tipo = tipoMance(valori.get("orders_tips_type"));
+    return { tipo, valori: valoriMance(tipo, valori.get("orders_tips_values")) };
+  } catch {
+    return null;
   }
 }
 

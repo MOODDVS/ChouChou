@@ -261,7 +261,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   const EXTRA_84 = ", delivery_address";
   // #85 (il costo della consegna): ancora un passo davanti, stesso ripiego.
   const EXTRA_85 = ", delivery_fee_cents";
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85);
+  // #86 (la mancia): un passo in piu', stesso ripiego.
+  const EXTRA_86 = ", tip_cents";
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
@@ -908,12 +911,17 @@ export const PUT: APIRoute = async ({ request }) => {
      scenderebbe di 3,50 € e il pannello proporrebbe di RIMBORSARE una
      consegna che c'e' ancora. Lettura a parte (#85): colonna assente → 0, che
      senza la #85 e' anche la verita'. */
-  let costoConsegna = 0;
+  let fuoriPiatti = 0;
   {
     const r = await leggi("orders", ambito, "delivery_fee_cents").eq("id", id).maybeSingle();
-    if (!r.error) costoConsegna = Math.max(0, Math.round(Number((r.data as { delivery_fee_cents?: unknown } | null)?.delivery_fee_cents ?? 0)) || 0);
+    if (!r.error) fuoriPiatti = Math.max(0, Math.round(Number((r.data as { delivery_fee_cents?: unknown } | null)?.delivery_fee_cents ?? 0)) || 0);
   }
-  const totale = itemsOrdine.reduce((t, i) => t + i.price_cents * i.qty, 0) + costoConsegna;
+  // ⚠️ La mancia, uguale: non e' un piatto, e resta nel totale (#86).
+  {
+    const r = await leggi("orders", ambito, "tip_cents").eq("id", id).maybeSingle();
+    if (!r.error) fuoriPiatti += Math.max(0, Math.round(Number((r.data as { tip_cents?: unknown } | null)?.tip_cents ?? 0)) || 0);
+  }
+  const totale = itemsOrdine.reduce((t, i) => t + i.price_cents * i.qty, 0) + fuoriPiatti;
 
   const [h, m] = slot.split(":").map((n) => parseInt(n, 10));
   const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });

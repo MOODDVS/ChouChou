@@ -162,7 +162,7 @@ test("il costo: quello del ristoratore, gratis sopra la soglia", () => {
 test("il server decide il costo, lo somma al totale e lo salva a parte", () => {
   const co = nudo("src/pages/api/checkout.ts");
   assert.match(co, /costoCons = costoConsegna\(totaleIncassato, costo, gratis\);/);
-  assert.match(co, /total_cents: totaleIncassato \+ costoCons,/);
+  assert.match(co, /total_cents: totaleIncassato \+ costoCons( \+ mancia)?,/);
   assert.match(co, /\.\.\.\(costoCons > 0 \? \{ delivery_fee_cents: costoCons \} : \{\}\),/);
   // Una voce sua su Stripe: la ricevuta la mostra separata.
   assert.match(co, /voci\.push\(\{ name: TXT_VOCE\[lang\] \?\? TXT_VOCE\.fr, price_cents: costoCons, qty: 1 \}\);/);
@@ -173,7 +173,7 @@ test("il server decide il costo, lo somma al totale e lo salva a parte", () => {
 
 test("modificare un ordine non toglie la consegna dal totale", () => {
   const ord = nudo("src/pages/api/admin/orders.ts");
-  assert.match(ord, /const totale = itemsOrdine\.reduce\(\(t, i\) => t \+ i\.price_cents \* i\.qty, 0\) \+ costoConsegna;/);
+  assert.match(ord, /const totale = itemsOrdine\.reduce\(\(t, i\) => t \+ i\.price_cents \* i\.qty, 0\) \+ fuoriPiatti;/);
 });
 
 test("Réglages non mette un costo senza la #85", () => {

@@ -17,7 +17,8 @@ import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
-import { modiDiPagamento, opzioniTavolo, soglieConsegna, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
+import { modiDiPagamento, opzioniTavolo, soglieConsegna, manceDi, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
+import { importoMancia } from "../../lib/manceRegole";
 import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordiniRegole";
 import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
@@ -81,6 +82,8 @@ interface CheckoutRequest {
   /** L'indirizzo, quando `service` e' "delivery". Ripulito e ricontrollato
    *  da `indirizzoDaRichiesta`: dal browser arriva com'e'. */
   delivery?: unknown;
+  /** La mancia: QUALE bottone (0, 1, 2), mai un importo. Assente = nessuna. */
+  tip?: unknown;
 }
 
 function isPizza(categoryOrder: number): boolean {
@@ -485,6 +488,21 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
+  /* LA MANCIA. Dal browser arriva solo QUALE bottone: la cifra si ricalcola
+     qui, con i valori di questo punto, sui piatti dopo lo sconto (senza
+     consegna). ⚠️ Solo con la carta: chi paga sul posto la lascia di persona,
+     e una mancia dentro un «da incassare» e' una cifra che alla cassa nessuno
+     sa spiegare. Mance spente nel frattempo → nessuna, senza errore. */
+  let mancia = 0;
+  if (!inCassa && body.tip !== undefined && body.tip !== null) {
+    const m = await manceDi(ambitoPub);
+    if (m) mancia = importoMancia(body.tip, m.tipo, m.valori, totaleIncassato);
+    if (mancia > 0) {
+      const TXT_MANCIA: Record<string, string> = { fr: "Pourboire", en: "Tip", it: "Mancia", nl: "Fooi", es: "Propina" };
+      voci.push({ name: TXT_MANCIA[lang] ?? TXT_MANCIA.fr, price_cents: mancia, qty: 1 });
+    }
+  }
+
   /* ⚠️ AL TAVOLO `pickup_time` E' L'ISTANTE IN CUI L'ORDINE ENTRA, non `null`.
      Sembrerebbe piu' pulito lasciarla vuota — al tavolo non si ritira niente
      — e sarebbe il difetto peggiore di tutti: la lista Commandes filtra con
@@ -579,12 +597,14 @@ export const POST: APIRoute = async ({ request }) => {
        Con un costo invece NESSUN ripiego — un totale con dentro 3,50 € che
        nessuna colonna spiega diventerebbe un «rimborso» alla prima modifica. */
     ...(costoCons > 0 ? { delivery_fee_cents: costoCons } : {}),
+    // La #86, solo se c'e' una mancia: stesso ragionamento del costo qui sopra.
+    ...(mancia > 0 ? { tip_cents: mancia } : {}),
     customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname ?? ""}`),
     customer_email: body.customer.email ?? "",
     customer_phone: body.customer.phone ?? "",
     items: itemsOrdine,
     // Il totale INCASSATO: piatti scontati + consegna (0 se non c'e').
-    total_cents: totaleIncassato + costoCons,
+    total_cents: totaleIncassato + costoCons + mancia,
     lang,
   };
   if (couponId) {

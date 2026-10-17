@@ -150,9 +150,10 @@ export async function annunciaOrdine(
   // puo' essere nullo su una riga vecchia, `items` e' JSON e non ha forma.
   // Si adatta QUI, in un posto solo, invece di allentare `OrdineNotifica` —
   // che e' il tipo che garantisce a chi scrive un'email di avere un nome.
-  const [sala, consegna] = await Promise.all([
+  const [sala, consegna, mancia] = await Promise.all([
     salaDellOrdine(String(ordine.id), ordine.location_id ?? null),
     consegnaDellOrdine(String(ordine.id), ordine.location_id ?? null),
+    manciaDellOrdine(String(ordine.id), ordine.location_id ?? null),
   ]);
 
   await inviaNotifiche({
@@ -173,6 +174,7 @@ export async function annunciaOrdine(
     da_incassare: daIncassare,
     sala,
     consegna,
+    mancia_cents: mancia,
   });
 
   // ⚠️ La sede la dice la RIGA, non la richiesta: senza, un ordine di Stockel
@@ -283,6 +285,18 @@ async function consegnaDellOrdine(
     };
   } catch {
     return null;
+  }
+}
+
+/** La mancia dell'ordine (#86), 0 se non c'e' — o se manca la colonna, che
+ *  senza la #86 e' anche la verita'. Lettura a parte, come la sala. */
+async function manciaDellOrdine(id: string, location_id: string | null): Promise<number> {
+  try {
+    const { data, error } = await leggi("orders", ambitoDiRiga(location_id), "tip_cents").eq("id", id).maybeSingle();
+    if (error || !data) return 0;
+    return Math.max(0, Math.round(Number((data as { tip_cents?: unknown }).tip_cents ?? 0)) || 0);
+  } catch {
+    return 0;
   }
 }
 

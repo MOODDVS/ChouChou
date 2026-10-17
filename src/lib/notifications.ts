@@ -167,6 +167,22 @@ export interface OrdineNotifica {
    *   note       per il fattorino (piano, campanello), puo' essere vuota
    */
   consegna?: { indirizzo: string; mappa: string; note: string; costo_cents?: number } | null;
+  /** La mancia lasciata pagando online (#86), gia' dentro `total_cents`. */
+  mancia_cents?: number;
+}
+
+/** «Pourboire» nelle cinque lingue: email al cliente (sua lingua) e alla
+ *  cucina (lingua dell'admin). */
+const TXT_MANCIA_EMAIL: Record<string, string> = { fr: "Pourboire", en: "Tip", it: "Mancia", nl: "Fooi", es: "Propina" };
+
+/** Una riga «etichetta … importo» sopra il totale delle email. Vuota a 0. */
+function rigaImporto(etichetta: string, cents: unknown, tema: { text: string; title: string }, pad: string): string {
+  const c = Math.round(Number(cents ?? 0));
+  if (!(c > 0)) return "";
+  return `<tr>
+              <td style="padding:${pad};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${etichetta}</td>
+              <td style="padding:${pad};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(c)}</td>
+            </tr>`;
 }
 
 /* I testi della CONSEGNA, a parte e non dentro `TXT`/`K_TXT`: sono le stesse
@@ -969,6 +985,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
             ${righeHtml}
             ${noteHtml}
             ${rigaCostoConsegna(consegna, tcc.costo, tema, "12px 24px 0")}
+            ${rigaImporto(pick5(TXT_MANCIA_EMAIL, o.lang), o.mancia_cents, tema, "12px 24px 0")}
             <tr>
               <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? (sala ? ts.payOnSite : consegna ? tcc.paga : t.payAtPickup) : t.total}</td>
               <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
@@ -1486,7 +1503,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       ${noteHtml}
       <tr>
         <td class="em-pad" style="padding:16px 32px 26px;">
-          <table role="presentation" width="100%">${rigaCostoConsegna(consegna, kc.costo, tema, "0 0 8px")}<tr>
+          <table role="presentation" width="100%">${rigaCostoConsegna(consegna, kc.costo, tema, "0 0 8px")}${rigaImporto(TXT_MANCIA_EMAIL[await adminLang().catch(() => "fr")] ?? TXT_MANCIA_EMAIL.fr, o.mancia_cents, tema, "0 0 8px")}<tr>
             <td style="color:${tema.title};font-size:22px;font-weight:bold;">${k.total}</td>
             <td style="color:${tema.accent};font-size:22px;font-weight:bold;text-align:right;">${euro(o.total_cents)}</td>
           </tr></table>

@@ -1800,7 +1800,7 @@ test("il totale sotto le note: l'opzione resta nel motore, spenta sulla pagina d
   // Spento di default: i siti in produzione non se lo trovano nudo.
   assert.match(OAPP, /vistaIniziale = "menu", totaleSottoLeNote = false \}/);
   // Lo stesso numero del bottone, sconto compreso: mai due totali diversi.
-  assert.match(OAPP, /<strong>\{euro\(scontoCents > 0( \|\| rigaConsegna)? \? (totaleFinale|totaleDaPagare) : totale\)\}<\/strong>/);
+  assert.match(OAPP, /<strong>\{euro\(scontoCents > 0( \|\| rigaConsegna)?( \|\| mancia > 0)? \? (totaleFinale|totaleDaPagare) : totale\)\}<\/strong>/);
 });
 
 test("il codice promo e' una domanda: il campo appare solo a casella spuntata", () => {

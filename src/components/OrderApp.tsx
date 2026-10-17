@@ -5,6 +5,7 @@ import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 import { urlConSede } from "../lib/sedeUrl";
 import { costoConsegna } from "../lib/consegnaRegole";
+import { importoMancia, type TipoMance } from "../lib/manceRegole";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
  *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
@@ -182,6 +183,17 @@ const TXT_CONSEGNA: Record<string, {
   it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.`, costo: "Consegna", offerta: "Gratis", gratisDa: (g) => `Consegna gratuita da ${g} di ordine`, gratisManca: (x) => `mancano ${x}` },
   nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.`, costo: "Levering", offerta: "Gratis", gratisDa: (g) => `Gratis levering vanaf ${g} per bestelling`, gratisManca: (x) => `nog ${x}` },
   es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.`, costo: "Entrega", offerta: "Gratis", gratisDa: (g) => `Entrega gratuita desde ${g} de pedido`, gratisManca: (x) => `faltan ${x}` },
+};
+
+/* LE MANCE (Réglages → Paiements → «Pourboires»). Testi del motore, come
+ * `TXT_PAGAMENTO`. ⚠️ «Aucun» e' sempre il primo bottone ed e' quello
+ * acceso all'apertura: una mancia preselezionata la paga chi non guarda. */
+const TXT_MANCE: Record<string, { titolo: string; nessuno: string; riga: string }> = {
+  fr: { titolo: "Pourboire", nessuno: "Aucun", riga: "Pourboire" },
+  en: { titolo: "Tip", nessuno: "None", riga: "Tip" },
+  it: { titolo: "Mancia", nessuno: "Nessuna", riga: "Mancia" },
+  nl: { titolo: "Fooi", nessuno: "Geen", riga: "Fooi" },
+  es: { titolo: "Propina", nessuno: "Ninguna", riga: "Propina" },
 };
 
 interface OrderAppProps {
@@ -484,19 +496,30 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      costo qui serve solo a MOSTRARLO: quello che si paga lo decide il server,
      che lo ricalcola con la stessa regola (`costoConsegna`). */
   const [soglie, setSoglie] = useState({ minimo: 0, gratis: 0, costo: 0 });
+  /* Le mance del punto (`null` = spente) e il bottone scelto (-1 = Aucun). */
+  const [mance, setMance] = useState<{ tipo: TipoMance; valori: [number, number, number] } | null>(null);
+  const [manciaScelta, setManciaScelta] = useState(-1);
+  const tm = TXT_MANCE[lang] ?? TXT_MANCE.fr;
   const [modoServizio, setModoServizio] = useState<"ritiro" | "consegna">("ritiro");
   const vuotoIndirizzo = { via: "", numero: "", box: "", cap: "", comune: "", note: "" };
   const [indirizzo, setIndirizzo] = useState(salvato.indirizzo ?? vuotoIndirizzo);
   const campoIndirizzo = (k: keyof typeof vuotoIndirizzo) => (e: { target: { value: string } }) =>
     setIndirizzo((x) => ({ ...x, [k]: e.target.value }));
   useEffect(() => {
-    if (inSala) return;
+    // ⚠️ Si chiede ANCHE al tavolo: le mance valgono per tutti gli ordini.
+    // La consegna invece no — `aConsegna` la esclude in sala comunque.
     let vivo = true;
     fetch(conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number } | null) => {
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
         if (!vivo) return;
-        setConsegnaPossibile(d?.consegna === true);
+        setConsegnaPossibile(!inSala && d?.consegna === true);
+        const m = d?.mance;
+        setMance(
+          m && Array.isArray(m.valori) && m.valori.length === 3
+            ? { tipo: m.tipo === "fixed" ? "fixed" : "percent", valori: [Number(m.valori[0]), Number(m.valori[1]), Number(m.valori[2])] }
+            : null,
+        );
         setSoglie({
           minimo: Math.max(0, Number(d?.minimo_cents) || 0),
           gratis: Math.max(0, Number(d?.gratis_cents) || 0),
@@ -843,7 +866,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      regola del server (`costoConsegna`): gratis quando i piatti scontati
      arrivano alla soglia. */
   const costoCons = aConsegna ? costoConsegna(totaleFinale, soglie.costo, soglie.gratis) : 0;
-  const totaleDaPagare = totaleFinale + costoCons;
+  /* LA MANCIA: solo pagando con la carta (chi paga sul posto la lascia di
+     persona), sui piatti scontati, con la stessa regola del server — che
+     comunque la ricalcola: da qui parte solo QUALE bottone. */
+  const manceAttive = mance !== null && !pagaInCassa;
+  const mancia = mance !== null && !pagaInCassa ? importoMancia(manciaScelta, mance.tipo, mance.valori, totaleFinale) : 0;
+  const totaleDaPagare = totaleFinale + costoCons + mancia;
   // La riga «Livraison» nel totale c'e' solo se la consegna ha un prezzo:
   // dove e' sempre gratis, una riga «Offerte» sarebbe rumore.
   const rigaConsegna = aConsegna && soglie.costo > 0;
@@ -983,6 +1011,8 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           // offra davvero quella strada. Qui si dice cosa ha SCELTO il
           // cliente, non cosa gli e' permesso.
           pay: pagaInCassa ? "onsite" : "online",
+          // Solo QUALE bottone: l'importo lo ricalcola il server.
+          ...(manceAttive && manciaScelta >= 0 ? { tip: manciaScelta } : {}),
           customer: { name: nome, surname: cognome, phone: telefono, email },
           lang,
         }),
@@ -1262,7 +1292,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 {totaleSottoLeNote && (
                   <div className="order-cart-total order-recap-totale">
                     <span>{t.total} ({numArticoli} {t.items})</span>
-                    <strong>{euro(scontoCents > 0 || rigaConsegna ? totaleDaPagare : totale)}</strong>
+                    <strong>{euro(scontoCents > 0 || rigaConsegna || mancia > 0 ? totaleDaPagare : totale)}</strong>
                   </div>
                 )}
               </>
@@ -1463,7 +1493,28 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 <a href={t.privacyHref} target="_blank" rel="noopener">{t.consentLink}</a>
               </span>
             </label>
-            {scontoCents > 0 || rigaConsegna ? (
+            {/* LA MANCIA, sopra il totale: e' l'ultima scelta prima di pagare,
+                e il totale qui sotto la mostra subito. Classi da vestire:
+                `order-mancia`, `order-mancia-btn` (+ `is-selected`). */}
+            {manceAttive && mance && (
+              <div className="order-mancia" role="group" aria-label={tm.titolo}>
+                <span className="order-field-label">{tm.titolo}</span>
+                <div className="order-mancia-btns">
+                  {[-1, 0, 1, 2].map((i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={"order-mancia-btn" + (manciaScelta === i ? " is-selected" : "")}
+                      aria-pressed={manciaScelta === i}
+                      onClick={() => setManciaScelta(i)}
+                    >
+                      {i < 0 ? tm.nessuno : mance.tipo === "percent" ? `${mance.valori[i]} %` : euro(mance.valori[i])}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {scontoCents > 0 || rigaConsegna || mancia > 0 ? (
               <>
                 <div className="order-cart-subtotal">
                   <span>{t.subtotal}</span>
@@ -1483,6 +1534,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                   <div className="order-cart-subtotal order-cart-livraison">
                     <span>{tc.costo}</span>
                     <span>{costoCons > 0 ? euro(costoCons) : tc.offerta}</span>
+                  </div>
+                )}
+                {mancia > 0 && (
+                  <div className="order-cart-subtotal order-cart-mancia">
+                    <span>{tm.riga}</span>
+                    <span>{euro(mancia)}</span>
                   </div>
                 )}
                 <div className="order-cart-total">
