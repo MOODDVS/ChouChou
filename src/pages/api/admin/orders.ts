@@ -641,7 +641,7 @@ export const PATCH: APIRoute = async ({ request }) => {
      nessuno porta il piatto. Se la colonna non c’e’ (#82 non lanciata) il
      secondo tentativo qui sotto la lascia cadere, e si torna al
      comportamento di prima — che per un locale senza sala e’ quello giusto. */
-  const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method, service";
+  const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method, service, table_label";
   let prima: Record<string, unknown> | null = null;
   {
     const r = await leggi("orders", ambito, SEL_ANN).eq("id", id).maybeSingle();
@@ -765,6 +765,10 @@ export const PATCH: APIRoute = async ({ request }) => {
       items: [],
       total_cents: Number(prima.total_cents ?? 0),
       lang: String(prima.lang ?? "fr"),
+      // Dal tavolo e al banco: «venez la chercher AU COMPTOIR».
+      sala: alTavolo(prima.service)
+        ? { tavolo: String(prima.table_label ?? ""), alBanco: avvisaInSala }
+        : null,
     }).catch(() => {
       /* l'ordine e' chiuso lo stesso: l'email e' un di piu' */
     });

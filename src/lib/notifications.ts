@@ -148,6 +148,16 @@ export interface OrdineNotifica {
    * «DA INCASSARE» con l'importo dentro.
    */
   da_incassare?: boolean;
+  /**
+   * ⚠️ ORDINE DAL TAVOLO (`service = 'table'`). Senza, ogni email parla di
+   * RITIRO: «retrait à 19:30» a chi e' seduto al tavolo 7, e in cucina una
+   * comanda con un'ora invece di un tavolo. `null`/assente = asporto.
+   *   tavolo   l'etichetta del tavolo («T7»), vuota se la sala non ha numeri
+   *   alBanco  la sala avvisa per email e si ritira al banco (l'interruttore
+   *            `avvisa`, la stessa regola che decide se l'email «c'est prêt»
+   *            parte): altrimenti lo porta un cameriere
+   */
+  sala?: { tavolo: string; alBanco: boolean } | null;
 }
 
 function euro(cents: number): string {
@@ -181,6 +191,18 @@ const TXT = {
     total: "Total",
     payAtPickup: "À régler au retrait",
     callBtn: "Nous contacter",
+    sala: {
+      subjectTavolo: (num: string, tav: string) => `Commande #${num} reçue — table ${tav}`,
+      subjectBanco: (num: string) => `Commande #${num} reçue — on vous prévient quand elle est prête`,
+      subject: (num: string) => `Commande #${num} reçue`,
+      title: "Commande reçue",
+      intro: (name: string, num: string) => `Merci ${name} !<br>Votre commande #${num} est en cuisine.`,
+      tavolo: "Votre table",
+      banco: "Au comptoir",
+      msgTavolo: "Nous vous servons à votre table au plus vite.",
+      msgBanco: "Nous vous prévenons par email dès qu’elle est prête : venez alors la chercher au comptoir.",
+      payOnSite: "À régler sur place",
+    },
   },
   en: {
     subject: (num: string, ora: string) => `Order #${num} confirmed — pickup at ${ora}`,
@@ -191,6 +213,18 @@ const TXT = {
     total: "Total",
     payAtPickup: "To pay at pickup",
     callBtn: "Contact us",
+    sala: {
+      subjectTavolo: (num: string, tav: string) => `Order #${num} received — table ${tav}`,
+      subjectBanco: (num: string) => `Order #${num} received — we’ll let you know when it’s ready`,
+      subject: (num: string) => `Order #${num} received`,
+      title: "Order received",
+      intro: (name: string, num: string) => `Thank you ${name}!<br>Your order #${num} is in the kitchen.`,
+      tavolo: "Your table",
+      banco: "At the counter",
+      msgTavolo: "We’ll bring it to your table as soon as possible.",
+      msgBanco: "We’ll email you as soon as it’s ready: then come and collect it at the counter.",
+      payOnSite: "To be paid on site",
+    },
   },
   it: {
     subject: (num: string, ora: string) => `Ordine #${num} confermato — ritiro alle ${ora}`,
@@ -201,6 +235,18 @@ const TXT = {
     total: "Totale",
     payAtPickup: "Da pagare al ritiro",
     callBtn: "Contattaci",
+    sala: {
+      subjectTavolo: (num: string, tav: string) => `Ordine #${num} ricevuto — tavolo ${tav}`,
+      subjectBanco: (num: string) => `Ordine #${num} ricevuto — ti avvisiamo quando è pronto`,
+      subject: (num: string) => `Ordine #${num} ricevuto`,
+      title: "Ordine ricevuto",
+      intro: (name: string, num: string) => `Grazie ${name}!<br>Il tuo ordine #${num} è in cucina.`,
+      tavolo: "Il tuo tavolo",
+      banco: "Al banco",
+      msgTavolo: "Vi serviamo al tavolo al più presto.",
+      msgBanco: "Ti avvisiamo via email appena è pronto: poi passa a ritirarlo al banco.",
+      payOnSite: "Da pagare sul posto",
+    },
   },
   nl: {
     subject: (num: string, ora: string) => `Bestelling #${num} bevestigd — afhalen om ${ora}`,
@@ -211,6 +257,18 @@ const TXT = {
     total: "Totaal",
     payAtPickup: "Te betalen bij afhaling",
     callBtn: "Contact opnemen",
+    sala: {
+      subjectTavolo: (num: string, tav: string) => `Bestelling #${num} ontvangen — tafel ${tav}`,
+      subjectBanco: (num: string) => `Bestelling #${num} ontvangen — we laten weten wanneer ze klaar is`,
+      subject: (num: string) => `Bestelling #${num} ontvangen`,
+      title: "Bestelling ontvangen",
+      intro: (name: string, num: string) => `Bedankt ${name}!<br>Je bestelling #${num} is in de keuken.`,
+      tavolo: "Jouw tafel",
+      banco: "Aan de toog",
+      msgTavolo: "We brengen ze zo snel mogelijk naar je tafel.",
+      msgBanco: "We mailen je zodra ze klaar is: haal ze dan op aan de toog.",
+      payOnSite: "Ter plaatse te betalen",
+    },
   },
   es: {
     subject: (num: string, ora: string) => `Pedido #${num} confirmado — recogida a las ${ora}`,
@@ -221,6 +279,18 @@ const TXT = {
     total: "Total",
     payAtPickup: "A pagar al recoger",
     callBtn: "Contáctanos",
+    sala: {
+      subjectTavolo: (num: string, tav: string) => `Pedido #${num} recibido — mesa ${tav}`,
+      subjectBanco: (num: string) => `Pedido #${num} recibido — te avisamos cuando esté listo`,
+      subject: (num: string) => `Pedido #${num} recibido`,
+      title: "Pedido recibido",
+      intro: (name: string, num: string) => `¡Gracias ${name}!<br>Tu pedido #${num} está en la cocina.`,
+      tavolo: "Tu mesa",
+      banco: "En la barra",
+      msgTavolo: "Te lo servimos en la mesa lo antes posible.",
+      msgBanco: "Te avisamos por email en cuanto esté listo: entonces recógelo en la barra.",
+      payOnSite: "A pagar en el local",
+    },
   },
 } as const;
 
@@ -560,6 +630,7 @@ const TXT_STATO = {
       subject: (num: string) => `Votre commande #${num} est prête`,
       title: "Commande prête",
       intro: (name: string, num: string) => `Bonjour ${name},<br>votre commande #${num} est prête. Vous pouvez venir la chercher.`,
+      introBanco: (name: string, num: string) => `Bonjour ${name},<br>votre commande #${num} est prête : venez la chercher au comptoir.`,
       etichetta: "Prête à",
     },
     ritardo: {
@@ -575,6 +646,7 @@ const TXT_STATO = {
       subject: (num: string) => `Your order #${num} is ready`,
       title: "Order ready",
       intro: (name: string, num: string) => `Hello ${name},<br>your order #${num} is ready. You can come and collect it.`,
+      introBanco: (name: string, num: string) => `Hello ${name},<br>your order #${num} is ready: come and collect it at the counter.`,
       etichetta: "Ready at",
     },
     ritardo: {
@@ -590,6 +662,7 @@ const TXT_STATO = {
       subject: (num: string) => `Il tuo ordine #${num} è pronto`,
       title: "Ordine pronto",
       intro: (name: string, num: string) => `Ciao ${name},<br>il tuo ordine #${num} è pronto. Puoi venire a ritirarlo.`,
+      introBanco: (name: string, num: string) => `Ciao ${name},<br>il tuo ordine #${num} è pronto: passa a ritirarlo al banco.`,
       etichetta: "Pronto alle",
     },
     ritardo: {
@@ -605,6 +678,7 @@ const TXT_STATO = {
       subject: (num: string) => `Uw bestelling #${num} is klaar`,
       title: "Bestelling klaar",
       intro: (name: string, num: string) => `Hallo ${name},<br>uw bestelling #${num} is klaar. U kunt ze komen ophalen.`,
+      introBanco: (name: string, num: string) => `Hallo ${name},<br>uw bestelling #${num} is klaar: haal ze op aan de toog.`,
       etichetta: "Klaar om",
     },
     ritardo: {
@@ -620,6 +694,7 @@ const TXT_STATO = {
       subject: (num: string) => `Su pedido #${num} está listo`,
       title: "Pedido listo",
       intro: (name: string, num: string) => `Hola ${name},<br>su pedido #${num} está listo. Puede venir a recogerlo.`,
+      introBanco: (name: string, num: string) => `Hola ${name},<br>su pedido #${num} está listo: recójalo en la barra.`,
       etichetta: "Listo a las",
     },
     ritardo: {
@@ -659,8 +734,12 @@ async function emailStatoOrdine(
     : oraRitiro(o.pickup_time, fuso);
   const oraPrima = oraPrimaIso ? oraRitiro(oraPrimaIso, fuso) : "";
 
+  /* Ordinato dal tavolo e da ritirare al banco: «venez la chercher au
+     comptoir», non un generico «venez la chercher» che fa pensare alla porta. */
   const intro = variante === "pronto"
-    ? (v as (typeof TXT_STATO)["fr"]["pronto"]).intro(esc(o.customer_name), esc(o.numero))
+    ? (o.sala?.alBanco
+        ? (v as (typeof TXT_STATO)["fr"]["pronto"]).introBanco
+        : (v as (typeof TXT_STATO)["fr"]["pronto"]).intro)(esc(o.customer_name), esc(o.numero))
     : (v as (typeof TXT_STATO)["fr"]["ritardo"]).intro(esc(o.customer_name), esc(o.numero), esc(oraPrima));
   const subject = variante === "pronto"
     ? (v as (typeof TXT_STATO)["fr"]["pronto"]).subject(o.numero)
@@ -758,6 +837,25 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
+  /* ⚠️ DAL TAVOLO NIENTE ORA DI RITIRO: nel riquadro grande il tavolo (o «au
+     comptoir»), e sotto cosa succede adesso — lo porta un cameriere, oppure
+     arriva un'email quando e' pronto. Vedi `OrdineNotifica.sala`. */
+  const sala = o.sala ?? null;
+  const ts = t.sala;
+  const etichettaRiquadro = sala ? (sala.alBanco ? ts.banco : ts.tavolo) : t.pickup;
+  const valoreRiquadro = sala ? esc(sala.tavolo) : ora;
+  const riquadro = sala && !valoreRiquadro
+    ? `<p style="margin:0;color:${tema.accent};font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichettaRiquadro}</p>`
+    : `<p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichettaRiquadro}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${valoreRiquadro}</p>`;
+  const messaggioSala = sala
+    ? `<p style="margin:14px 0 0;color:${tema.text};font-size:15px;line-height:1.6;text-align:center;font-family:Arial,Helvetica,sans-serif;">${sala.alBanco ? ts.msgBanco : ts.msgTavolo}</p>`
+    : "";
+  const oggetto = !sala ? t.subject(o.numero, ora)
+    : sala.alBanco ? ts.subjectBanco(o.numero)
+    : sala.tavolo ? ts.subjectTavolo(o.numero, sala.tavolo)
+    : ts.subject(o.numero);
+
   const html = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
       <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
@@ -769,18 +867,18 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
       </tr>
       <tr>
         <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
-          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
-          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${sala ? ts.title : t.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${(sala ? ts.intro : t.intro)(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
         <td class="em-pad" style="padding:28px 44px 6px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
-              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
-              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+              ${riquadro}
             </td></tr>
           </table>
+          ${messaggioSala}
         </td>
       </tr>
       <tr>
@@ -789,7 +887,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? t.payAtPickup : t.total}</td>
+              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? (sala ? ts.payOnSite : t.payAtPickup) : t.total}</td>
               <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
@@ -813,7 +911,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     await spedisci("confirmation commande client", {
       from,
       to: o.customer_email,
-      subject: t.subject(o.numero, ora),
+      subject: oggetto,
       bcc: BCC,
       html: avvolgiTema(html, tema),
     });
@@ -1214,11 +1312,11 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 
 /** Etichette del ticket ordine (al ristoratore) nella lingua dell'admin. */
 const K_TXT = {
-  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", toCollect: "À encaisser", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}`, cancelled: "Commande annulée", cancelledBy: "Annulée par le client", subjAnnul: (num: string, ora: string) => `❌ Commande #${num} ANNULÉE par le client — retrait ${ora}` },
-  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", toCollect: "To collect", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}`, cancelled: "Order cancelled", cancelledBy: "Cancelled by the customer", subjAnnul: (num: string, ora: string) => `❌ Order #${num} CANCELLED by the customer — pickup ${ora}` },
-  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", toCollect: "Da incassare", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}`, cancelled: "Ordine annullato", cancelledBy: "Annullato dal cliente", subjAnnul: (num: string, ora: string) => `❌ Ordine #${num} ANNULLATO dal cliente — ritiro ${ora}` },
-  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", toCollect: "Te innen", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}`, cancelled: "Bestelling geannuleerd", cancelledBy: "Geannuleerd door de klant", subjAnnul: (num: string, ora: string) => `❌ Bestelling #${num} GEANNULEERD door de klant — afhalen ${ora}` },
-  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", toCollect: "Por cobrar", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}`, cancelled: "Pedido anulado", cancelledBy: "Anulado por el cliente", subjAnnul: (num: string, ora: string) => `❌ Pedido #${num} ANULADO por el cliente — recogida ${ora}` },
+  fr: { table: "Table", counter: "Au comptoir", subjTable: (num: string, tav: string) => `Nouvelle commande #${num} — table ${tav}`, subjCounter: (num: string) => `Nouvelle commande #${num} — au comptoir`, newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", toCollect: "À encaisser", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}`, cancelled: "Commande annulée", cancelledBy: "Annulée par le client", subjAnnul: (num: string, ora: string) => `❌ Commande #${num} ANNULÉE par le client — retrait ${ora}` },
+  en: { table: "Table", counter: "At the counter", subjTable: (num: string, tav: string) => `New order #${num} — table ${tav}`, subjCounter: (num: string) => `New order #${num} — at the counter`, newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", toCollect: "To collect", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}`, cancelled: "Order cancelled", cancelledBy: "Cancelled by the customer", subjAnnul: (num: string, ora: string) => `❌ Order #${num} CANCELLED by the customer — pickup ${ora}` },
+  it: { table: "Tavolo", counter: "Al banco", subjTable: (num: string, tav: string) => `Nuovo ordine #${num} — tavolo ${tav}`, subjCounter: (num: string) => `Nuovo ordine #${num} — al banco`, newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", toCollect: "Da incassare", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}`, cancelled: "Ordine annullato", cancelledBy: "Annullato dal cliente", subjAnnul: (num: string, ora: string) => `❌ Ordine #${num} ANNULLATO dal cliente — ritiro ${ora}` },
+  nl: { table: "Tafel", counter: "Aan de toog", subjTable: (num: string, tav: string) => `Nieuwe bestelling #${num} — tafel ${tav}`, subjCounter: (num: string) => `Nieuwe bestelling #${num} — aan de toog`, newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", toCollect: "Te innen", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}`, cancelled: "Bestelling geannuleerd", cancelledBy: "Geannuleerd door de klant", subjAnnul: (num: string, ora: string) => `❌ Bestelling #${num} GEANNULEERD door de klant — afhalen ${ora}` },
+  es: { table: "Mesa", counter: "En la barra", subjTable: (num: string, tav: string) => `Nuevo pedido #${num} — mesa ${tav}`, subjCounter: (num: string) => `Nuevo pedido #${num} — en la barra`, newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", toCollect: "Por cobrar", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}`, cancelled: "Pedido anulado", cancelledBy: "Anulado por el cliente", subjAnnul: (num: string, ora: string) => `❌ Pedido #${num} ANULADO por el cliente — recogida ${ora}` },
 } as const;
 
 /** Email di notifica alla cucina / ordine (al ristoratore, lingua admin). */
@@ -1240,6 +1338,16 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
 
   const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CUCINA);
+
+  /* ⚠️ DAL TAVOLO, IN GRANDE IL TAVOLO: e' quello che il cameriere deve
+     leggere da lontano, non un'ora di ritiro che non esiste. Al banco, «au
+     comptoir» (il nome del cliente e' gia' sotto). */
+  const sala = o.sala ?? null;
+  const testaCucina = sala ? (sala.alBanco ? k.counter : k.table) : k.pickupAt;
+  const valoreCucina = sala ? (sala.alBanco ? esc(sala.tavolo) : esc(sala.tavolo || "—")) : ora;
+  const oggettoCucina = !sala ? k.subject(o.numero, ora)
+    : sala.alBanco || !sala.tavolo ? k.subjCounter(o.numero)
+    : k.subjTable(o.numero, sala.tavolo);
 
   // ⚠️ Verde «pagato» oppure ambra «da incassare», con l'importo DENTRO la
   // pastiglia: chi consegna guarda li' e basta, e deve trovarci la cifra da
@@ -1269,8 +1377,8 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       </tr>
       <tr>
         <td class="em-pad" style="padding:16px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
-          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${k.pickupAt}</p>
-          <p class="em-big" style="margin:6px 0 0;color:${tema.accent};font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
+          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${testaCucina}</p>
+          ${valoreCucina ? `<p class="em-big" style="margin:6px 0 0;color:${tema.accent};font-size:52px;font-weight:bold;line-height:1;">${valoreCucina}</p>` : ""}
           <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
           <p style="margin:0 0 ${callHtml ? "16px" : "0"};color:${tema.muted};font-size:14px;line-height:1.7;">${esc(o.customer_phone ?? "—")} · ${esc(o.customer_email)}</p>
           ${callHtml}
@@ -1300,7 +1408,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
-      subject: k.subject(o.numero, ora),
+      subject: oggettoCucina,
       html: avvolgiTema(html, tema),
     });
   } catch (e) {
@@ -1417,7 +1525,9 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
       `*${k.client}:* ${o.customer_name}\n` +
       `*${k.phone}:* ${o.customer_phone ?? "—"}\n` +
       `*${k.email}:* ${o.customer_email}\n` +
-      `*${k.pickupAt}:* ${oraRitiro(o.pickup_time, fuso)}\n` +
+      (o.sala
+        ? `*${o.sala.alBanco ? k.counter : k.table}:* ${o.sala.tavolo || "—"}\n`
+        : `*${k.pickupAt}:* ${oraRitiro(o.pickup_time, fuso)}\n`) +
       `*${k.payment}:* ${k.paid} ✅\n\n` +
       `*${k.order}:*\n${righe}${notaRiga}\n\n` +
       `*${k.total}:* ${euro(o.total_cents)}`;

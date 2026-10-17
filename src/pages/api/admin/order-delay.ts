@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/admin/sede";
-import { ritardoAmmesso, RITARDI_MIN } from "../../../lib/ordiniRegole";
+import { ritardoAmmesso, RITARDI_MIN, alTavolo } from "../../../lib/ordiniRegole";
+import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { emailOrdineRitardato } from "../../../lib/notifications";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -86,7 +87,24 @@ export const POST: APIRoute = async ({ request }) => {
 
   // ⚠️ Non si aspetta l'email: il ritardo e' gia' scritto, e la risposta deve
   // tornare subito. Un ristoratore fermo sul bottone lo preme di nuovo.
-  if (String(ord.customer_email ?? "").trim()) {
+  /* ⚠️ DAL TAVOLO, COL CAMERIERE, NIENTE «RETRAIT DÉCALÉ»: chi e' seduto non
+     deve ritirare niente, e un'email che gli sposta un'ora di ritiro e'
+     soltanto confusione. Al banco invece si', e dice dove.
+     ⚠️ Lettura a parte: `service` arriva con la #82, e se manca vuol dire
+     asporto — il comportamento di prima. */
+  let sala: { tavolo: string; alBanco: boolean } | null = null;
+  let silenzio = false;
+  {
+    const r = await leggi("orders", ambito, "service, table_label").eq("id", id).maybeSingle();
+    const riga = (r.error ? null : r.data) as { service?: unknown; table_label?: unknown } | null;
+    if (riga && alTavolo(riga.service)) {
+      const { avvisa } = await opzioniTavolo(conto);
+      if (avvisa) sala = { tavolo: String(riga.table_label ?? ""), alBanco: true };
+      else silenzio = true;
+    }
+  }
+
+  if (!silenzio && String(ord.customer_email ?? "").trim()) {
     void emailOrdineRitardato({
       location_id: conto.modo === "sede" ? conto.id : null,
       numero: String(ord.id).slice(0, 8),
@@ -98,6 +116,7 @@ export const POST: APIRoute = async ({ request }) => {
       total_cents: Number(ord.total_cents ?? 0),
       lang: String(ord.lang ?? "fr"),
       ora_prima: primaIso,
+      sala,
     }).catch(() => {
       /* il ritardo resta valido anche se l'email non parte */
     });

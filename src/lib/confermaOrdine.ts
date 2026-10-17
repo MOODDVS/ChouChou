@@ -43,7 +43,9 @@
  * di mandare due email allo stesso cliente. Chi chiama non deve saperlo.
  */
 import { accodaTicket } from "./stampaCoda";
-import { aggiorna, ambitoDiRiga, type Ambito } from "./admin/sede";
+import { aggiorna, leggi, ambitoDiRiga, type Ambito } from "./admin/sede";
+import { alTavolo } from "./ordiniRegole";
+import { opzioniTavolo } from "./ordiniOpzioni";
 import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
 import { inviaNotifiche } from "./notifications";
@@ -147,6 +149,8 @@ export async function annunciaOrdine(
   // puo' essere nullo su una riga vecchia, `items` e' JSON e non ha forma.
   // Si adatta QUI, in un posto solo, invece di allentare `OrdineNotifica` —
   // che e' il tipo che garantisce a chi scrive un'email di avere un nome.
+  const sala = await salaDellOrdine(String(ordine.id), ordine.location_id ?? null);
+
   await inviaNotifiche({
     // La sede la dice la RIGA: e' lei che decide indirizzo, mittente e cucina
     // a cui arriva il ticket.
@@ -158,8 +162,12 @@ export async function annunciaOrdine(
     pickup_time: ordine.pickup_time,
     items: (ordine.items ?? []) as OrdineNotifica["items"],
     total_cents: ordine.total_cents,
-    lang: ordine.lang === "en" ? "en" : "fr",
+    /* ⚠️ La lingua com'e', non «en o fr»: le email parlano cinque lingue
+       (`pick5` ripiega da sola sul francese), e un ordine fatto da
+       `/it/table` riceveva la conferma in francese. */
+    lang: ordine.lang ?? "fr",
     da_incassare: daIncassare,
+    sala,
   });
 
   // ⚠️ La sede la dice la RIGA, non la richiesta: senza, un ordine di Stockel
@@ -224,3 +232,32 @@ async function registraCliente(c: {
     console.error("[conferma] registrazione cliente fallita:", e);
   }
 }
+
+/**
+ * L'ordine e' dal TAVOLO? E allora: quale tavolo, e lo porta un cameriere o
+ * si ritira al banco (l'interruttore `avvisa` della sala, della SEDE
+ * dell'ordine). `null` = asporto, e le email restano quelle del ritiro.
+ *
+ * ⚠️ UNA LETTURA A PARTE, e non due colonne in piu' nella `select` di chi
+ * chiama: `service` e `table_label` arrivano con la migrazione #82, e su un
+ * cliente che non l'ha ancora lanciata la `select` intera fallirebbe — cioe'
+ * l'ordine pagato non verrebbe confermato. Qui un errore vuol dire soltanto
+ * «asporto», che per un locale senza sala e' la verita'.
+ */
+async function salaDellOrdine(
+  id: string,
+  location_id: string | null,
+): Promise<{ tavolo: string; alBanco: boolean } | null> {
+  try {
+    const ambito = ambitoDiRiga(location_id);
+    const { data, error } = await leggi("orders", ambito, "service, table_label").eq("id", id).maybeSingle();
+    if (error || !data) return null;
+    const riga = data as { service?: unknown; table_label?: unknown };
+    if (!alTavolo(riga.service)) return null;
+    const { avvisa } = await opzioniTavolo(ambito);
+    return { tavolo: String(riga.table_label ?? "").trim(), alBanco: avvisa };
+  } catch {
+    return null;
+  }
+}
+

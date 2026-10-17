@@ -673,7 +673,7 @@ test("l'email «c'e' pronto» legge l'interruttore della sede dell'ORDINE", () =
   // lettura in piu' per una sala che non lo riguarda.
   assert.match(ORDINI_API, /if \(status === "done" && alTavolo\(prima\?\.service\)\)/);
   // La colonna deve arrivare fin qui, col ripiego per chi non ha la #82.
-  assert.match(ORDINI_API, /payment_method, service";/);
+  assert.match(ORDINI_API, /payment_method, service, table_label";/);
 });
 
 
@@ -2048,5 +2048,33 @@ test("l'esito al tavolo: tutti i casi", async () => {
   assert.equal(idSessioneStripe("https://checkout.stripe.com/c/pay/cs_test_a1B2#frag"), "cs_test_a1B2");
   assert.equal(idSessioneStripe("cs_live_xyz"), "cs_live_xyz");
   assert.equal(idSessioneStripe(null), "");
+});
+
+test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritiro", () => {
+  /* ⚠️ Visto il 17/10/2026: ordinato dal tavolo, il cliente riceveva
+     «Commande confirmée — retrait à 19:30», e la cucina una comanda con
+     un'ora al posto del tavolo. */
+  const n = nudo("src/lib/notifications.ts");
+  assert.match(n, /sala\?: \{ tavolo: string; alBanco: boolean \} \| null;/);
+  // Cliente: oggetto, titolo, riquadro e messaggio dal tavolo, in 5 lingue.
+  assert.equal((n.match(/\n    sala: \{\n      subjectTavolo:/g) ?? []).length, 5, "manca `sala` in qualche lingua");
+  assert.match(n, /const etichettaRiquadro = sala \? \(sala\.alBanco \? ts\.banco : ts\.tavolo\) : t\.pickup;/);
+  assert.match(n, /subject: oggetto,/);
+  // Cucina e Slack: in grande il tavolo, non l'ora.
+  assert.match(n, /const testaCucina = sala \? \(sala\.alBanco \? k\.counter : k\.table\) : k\.pickupAt;/);
+  assert.match(n, /subject: oggettoCucina,/);
+  assert.equal((n.match(/subjTable: \(num: string, tav: string\) =>/g) ?? []).length, 5);
+  // «C'est prêt» al banco dice «au comptoir».
+  assert.equal((n.match(/introBanco: \(name: string, num: string\) =>/g) ?? []).length, 5);
+  // Chi annuncia legge il tavolo A PARTE: senza la #82 la select intera
+  // fallirebbe, e l'ordine pagato non verrebbe confermato.
+  const co = nudo("src/lib/confermaOrdine.ts");
+  assert.match(co, /const sala = await salaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\);/);
+  assert.match(co, /leggi\("orders", ambito, "service, table_label"\)\.eq\("id", id\)\.maybeSingle\(\);\n\s*if \(error \|\| !data\) return null;/);
+  // ⚠️ La lingua com'e': «en o fr» mandava in francese chi ordinava in italiano.
+  assert.doesNotMatch(co, /ordine\.lang === "en" \? "en" : "fr"/);
+  // Il ritardo: dal tavolo col cameriere nessuna email di «retrait décalé».
+  const rit = nudo("src/pages/api/admin/order-delay.ts");
+  assert.match(rit, /if \(!silenzio && String\(ord\.customer_email \?\? ""\)\.trim\(\)\)/);
 });
 
