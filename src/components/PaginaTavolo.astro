@@ -37,6 +37,7 @@ import { CLIENT } from "../config/client";
 import EsitoTavolo from "./EsitoTavolo.astro";
 import { esitoTavolo, PARAM_ORDINE } from "../lib/esitoTavoloRegole";
 import { ordineDelRitorno } from "../lib/ritornoTavolo";
+import { TESTI_CONTO } from "../lib/contoTesti";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
@@ -349,6 +350,8 @@ const testiOrdine = {
       chiamata={sala.chiamata}
       attesaChiamata={attesaChiamataMin}
       pagamento={pagamento}
+      conto={sala.conto}
+      testiConto={TESTI_CONTO[lang] ?? TESTI_CONTO.fr}
     />
   )}
 </div>

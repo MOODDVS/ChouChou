@@ -45,7 +45,8 @@ test("quanto vale la mancia scelta", () => {
 
 test("il server ricalcola, solo con la carta, e la salva a parte", () => {
   const co = nudo("src/pages/api/checkout.ts");
-  assert.match(co, /if \(!inCassa && body\.tip !== undefined && body\.tip !== null\) \{/);
+  // ⚠️ Sul conto aperto la mancia si lascia alla fine (conto-aperto.md).
+  assert.match(co, /if \(!inCassa && !sulConto && body\.tip !== undefined && body\.tip !== null\) \{/);
   assert.match(co, /mancia = importoMancia\(body\.tip, m\.tipo, m\.valori, totaleIncassato\)/);
   assert.match(co, /total_cents: totaleIncassato \+ costoCons \+ mancia,/);
   assert.match(co, /\.\.\.\(mancia > 0 \? \{ tip_cents: mancia \} : \{\}\),/);
@@ -53,7 +54,7 @@ test("il server ricalcola, solo con la carta, e la salva a parte", () => {
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /\.\.\.\(manceAttive && manciaScelta >= 0 \? \{ tip: manciaScelta \} : \{\}\),/);
   assert.match(app, /useState\(-1\)/, "Aucun scelto all'apertura");
-  assert.match(app, /const manceAttive = mance !== null && !pagaInCassa;/);
+  assert.match(app, /const manceAttive = mance !== null && !pagaInCassa && !soloConto;/);
 });
 
 test("modificare un ordine non toglie la mancia, e Réglages vuole la #86", () => {

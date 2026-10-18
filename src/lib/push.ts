@@ -91,14 +91,19 @@ interface TradPush {
   chiamata: (tavolo: string) => string;
   chiamataNome: (nome: string) => string;
   chiamataBody: string;
+  /** Conto aperto: il primo invio di un tavolo aspetta la validazione. */
+  contoNuovo: (tavolo: string) => string;
+  contoNuovoBody: string;
+  /** «Demander l'addition». */
+  addizione: (tavolo: string) => string;
 }
 
 const TRAD_PUSH: Record<AdminLang, TradPush> = {
-  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", ordreAnnul: "Commande annulée", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message", chiamata: (t) => `Table ${t} appelle le serveur`, chiamataNome: (n) => `${n} appelle le serveur`, chiamataBody: "Quelqu'un vous attend en salle." },
-  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", ordreAnnul: "Order cancelled", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message", chiamata: (t) => `Table ${t} is calling the waiter`, chiamataNome: (n) => `${n} is calling the waiter`, chiamataBody: "Someone is waiting in the dining room." },
-  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", ordreAnnul: "Ordine annullato", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio", chiamata: (t) => `Il tavolo ${t} chiama il cameriere`, chiamataNome: (n) => `${n} chiama il cameriere`, chiamataBody: "Qualcuno vi aspetta in sala." },
-  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", ordreAnnul: "Bestelling geannuleerd", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht", chiamata: (t) => `Tafel ${t} roept de ober`, chiamataNome: (n) => `${n} roept de ober`, chiamataBody: "Er wacht iemand in de zaal." },
-  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", ordreAnnul: "Pedido anulado", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje", chiamata: (t) => `La mesa ${t} llama al camarero`, chiamataNome: (n) => `${n} llama al camarero`, chiamataBody: "Alguien le espera en sala." },
+  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", ordreAnnul: "Commande annulée", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message", chiamata: (t) => `Table ${t} appelle le serveur`, chiamataNome: (n) => `${n} appelle le serveur`, chiamataBody: "Quelqu'un vous attend en salle.", contoNuovo: (t) => `Table ${t} : addition à valider`, contoNuovoBody: "Validez quand toute la table a commandé.", addizione: (t) => `Table ${t} demande l'addition` },
+  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", ordreAnnul: "Order cancelled", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message", chiamata: (t) => `Table ${t} is calling the waiter`, chiamataNome: (n) => `${n} is calling the waiter`, chiamataBody: "Someone is waiting in the dining room.", contoNuovo: (t) => `Table ${t}: tab to approve`, contoNuovoBody: "Approve once the whole table has ordered.", addizione: (t) => `Table ${t} is asking for the bill` },
+  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", ordreAnnul: "Ordine annullato", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio", chiamata: (t) => `Il tavolo ${t} chiama il cameriere`, chiamataNome: (n) => `${n} chiama il cameriere`, chiamataBody: "Qualcuno vi aspetta in sala.", contoNuovo: (t) => `Tavolo ${t}: conto da convalidare`, contoNuovoBody: "Convalida quando tutto il tavolo ha ordinato.", addizione: (t) => `Il tavolo ${t} chiede il conto` },
+  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", ordreAnnul: "Bestelling geannuleerd", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht", chiamata: (t) => `Tafel ${t} roept de ober`, chiamataNome: (n) => `${n} roept de ober`, chiamataBody: "Er wacht iemand in de zaal.", contoNuovo: (t) => `Tafel ${t}: rekening te bevestigen`, contoNuovoBody: "Bevestig zodra de hele tafel besteld heeft.", addizione: (t) => `Tafel ${t} vraagt de rekening` },
+  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", ordreAnnul: "Pedido anulado", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje", chiamata: (t) => `La mesa ${t} llama al camarero`, chiamataNome: (n) => `${n} llama al camarero`, chiamataBody: "Alguien le espera en sala.", contoNuovo: (t) => `Mesa ${t}: cuenta por validar`, contoNuovoBody: "Valide cuando toda la mesa haya pedido.", addizione: (t) => `La mesa ${t} pide la cuenta` },
 };
 
 /** Testi delle notifiche nella lingua admin (fallback FR, mai lancia). */
@@ -254,12 +259,22 @@ export async function inviaPushConDettagli(
  * notifica sul telefono invece di impilarne tre — il cameriere deve sapere
  * CHI chiama, non quante volte. Due tavoli diversi restano due righe. */
 export async function inviaPushChiamata(
-  chi: { tavolo?: string; nome?: string },
+  chi: { tavolo?: string; nome?: string; addizione?: boolean },
   ambito: Ambito,
 ): Promise<PushEsito> {
   const L = await tradPush();
   const tavolo = String(chi.tavolo ?? "").trim().slice(0, 30);
   const nome = String(chi.nome ?? "").trim().slice(0, 40);
-  const title = tavolo ? L.chiamata(tavolo) : L.chiamataNome(nome);
+  // «Demander l'addition» passa dalla stessa campanella: cambia solo il titolo.
+  const title = tavolo ? (chi.addizione ? L.addizione(tavolo) : L.chiamata(tavolo)) : L.chiamataNome(nome);
   return inviaPush({ title, body: L.chiamataBody, url: "/admin/orders", tag: `chiamata-${tavolo || nome}` }, ambito);
+}
+
+/** Conto aperto: un tavolo aspetta la validazione del primo invio. ⚠️ Lo
+ *  stesso `tag` per tavolo: quattro amici che ordinano uno dopo l'altro
+ *  aggiornano UNA notifica, non ne fanno suonare quattro. */
+export async function inviaPushConto(tavolo: string, ambito: Ambito): Promise<PushEsito> {
+  const L = await tradPush();
+  const t = String(tavolo ?? "").trim().slice(0, 30);
+  return inviaPush({ title: L.contoNuovo(t), body: L.contoNuovoBody, url: "/admin/orders", tag: `conto-${t}` }, ambito);
 }

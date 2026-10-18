@@ -295,6 +295,28 @@ interface OrderAppProps {
     >;
     /** Per il percorso a tre passi della pagina: scelta, dati, pagamento. */
     onVista?: (vista: "menu" | "checkout") => void;
+    /**
+     * IL CONTO APERTO (conto-aperto.md) — assente = come prima.
+     * - `apri`: accanto a «Commander et payer» un secondo bottone, «Ouvrir un
+     *   compte»: si ordina e si paga alla fine.
+     * - `aggiungi`: si e' gia' nel conto del tavolo. Il bottone e' uno solo,
+     *   «Ajouter à l'addition»; niente scelta del pagamento, codice promo o
+     *   mancia — si decidono alla fine, pagando l'addizione.
+     * ⚠️ `invia` apre (o ritrova) il conto e rende il CODICE: e' quello che
+     * `/api/checkout` ricontrolla. La pagina lo tiene, non questo componente.
+     */
+    conto?: {
+      modo: "apri" | "aggiungi";
+      etichetta: string;
+      sotto?: string;
+      invio: string;
+      invia: (chi: { nome: string; email: string }) => Promise<
+        | { ok: true; reservationId: string; tableId: string; code: string }
+        | { ok: false; errore: string }
+      >;
+      /** Dopo l'ordine: il token, per poterlo togliere finche' non parte. */
+      fatto?: (r: { token: string }) => void;
+    } | null;
   } | null;
   /**
    * Su quale schermo aprire. `"checkout"` vale SOLO se nel carrello c'e'
@@ -393,6 +415,9 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
      non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
   const inSala = tavolo !== null;
+  /* Il conto aperto: «apri» aggiunge un bottone, «aggiungi» e' il solo modo. */
+  const contoTav = tavolo?.conto ?? null;
+  const soloConto = contoTav?.modo === "aggiungi";
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -481,11 +506,11 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     pagamento.online ? "online" : "onsite",
   );
   /** Si sceglie solo se c'e' qualcosa da scegliere. */
-  const scegliePagamento = pagamento.online && pagamento.locale;
+  const scegliePagamento = pagamento.online && pagamento.locale && !soloConto;
   const pagaInCassa = !pagamento.online || (pagamento.locale && modoPagamento === "onsite");
   /** ⚠️ Il campo del codice sparisce quando il codice non varrebbe: meglio non
    *  mostrarlo che mostrarlo e poi rifiutarlo al momento di confermare. */
-  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa);
+  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa) && !soloConto;
   const tp = TXT_PAGAMENTO[lang] ?? TXT_PAGAMENTO.fr;
   const tc = TXT_CONSEGNA[lang] ?? TXT_CONSEGNA.fr;
 
@@ -889,8 +914,9 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   /* LA MANCIA: solo pagando con la carta (chi paga sul posto la lascia di
      persona), sui piatti scontati, con la stessa regola del server — che
      comunque la ricalcola: da qui parte solo QUALE bottone. */
-  const manceAttive = mance !== null && !pagaInCassa;
-  const mancia = mance !== null && !pagaInCassa ? importoMancia(manciaScelta, mance.tipo, mance.valori, totaleFinale) : 0;
+  // Sul conto la mancia si lascia alla fine, pagando l'addizione.
+  const manceAttive = mance !== null && !pagaInCassa && !soloConto;
+  const mancia = manceAttive && mance ? importoMancia(manciaScelta, mance.tipo, mance.valori, totaleFinale) : 0;
   const totaleDaPagare = totaleFinale + costoCons + mancia;
   // La riga «Livraison» nel totale c'e' solo se la consegna ha un prezzo:
   // dove e' sempre gratis, una riga «Offerte» sarebbe rumore.
@@ -1044,6 +1070,59 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
         setInvio(false);
         return;
       }
+      window.location.href = data.url;
+    } catch {
+      setErroreCheckout(t.errConnection);
+      setInvio(false);
+    }
+  }
+
+  /**
+   * L'ORDINE SUL CONTO APERTO: niente Stripe, niente cassa. La pagina apre (o
+   * ritrova) il conto e rende il codice; il server lo ricontrolla, attacca
+   * l'ordine all'invio giusto e rimanda su «Votre addition».
+   * ⚠️ Niente codice promo e niente mancia: si usano alla fine, pagando.
+   * ⚠️ Il carrello si svuota PRIMA di andare: la pagina si ricarica, e un
+   * secondo tocco non deve ordinare due volte gli stessi piatti.
+   */
+  async function aggiungiAlConto() {
+    if (!contoTav || !formValido || invio) return;
+    setInvio(true);
+    setErroreCheckout(null);
+    try {
+      const c = await contoTav.invia({ nome: nome.trim(), email: email.trim() });
+      if (!c.ok) {
+        setErroreCheckout(c.errore);
+        setInvio(false);
+        return;
+      }
+      const res = await fetch(conSede("/api/checkout"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
+          service: "table",
+          reservation_id: c.reservationId,
+          table_id: c.tableId,
+          pay: "tab",
+          code: c.code,
+          note: noteOrdine,
+          customer: { name: nome, surname: "", phone: "", email },
+          lang,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErroreCheckout(data.error && data.error !== "code" ? data.error : t.errPayment);
+        setInvio(false);
+        return;
+      }
+      contoTav.fatto?.({ token: String(data.token ?? "") });
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY);
+        const d = raw ? (JSON.parse(raw) as Partial<StatoSalvato>) : {};
+        window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...d, linee: [], coupon: "", noteOrdine: "" }));
+      } catch { /* senza memoria: la pagina riparte vuota comunque */ }
       window.location.href = data.url;
     } catch {
       setErroreCheckout(t.errConnection);
@@ -1605,9 +1684,27 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 si paga niente, si ordina. Una parola che promette un
                 pagamento dove non ce n'e' uno lascia il cliente a chiedersi
                 se e' andato a buon fine. */}
-            <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={paga}>
-              {pagaInCassa ? (invio ? tp.ordinando : tp.ordina) : (invio ? t.paying : t.pay)}
-            </button>
+            {/* Sul conto il bottone e' uno solo («Ajouter à l'addition»); con
+                il conto da aprire, «Ouvrir un compte» sta SOTTO quello di
+                sempre, vuoto e non pieno: pagare subito resta la strada
+                principale. Le classi da vestire: `order-cart-conto`,
+                `order-conto-sotto`. */}
+            {!soloConto && (
+              <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={paga}>
+                {pagaInCassa ? (invio ? tp.ordinando : tp.ordina) : (invio ? t.paying : t.pay)}
+              </button>
+            )}
+            {contoTav && (
+              <button
+                type="button"
+                className={"order-cart-checkout" + (soloConto ? "" : " order-cart-conto")}
+                disabled={!formValido || invio}
+                onClick={aggiungiAlConto}
+              >
+                {invio ? contoTav.invio : contoTav.etichetta}
+              </button>
+            )}
+            {contoTav?.sotto && !soloConto && <p className="order-cart-note order-conto-sotto">{contoTav.sotto}</p>}
             {erroreCheckout && <p className="order-cart-error">{erroreCheckout}</p>}
             {!formValido && !erroreCheckout && (
               <p className="order-cart-note">{t.fillAll}</p>

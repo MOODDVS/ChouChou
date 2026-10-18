@@ -13,6 +13,9 @@ import { inviaPushChiamata } from "../../lib/push";
  * «APPELER LE SERVEUR» — il tavolo chiama.
  *
  * POST { table } oppure { name } → { ok: true, gia: boolean, riprova_tra: secondi }
+ * POST { table, reason: "bill" }   «Demander l'addition» del conto aperto
+ *                                  (conto-aperto.md): la stessa campanella, un
+ *                                  motivo in piu' (`table_calls.reason`, #87).
  *
  * ⚠️ `riprova_tra`: fra quanto si potra' richiamare (l'attesa dei Réglages).
  * La pagina ci fa partire il suo conto alla rovescia: lo decide il server,
@@ -49,7 +52,7 @@ const json = (b: unknown, status = 200) =>
 export const POST: APIRoute = async ({ request }) => {
   const ambito = await ambitoPubblicoChiesto(request);
 
-  let body: { table?: unknown; name?: unknown };
+  let body: { table?: unknown; name?: unknown; reason?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -57,7 +60,11 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const opz = await opzioniTavolo(ambito);
-  if (!opz.attivo || !opz.chiamata) return json({ error: "appel non active" }, 403);
+  /* «Demander l'addition» vale col conto aperto anche a campanella spenta: chi
+     ha un conto deve poter chiedere di pagarlo. ⚠️ Solo col tavolo: il conto
+     esiste solo dove si sceglie il tavolo. */
+  const addizione = body.reason === "bill" && opz.conto;
+  if (!opz.attivo || (!opz.chiamata && !addizione)) return json({ error: "appel non active" }, 403);
 
   const chiesto = String(body.table ?? "").trim();
   const nome = normalizzaNome(body.name).slice(0, 40);
@@ -84,9 +91,16 @@ export const POST: APIRoute = async ({ request }) => {
   const da = adesso.minus({ minutes: FINESTRA_CHIAMATE_MIN }).toUTC().toISO() as string;
   /* Tutte, non solo le aperte: anche una chiamata gia' sbrigata fa contare
      l'attesa (vedi `decidiChiamata`). */
+  /* ⚠️ Il doppione di una richiesta d'addizione si cerca fra le richieste
+     d'addizione: il cameriere chiamato due minuti fa per un'altra cosa non
+     deve far sparire «on voudrait payer». */
   const [{ data: righe, error: errLettura }, attesaMin] = await Promise.all([
-    leggi("table_calls", ambito, "id, table_id, table_label, caller_name, status, created_at")
-      .gte("created_at", da),
+    addizione
+      ? leggi("table_calls", ambito, "id, table_id, table_label, caller_name, status, created_at, reason")
+          .gte("created_at", da)
+          .eq("reason", "bill")
+      : leggi("table_calls", ambito, "id, table_id, table_label, caller_name, status, created_at")
+          .gte("created_at", da),
     attesaChiamataDi(ambito),
   ]);
   if (errLettura) {
@@ -107,6 +121,9 @@ export const POST: APIRoute = async ({ request }) => {
     table_label: tavolo?.name ?? "",
     caller_name: tavolo ? "" : nome,
     status: "open",
+    // ⚠️ Solo per l'addizione: una chiamata normale scrive le colonne di
+    // prima, e funziona anche dove la #87 non e' passata.
+    ...(addizione ? { reason: "bill" } : {}),
   });
   if (ins.error) {
     console.error("[chiamata] inserimento fallito (migrazione #83?):", ins.error);
@@ -114,7 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Mai bloccante: il tablet la trova comunque al prossimo giro.
-  void inviaPushChiamata(tavolo ? { tavolo: tavolo.name } : { nome }, ambito).catch(() => {});
+  void inviaPushChiamata(tavolo ? { tavolo: tavolo.name, addizione } : { nome }, ambito).catch(() => {});
 
   return json({ ok: true, gia: false, riprova_tra: attesaMin * 60 });
 };

@@ -3,6 +3,7 @@ import OrderApp from "./OrderApp";
 import { urlConSede } from "../lib/sedeUrl";
 import { piattiInVetrina } from "../lib/vetrinaRegole";
 import { testoPiatto } from "../lib/i18nMenu";
+import type { TestiConto } from "../lib/contoTesti";
 
 /* ⚠️ IL MENU LO TIPIZZA `OrderApp`, non `lib/db`. Importarlo da la' —
    anche solo come tipo — metterebbe in quest’isola un percorso verso
@@ -135,7 +136,37 @@ interface Props {
    *  server a ogni chiamata; questo e' solo il ripiego. */
   attesaChiamata?: number;
   pagamento?: React.ComponentProps<typeof OrderApp>["pagamento"];
+  /** Il conto aperto (Réglages, `opzioniTavolo().conto`): si ordina e si paga
+   *  alla fine. Solo col tavolo scelto. Vedi conto-aperto.md. */
+  conto?: boolean;
+  /** Le sue parole, dal motore (`lib/contoTesti.ts`). */
+  testiConto?: TestiConto;
 }
+
+/** Quello che il server dice del conto del tavolo a chi ne fa parte. */
+interface DatiConto {
+  stato: string;
+  code: string;
+  reservation_id: string;
+  tavolo_id: string;
+  invito_svg: string;
+  invito_url: string;
+  ordinato: number;
+  persone: number;
+  invii: {
+    numero: number;
+    inviato: boolean;
+    righe: { nome: string; piatti: { nome: string; qty: number; prezzo_cents: number }[]; totale_cents: number; mio: boolean; token?: string }[];
+  }[];
+  totale_cents: number;
+}
+/** Il conto del tavolo visto da questa pagina: nessuno, di altri, il mio. */
+type StatoContoPagina =
+  | { tipo: "nessuno" }
+  | { tipo: "altri"; iniziale: string }
+  | { tipo: "membro"; dati: DatiConto };
+/** Il telefono fa parte di un conto: quale, e col codice (l'autorizzazione). */
+interface Membro { reservationId: string; code: string; tableId: string }
 
 const CHIAVE = "restohub-tavolo";
 /** Tavolo e coperti scelti, per ritrovarli tornando da Stripe. */
@@ -146,6 +177,11 @@ const CHIAVE_NOME_CHIAMATA = "restohub-chiamata-nome";
 /** Fino a quando (ms) non si puo' richiamare: sopravvive a un ricaricamento,
  *  se no bastava ricaricare la pagina per far suonare di nuovo il tablet. */
 const CHIAVE_ATTESA_CHIAMATA = "restohub-chiamata-fino";
+/** Il conto aperto di cui questo telefono fa parte (id, codice, tavolo). */
+const CHIAVE_CONTO = "restohub-conto";
+/** I token degli ordini fatti da QUESTO telefono sul conto: solo quelli si
+ *  possono togliere, finche' il loro invio non e' partito. */
+const CHIAVE_CONTO_MIEI = "restohub-conto-miei";
 
 /** «4:32», «0:07». */
 function minSec(secondi: number): string {
@@ -213,6 +249,29 @@ function leggiScelta(): { tavolo?: string; persone?: string } {
  *  scrivere cinque al posto di otto vorrebbe dire tre coperti in meno nel
  *  conto della sera, ogni volta. «6+» apre il campo e si scrive il numero. */
 const PERSONE_PASTIGLIE = 5;
+
+function leggiMembro(): Membro | null {
+  try {
+    const raw = richiama(CHIAVE_CONTO);
+    const m = raw ? (JSON.parse(raw) as Membro) : null;
+    return m && m.reservationId && m.code ? m : null;
+  } catch {
+    return null;
+  }
+}
+
+function leggiMiei(): string[] {
+  try {
+    const a = JSON.parse(richiama(CHIAVE_CONTO_MIEI) ?? "[]");
+    return Array.isArray(a) ? a.map(String).slice(-50) : [];
+  } catch {
+    return [];
+  }
+}
+
+function euroConto(c: number): string {
+  return (c / 100).toFixed(2).replace(".", ",") + " €";
+}
 
 function leggiSessione(): { id: string } | null {
   try {
@@ -289,6 +348,7 @@ function Vetrina({ foto, nomi }: { foto: { id: string; src: string; nome: string
 export default function TableOrder({
   menu, testiOrdine, testi, lang, sede = "", tavoli, avvisa,
   tavoloDaUrl = "", aperti = [], chiuso = null, ripresa = false, immagine = "", sceltaFormato, foto, carrelloDettagliato, totaleSottoLeNote, chiamata = false, attesaChiamata = 5, pagamento,
+  conto = false, testiConto,
 }: Props) {
   /* ⚠️ LA STESSA CONVENZIONE DI `OrderApp`, non una variante: un `conSede`
      locale attorno a ogni URL. La rete che controlla che il browser dica
@@ -478,6 +538,228 @@ export default function TableOrder({
     }
     return immagine ? [{ id: "locale", src: immagine, nome: "" }] : [];
   })();
+
+  /* ═════════ IL CONTO APERTO (conto-aperto.md) ═════════
+     Il telefono sa di quale conto fa parte (`CHIAVE_CONTO`: id e codice). Il
+     server, a ogni domanda, ricontrolla il codice: e' l'autorizzazione, e
+     senza non si vede ne' si aggiunge niente.
+     ⚠️ La memoria si legge DOPO il montaggio, come l'attesa della campanella:
+     il server disegna la pagina senza sapere niente del telefono. */
+  const tc = testiConto ?? null;
+  const contoAttivo = conto && conTavoli && tc !== null;
+  const [membro, setMembro] = useState<Membro | null>(null);
+  const [statoConto, setStatoConto] = useState<StatoContoPagina | null>(null);
+  const [additionAperta, setAdditionAperta] = useState(false);
+  const [codiceScritto, setCodiceScritto] = useState("");
+  const [erroreConto, setErroreConto] = useState<string | null>(null);
+  const [msgConto, setMsgConto] = useState<string | null>(null);
+  const [lavoroConto, setLavoroConto] = useState(false);
+  useEffect(() => {
+    setMembro(leggiMembro());
+  }, []);
+  function salvaMembro(m: Membro | null) {
+    if (m) ricorda(CHIAVE_CONTO, JSON.stringify(m));
+    else {
+      try { window.localStorage.removeItem(CHIAVE_CONTO); } catch { /* pazienza */ }
+    }
+    setMembro(m);
+  }
+  async function chiediTab(corpo: Record<string, unknown>): Promise<{ ok: boolean; status: number; d: Record<string, unknown> }> {
+    const res = await fetch(conSede("/api/table-tab"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+    });
+    const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { ok: res.ok, status: res.status, d };
+  }
+  async function caricaConto(m: Membro | null = membro) {
+    if (!contoAttivo || !scelto) return;
+    try {
+      const { d } = await chiediTab({
+        azione: "stato",
+        table: scelto.id,
+        ...(m ? { reservation_id: m.reservationId, code: m.code } : {}),
+        miei: leggiMiei(),
+      });
+      const c = d.conto as (DatiConto & { membro?: boolean; iniziale?: string; errore?: string }) | null | undefined;
+      if (!c) {
+        // Nessun conto qui (chiuso, o mai aperto): il telefono lo dimentica.
+        if (m && m.tableId === scelto.id) salvaMembro(null);
+        setStatoConto({ tipo: "nessuno" });
+        return;
+      }
+      if (c.membro) {
+        setStatoConto({ tipo: "membro", dati: c });
+        return;
+      }
+      // Un conto c'e', ma non e' (piu') il mio: il codice e' cambiato o il
+      // conto e' un altro. ⚠️ Bloccato non vuol dire «non sei dei nostri».
+      if (m && c.errore && c.errore !== "bloccato") salvaMembro(null);
+      setStatoConto({ tipo: "altri", iniziale: String(c.iniziale ?? "") });
+    } catch {
+      /* rete assente: la pagina resta com'era */
+    }
+  }
+  useEffect(() => {
+    if (!contoAttivo) return;
+    void caricaConto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contoAttivo, scelto?.id, membro?.code, membro?.reservationId]);
+  /* ⚠️ IN ATTESA DEL CAMERIERE, O CON L'ADDIZIONE APERTA, SI RICONTROLLA
+     OGNI 15 SECONDI: la validazione arriva dal tablet, e il cliente deve
+     vederla senza ricaricare la pagina. Mai a scheda nascosta. */
+  const inAttesaConto = statoConto?.tipo === "membro" && statoConto.dati.stato === "pending";
+  useEffect(() => {
+    if (!contoAttivo || !(additionAperta || inAttesaConto)) return;
+    const id = window.setInterval(() => {
+      if (!document.hidden) void caricaConto();
+    }, 15000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contoAttivo, additionAperta, inAttesaConto, membro?.code]);
+  /* Il QR «Inviter» porta `?code=07`: si entra nel conto senza scrivere
+     niente. `?addition=1` e' il ritorno dopo un ordine sul conto. Tutti e due
+     servono UNA volta: si tolgono dall'indirizzo appena letti. */
+  useEffect(() => {
+    if (!contoAttivo) return;
+    let cod = "";
+    try {
+      const u = new URL(window.location.href);
+      cod = (u.searchParams.get("code") ?? "").trim();
+      const add = u.searchParams.get("addition") === "1";
+      if (cod || add) {
+        u.searchParams.delete("code");
+        u.searchParams.delete("addition");
+        window.history.replaceState(window.history.state, "", u.toString());
+      }
+      if (add) setAdditionAperta(true);
+    } catch { /* indirizzo non leggibile: pazienza */ }
+    if (cod && scelto) void unisciti(cod);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contoAttivo]);
+
+  async function unisciti(cod: string): Promise<Membro | null> {
+    if (!tc || !scelto) return null;
+    setErroreConto(null);
+    setLavoroConto(true);
+    try {
+      const { ok, d } = await chiediTab({ azione: "unisciti", table: scelto.id, code: cod });
+      if (ok && d.reservation_id) {
+        const m = { reservationId: String(d.reservation_id), code: String(d.code), tableId: String(d.table_id) };
+        salvaMembro(m);
+        setCodiceScritto("");
+        await caricaConto(m);
+        return m;
+      }
+      const e = String(d.error ?? "");
+      setErroreConto(e === "bloque" ? tc.errBloccato : e === "code" ? tc.errCodice : e.includes("ferme") ? testi.errChiuso : tc.errGenerico);
+      return null;
+    } catch {
+      setErroreConto(tc.errGenerico);
+      return null;
+    } finally {
+      setLavoroConto(false);
+    }
+  }
+
+  /** «Ouvrir un compte»: apre il conto sul tavolo e rende il codice. */
+  async function inviaApri(chi: { nome: string; email: string }): Promise<
+    { ok: true; reservationId: string; tableId: string; code: string } | { ok: false; errore: string }
+  > {
+    if (!tc || !scelto) return { ok: false, errore: testi.errGenerico };
+    try {
+      const { ok, status, d } = await chiediTab({
+        azione: "apri", table: scelto.id, people: Number(persone), name: chi.nome,
+        ...(chi.email ? { email: chi.email } : {}), lang,
+      });
+      if (!ok) {
+        const e = String(d.error ?? "");
+        /* ⚠️ QUALCUNO HA APERTO UN SECONDO PRIMA: il carrello resta, e la
+           pagina mostra «Rejoindre» col campo del codice. */
+        if (status === 409 && e.includes("deja")) {
+          setStatoConto({ tipo: "altri", iniziale: String(d.iniziale ?? "") });
+          return { ok: false, errore: tc.giaAperto.replace("{i}", String(d.iniziale ?? "")) };
+        }
+        if (e.includes("ferme")) {
+          setChiusoTesto(testi.errChiuso);
+          return { ok: false, errore: testi.errChiuso };
+        }
+        return { ok: false, errore: e.includes("email") || e.includes("nom") || e.includes("personnes") ? testi.errCampi : tc.errGenerico };
+      }
+      const m = { reservationId: String(d.reservation_id), code: String(d.code), tableId: String(d.table_id) };
+      salvaMembro(m);
+      // La stessa sessione per un eventuale «Commander et payer» dopo.
+      ricorda(CHIAVE, JSON.stringify({ id: m.reservationId }));
+      return { ok: true, reservationId: m.reservationId, tableId: m.tableId, code: m.code };
+    } catch {
+      return { ok: false, errore: tc.errGenerico };
+    }
+  }
+
+  /** «Ajouter à l'addition»: il conto c'e' gia'. ⚠️ Se il telefono ordina da
+   *  un altro tavolo (unito a quello del conto), prima lo si aggiunge alla
+   *  sessione: il server accetta l'ordine solo da un tavolo del conto. */
+  async function inviaAggiungi(): Promise<
+    { ok: true; reservationId: string; tableId: string; code: string } | { ok: false; errore: string }
+  > {
+    if (!tc || !scelto || !membro) return { ok: false, errore: testi.errGenerico };
+    let m: Membro | null = membro;
+    if (scelto.id !== m.tableId) m = await unisciti(m.code);
+    if (!m) return { ok: false, errore: tc.errGenerico };
+    return { ok: true, reservationId: m.reservationId, tableId: scelto.id, code: m.code };
+  }
+
+  function contoFatto(r: { token: string }) {
+    if (!r.token) return;
+    ricorda(CHIAVE_CONTO_MIEI, JSON.stringify([...leggiMiei(), r.token].slice(-50)));
+  }
+
+  async function togliDalConto(token: string) {
+    if (!tc || !scelto || !membro) return;
+    setMsgConto(null);
+    try {
+      const { ok, d } = await chiediTab({ azione: "togli", table: scelto.id, code: membro.code, token });
+      if (!ok) setMsgConto(String(d.error ?? "").includes("envoye") ? tc.errTogli : tc.errGenerico);
+      await caricaConto();
+    } catch {
+      setMsgConto(tc.errGenerico);
+    }
+  }
+
+  /** «Demander l'addition»: la stessa campanella, con il motivo. */
+  async function chiediAddizione() {
+    if (!tc || !scelto) return;
+    setMsgConto(null);
+    setLavoroConto(true);
+    try {
+      const res = await fetch(conSede("/api/table-call"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: scelto.id, reason: "bill" }),
+      });
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) setMsgConto(tc.chiesto);
+      else if (String(d.error ?? "").includes("ferme")) setMsgConto(testi.errChiuso);
+      else setMsgConto(tc.errChiedi);
+    } catch {
+      setMsgConto(tc.errChiedi);
+    } finally {
+      setLavoroConto(false);
+    }
+  }
+
+  /* Per OrderApp: «Ouvrir un compte» accanto al pagamento, o «Ajouter à
+     l'addition» al suo posto. Finche' non si sa com'e' il tavolo, niente. */
+  const contoPerOrderApp = !contoAttivo || !tc || !scelto || !statoConto
+    ? null
+    : statoConto.tipo === "membro"
+      ? { modo: "aggiungi" as const, etichetta: tc.aggiungi, invio: tc.invio, invia: inviaAggiungi, fatto: contoFatto }
+      : statoConto.tipo === "nessuno"
+        ? { modo: "apri" as const, etichetta: tc.apri, sotto: tc.apriSotto, invio: tc.invio, invia: inviaApri, fatto: contoFatto }
+        : null;
+  const nelConto = statoConto?.tipo === "membro";
+  const contoDiAltri = statoConto?.tipo === "altri" ? statoConto : null;
 
   async function apriSessione(chi: { nome: string; email: string }): Promise<
     { ok: true; reservationId: string; tableId: string | null } | { ok: false; errore: string }
@@ -690,6 +972,13 @@ export default function TableOrder({
           {testi.scegli}
         </button>
       )}
+      {/* «Addition»: chi e' nel conto la apre da qui, da qualunque punto
+          della carta. */}
+      {nelConto && tc && (
+        <button type="button" className="tbl-conto-btn" onClick={() => setAdditionAperta(true)}>
+          {tc.mia}
+        </button>
+      )}
       {aiutoAperto && <p className="tbl-aiuto-testo">{testi.tavoloAiuto}</p>}
     </div>
   );
@@ -708,8 +997,48 @@ export default function TableOrder({
           {testi.scegliTavolo}
         </button>
       )}
-      {siUnisce && <p className="tbl-unito">{testi.tavoloUnito}</p>}
-      {!siUnisce && (
+      {siUnisce && !nelConto && !contoDiAltri && <p className="tbl-unito">{testi.tavoloUnito}</p>}
+      {/* IL CONTO APERTO. Gia' dentro: una riga che lo dice. Di altri: il
+          campo del codice per unirsi (il carrello resta), e l'uscita per chi
+          si e' seduto a un tavolo lasciato aperto. Le classi da vestire:
+          `tbl-conto-unisciti`, `tbl-conto-codice`, `tbl-conto-err`,
+          `tbl-conto-nonnostro`. */}
+      {nelConto && tc && <p className="tbl-unito">{tc.sulConto}</p>}
+      {contoDiAltri && tc && (
+        <div className="tbl-conto-unisciti">
+          <p className="tbl-unito">{tc.giaAperto.replace("{i}", contoDiAltri.iniziale)}</p>
+          <div className="tbl-conto-codice">
+            <input
+              className="tbl-input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={2}
+              aria-label={tc.codice}
+              placeholder={tc.codicePh}
+              value={codiceScritto}
+              onChange={(e) => setCodiceScritto(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+            />
+            <button
+              type="button"
+              className="tbl-btn"
+              disabled={codiceScritto.length === 0 || lavoroConto}
+              onClick={() => void unisciti(codiceScritto)}
+            >
+              {tc.unisciti}
+            </button>
+          </div>
+          {erroreConto && <p className="tbl-conto-err" role="alert">{erroreConto}</p>}
+          {chiamata && scelto ? (
+            <button type="button" className="tbl-conto-nonnostro" onClick={() => void chiama({ tavolo: scelto })}>
+              {tc.nonNostro}
+            </button>
+          ) : (
+            <p className="tbl-conto-nonnostro-t">{tc.nonNostro} — {tc.nonNostroTesto}</p>
+          )}
+        </div>
+      )}
+      {!siUnisce && !nelConto && !contoDiAltri && (
       <div className="tbl-campo">
         <span className="tbl-lab">{testi.persone}</span>
         {/* ⚠️ PASTIGLIE, non un campo numerico, ed e’ lo stesso modo del
@@ -790,7 +1119,7 @@ export default function TableOrder({
           t={testiOrdine}
           lang={lang}
           sede={sede}
-          tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista }}
+          tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp }}
           vistaIniziale={ripresa ? "checkout" : "menu"}
           sceltaFormato={sceltaFormato}
           foto={foto}
@@ -947,6 +1276,87 @@ export default function TableOrder({
           </form>
         </div>
       )}
+
+      {/* «VOTRE ADDITION»: lo stato (in attesa del cameriere / aperta), il
+          codice e il QR «Inviter», gli invii con chi ha preso cosa, il totale,
+          «Demander l'addition». ⚠️ Nomi e piatti li scrive la gente: React li
+          mette come testo. Il QR lo disegna il server, da un link.
+          Le classi da vestire: `tbl-conto` e `tbl-conto-*`. */}
+      {additionAperta && statoConto?.tipo === "membro" && tc && (() => {
+        const d = statoConto.dati;
+        const inAttesa = d.stato === "pending";
+        return (
+          <div
+            className="tbl-modale"
+            role="dialog"
+            aria-modal="true"
+            aria-label={tc.titolo}
+            onClick={() => setAdditionAperta(false)}
+            onKeyDown={(e) => { if (e.key === "Escape") setAdditionAperta(false); }}
+          >
+            <div className="tbl-modale-box tbl-conto" onClick={(e) => e.stopPropagation()}>
+              <div className="tbl-modale-testa">
+                <p className="tbl-modale-tit">{tc.titolo}</p>
+                <button type="button" className="tbl-modale-x" aria-label={testi.chiudi}
+                        onClick={() => setAdditionAperta(false)}>×</button>
+              </div>
+              <p className={`tbl-conto-stato${inAttesa ? " is-attesa" : ""}`} role="status">{inAttesa ? tc.attesa : tc.aperta}</p>
+              <p className="tbl-conto-ordinato">
+                {tc.ordinato.replace("{n}", String(d.ordinato)).replace("{p}", String(d.persone))}
+              </p>
+              <div className="tbl-conto-invita">
+                {d.invito_svg && <div className="tbl-conto-qr" aria-hidden="true" dangerouslySetInnerHTML={{ __html: d.invito_svg }} />}
+                <div className="tbl-conto-invita-testo">
+                  <p className="tbl-conto-lab">{tc.invita}</p>
+                  <p className="tbl-conto-code">{d.code}</p>
+                  <p className="tbl-conto-aiuto">{tc.invitaTesto}</p>
+                </div>
+              </div>
+              {d.invii.length === 0 ? (
+                <p className="tbl-conto-vuoto">{tc.vuoto}</p>
+              ) : (
+                d.invii.map((inv) => (
+                  <section className="tbl-conto-invio" key={inv.numero}>
+                    <p className="tbl-conto-invio-tit">
+                      {tc.invioN.replace("{k}", String(inv.numero))}
+                      <span className={`tbl-conto-invio-stato${inv.inviato ? " is-cucina" : ""}`}>{inv.inviato ? tc.inCucina : tc.inAttesa}</span>
+                    </p>
+                    {inv.righe.map((r, i) => (
+                      <div className={`tbl-conto-riga${r.mio ? " is-mia" : ""}`} key={i}>
+                        <div className="tbl-conto-chi">
+                          <strong>{r.nome}</strong>
+                          <span>{euroConto(r.totale_cents)}</span>
+                        </div>
+                        <ul className="tbl-conto-piatti">
+                          {r.piatti.map((p, j) => <li key={j}>{p.qty} × {p.nome}</li>)}
+                        </ul>
+                        {r.token && (
+                          <button type="button" className="tbl-conto-togli" onClick={() => void togliDalConto(r.token as string)}>
+                            {tc.togli}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </section>
+                ))
+              )}
+              <div className="tbl-conto-totale">
+                <span>{tc.totale}</span>
+                <strong>{euroConto(d.totale_cents)}</strong>
+              </div>
+              <div className="tbl-avviso-zona" role="status">
+                {msgConto && <p className="tbl-conto-msg">{msgConto}</p>}
+              </div>
+              <button type="button" className="tbl-btn" disabled={lavoroConto || d.invii.length === 0} onClick={() => void chiediAddizione()}>
+                {tc.chiedi}
+              </button>
+              <button type="button" className="tbl-conto-ancora" onClick={() => setAdditionAperta(false)}>
+                {tc.ancora}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ⚠️ IL MODALE «CHIUSO» NON SI CHIUDE. Dietro non c’e’ niente da fare,
           e una X porterebbe su una pagina vuota — una

@@ -298,7 +298,7 @@ export const GET: APIRoute = async ({ request }) => {
        per disegnare le pillole. `sala_servizi_orfani`: i scelti non esistono
        piu' e la sala li sta seguendo tutti — la pagina lo dice. */
     /* Il conto aperto: la finestra di raggruppamento degli invii, in minuti
-       (0, 1, 2), gia' risolta col ripiego. L'interruttore sta in `orders`. */
+       (0, 1, 2, 5), gia' risolta col ripiego. L'interruttore sta in `orders`. */
     conto_finestra: finestraInvio(cfg.get("orders_table_batch")),
     sala_fonte: fonteSala(cfg.get("orders_table_hours")),
     sala_servizi: serviziSalaDaConfig(cfg.get("orders_table_services")),
@@ -478,7 +478,7 @@ export const PUT: APIRoute = async ({ request }) => {
     sala_fonte?: string;
     sala_servizi?: unknown;
     sala_prolunga?: number;
-    /** Il conto aperto: minuti di raggruppamento degli invii (0, 1, 2). */
+    /** Il conto aperto: minuti di raggruppamento degli invii (0, 1, 2, 5). */
     conto_finestra?: number;
     /** Da dove vengono gli orari di ritiro: "hours" o "services". */
     ritiro_fonte?: string;

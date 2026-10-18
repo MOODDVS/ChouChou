@@ -23,6 +23,9 @@ import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordi
 import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBaseZona, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
+import { contoPerId, verificaCodice, invioPerOrdine } from "../../lib/contoServer";
+import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
+import { inviaPushConto } from "../../lib/push";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
@@ -57,8 +60,11 @@ interface CheckoutRequest {
   date?: string;
   note?: string;
   coupon?: string;
-  /** Come vuole pagare, quando il punto offre entrambe le strade. */
-  pay?: "online" | "onsite";
+  /** Come vuole pagare, quando il punto offre entrambe le strade. "tab" =
+   *  sul conto aperto del tavolo (conto-aperto.md): si paga alla fine. */
+  pay?: "online" | "onsite" | "tab";
+  /** Il codice del conto aperto, con `pay: "tab"`: e' l'autorizzazione. */
+  code?: string;
   customer: {
     name: string;
     /** ⚠️ Facoltativi perche' AL TAVOLO non si chiedono: cognome e telefono a
@@ -240,6 +246,13 @@ export const POST: APIRoute = async ({ request }) => {
     if (sala.avvisa && !String(body.customer.email ?? "").trim()) {
       return err(400, "Dati mancanti");
     }
+  }
+  /* IL CONTO APERTO: si ordina dal tavolo e si paga alla fine. ⚠️ Solo dove
+     il ristoratore l'ha acceso e si sceglie il tavolo (`sala.conto`): questa
+     rotta si raggiunge anche senza passare dalla pagina. */
+  const sulConto = aTavolo && body.pay === "tab";
+  if (sulConto && !sala?.conto) {
+    return err(403, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
   }
 
   const fuso = await fusoDi(ambitoPub);
@@ -437,7 +450,7 @@ export const POST: APIRoute = async ({ request }) => {
   // (e il locale lo offre) si paga al ritiro; altrimenti vince la carta quando
   // e' possibile. Con un solo modo acceso non c'e' niente da scegliere e il
   // sito non deve chiedere nulla.
-  const inCassa = modi.locale && (!modi.online || body.pay === "onsite");
+  const inCassa = !sulConto && modi.locale && (!modi.online || body.pay === "onsite");
 
   // ---- Code promo: validazione + sconto REALE, ricalcolato lato server ----
   // Non ci si fida mai dell'importo mandato dal browser: si rilegge il coupon
@@ -450,7 +463,20 @@ export const POST: APIRoute = async ({ request }) => {
   // valgono per la strada scelta. Non basta nascondere il campo nel sito: chi
   // manda la richiesta a mano aggirerebbe l'interruttore, e uno sconto non
   // voluto e' denaro vero.
-  const couponAmmesso = modi.coupon && (!inCassa || modi.couponInCassa);
+  /* ⚠️ Sul conto il codice promo vale solo al PAGAMENTO FINALE (fase 4), non
+     giro per giro: un codice per ogni amico del tavolo sarebbe lo sconto
+     moltiplicato per quattro. */
+  if (sulConto && normalizzaCodice(body.coupon ?? "")) {
+    const TXT_COUPON_CONTO: Record<string, string> = {
+      fr: "Le code promo s’utilise au moment de payer l’addition.",
+      en: "The promo code is used when paying the bill.",
+      it: "Il codice sconto si usa al momento di pagare il conto.",
+      nl: "De kortingscode gebruikt u bij het betalen van de rekening.",
+      es: "El código promocional se usa al pagar la cuenta.",
+    };
+    return err(409, TXT_COUPON_CONTO[lang] ?? TXT_COUPON_CONTO.fr);
+  }
+  const couponAmmesso = !sulConto && modi.coupon && (!inCassa || modi.couponInCassa);
   const codeInput = couponAmmesso ? normalizzaCodice(body.coupon ?? "") : "";
 
   // ⚠️ E se un codice C'ERA, non lo si butta in silenzio: il cliente ha visto
@@ -533,7 +559,8 @@ export const POST: APIRoute = async ({ request }) => {
      e una mancia dentro un «da incassare» e' una cifra che alla cassa nessuno
      sa spiegare. Mance spente nel frattempo → nessuna, senza errore. */
   let mancia = 0;
-  if (!inCassa && body.tip !== undefined && body.tip !== null) {
+  // Sul conto la mancia si lascia alla fine, pagando l'addizione (fase 4).
+  if (!inCassa && !sulConto && body.tip !== undefined && body.tip !== null) {
     const m = await manceDi(ambitoPub);
     if (m) mancia = importoMancia(body.tip, m.tipo, m.valori, totaleIncassato);
     if (mancia > 0) {
@@ -566,6 +593,22 @@ export const POST: APIRoute = async ({ request }) => {
      dice di avere non conta. */
   let tavoloId: string | null = null;
   let tavoloNome = "";
+  let invioId: string | null = null;
+  let contoInAttesa = false;
+  if (sulConto) {
+    /* ⚠️ IL CONTO SI RILEGGE, E IL CODICE SI RICONTROLLA. Dal browser arrivano
+       un id e due cifre: il conto deve essere di oggi, seduto, aperto o da
+       validare, e il codice giusto — contando i tentativi sbagliati come in
+       `/api/table-tab`. Senza, chiunque con un id potrebbe aggiungere piatti
+       al conto di un altro tavolo. */
+    const conto = await contoPerId(ambitoPub, String(body.reservation_id), ora.toFormat("yyyy-MM-dd"));
+    if (!conto) return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+    const esitoCodice = await verificaCodice(ambitoPub, conto, body.code, ora.toJSDate());
+    if (esitoCodice !== "ok") return err(403, "code");
+    invioId = await invioPerOrdine(ambitoPub, conto, ora.toJSDate());
+    if (!invioId) return err(500, "Impossibile creare l'ordine");
+    contoInAttesa = conto.tab_status === "pending";
+  }
   if (aTavolo) {
     const { data: resaRaw } = await leggi("reservations", ambitoPub, "id, date, status, tables")
       .eq("id", String(body.reservation_id))
@@ -608,6 +651,10 @@ export const POST: APIRoute = async ({ request }) => {
     // pannello mostra i primi e ignora i secondi, e il recupero da Stripe
     // salta i primi perche' non hanno nessuna sessione da verificare.
     ...(inCassa ? { payment_method: "onsite" } : {}),
+    /* ⚠️ Sul conto: `tab`, MAI `onsite`. Un `onsite` in attesa esce subito in
+       cucina (`daStampare`); il primo invio di un conto aspetta la
+       validazione del personale, e i successivi la fine della finestra. */
+    ...(sulConto ? { payment_method: "tab", round_id: invioId } : {}),
     pickup_time: pickup.toISO(),
     /* ⚠️ Le quattro colonne della #82 si scrivono SOLO al tavolo. Un ordine da
        asporto non le porta affatto: `service` ha `default 'pickup'` in SQL, e
@@ -701,6 +748,22 @@ export const POST: APIRoute = async ({ request }) => {
     return u;
   };
   const token = String(ordine.cancel_token ?? "");
+
+  // ---- L'ORDINE SUL CONTO APERTO ----
+  /* ⚠️ Niente Stripe, niente ticket, niente annuncio QUI: il primo invio
+     aspetta la validazione del personale, i successivi la fine della finestra
+     di raggruppamento, e la cucina riceve UN ticket per invio (fase 3). Si
+     torna sulla pagina del tavolo, su «Votre addition». Il token torna al
+     telefono: e' quello che gli permette di togliere il suo piatto finche'
+     l'invio non e' partito. */
+  if (sulConto) {
+    if (contoInAttesa && tavoloNome) void inviaPushConto(tavoloNome, ambitoPub).catch(() => {});
+    const u = paginaTavolo({ [PARAM_ADDIZIONE]: "1" });
+    return new Response(
+      JSON.stringify({ url: `${u.pathname}${u.search}`, token }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   // ---- L'ORDINE DA PAGARE IN CASSA ----
   // ⚠️ Niente Stripe, e quindi niente webhook: se l'ordine non lo annunciamo

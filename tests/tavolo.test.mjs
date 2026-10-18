@@ -1457,7 +1457,7 @@ test("nome ed email si chiedono una volta sola", () => {
   assert.notEqual(senzaCampanella, TORD, "il riquadro del nome della campanella non si trova piu'");
   assert.doesNotMatch(senzaCampanella, /autoComplete="given-name"/, "il nome si chiede due volte");
   assert.doesNotMatch(TORD, /type="email"/, "l'email si chiede due volte");
-  assert.match(TORD, /tavolo=\{\{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista \}\}/);
+  assert.match(TORD, /tavolo=\{\{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp \}\}/);
   // Il bottone di pagamento non si accende senza tavolo e coperti.
   assert.match(OAPP, /\(!inSala \|\| tavolo\.pronto\) &&/);
 });
@@ -1754,7 +1754,9 @@ test("i tavoli aperti si ACCENDONO, non si spengono: ci si unisce agli amici", (
   // Il tavolo ricordato resta scelto anche se nel frattempo e' stato aperto.
   assert.match(TORD, /const scelto = sceltoGrezzo;/);
   // Unendosi, «quanti siete» non si chiede: lo dice la riga al suo posto.
-  assert.match(TORD, /\{siUnisce && <p className="tbl-unito">\{testi\.tavoloUnito\}<\/p>\}\s*\{!siUnisce && \(/);
+  // (col conto aperto, di altri o mio, la riga la dice il conto: conto-aperto.md)
+  assert.match(TORD, /\{siUnisce && !nelConto && !contoDiAltri && <p className="tbl-unito">\{testi\.tavoloUnito\}<\/p>\}/);
+  assert.match(TORD, /\{!siUnisce && !nelConto && !contoDiAltri && \(/);
   assert.equal((TPAG.match(/\btavoloUnito: "/g) ?? []).length, 5);
   // Nella barra, le iniziali di chi c'e'.
   assert.match(TORD, /<span key=\{i\} className="tbl-avatar">\{i\}<\/span>/);
@@ -1853,7 +1855,8 @@ test("la campanella si accende dai Réglages, spenta di ripiego", () => {
   assert.match(set, /id="o-table-call"/);
   assert.match(set, /met\("o-table-call", "orders_table_call"\)/);
   assert.match(set, /orders_table_call: \(document\.getElementById\("o-table-call"\)/);
-  assert.match(CHIAMATA, /if \(!opz\.attivo \|\| !opz\.chiamata\) return json\(\{ error: "appel non active" \}, 403\)/);
+  // «Demander l'addition» del conto aperto passa anche a campanella spenta.
+  assert.match(CHIAMATA, /if \(!opz\.attivo \|\| \(!opz\.chiamata && !addizione\)\) return json\(\{ error: "appel non active" \}, 403\)/);
 });
 
 test("la barra del carrello lascia il posto alla campanella", () => {

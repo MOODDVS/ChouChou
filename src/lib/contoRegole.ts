@@ -91,8 +91,8 @@ export function hannoOrdinato(nomi: string[], dichiarate: unknown): { ordinato: 
 
 /* ───────── La finestra di raggruppamento ───────── */
 
-/** «Regrouper les envois»: Non / 1 min / 2 min (`orders_table_batch`). */
-export const FINESTRE_INVIO = [0, 1, 2] as const;
+/** «Regrouper les envois»: Non / 1 / 2 / 5 min (`orders_table_batch`). */
+export const FINESTRE_INVIO = [0, 1, 2, 5] as const;
 
 /** Fuori elenco → 1 minuto: abbastanza per tenere insieme due vini ordinati
  *  a trenta secondi, troppo poco perche' un dolce sembri dimenticato. */
@@ -130,3 +130,99 @@ export function parteUguale(resto: number, parti: number): number {
   if (!(p > 1)) return r;
   return Math.min(r, Math.round(r / p));
 }
+
+/* ───────── I tavoli uniti ───────── */
+
+/**
+ * I tavoli da cui si raggiunge il conto aperto su `tavoloId`: lui stesso e
+ * quelli uniti a lui nel piano sala (`reservation_plan_links`, una mappa
+ * `{ sezione: [[id, id, …], …] }`). Luca, seduto al 02 unito al 01, si unisce
+ * al conto di Marco aperto sul 01.
+ *
+ * ⚠️ Mappa illeggibile → solo il tavolo stesso: meglio chiedere il codice a
+ * un tavolo in meno che lasciar raggiungere un conto dall'altra parte della
+ * sala.
+ */
+export function tavoliUnitiDa(mappa: unknown, tavoloId: string): string[] {
+  const uniti = new Set<string>([tavoloId]);
+  let m: unknown = mappa;
+  if (typeof m === "string") {
+    try {
+      m = JSON.parse(m || "{}");
+    } catch {
+      return [tavoloId];
+    }
+  }
+  if (!m || typeof m !== "object") return [tavoloId];
+  for (const gruppi of Object.values(m as Record<string, unknown>)) {
+    if (!Array.isArray(gruppi)) continue;
+    for (const g of gruppi) {
+      if (!Array.isArray(g)) continue;
+      const ids = g.map((x) => String(x));
+      if (ids.includes(tavoloId)) for (const id of ids) if (id) uniti.add(id);
+    }
+  }
+  return [...uniti];
+}
+
+/* ───────── L'invio di un ordine ───────── */
+
+export interface InvioEsistente {
+  id: string;
+  number: number;
+  status: string;
+  release_at: string | null;
+}
+
+/**
+ * A quale invio va un ordine nuovo del conto.
+ *
+ * - Conto da validare (`pending`): sempre il PRIMO invio, che aspetta la
+ *   validazione (`release_at` NULL). Cosi' il cameriere valida tutto insieme.
+ * - Conto aperto: l'ultimo invio, se e' ancora in attesa e la sua finestra non
+ *   e' scaduta; altrimenti un invio nuovo, che parte a fine finestra.
+ */
+export function invioDaUsare(
+  stato: unknown,
+  invii: InvioEsistente[],
+  adesso: Date,
+  finestraMinuti: number,
+): { usa: string } | { nuovo: number; partenza: Date | null } {
+  const ordinati = [...invii].sort((a, b) => b.number - a.number);
+  if (stato === "pending") {
+    const primo = invii.find((i) => i.number === 1 && i.status === "waiting");
+    if (primo) return { usa: primo.id };
+    return { nuovo: (ordinati[0]?.number ?? 0) + 1, partenza: null };
+  }
+  const ultimo = ordinati[0];
+  if (ultimo && ultimo.status === "waiting" && ultimo.release_at) {
+    const t = new Date(ultimo.release_at).getTime();
+    if (!Number.isNaN(t) && t > adesso.getTime()) return { usa: ultimo.id };
+  }
+  return { nuovo: (ultimo?.number ?? 0) + 1, partenza: partenzaInvio(adesso, finestraMinuti) };
+}
+
+/** Un ordine del conto si puo' ancora togliere? Solo finche' il suo invio
+ *  non e' partito: in attesa della validazione, o dentro la sua finestra.
+ *  ⚠️ Dopo, la cucina l'ha gia' in mano: si chiede al cameriere. */
+export function ordineTogliibile(invio: { status: string; release_at: string | null } | null, statoConto: unknown, adesso: Date): boolean {
+  if (!invio || invio.status !== "waiting") return false;
+  if (statoConto === "pending") return true;
+  if (!invio.release_at) return true;
+  const t = new Date(invio.release_at).getTime();
+  return !Number.isNaN(t) && t > adesso.getTime();
+}
+
+/** L'iniziale di chi ha aperto il conto, per chi non e' del gruppo.
+ *  ⚠️ Mai il nome intero: la pagina del QR la vede chiunque inquadri il
+ *  cartoncino, anche da una foto. */
+export function inizialeDi(nome: unknown): string {
+  const s = String(nome ?? "").trim();
+  return s ? s[0].toLocaleUpperCase() : "";
+}
+
+/** Il parametro del codice nel QR «Inviter» (`/table?table=…&code=07`):
+ *  chi lo inquadra entra nel conto senza scrivere niente. */
+export const PARAM_CODICE = "code";
+/** Il ritorno dopo un ordine sul conto: si apre «Votre addition». */
+export const PARAM_ADDIZIONE = "addition";

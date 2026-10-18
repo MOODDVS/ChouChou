@@ -3009,6 +3009,10 @@ end $$;
 -- ⚠️ IL GRANT AL service_role E' OBBLIGATORIO (vedi #83): senza, il server
 -- non puo' scrivere gli invii.
 --
+--   table_calls.reason   perche' il tavolo chiama: 'call' (il cameriere,
+--                  com'era) | 'bill' («Demander l'addition»). Default 'call':
+--                  le righe gia' scritte erano tutte chiamate.
+--
 -- I pagamenti del conto (parti uguali, «tout le reste») arriveranno con la
 -- loro migrazione nella fase del pagamento online.
 --
@@ -3081,4 +3085,16 @@ alter table public.orders drop constraint if exists orders_payment_method_check;
 
 alter table public.orders add constraint orders_payment_method_check
   check (payment_method in ('cash', 'card', 'link', 'onsite', 'tab'));
+
+-- «Demander l'addition» passa dalla campanella: la stessa coda, un motivo in piu'.
+alter table public.table_calls add column if not exists reason text not null default 'call';
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint
+                 where conname = 'table_calls_reason_check' and conrelid = 'public.table_calls'::regclass) then
+    alter table public.table_calls
+      add constraint table_calls_reason_check check (reason in ('call', 'bill'));
+  end if;
+end $$;
 

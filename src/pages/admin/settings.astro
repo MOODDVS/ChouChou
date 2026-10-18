@@ -1759,7 +1759,7 @@ const t = adminT(lang);
             <div class="field" id="o-table-batch-row" style="display:none">
               <label>{t("set.ord.tableBatch")}<span class="lab-hint">{t("set.ord.tableBatchHint")}</span></label>
               <div class="prep-btns" id="o-table-batch" role="group" aria-label={t("set.ord.tableBatch")}>
-                {[0, 1, 2].map((m) => (
+                {[0, 1, 2, 5].map((m) => (
                   <button type="button" class="prep-btn" data-minuti={String(m)} aria-pressed="false"><span class="m">{m === 0 ? t("set.ord.tableExtendNo") : `${m} min`}</span></button>
                 ))}
               </div>

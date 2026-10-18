@@ -480,3 +480,78 @@
   border-radius: .6rem; background: color-mix(in srgb, #c0392b 12%, transparent);
 }
 :where(.tbl-pagina .order-cart-note) { margin: .7rem 0 0; font-size: .8rem; text-align: center; color: var(--tbl-muted); }
+
+/* ---------- il conto aperto (conto-aperto.md) ----------
+   «Ouvrir un compte» sotto il pagamento: VUOTO, non pieno — pagare subito
+   resta la strada principale, e due bottoni pieni uno sotto l'altro non
+   dicono quale sia. */
+:where(.tbl-pagina .order-cart-conto) {
+  background: transparent; color: var(--tbl-ink);
+  box-shadow: inset 0 0 0 2px var(--tbl-ink); margin-top: .6rem;
+}
+:where(.tbl-pagina .order-conto-sotto) { margin-top: .45rem; }
+
+/* Il campo del codice per unirsi: corto (due cifre) e grande, accanto al bottone. */
+:where(.tbl-pagina .tbl-conto-unisciti) { display: flex; flex-direction: column; gap: .6rem; margin: .4rem 0 .8rem; }
+:where(.tbl-pagina .tbl-conto-codice) { display: flex; gap: .6rem; align-items: stretch; }
+:where(.tbl-pagina .tbl-conto-codice .tbl-input) {
+  flex: 0 0 6.5rem; text-align: center; font-size: 1.4rem; font-weight: 700; letter-spacing: .3em;
+}
+:where(.tbl-pagina .tbl-conto-codice .tbl-btn) { flex: 1 1 auto; margin: 0; }
+:where(.tbl-pagina .tbl-conto-err) { margin: 0; color: #e0786c; font-weight: 600; font-size: .9rem; }
+:where(.tbl-pagina .tbl-conto-nonnostro) {
+  align-self: flex-start; padding: 0; border: 0; background: none;
+  color: var(--tbl-muted); text-decoration: underline; cursor: pointer; font-size: .88rem;
+}
+:where(.tbl-pagina .tbl-conto-nonnostro-t) { margin: 0; color: var(--tbl-muted); font-size: .85rem; }
+
+/* «Addition» nella barra del tavolo: una pillola vuota, accanto al numero. */
+:where(.tbl-pagina .tbl-conto-btn) {
+  margin-left: auto; min-height: 40px; padding: .35rem .95rem;
+  border: 1px solid var(--tbl-ink); border-radius: 999px;
+  background: transparent; color: var(--tbl-ink); font-weight: 700; cursor: pointer;
+}
+
+/* «Votre addition». */
+:where(.tbl-pagina .tbl-conto) { max-height: min(88dvh, 46rem); overflow-y: auto; }
+:where(.tbl-pagina .tbl-conto-stato) {
+  margin: 0 0 .5rem; padding: .65rem .8rem; border-radius: .6rem;
+  background: color-mix(in srgb, var(--tbl-ink) 14%, transparent); font-weight: 600; line-height: 1.35;
+}
+:where(.tbl-pagina .tbl-conto-stato.is-attesa) { background: color-mix(in srgb, #e6a23c 18%, transparent); }
+:where(.tbl-pagina .tbl-conto-ordinato) { margin: 0 0 .8rem; color: var(--tbl-muted); font-size: .9rem; }
+:where(.tbl-pagina .tbl-conto-invita) {
+  display: flex; gap: .9rem; align-items: center; margin: 0 0 1rem; padding: .8rem;
+  border: 1px solid var(--tbl-line); border-radius: .8rem;
+}
+/* Il QR su fondo BIANCO, sempre: su un tema scuro un QR nero non lo legge
+   nessun telefono (come i cartoncini di Assets). */
+:where(.tbl-pagina .tbl-conto-qr) { flex: 0 0 7.5rem; aspect-ratio: 1; padding: .45rem; background: #fff; border-radius: .4rem; }
+:where(.tbl-pagina .tbl-conto-qr svg) { display: block; width: 100%; height: 100%; }
+:where(.tbl-pagina .tbl-conto-lab) { margin: 0; font-size: .8rem; color: var(--tbl-muted); text-transform: uppercase; letter-spacing: .06em; }
+:where(.tbl-pagina .tbl-conto-code) { margin: .1rem 0 .2rem; font-size: 2.2rem; font-weight: 800; letter-spacing: .25em; line-height: 1.1; }
+:where(.tbl-pagina .tbl-conto-aiuto) { margin: 0; font-size: .82rem; color: var(--tbl-muted); line-height: 1.35; }
+:where(.tbl-pagina .tbl-conto-invio) { margin: 0 0 .9rem; }
+:where(.tbl-pagina .tbl-conto-invio-tit) {
+  display: flex; justify-content: space-between; gap: .6rem; margin: 0 0 .4rem;
+  font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--tbl-muted);
+}
+:where(.tbl-pagina .tbl-conto-invio-stato.is-cucina) { color: var(--tbl-ink); }
+:where(.tbl-pagina .tbl-conto-riga) { padding: .55rem 0; border-top: 1px solid var(--tbl-line); }
+:where(.tbl-pagina .tbl-conto-chi) { display: flex; justify-content: space-between; gap: .6rem; }
+:where(.tbl-pagina .tbl-conto-piatti) { margin: .25rem 0 0; padding: 0; list-style: none; font-size: .9rem; color: var(--tbl-muted); }
+:where(.tbl-pagina .tbl-conto-togli) {
+  margin-top: .35rem; padding: .2rem .7rem; border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: transparent; color: var(--tbl-text); font-size: .82rem; cursor: pointer;
+}
+:where(.tbl-pagina .tbl-conto-totale) {
+  display: flex; justify-content: space-between; margin: .4rem 0 .8rem; padding-top: .7rem;
+  border-top: 2px solid var(--tbl-line); font-size: 1.1rem; font-weight: 700;
+}
+:where(.tbl-pagina .tbl-conto-vuoto) { color: var(--tbl-muted); }
+:where(.tbl-pagina .tbl-conto-msg) { margin: 0 0 .6rem; font-weight: 600; text-align: center; }
+:where(.tbl-pagina .tbl-conto .tbl-btn) { width: 100%; }
+:where(.tbl-pagina .tbl-conto-ancora) {
+  display: block; width: 100%; margin-top: .5rem; padding: .7rem; border: 0; background: none;
+  color: var(--tbl-muted); text-decoration: underline; cursor: pointer;
+}
