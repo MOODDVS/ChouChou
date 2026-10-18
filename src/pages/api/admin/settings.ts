@@ -16,7 +16,7 @@ import {
   type Ambito,
 } from "../../../lib/admin/sede";
 import { orfaniDelPiano, type SezioneOrfana } from "../../../lib/pianoSalaRegole";
-import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordiniRegole";
+import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso, manceInSala } from "../../../lib/ordiniRegole";
 import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
 import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
@@ -271,6 +271,10 @@ export const GET: APIRoute = async ({ request }) => {
   const tavoliQr = linkTavoloBase ? await tavoliDiSala(ambito) : [];
   const sala = await opzioniTavolo(ambito);
   orders.orders_table_notify = sala.avvisa;
+  // Le mance al tavolo: vuota = come quelle del punto. Si rende il valore
+  // VERO (`manceInSala`), come sopra: un «spento» mostrato a chi le ha in sala
+  // diventerebbe la scelta al primo salvataggio.
+  orders.orders_table_tips = manceInSala(cfg.get("orders_table_tips"), orders.orders_tips);
 
   return json({
     days,
@@ -822,7 +826,7 @@ export const PUT: APIRoute = async ({ request }) => {
        adesso, non al primo cliente. */
     /* Le mance, stesso cancello: senza la colonna (#86) il checkout non
        saprebbe dove scrivere la mancia, e non salverebbe l'ordine. */
-    if (mappa.get("orders_tips") === "1") {
+    if (mappa.get("orders_tips") === "1" || mappa.get("orders_table_tips") === "1") {
       const { error: senzaColonna } = await leggi("orders", ambitoPut, "tip_cents").limit(1);
       if (senzaColonna) return json({ error: await msg("err.tipsMigration") }, 409);
     }

@@ -8,7 +8,7 @@
  */
 import { leggi, leggiConfig, pagamentoOnlineAttivo, type Ambito } from "./admin/sede";
 import { DateTime } from "luxon";
-import { CHIAVI_ORDINI, acceso, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
+import { CHIAVI_ORDINI, acceso, manceInSala, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
 import { configSala } from "./schedule";
 import { fusoDi } from "./fuso";
 import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
@@ -220,10 +220,16 @@ export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; 
  * ⚠️ Lettura muta → `null`, cioe' nessuna mancia: meglio un checkout senza
  * il bottone che uno che chiede una cifra che nessuno ha deciso.
  */
-export async function manceDi(ambito: Ambito): Promise<{ tipo: TipoMance; valori: [number, number, number] } | null> {
+export async function manceDi(
+  ambito: Ambito,
+  /** `sala: true` = la domanda viene dal TAVOLO: decide `orders_table_tips`
+   *  (vuota = come il resto del punto). Tipo e valori sono gli stessi. */
+  { sala = false }: { sala?: boolean } = {},
+): Promise<{ tipo: TipoMance; valori: [number, number, number] } | null> {
   try {
-    const { valori } = await leggiConfig(ambito, ["orders_tips", "orders_tips_type", "orders_tips_values"]);
-    if (!acceso(valori.get("orders_tips"), "orders_tips")) return null;
+    const { valori } = await leggiConfig(ambito, ["orders_tips", "orders_table_tips", "orders_tips_type", "orders_tips_values"]);
+    const globale = acceso(valori.get("orders_tips"), "orders_tips");
+    if (!(sala ? manceInSala(valori.get("orders_table_tips"), globale) : globale)) return null;
     const tipo = tipoMance(valori.get("orders_tips_type"));
     return { tipo, valori: valoriMance(tipo, valori.get("orders_tips_values")) };
   } catch {

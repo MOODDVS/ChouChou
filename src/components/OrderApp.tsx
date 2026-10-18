@@ -153,6 +153,11 @@ interface OrderStrings {
  * dire cinque siti che non compilano piu' il giorno del merge. Un cliente che
  * vuole parole sue le mette in `t`, e vincono le sue.
  */
+/** Il toast «Article ajouté» (solo al tavolo). */
+const TXT_AGGIUNTO: Record<string, string> = {
+  fr: "Article ajouté", en: "Item added", it: "Articolo aggiunto", nl: "Artikel toegevoegd", es: "Artículo añadido",
+};
+
 const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: string; sala: string; ordina: string; ordinando: string }> = {
   /* `sala`: al tavolo non si ritira niente — «Payer au retrait» a chi e'
      seduto vuol dire niente. Si paga sul posto, al cameriere o alla cassa. */
@@ -539,10 +544,11 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   const campoIndirizzo = (k: keyof typeof vuotoIndirizzo) => (e: { target: { value: string } }) =>
     setIndirizzo((x) => ({ ...x, [k]: e.target.value }));
   useEffect(() => {
-    // ⚠️ Si chiede ANCHE al tavolo: le mance valgono per tutti gli ordini.
+    // ⚠️ Si chiede ANCHE al tavolo, con `?sala=1`: in sala le mance hanno un
+    // interruttore loro («Commandes depuis la salle» › Pourboires).
     // La consegna invece no — `aConsegna` la esclude in sala comunque.
     let vivo = true;
-    fetch(conSede("/api/order-options"))
+    fetch(inSala ? conSede("/api/order-options?sala=1") : conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { nome?: string; cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
         if (!vivo) return;
@@ -820,9 +826,27 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     chiudiModale();
   }
 
+  /* «ARTICLE AJOUTÉ»: un toast verde, breve, a ogni piatto aggiunto. Solo al
+     tavolo: e' vestito da `TableOrder.css`, e sulle pagine /order dei clienti
+     comparirebbe nudo (la regola di sempre: niente elementi nuovi senza il
+     loro vestito). `toastN` cambia a ogni aggiunta: e' la `key` del toast, e
+     cosi' l'animazione riparte anche aggiungendo due piatti di fila. */
+  const [toastN, setToastN] = useState(0);
+  const toastTimer = useRef<number | undefined>(undefined);
+  function segnaAggiunto() {
+    if (!inSala) return;
+    setToastN((n) => n + 1);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToastN(0), 1400);
+  }
+  const toastAggiunto = inSala && toastN > 0
+    ? <div className="order-aggiunto" role="status" key={toastN}>{TXT_AGGIUNTO[lang] ?? TXT_AGGIUNTO.fr}</div>
+    : null;
+
   /** Differenza rispetto al formato base, col segno. */
   function aggiungi(item: MenuItem, v?: Variante) {
     if (item.is_sold_out || v?.sold_out) return;
+    segnaAggiunto();
     // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
     // il server ricostruisce le righe d'ordine da lì, non da qui.
     const nomeVisto = testoPiatto(item, lang).name;
@@ -1722,6 +1746,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
             piatto con l'evento pubblico mentre il cliente sta compilando i
             dati deve poter chiedere il formato. Era montato solo di la'. */}
         {ModaleVarianti()}
+        {toastAggiunto}
       </div>
     );
   }
@@ -1906,6 +1931,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
       )}
 
       {ModaleVarianti()}
+      {toastAggiunto}
     </div>
   );
 }

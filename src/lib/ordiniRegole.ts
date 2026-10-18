@@ -135,7 +135,27 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
  */
 export const RIPIEGO_ORDINI_SCELTA: Record<string, ""> = {
   orders_table_notify: "",
+  /* LE MANCE AL TAVOLO: vuota = come le mance di tutto il punto
+     (`orders_tips`, Réglages › Paiements). E' il comportamento di prima: un
+     ristorante che le aveva accese le aveva anche in sala, e nessun merge
+     deve spegnergliele. "1"/"0" = una scelta della sala, che vince. Vedi
+     `manceInSala`. */
+  orders_table_tips: "",
 };
+
+/**
+ * Si chiede la mancia AL TAVOLO? La chiave della sala, se il ristoratore l'ha
+ * scelta; altrimenti quella di tutto il punto.
+ *
+ * ⚠️ Non `acceso(valore, "orders_table_tips")`: renderebbe `false` su una
+ * chiave mai scritta, e le mance sparirebbero dalla sala di chi le aveva.
+ */
+export function manceInSala(valore: unknown, globale: boolean): boolean {
+  const v = String(valore ?? "").trim();
+  if (v === "1") return true;
+  if (v === "0") return false;
+  return globale;
+}
 
 export const CHIAVI_ORDINI = [
   ...Object.keys(RIPIEGO_ORDINI),

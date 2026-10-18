@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import { tipoMance, valoriMance, valoriDaPagina, importoMancia, MANCE_RIPIEGO } from "../src/lib/manceRegole.ts";
-import { RIPIEGO_ORDINI, acceso } from "../src/lib/ordiniRegole.ts";
+import { RIPIEGO_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso, manceInSala } from "../src/lib/ordiniRegole.ts";
 
 const nudo = (f) => readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
@@ -60,4 +60,27 @@ test("il server ricalcola, solo con la carta, e la salva a parte", () => {
 test("modificare un ordine non toglie la mancia, e Réglages vuole la #86", () => {
   assert.match(nudo("src/pages/api/admin/orders.ts"), /"tip_cents"\)\.eq\("id", id\)\.maybeSingle\(\);[\s\S]{0,80}fuoriPiatti \+=/);
   assert.match(nudo("src/pages/api/admin/settings.ts"), /mappa\.get\("orders_tips"\) === "1"[\s\S]{0,140}"tip_cents"[\s\S]{0,120}err\.tipsMigration/);
+});
+
+test("al tavolo: un interruttore della sala, che mai scelto segue Paiements", () => {
+  // ⚠️ Vuota = come prima: chi aveva le mance le aveva anche in sala.
+  assert.equal(RIPIEGO_ORDINI_SCELTA.orders_table_tips, "");
+  assert.equal(manceInSala(undefined, true), true);
+  assert.equal(manceInSala("", false), false);
+  assert.equal(manceInSala("0", true), false, "la sala le spegne");
+  assert.equal(manceInSala("1", false), true, "solo al tavolo");
+  assert.equal(manceInSala("boh", true), true);
+  const opz = nudo("src/lib/ordiniOpzioni.ts");
+  assert.match(opz, /sala \? manceInSala\(valori\.get\("orders_table_tips"\), globale\) : globale/);
+  // Il checkout e la pagina chiedono la sala quando sono al tavolo.
+  assert.match(nudo("src/pages/api/checkout.ts"), /manceDi\(ambitoPub, \{ sala: aTavolo \}\)/);
+  assert.match(nudo("src/pages/api/order-options.ts"), /manceDi\(ambito, \{ sala: new URL\(request\.url\)\.searchParams\.get\("sala"\) === "1" \}\)/);
+  assert.match(nudo("src/components/OrderApp.tsx"), /inSala \? conSede\("\/api\/order-options\?sala=1"\) : conSede\("\/api\/order-options"\)/);
+  // Réglages la mostra risolta, e accenderla vuole la #86 come l'altra.
+  const api = nudo("src/pages/api/admin/settings.ts");
+  assert.match(api, /orders\.orders_table_tips = manceInSala\(cfg\.get\("orders_table_tips"\), orders\.orders_tips\);/);
+  assert.match(api, /mappa\.get\("orders_table_tips"\) === "1"/);
+  const pag = readFileSync("src/pages/admin/settings.astro", "utf8");
+  assert.match(pag, /id="o-table-tips"/);
+  assert.match(pag, /orders_table_tips: \(document\.getElementById\("o-table-tips"\)/);
 });

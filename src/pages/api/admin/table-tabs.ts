@@ -1,10 +1,14 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { ambitoDiRichiesta, leggi, aggiorna } from "../../../lib/admin/sede";
+import { ambitoDiRichiesta, ambitoDiRiga, leggi, aggiorna, inserisci } from "../../../lib/admin/sede";
 import { fusoDi } from "../../../lib/fuso";
-import { hannoOrdinato } from "../../../lib/contoRegole";
-import { rilasciaInviiScaduti } from "../../../lib/contoServer";
+import { hannoOrdinato, pagamentoVivo, quadroPagamenti } from "../../../lib/contoRegole";
+import {
+  chiudiSessioneConto, lasciaPagamento, pagamentiDelConto, rilasciaInviiScaduti, segnaPagato, type RigaPagamento,
+} from "../../../lib/contoServer";
+import { inviaRicevutaConto } from "../../../lib/ricevutaConto";
+import { stripeDi } from "../../../lib/stripe";
 import { accodaAddizione } from "../../../lib/stampaCoda";
 import { piattiVeri } from "../../../lib/admin/ordiniConti";
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -19,8 +23,10 @@ import { adminT } from "../../../i18n/admin";
  * POST { azione, id, metodo? }
  *   valida    il primo invio parte: ticket in cucina, conto aperto
  *   rifiuta   nessun invio parte; conto e ordini annullati
- *   incassa   { metodo: cash | card }: tutto il conto pagato, tavolo chiuso
- *   chiudi    tavolo chiuso SENZA incassare (il non pagato si annulla)
+ *   incassa   { metodo: cash | card }: il RESTO incassato (quello che non e'
+ *             gia' stato pagato online), tavolo chiuso, ricevuta
+ *   chiudi    tavolo chiuso SENZA incassare (il non pagato si annulla; con
+ *             una parte gia' pagata online, gli ordini restano terminati)
  *   stampa    l'addizione sulla stampante principale
  *
  * ⚠️ Ogni GET fa anche partire gli invii la cui finestra e' scaduta
@@ -88,7 +94,7 @@ export const GET: APIRoute = async ({ request }) => {
   const ids = conti.map((c) => c.id);
   const tavoliIds = [...new Set(conti.flatMap((c) => [c.tab_table_id, ...(c.tables ?? [])]).filter(Boolean) as string[])];
 
-  const [{ data: ordRaw }, { data: invRaw }, { data: tavRaw }, chiamate] = await Promise.all([
+  const [{ data: ordRaw }, { data: invRaw }, { data: tavRaw }, chiamate, pagRaw] = await Promise.all([
     leggi("orders", ambito, "id, customer_name, items, total_cents, status, round_id, reservation_id, table_label, created_at")
       .in("reservation_id", ids)
       .not("round_id", "is", null)
@@ -101,7 +107,13 @@ export const GET: APIRoute = async ({ request }) => {
       .eq("reason", "bill")
       .gte("created_at", DateTime.now().minus({ hours: 12 }).toUTC().toISO() as string)
       .then((r) => (r.error ? [] : ((r.data ?? []) as unknown as { table_id: string | null }[]))),
+    // I pagamenti (#88). Senza la migrazione: nessuno, e il conto si incassa
+    // tutto al cameriere come prima.
+    leggi("table_payments", ambito, "reservation_id, kind, method, status, amount_cents, tip_cents, payer_name, hold_until, order_ids")
+      .in("reservation_id", ids)
+      .then((r) => (r.error ? [] : ((r.data ?? []) as unknown as (RigaPagamento)[]))),
   ]);
+  const adesso = new Date();
   const ordini = (ordRaw ?? []) as unknown as RigaOrdineConto[];
   const invii = (invRaw ?? []) as unknown as { id: string; reservation_id: string; number: number; status: string; release_at: string | null }[];
   const nomeTavolo = new Map(((tavRaw ?? []) as unknown as { id: string; name: string }[]).map((t) => [t.id, t.name]));
@@ -112,7 +124,11 @@ export const GET: APIRoute = async ({ request }) => {
     const nomi = suoi.map((o) => String(o.customer_name ?? "").trim()).filter(Boolean);
     const { ordinato, su } = hannoOrdinato(nomi, c.tab_people ?? c.people);
     const totale = suoi.reduce((t, o) => t + (Number(o.total_cents) || 0), 0);
-    const pagato = suoi.filter((o) => o.status === "done" || o.status === "paid").reduce((t, o) => t + (Number(o.total_cents) || 0), 0);
+    /* ⚠️ Il pagato viene dai PAGAMENTI, non dagli ordini: una parte uguale
+       pagata online non e' l'ordine di nessuno. In corso = prenotato da chi
+       sta pagando adesso (non ancora arrivato). */
+    const suoiPag = pagRaw.filter((p) => p.reservation_id === c.id);
+    const q = quadroPagamenti(totale, suoiPag, adesso);
     const suoiInvii = invii.filter((i) => i.reservation_id === c.id).sort((a, b) => a.number - b.number);
     const tavoli = [c.tab_table_id, ...(c.tables ?? [])].filter((x, i, a) => x && a.indexOf(x) === i) as string[];
     return {
@@ -128,8 +144,17 @@ export const GET: APIRoute = async ({ request }) => {
       dal: suoi[0]?.created_at ?? c.seated_at ?? null,
       addizione: tavoli.some((t) => conAddizione.has(t)),
       totale_cents: totale,
-      pagato_cents: pagato,
-      resto_cents: Math.max(0, totale - pagato),
+      pagato_cents: q.pagato,
+      in_corso_cents: q.inCorso,
+      resto_cents: q.resto,
+      pagamenti: suoiPag
+        .filter((p) => pagamentoVivo(p, adesso))
+        .map((p) => ({
+          chi: String(p.payer_name ?? "").trim(),
+          importo_cents: Number(p.amount_cents) || 0,
+          mancia_cents: Number(p.tip_cents) || 0,
+          in_corso: p.status !== "paid",
+        })),
       invii: suoiInvii
         .map((i) => ({
           numero: i.number,
@@ -176,24 +201,6 @@ export const POST: APIRoute = async ({ request }) => {
   const adesso = new Date();
   const adessoIso = adesso.toISOString();
 
-  /** Chiude il conto e libera il tavolo: la prenotazione diventa `done`, col
-   *  tempo passato a tavola (`table_minutes`) e quanto si e' speso. */
-  const chiudiConto = async () => {
-    const { data: pagRaw } = await leggi("orders", ambito, "total_cents")
-      .eq("reservation_id", conto.id)
-      .not("round_id", "is", null)
-      .in("status", ["done", "paid"]);
-    const speso = ((pagRaw ?? []) as unknown as { total_cents: number | null }[]).reduce((t, o) => t + (Number(o.total_cents) || 0), 0);
-    const arrivo = conto.seated_at ? Date.parse(conto.seated_at) : NaN;
-    return aggiorna("reservations", ambito, {
-      tab_status: "closed",
-      tab_closed_at: adessoIso,
-      status: "done",
-      ...(Number.isFinite(arrivo) ? { table_minutes: Math.max(1, Math.round((adesso.getTime() - arrivo) / 60000)) } : {}),
-      ...(speso > 0 ? { spent_cents: speso } : {}),
-    }).eq("id", conto.id);
-  };
-
   if (azione === "valida") {
     if (conto.tab_status !== "pending") return json({ ok: true });
     const upd = await aggiorna("reservations", ambito, { tab_status: "open", tab_validated_at: adessoIso })
@@ -232,13 +239,53 @@ export const POST: APIRoute = async ({ request }) => {
       .eq("reservation_id", conto.id)
       .eq("status", "waiting");
     await rilasciaInviiScaduti(ambito, conto.id);
+    /* I PAGAMENTI ONLINE IN CORSO (#88): chi incassa al tavolo chiude la
+       partita. Ogni sessione Stripe aperta si fa scadere; se Stripe dice che
+       era gia' pagata, la si segna pagata — e allora si incassa solo il
+       resto. Poi il resto entra come pagamento del personale. */
+    const pagamenti = await pagamentiDelConto(ambito, conto.id);
+    // ⚠️ Stripe e la riga nuova: del PUNTO del conto, non di chi guarda.
+    const suo = ambitoDiRiga(conto.location_id);
+    if (pagamenti) {
+      for (const p of pagamenti.filter((x) => x.status === "pending" && x.method === "online")) {
+        let pagata = false;
+        if (p.stripe_session_id) {
+          try {
+            const sp = await stripeDi(suo);
+            const sess = await sp.checkout.sessions.retrieve(p.stripe_session_id);
+            if (sess.payment_status === "paid") pagata = await segnaPagato(ambito, p.id, { sessionId: p.stripe_session_id, email: sess.customer_details?.email ?? null });
+            else if (sess.status === "open") await sp.checkout.sessions.expire(p.stripe_session_id);
+          } catch (e) {
+            console.error("[conto] sessione Stripe all'incasso:", e);
+          }
+        }
+        if (!pagata) await lasciaPagamento(ambito, p);
+      }
+      // Un pagamento appena arrivato puo' aver saldato e chiuso il conto.
+      const { data: oraRaw } = await leggi("reservations", ambito, "tab_status").eq("id", conto.id).maybeSingle();
+      if ((oraRaw as { tab_status?: string } | null)?.tab_status === "closed") return json({ ok: true, gia: true });
+      const dopo = await pagamentiDelConto(ambito, conto.id);
+      const { data: totRaw } = await leggi("orders", ambito, "total_cents")
+        .eq("reservation_id", conto.id)
+        .not("round_id", "is", null)
+        .neq("status", "cancelled");
+      const totale = ((totRaw ?? []) as unknown as { total_cents: number | null }[]).reduce((t, o) => t + (Number(o.total_cents) || 0), 0);
+      const resto = quadroPagamenti(totale, dopo ?? [], adesso).resto;
+      if (resto > 0) {
+        await inserisci("table_payments", suo, {
+          reservation_id: conto.id, kind: "staff", method: metodo, status: "paid", amount_cents: resto, paid_at: adessoIso,
+        });
+      }
+    }
     const upd = await aggiorna("orders", ambito, { status: "done", payment_method: metodo })
       .eq("reservation_id", conto.id)
       .not("round_id", "is", null)
       .eq("status", "pending");
     if (upd.error) return json({ error: await msg("err.generalSave") }, 500);
-    const ch = await chiudiConto();
+    const ch = await chiudiSessioneConto(ambito, conto, adesso);
     if (ch.error) return json({ error: await msg("err.generalSave") }, 500);
+    // La ricevuta unica, a chi ha lasciato un'email (mai bloccante).
+    void inviaRicevutaConto(ambito, conto.id).catch(() => {});
     return json({ ok: true });
   }
 
@@ -247,11 +294,18 @@ export const POST: APIRoute = async ({ request }) => {
        sbagliato. Il non pagato si annulla — un ordine `pending` lasciato li'
        sarebbe un conto fantasma che nessuno incassera' mai. La pagina chiede
        conferma prima di arrivare qui. */
-    await aggiorna("orders", ambito, { status: "cancelled" })
+    /* ⚠️ CON UNA PARTE GIA' PAGATA ONLINE gli ordini non si annullano: quei
+       soldi sono arrivati, e un conto «annullato» con un incasso dentro non lo
+       sa spiegare nessuno. Restano terminati (senza metodo), e la prenotazione
+       dice quanto e' entrato davvero. Le sessioni ancora aperte si lasciano. */
+    const pagamenti = (await pagamentiDelConto(ambito, conto.id)) ?? [];
+    for (const p of pagamenti.filter((x) => x.status === "pending")) await lasciaPagamento(ambito, p);
+    const pagato = quadroPagamenti(0, pagamenti.filter((p) => p.status === "paid"), adesso).pagato;
+    await aggiorna("orders", ambito, pagato > 0 ? { status: "done", payment_method: null } : { status: "cancelled" })
       .eq("reservation_id", conto.id)
       .not("round_id", "is", null)
       .eq("status", "pending");
-    const ch = await chiudiConto();
+    const ch = await chiudiSessioneConto(ambito, conto, adesso, pagato > 0 ? pagato : undefined);
     if (ch.error) return json({ error: await msg("err.generalSave") }, 500);
     return json({ ok: true });
   }

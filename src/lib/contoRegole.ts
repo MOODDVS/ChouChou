@@ -226,3 +226,111 @@ export function inizialeDi(nome: unknown): string {
 export const PARAM_CODICE = "code";
 /** Il ritorno dopo un ordine sul conto: si apre «Votre addition». */
 export const PARAM_ADDIZIONE = "addition";
+
+/* ───────── Pagare l'addizione (fase 4, #88) ───────── */
+
+/** Le tre scelte di «Payer l'addition». */
+export const SCELTE_PAGAMENTO = ["mine", "share", "rest"] as const;
+export type SceltaPagamento = (typeof SCELTE_PAGAMENTO)[number];
+
+export function sceltaPagamento(v: unknown): SceltaPagamento | null {
+  const s = String(v ?? "");
+  return (SCELTE_PAGAMENTO as readonly string[]).includes(s) ? (s as SceltaPagamento) : null;
+}
+
+/** Quanto resta aperta una sessione Stripe del conto, e quindi quanto resta
+ *  PRENOTATO il suo importo. ⚠️ Stripe non accetta meno di 30 minuti
+ *  (`expires_at`): 31, perche' la sessione nasce un attimo dopo il calcolo. */
+export const PRENOTAZIONE_PAGAMENTO_MINUTI = 31;
+
+export interface PagamentoConto {
+  kind: string;
+  status: string;
+  amount_cents: number;
+  hold_until: string | null;
+  order_ids: string[] | null;
+}
+
+/** Un pagamento CONTA? Pagato, oppure online in corso e non ancora scaduto.
+ *  ⚠️ Scaduto = la sessione Stripe non si puo' piu' pagare: l'importo torna
+ *  libero anche se nessun webhook l'ha detto. */
+export function pagamentoVivo(p: PagamentoConto, adesso: Date): boolean {
+  if (p.status === "paid") return true;
+  if (p.status !== "pending" || !p.hold_until) return false;
+  const t = new Date(p.hold_until).getTime();
+  return !Number.isNaN(t) && t > adesso.getTime();
+}
+
+export interface QuadroPagamenti {
+  totale: number;
+  /** Pagato davvero (online o al personale). */
+  pagato: number;
+  /** Online in corso: prenotato, non ancora pagato. */
+  inCorso: number;
+  /** Totale − pagato. */
+  resto: number;
+  /** Quello che si puo' ancora prendere: resto − in corso. */
+  libero: number;
+}
+
+export function quadroPagamenti(totaleOrdini: number, pagamenti: PagamentoConto[], adesso: Date): QuadroPagamenti {
+  const tot = Math.max(0, Math.round(totaleOrdini) || 0);
+  let pagato = 0;
+  let inCorso = 0;
+  for (const p of pagamenti) {
+    if (!pagamentoVivo(p, adesso)) continue;
+    const a = Math.max(0, Math.round(Number(p.amount_cents)) || 0);
+    if (p.status === "paid") pagato += a;
+    else inCorso += a;
+  }
+  const resto = Math.max(0, tot - pagato);
+  return { totale: tot, pagato, inCorso, resto, libero: Math.max(0, resto - inCorso) };
+}
+
+/** Gli ordini gia' coperti da un «ce que j'ai commandé» (pagato o in corso). */
+export function ordiniCoperti(pagamenti: PagamentoConto[], adesso: Date): Set<string> {
+  const s = new Set<string>();
+  for (const p of pagamenti) {
+    if (p.kind !== "mine" || !pagamentoVivo(p, adesso)) continue;
+    for (const id of p.order_ids ?? []) s.add(String(id));
+  }
+  return s;
+}
+
+/**
+ * QUANTO SI PAGA con ognuna delle tre scelte.
+ *
+ * - «Ce que j'ai commandé»: i propri ordini non ancora coperti.
+ * - «Une part égale»: il libero diviso per le persone che non hanno ancora
+ *   pagato (le dichiarate meno i pagamenti gia' fatti o in corso); l'ultima
+ *   parte e' tutto il resto (`parteUguale`).
+ * - «Tout le reste»: tutto il libero.
+ *
+ * ⚠️ Mai oltre il LIBERO: una parte che qualcuno sta gia' pagando non si
+ * ripaga. 0 = quella scelta non c'e'.
+ */
+export function importiScelte(dati: {
+  libero: number;
+  mieiNonCoperti: number;
+  persone: number;
+  pagamentiFatti: number;
+}): Record<SceltaPagamento, number> {
+  const libero = Math.max(0, Math.round(dati.libero) || 0);
+  const parti = Math.max(1, Math.floor(dati.persone || 1) - Math.max(0, Math.floor(dati.pagamentiFatti || 0)));
+  return {
+    mine: Math.min(libero, Math.max(0, Math.round(dati.mieiNonCoperti) || 0)),
+    share: parteUguale(libero, parti),
+    rest: libero,
+  };
+}
+
+/** Si chiude da solo? Solo quando non resta niente da pagare. */
+export function contoSaldato(q: QuadroPagamenti): boolean {
+  return q.totale > 0 && q.resto === 0;
+}
+
+/** Il ritorno da Stripe dopo aver pagato una parte dell'addizione: il token
+ *  del pagamento (`/table?tab_paid=…&session_id=cs_…`). */
+export const PARAM_PAGATO = "tab_paid";
+/** «Indietro» su Stripe: il pagamento si lascia, l'importo torna libero. */
+export const PARAM_LASCIATO = "tab_back";

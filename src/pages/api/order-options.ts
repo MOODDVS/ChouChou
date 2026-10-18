@@ -22,13 +22,15 @@ export const GET: APIRoute = async ({ request }) => {
   let consegna = false;
   // Le soglie si dicono: sono scritte sul sito («minimum 50 €»), non segreti.
   let soglie: Awaited<ReturnType<typeof soglieConsegna>> = { minimo: 0, gratis: 0, costo: 0, zone: [] };
-  // Le mance: tipo e tre valori, o `null` se spente. Vanno anche al TAVOLO.
+  // Le mance: tipo e tre valori, o `null` se spente. Al TAVOLO decide la sala.
   let mance: Awaited<ReturnType<typeof manceDi>> = null;
   try {
     const ambito = await ambitoPubblicoChiesto(request);
     consegna = (await opzioniOrdini(ambito)).consegna;
     if (consegna) soglie = await soglieConsegna(ambito);
-    mance = await manceDi(ambito);
+    // `?sala=1`: chiede la pagina del tavolo, e in sala le mance hanno un
+    // interruttore loro (`orders_table_tips`). Tipo e valori sono gli stessi.
+    mance = await manceDi(ambito, { sala: new URL(request.url).searchParams.get("sala") === "1" });
   } catch {
     consegna = false;
   }

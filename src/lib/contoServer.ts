@@ -11,11 +11,13 @@
  * contando i tentativi sbagliati: un `reservation_id` arrivato dal browser da
  * solo non apre niente.
  */
-import { leggi, inserisci, aggiorna, leggiConfig, type Ambito } from "./admin/sede";
+import { leggi, inserisci, aggiorna, leggiConfig, ambitoDiRiga, type Ambito } from "./admin/sede";
 import { accodaTicket, ordiniDiInvio } from "./stampaCoda";
+import { inviaRicevutaConto } from "./ricevutaConto";
 import {
-  codiceBloccato, codiceLetto, dopoTentativo, finestraInvio, invioDaUsare, nuovoCodice,
-  ordineTogliibile, tavoliUnitiDa, type InvioEsistente,
+  codiceBloccato, codiceLetto, contoSaldato, dopoTentativo, finestraInvio, importiScelte, invioDaUsare, nuovoCodice,
+  ordiniCoperti, ordineTogliibile, pagamentoVivo, quadroPagamenti, tavoliUnitiDa, PRENOTAZIONE_PAGAMENTO_MINUTI,
+  type InvioEsistente, type PagamentoConto, type QuadroPagamenti, type SceltaPagamento,
 } from "./contoRegole";
 
 export interface ContoRiga {
@@ -361,4 +363,252 @@ export async function rilasciaInviiScaduti(ambito: Ambito, contoId?: string): Pr
     console.error("[conto] rilascio invii:", e);
     return 0;
   }
+}
+
+/* ═════════ PAGARE L'ADDIZIONE (fase 4, #88) ═════════ */
+
+export interface RigaPagamento extends PagamentoConto {
+  id: string;
+  location_id: string | null;
+  reservation_id: string;
+  method: string;
+  tip_cents: number;
+  payer_name: string | null;
+  payer_email: string | null;
+  token: string;
+  stripe_session_id: string | null;
+  paid_at: string | null;
+}
+
+const CAMPI_PAGAMENTO =
+  "id, location_id, reservation_id, kind, method, status, amount_cents, tip_cents, payer_name, payer_email, order_ids, token, stripe_session_id, hold_until, paid_at";
+
+/** I pagamenti del conto. `null` = tabella illeggibile (la #88 non lanciata):
+ *  allora «Payer l'addition» non c'e', e si paga al cameriere come prima. */
+export async function pagamentiDelConto(ambito: Ambito, contoId: string): Promise<RigaPagamento[] | null> {
+  const { data, error } = await leggi("table_payments", ambito, CAMPI_PAGAMENTO).eq("reservation_id", contoId);
+  if (error) return null;
+  return (data ?? []) as unknown as RigaPagamento[];
+}
+
+interface OrdineDelConto { id: string; cancel_token: string; total_cents: number; status: string }
+
+/** Gli ordini del conto che contano (non annullati). */
+async function ordiniDelConto(ambito: Ambito, contoId: string): Promise<OrdineDelConto[]> {
+  const { data } = await leggi("orders", ambito, "id, cancel_token, total_cents, status")
+    .eq("reservation_id", contoId)
+    .not("round_id", "is", null)
+    .neq("status", "cancelled");
+  return (data ?? []) as unknown as OrdineDelConto[];
+}
+
+export interface StatoPagamenti {
+  quadro: QuadroPagamenti;
+  /** Quanto si paga con ognuna delle tre scelte (0 = scelta assente). */
+  scelte: Record<SceltaPagamento, number>;
+  /** Gli ordini di questo telefono ancora da coprire (per «ce que j'ai commandé»). */
+  mieiDaPagare: string[];
+}
+
+/** Il quadro dei pagamenti visto da un telefono (`miei` = i suoi token). */
+export async function statoPagamenti(
+  ambito: Ambito,
+  conto: ContoRiga,
+  miei: string[],
+  adesso: Date,
+): Promise<StatoPagamenti | null> {
+  const [pagamenti, ordini] = await Promise.all([pagamentiDelConto(ambito, conto.id), ordiniDelConto(ambito, conto.id)]);
+  if (!pagamenti) return null;
+  const totale = ordini.reduce((t, o) => t + (Number(o.total_cents) || 0), 0);
+  const quadro = quadroPagamenti(totale, pagamenti, adesso);
+  const coperti = ordiniCoperti(pagamenti, adesso);
+  const mieiSet = new Set(miei.map(String));
+  const mieiOrdini = ordini.filter((o) => mieiSet.has(String(o.cancel_token)) && !coperti.has(String(o.id)));
+  const fatti = pagamenti.filter((p) => p.kind !== "staff" && pagamentoVivo(p, adesso)).length;
+  const scelte = importiScelte({
+    libero: quadro.libero,
+    mieiNonCoperti: mieiOrdini.reduce((t, o) => t + (Number(o.total_cents) || 0), 0),
+    persone: conto.tab_people ?? conto.people,
+    pagamentiFatti: fatti,
+  });
+  return { quadro, scelte, mieiDaPagare: mieiOrdini.map((o) => String(o.id)) };
+}
+
+/**
+ * PRENOTARE UN PAGAMENTO ONLINE: la riga `pending` con l'importo della scelta,
+ * tenuto da parte fino a `hold_until`. Poi chi chiama crea la sessione Stripe.
+ *
+ * ⚠️ DUE TELEFONI NELLO STESSO ISTANTE: si scrive la riga, POI si fa avanzare
+ * `tab_pay_lock` solo se vale ancora quello letto all'inizio. Chi perde
+ * annulla la sua riga e ricalcola — e adesso vede la prenotazione
+ * dell'altro. L'ordine (lucchetto letto → pagamenti letti → riga scritta →
+ * lucchetto avanzato) e' quello che garantisce che il secondo veda il primo.
+ */
+export async function prenotaPagamento(
+  ambito: Ambito,
+  conto: ContoRiga,
+  dati: { scelta: SceltaPagamento; miei: string[]; nome: string; adesso: Date },
+): Promise<{ id: string; token: string; importo: number; scade: Date } | { errore: "in_corso" | "niente" | "migrazione" }> {
+  for (let giro = 0; giro < 4; giro++) {
+    const { data: lr, error: el } = await leggi("reservations", ambito, "tab_pay_lock").eq("id", conto.id).maybeSingle();
+    if (el || !lr) return { errore: "migrazione" };
+    const v = Number((lr as { tab_pay_lock?: unknown }).tab_pay_lock) || 0;
+    const stato = await statoPagamenti(ambito, conto, dati.miei, dati.adesso);
+    if (!stato) return { errore: "migrazione" };
+    const importo = stato.scelte[dati.scelta];
+    if (!(importo > 0)) return { errore: stato.quadro.inCorso > 0 ? "in_corso" : "niente" };
+    const scade = new Date(dati.adesso.getTime() + PRENOTAZIONE_PAGAMENTO_MINUTI * 60_000);
+    const ins = await inserisci("table_payments", ambito, {
+      reservation_id: conto.id,
+      kind: dati.scelta,
+      method: "online",
+      status: "pending",
+      amount_cents: importo,
+      tip_cents: 0,
+      payer_name: dati.nome.slice(0, 60) || null,
+      order_ids: dati.scelta === "mine" ? stato.mieiDaPagare : [],
+      hold_until: scade.toISOString(),
+    }).select("id, token").single();
+    if (ins.error || !ins.data) {
+      console.error("[conto] prenotazione del pagamento fallita (migrazione #88?):", ins.error);
+      return { errore: "migrazione" };
+    }
+    const riga = ins.data as unknown as { id: string; token: string };
+    const cas = await aggiorna("reservations", ambito, { tab_pay_lock: v + 1 })
+      .eq("id", conto.id)
+      .eq("tab_pay_lock", v)
+      .select("id");
+    if (!cas.error && ((cas.data ?? []) as unknown[]).length === 1) {
+      return { id: String(riga.id), token: String(riga.token), importo, scade };
+    }
+    // Qualcuno ha prenotato nello stesso istante: si lascia, e si ricalcola.
+    await aggiorna("table_payments", ambito, { status: "cancelled" }).eq("id", riga.id);
+  }
+  return { errore: "in_corso" };
+}
+
+/** Il pagamento per il suo token (lo conosce solo il telefono che paga). */
+export async function pagamentoPerToken(ambito: Ambito, token: string): Promise<RigaPagamento | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(token)) return null;
+  const { data } = await leggi("table_payments", ambito, CAMPI_PAGAMENTO).eq("token", token).maybeSingle();
+  return (data as unknown as RigaPagamento | null) ?? null;
+}
+
+/**
+ * SEGNARE PAGATO un pagamento online. Dal webhook (strada normale) o dal
+ * ritorno sulla pagina del tavolo (Stripe e' piu' lento del cliente).
+ *
+ * ⚠️ IDEMPOTENTE: si aggiorna solo da `pending` (o `cancelled`: la sessione
+ * puo' essere stata pagata un istante prima che qualcuno la lasciasse). Chi
+ * arriva secondo non fa niente, e non manda due ricevute.
+ * ⚠️ Solo la SESSIONE di quel pagamento: un `session_id` qualunque non
+ * conferma niente.
+ * Rende `true` se l'ha segnato lui.
+ */
+export async function segnaPagato(
+  ambito: Ambito,
+  pagamentoId: string,
+  dati: { sessionId: string; email?: string | null },
+): Promise<boolean> {
+  const { data } = await leggi("table_payments", ambito, CAMPI_PAGAMENTO).eq("id", pagamentoId).maybeSingle();
+  const p = data as unknown as RigaPagamento | null;
+  if (!p || p.status === "paid" || p.method !== "online") return false;
+  if (!dati.sessionId || p.stripe_session_id !== dati.sessionId) return false;
+  // ⚠️ Da qui in poi l'ambito e' quello DELLA RIGA: dal webhook arriva
+  // l'aggregato, e la chiusura scrive su ordini e prenotazione del suo punto.
+  const suo = ambitoDiRiga(p.location_id);
+  const email = String(dati.email ?? "").trim().toLowerCase().slice(0, 200);
+  const upd = await aggiorna("table_payments", suo, {
+    status: "paid",
+    paid_at: new Date().toISOString(),
+    ...(email ? { payer_email: email } : {}),
+  })
+    .eq("id", p.id)
+    .in("status", ["pending", "cancelled"])
+    .select("id");
+  if (upd.error || ((upd.data ?? []) as unknown[]).length === 0) return false;
+  await dopoPagamento(suo, p.reservation_id);
+  return true;
+}
+
+/** Lasciare un pagamento online in corso (indietro da Stripe, o il personale
+ *  che incassa). L'importo torna libero. Rende la riga, se c'era. */
+export async function lasciaPagamento(ambito: Ambito, p: RigaPagamento): Promise<void> {
+  if (p.status !== "pending") return;
+  await aggiorna("table_payments", ambito, { status: "cancelled" }).eq("id", p.id).eq("status", "pending");
+}
+
+/**
+ * CHIUDERE LA SESSIONE DEL TAVOLO: la prenotazione diventa `done`, col tempo
+ * passato a tavola (`table_minutes`) e quanto si e' speso. Il piano sala si
+ * libera. ⚠️ Una sola strada per il cameriere («Encaisser», «Fermer la
+ * table») e per il conto saldato online.
+ */
+export async function chiudiSessioneConto(
+  ambito: Ambito,
+  conto: { id: string; seated_at: string | null },
+  adesso: Date,
+  /** Quanto si e' speso, se non e' la somma degli ordini terminati (il
+   *  tavolo chiuso senza incassare dopo una parte pagata online). */
+  spesoDetto?: number,
+) {
+  const adessoIso = adesso.toISOString();
+  const { data: pagRaw } = await leggi("orders", ambito, "total_cents")
+    .eq("reservation_id", conto.id)
+    .not("round_id", "is", null)
+    .in("status", ["done", "paid"]);
+  const speso = spesoDetto ?? ((pagRaw ?? []) as unknown as { total_cents: number | null }[]).reduce((t, o) => t + (Number(o.total_cents) || 0), 0);
+  const arrivo = conto.seated_at ? Date.parse(conto.seated_at) : NaN;
+  return aggiorna("reservations", ambito, {
+    tab_status: "closed",
+    tab_closed_at: adessoIso,
+    status: "done",
+    ...(Number.isFinite(arrivo) ? { table_minutes: Math.max(1, Math.round((adesso.getTime() - arrivo) / 60000)) } : {}),
+    ...(speso > 0 ? { spent_cents: speso } : {}),
+  }).eq("id", conto.id);
+}
+
+/**
+ * DOPO UN PAGAMENTO: se il conto e' saldato, si chiude da solo.
+ *
+ * - Parte quello che stava ancora aspettando la sua finestra (pagato e' pagato:
+ *   il caffe' di trenta secondi fa deve uscire lo stesso).
+ * - Gli ordini diventano `done`, SENZA metodo: come gli ordini del sito pagati
+ *   con la carta, e' passato da Stripe.
+ * - La sessione del tavolo si chiude, e parte la ricevuta unica.
+ *
+ * ⚠️ Solo un conto `open`: uno ancora da validare non si paga (la pagina non
+ * lo offre, la rotta lo rifiuta). Pagato in parte, il conto resta aperto e lo
+ * chiude il cameriere.
+ */
+export async function dopoPagamento(ambito: Ambito, contoId: string): Promise<boolean> {
+  const { data: cr } = await leggi("reservations", ambito, "id, seated_at, tab_status, tab_people, people").eq("id", contoId).maybeSingle();
+  const c = cr as unknown as { id: string; seated_at: string | null; tab_status: string | null } | null;
+  if (!c || c.tab_status !== "open") return false;
+  const adesso = new Date();
+  const [pagamenti, ordini] = await Promise.all([pagamentiDelConto(ambito, c.id), ordiniDelConto(ambito, c.id)]);
+  if (!pagamenti) return false;
+  const q = quadroPagamenti(ordini.reduce((t, o) => t + (Number(o.total_cents) || 0), 0), pagamenti, adesso);
+  if (!contoSaldato(q)) return false;
+  // Un solo chiusore: il passaggio open → closed e' condizionato.
+  const presa = await aggiorna("reservations", ambito, { tab_status: "closed", tab_closed_at: adesso.toISOString() })
+    .eq("id", c.id)
+    .eq("tab_status", "open")
+    .select("id");
+  if (presa.error || ((presa.data ?? []) as unknown[]).length === 0) return false;
+  await aggiorna("table_rounds", ambito, { release_at: adesso.toISOString() })
+    .eq("reservation_id", c.id)
+    .eq("status", "waiting");
+  await rilasciaInviiScaduti(ambito, c.id);
+  await aggiorna("orders", ambito, { status: "done", payment_method: null })
+    .eq("reservation_id", c.id)
+    .not("round_id", "is", null)
+    .eq("status", "pending");
+  await chiudiSessioneConto(ambito, c, adesso);
+  try {
+    await inviaRicevutaConto(ambito, c.id);
+  } catch (e) {
+    console.error("[conto] ricevuta:", e);
+  }
+  return true;
 }

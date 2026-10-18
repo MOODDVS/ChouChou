@@ -47,6 +47,24 @@ export interface TestiConto {
   ancora: string;
   /** Il conto e' stato chiuso dal personale (incassato o rifiutato). */
   chiuso: string;
+  /* ── Pagare l'addizione online (fase 4). `{x}` = un importo. ── */
+  paga: string;
+  pagaMio: string;
+  pagaParte: string;
+  pagaResto: string;
+  pagaMancia: string;
+  pagaNessuna: string;
+  pagaBtn: string;
+  pagaIndietro: string;
+  giaPagato: string;
+  resta: string;
+  inCorso: string;
+  errInCorso: string;
+  errNiente: string;
+  errPaga: string;
+  pagatoOk: string;
+  /** Pagato tutto: il conto si e' chiuso da solo. */
+  saldato: string;
 }
 
 export const TESTI_CONTO: Record<string, TestiConto> = {
@@ -71,6 +89,14 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errChiedi: "La demande n’est pas passée. Faites signe à un serveur.",
     ancora: "Commander autre chose",
     chiuso: "Votre addition a été fermée par le serveur.",
+    paga: "Payer l’addition", pagaMio: "Ce que j’ai commandé", pagaParte: "Une part égale", pagaResto: "Tout le reste",
+    pagaMancia: "Pourboire", pagaNessuna: "Aucun", pagaBtn: "Payer {x}", pagaIndietro: "Retour",
+    giaPagato: "Déjà payé", resta: "Reste à payer", inCorso: "Paiement en cours : {x}",
+    errInCorso: "Cette part est déjà en cours de paiement. Réessayez dans un instant.",
+    errNiente: "Il n’y a plus rien à payer avec ce choix.",
+    errPaga: "Le paiement n’a pas pu démarrer. Réessayez, ou demandez au serveur.",
+    pagatoOk: "Merci ! Votre paiement est bien reçu.",
+    saldato: "Merci ! L’addition est réglée. À bientôt !",
   },
   en: {
     apri: "Open a tab", apriSotto: "Order now, pay at the end. Your friends join with a code.",
@@ -93,6 +119,14 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errChiedi: "The request didn’t go through. Please wave to a member of staff.",
     ancora: "Order something else",
     chiuso: "Your bill has been closed by the waiter.",
+    paga: "Pay the bill", pagaMio: "What I ordered", pagaParte: "An equal share", pagaResto: "Everything left",
+    pagaMancia: "Tip", pagaNessuna: "None", pagaBtn: "Pay {x}", pagaIndietro: "Back",
+    giaPagato: "Already paid", resta: "Left to pay", inCorso: "Payment in progress: {x}",
+    errInCorso: "This share is already being paid. Try again in a moment.",
+    errNiente: "There is nothing left to pay with this choice.",
+    errPaga: "The payment could not start. Try again, or ask the waiter.",
+    pagatoOk: "Thank you! Your payment has been received.",
+    saldato: "Thank you! The bill is settled. See you soon!",
   },
   it: {
     apri: "Apri un conto", apriSotto: "Ordina adesso, paga alla fine. I tuoi amici si uniscono con un codice.",
@@ -115,6 +149,14 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errChiedi: "La richiesta non è partita. Fate un cenno a un cameriere.",
     ancora: "Ordina altro",
     chiuso: "Il vostro conto è stato chiuso dal cameriere.",
+    paga: "Paga il conto", pagaMio: "Quello che ho ordinato", pagaParte: "Una parte uguale", pagaResto: "Tutto il resto",
+    pagaMancia: "Mancia", pagaNessuna: "Nessuna", pagaBtn: "Paga {x}", pagaIndietro: "Indietro",
+    giaPagato: "Già pagato", resta: "Resta da pagare", inCorso: "Pagamento in corso: {x}",
+    errInCorso: "Questa parte è già in pagamento. Riprovate tra un attimo.",
+    errNiente: "Non resta niente da pagare con questa scelta.",
+    errPaga: "Il pagamento non è partito. Riprovate, o chiedete al cameriere.",
+    pagatoOk: "Grazie! Il pagamento è arrivato.",
+    saldato: "Grazie! Il conto è saldato. A presto!",
   },
   nl: {
     apri: "Rekening openen", apriSotto: "Bestel nu, betaal op het einde. Je vrienden doen mee met een code.",
@@ -137,6 +179,14 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errChiedi: "De vraag is niet verstuurd. Wenk even een ober.",
     ancora: "Nog iets bestellen",
     chiuso: "Jullie rekening is door de ober afgesloten.",
+    paga: "De rekening betalen", pagaMio: "Wat ik bestelde", pagaParte: "Een gelijk deel", pagaResto: "Alles wat overblijft",
+    pagaMancia: "Fooi", pagaNessuna: "Geen", pagaBtn: "{x} betalen", pagaIndietro: "Terug",
+    giaPagato: "Al betaald", resta: "Nog te betalen", inCorso: "Betaling bezig: {x}",
+    errInCorso: "Dit deel wordt al betaald. Probeer het zo meteen opnieuw.",
+    errNiente: "Met deze keuze is er niets meer te betalen.",
+    errPaga: "De betaling kon niet starten. Probeer opnieuw, of vraag het de ober.",
+    pagatoOk: "Bedankt! Uw betaling is ontvangen.",
+    saldato: "Bedankt! De rekening is betaald. Tot binnenkort!",
   },
   es: {
     apri: "Abrir una cuenta", apriSotto: "Pida ahora, pague al final. Sus amigos se unen con un código.",
@@ -159,5 +209,13 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errChiedi: "La petición no se envió. Haga una seña a un camarero.",
     ancora: "Pedir algo más",
     chiuso: "El camarero ha cerrado su cuenta.",
+    paga: "Pagar la cuenta", pagaMio: "Lo que pedí", pagaParte: "Una parte igual", pagaResto: "Todo lo que queda",
+    pagaMancia: "Propina", pagaNessuna: "Ninguna", pagaBtn: "Pagar {x}", pagaIndietro: "Volver",
+    giaPagato: "Ya pagado", resta: "Queda por pagar", inCorso: "Pago en curso: {x}",
+    errInCorso: "Esta parte ya se está pagando. Inténtelo de nuevo en un momento.",
+    errNiente: "Con esta opción no queda nada por pagar.",
+    errPaga: "El pago no pudo empezar. Inténtelo de nuevo, o pregunte al camarero.",
+    pagatoOk: "¡Gracias! Hemos recibido su pago.",
+    saldato: "¡Gracias! La cuenta está pagada. ¡Hasta pronto!",
   },
 };

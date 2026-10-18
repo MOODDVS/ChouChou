@@ -208,7 +208,8 @@ test("la pagina: «Ouvrir un compte» accanto al pagamento, «Ajouter» al suo p
   // Qualcuno ha aperto un secondo prima: il carrello resta, compare «Rejoindre».
   assert.match(to, /if \(status === 409 && e\.includes\("deja"\)\) \{\s*setStatoConto\(\{ tipo: "altri"/);
   // Il QR «Inviter» porta il codice nell'indirizzo, e si toglie appena letto.
-  assert.match(to, /u\.searchParams\.delete\("code"\);/);
+  // Il codice (e i ritorni da Stripe) si tolgono dall'indirizzo appena letti.
+  assert.match(to, /for \(const k of \["code", "addition", PARAM_PAGATO, PARAM_LASCIATO, "session_id"\]\) u\.searchParams\.delete\(k\);/);
   assert.match(leggi("src/components/PaginaTavolo.astro"), /conto=\{sala\.conto\}/);
 });
 
@@ -263,7 +264,9 @@ test("il tablet: valida, rifiuta, incassa (contanti/carta), chiudi, stampa — e
   const api = nudo("src/pages/api/admin/table-tabs.ts");
   for (const a of ["valida", "rifiuta", "incassa", "chiudi", "stampa"]) assert.match(api, new RegExp(`if \\(azione === "${a}"\\)`), a);
   assert.match(api, /if \(metodo !== "cash" && metodo !== "card"\)/);
-  assert.match(api, /tab_status: "closed",\s*tab_closed_at: adessoIso,\s*status: "done",/);
+  // La chiusura e' UNA, per il cameriere e per il conto saldato online.
+  assert.match(nudo("src/lib/contoServer.ts"), /tab_status: "closed",\s*tab_closed_at: adessoIso,\s*status: "done",/);
+  assert.match(api, /await chiudiSessioneConto\(ambito, conto, adesso\)/);
   assert.match(api, /\{ status: "done", payment_method: metodo \}/);
   // Non si incassa un conto da validare.
   assert.match(api, /if \(conto\.tab_status === "pending"\) return json\(\{ error: await msg\("err\.tabValidateFirst"\) \}, 409\);/);
@@ -291,4 +294,143 @@ test("col conto: niente «sur place» da scegliere; da soli il conto si chiama �
   assert.match(to, /\? Number\(persone\) === 1\s*\? \{ modo: "apri" as const, etichetta: tc\.apriSolo, sotto: tc\.apriSoloSotto,/);
   for (const l of ["fr", "en", "it", "nl", "es"]) assert.ok(TESTI_CONTO[l].apriSolo && TESTI_CONTO[l].apriSoloSotto, l);
   assert.equal(TESTI_CONTO.fr.apriSolo, "Payer sur place");
+});
+
+/* ═════════ FASE 4: pagare l'addizione online (#88) ═════════ */
+import {
+  sceltaPagamento, pagamentoVivo, quadroPagamenti, ordiniCoperti, importiScelte, contoSaldato,
+  PRENOTAZIONE_PAGAMENTO_MINUTI, PARAM_PAGATO, PARAM_LASCIATO,
+} from "../src/lib/contoRegole.ts";
+
+const ADESSO = new Date("2026-10-18T20:00:00Z");
+const tra = (min) => new Date(ADESSO.getTime() + min * 60000).toISOString();
+
+test("le tre scelte: solo quelle, e nient'altro passa", () => {
+  assert.equal(sceltaPagamento("mine"), "mine");
+  assert.equal(sceltaPagamento("share"), "share");
+  assert.equal(sceltaPagamento("rest"), "rest");
+  assert.equal(sceltaPagamento("staff"), null, "il personale non si sceglie dal telefono");
+  assert.equal(sceltaPagamento(undefined), null);
+  // Stripe vuole almeno 30 minuti di sessione.
+  assert.ok(PRENOTAZIONE_PAGAMENTO_MINUTI > 30);
+  assert.notEqual(PARAM_PAGATO, PARAM_LASCIATO);
+});
+
+test("un pagamento conta se pagato, o in corso e non scaduto", () => {
+  assert.equal(pagamentoVivo({ kind: "share", status: "paid", amount_cents: 1, hold_until: null, order_ids: [] }, ADESSO), true);
+  assert.equal(pagamentoVivo({ kind: "share", status: "pending", amount_cents: 1, hold_until: tra(5), order_ids: [] }, ADESSO), true);
+  // ⚠️ Scaduto = la sessione Stripe non si paga piu': l'importo torna libero.
+  assert.equal(pagamentoVivo({ kind: "share", status: "pending", amount_cents: 1, hold_until: tra(-1), order_ids: [] }, ADESSO), false);
+  assert.equal(pagamentoVivo({ kind: "share", status: "cancelled", amount_cents: 1, hold_until: tra(5), order_ids: [] }, ADESSO), false);
+});
+
+test("il quadro: pagato, in corso, resto, libero", () => {
+  const q = quadroPagamenti(10000, [
+    { kind: "share", status: "paid", amount_cents: 2500, hold_until: null, order_ids: [] },
+    { kind: "share", status: "pending", amount_cents: 2500, hold_until: tra(10), order_ids: [] },
+    { kind: "rest", status: "pending", amount_cents: 5000, hold_until: tra(-1), order_ids: [] },
+  ], ADESSO);
+  assert.deepEqual(q, { totale: 10000, pagato: 2500, inCorso: 2500, resto: 7500, libero: 5000 });
+  assert.equal(contoSaldato(q), false);
+  assert.equal(contoSaldato(quadroPagamenti(5000, [{ kind: "rest", status: "paid", amount_cents: 5000, hold_until: null, order_ids: [] }], ADESSO)), true);
+  // Un conto vuoto non «si salda»: non si chiude da solo un tavolo senza niente.
+  assert.equal(contoSaldato(quadroPagamenti(0, [], ADESSO)), false);
+});
+
+test("le cifre delle scelte: mai oltre il libero, l'ultima parte e' tutto il resto", () => {
+  // 4 persone, 100 €: la prima parte e' 25.
+  assert.deepEqual(importiScelte({ libero: 10000, mieiNonCoperti: 3200, persone: 4, pagamentiFatti: 0 }), { mine: 3200, share: 2500, rest: 10000 });
+  // Due hanno gia' pagato, ne restano 2: 50 € / 2.
+  assert.equal(importiScelte({ libero: 5000, mieiNonCoperti: 0, persone: 4, pagamentiFatti: 2 }).share, 2500);
+  // L'ultimo paga i centesimi d'arrotondamento.
+  assert.equal(importiScelte({ libero: 3334, mieiNonCoperti: 0, persone: 3, pagamentiFatti: 2 }).share, 3334);
+  // Piu' pagamenti che persone: una parte = tutto il resto, mai zero.
+  assert.equal(importiScelte({ libero: 1000, mieiNonCoperti: 0, persone: 2, pagamentiFatti: 5 }).share, 1000);
+  // «Ce que j'ai commandé» non supera quello che si puo' ancora prendere.
+  assert.equal(importiScelte({ libero: 1000, mieiNonCoperti: 3200, persone: 4, pagamentiFatti: 0 }).mine, 1000);
+  // Tutto in pagamento da altri: niente da prendere.
+  assert.deepEqual(importiScelte({ libero: 0, mieiNonCoperti: 3200, persone: 4, pagamentiFatti: 1 }), { mine: 0, share: 0, rest: 0 });
+});
+
+test("«ce que j'ai commandé» non si paga due volte", () => {
+  const c = ordiniCoperti([
+    { kind: "mine", status: "paid", amount_cents: 1, hold_until: null, order_ids: ["a"] },
+    { kind: "mine", status: "pending", amount_cents: 1, hold_until: tra(3), order_ids: ["b"] },
+    { kind: "mine", status: "pending", amount_cents: 1, hold_until: tra(-3), order_ids: ["c"] },
+    { kind: "share", status: "paid", amount_cents: 1, hold_until: null, order_ids: ["d"] },
+  ], ADESSO);
+  assert.deepEqual([...c].sort(), ["a", "b"]);
+});
+
+test("la #88: tabella, GRANT, il lucchetto e la ricevuta una volta sola", () => {
+  const m = leggi("supabase/088_conto_pagamenti.sql");
+  assert.match(m, /create table if not exists public\.table_payments/);
+  assert.match(m, /grant select, insert, update, delete on public\.table_payments to service_role;/);
+  assert.match(m, /add column if not exists tab_pay_lock\s+integer not null default 0/);
+  assert.match(m, /add column if not exists tab_receipt_at timestamptz/);
+  assert.match(leggi("supabase/MIGRATIONS.md"), /\| 88 \| `088_conto_pagamenti\.sql` \|/);
+  assert.match(leggi("src/lib/admin/sedeRegole.ts"), /table_payments: "sede",/);
+});
+
+test("due che pagano insieme: riga scritta, POI il lucchetto avanza solo se e' fermo", () => {
+  const cs = nudo("src/lib/contoServer.ts");
+  assert.match(cs, /const cas = await aggiorna\("reservations", ambito, \{ tab_pay_lock: v \+ 1 \}\)\s*\.eq\("id", conto\.id\)\s*\.eq\("tab_pay_lock", v\)/);
+  // L'ordine conta: lucchetto letto → pagamenti → riga → lucchetto.
+  const i = cs.indexOf('leggi("reservations", ambito, "tab_pay_lock")');
+  const j = cs.indexOf("await statoPagamenti(ambito, conto, dati.miei, dati.adesso)");
+  const k = cs.indexOf('inserisci("table_payments"');
+  const l = cs.indexOf("const cas = ");
+  assert.ok(i > 0 && i < j && j < k && k < l, "ordine del lucchetto");
+  // Chi perde lascia la sua riga.
+  assert.match(cs, /await aggiorna\("table_payments", ambito, \{ status: "cancelled" \}\)\.eq\("id", riga\.id\);/);
+});
+
+test("segnato pagato una volta sola, con la SUA sessione; saldato = chiuso da solo", () => {
+  const cs = nudo("src/lib/contoServer.ts");
+  assert.match(cs, /if \(!dati\.sessionId \|\| p\.stripe_session_id !== dati\.sessionId\) return false;/);
+  assert.match(cs, /\.in\("status", \["pending", "cancelled"\]\)/);
+  assert.match(cs, /if \(!contoSaldato\(q\)\) return false;/);
+  assert.match(cs, /\.eq\("tab_status", "open"\)\s*\.select\("id"\);/);
+  assert.match(cs, /\{ status: "done", payment_method: null \}/);
+  assert.match(nudo("src/lib/ricevutaConto.ts"), /\.is\("tab_receipt_at", null\)/);
+  const wh = nudo("src/pages/api/stripe-webhook.ts");
+  assert.match(wh, /const pagamentoConto = session\.metadata\?\.tab_payment_id;/);
+  assert.match(wh, /await segnaPagato\(ambito, pagamentoConto, \{/);
+});
+
+test("la rotta: si paga solo un conto validato, col pagamento online, la mancia della sala", () => {
+  const api = nudo("src/pages/api/table-tab.ts");
+  assert.match(api, /if \(conto\.tab_status !== "open"\) return json\(\{ error: "a valider" \}, 409\);/);
+  assert.match(api, /if \(!\(await modiDiPagamento\(ambito\)\)\.online\)/);
+  assert.match(api, /const m = await manceDi\(ambito, \{ sala: true \}\);/);
+  assert.match(api, /if \(r\.errore === "in_corso"\) return json\(\{ error: "en cours" \}, 409\);/);
+  // Il ritorno passa dal token del pagamento, non dal conto (puo' essere chiuso).
+  assert.match(api, /if \(azione === "pagato" \|\| azione === "annulla"\) \{/);
+  assert.match(api, /sid === p\.stripe_session_id/);
+});
+
+test("il tablet: «Encaisser» prende solo il resto; con una parte pagata online gli ordini non si annullano", () => {
+  const api = nudo("src/pages/api/admin/table-tabs.ts");
+  assert.match(api, /kind: "staff", method: metodo, status: "paid", amount_cents: resto/);
+  assert.match(api, /pagato > 0 \? \{ status: "done", payment_method: null \} : \{ status: "cancelled" \}/);
+  assert.match(api, /resto_cents: q\.resto,/);
+  const pag = nudo("src/pages/admin/orders.astro");
+  assert.match(pag, /function pagatiConto\(c: ContoSala\): string \{/);
+});
+
+test("la pagina: «Payer l'addition» con le cifre del server, e il ritorno da Stripe", () => {
+  const to = nudo("src/components/TableOrder.tsx");
+  assert.match(to, /const puoPagare = Boolean\(pag && pag\.online && !inAttesa && pag\.scelte\.rest > 0\);/);
+  assert.match(to, /azione: "paga", table: scelto\.id, code: membro\.code, scelta: sceltaPaga,/);
+  assert.match(to, /chiediTab\(\{ azione: "pagato", pagamento: pagato, session_id: sessione \}\)/);
+  assert.match(to, /chiediTab\(\{ azione: "annulla", pagamento: lasciato \}\)/);
+  // Tornato pagato e conto chiuso: «réglée», non «fermée par le serveur».
+  assert.match(to, /mostraAvviso\(tornatoPagato\.current \? tc\.saldato : tc\.chiuso, true\)/);
+});
+
+test("Commandes: «Aucune commande en cours» non si dice con un conto aperto", () => {
+  const pag = nudo("src/pages/admin/orders.astro");
+  assert.match(pag, /function mostraVuoto\(\) \{/);
+  assert.match(pag, /const conConti = !!g && !g\.hidden && g\.childElementCount > 0;/);
+  assert.match(pag, /gridConti\.innerHTML = visibili\.map\(contoHTML\)\.join\(""\);\s*mostraVuoto\(\);/);
 });

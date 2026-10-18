@@ -560,3 +560,52 @@
   display: block; width: 100%; margin-top: .5rem; padding: .7rem; border: 0; background: none;
   color: var(--tbl-muted); text-decoration: underline; cursor: pointer;
 }
+
+/* «Payer l'addition» (fase 4): gia' pagato / in corso / resta, poi le tre
+   scelte come righe da toccare (nome a sinistra, cifra a destra) e la mancia
+   in pillole. Il secondo bottone («Demander l'addition») diventa vuoto: la
+   strada principale e' pagare. */
+:where(.tbl-pagina .tbl-conto-pagati) { margin: -.3rem 0 .8rem; font-size: .92rem; }
+:where(.tbl-pagina .tbl-conto-pagati p) { display: flex; justify-content: space-between; gap: .6rem; margin: .2rem 0; }
+:where(.tbl-pagina .tbl-conto-pagati .is-in-corso) { color: var(--tbl-muted); }
+:where(.tbl-pagina .tbl-conto-resta) { font-size: 1.05rem; }
+:where(.tbl-pagina .tbl-paga) { display: flex; flex-direction: column; gap: .5rem; margin: 0 0 .8rem; }
+:where(.tbl-pagina .tbl-paga-scelta) {
+  display: flex; justify-content: space-between; align-items: center; gap: .6rem; min-height: 52px; padding: .7rem .95rem;
+  border: 1px solid var(--tbl-line); border-radius: .7rem; background: transparent; color: var(--tbl-text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+:where(.tbl-pagina .tbl-paga-scelta.is-selected) { border-color: var(--tbl-ink); box-shadow: inset 0 0 0 1px var(--tbl-ink); }
+:where(.tbl-pagina .tbl-paga-mancia) { display: flex; flex-direction: column; gap: .4rem; margin-top: .3rem; }
+:where(.tbl-pagina .tbl-paga-mance) { display: flex; gap: .4rem; flex-wrap: wrap; }
+:where(.tbl-pagina .tbl-paga-mancia-btn) {
+  flex: 1 1 0; min-height: 44px; padding: .4rem .6rem; border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: transparent; color: var(--tbl-text); font: inherit; font-weight: 600; cursor: pointer;
+}
+:where(.tbl-pagina .tbl-paga-mancia-btn.is-selected) { background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); }
+:where(.tbl-pagina .tbl-conto .tbl-btn--vuoto) {
+  margin-top: .5rem; background: transparent; color: var(--tbl-ink); box-shadow: inset 0 0 0 2px var(--tbl-ink);
+}
+
+/* ---------- «Article ajouté» ----------
+   Verde, breve, sopra la pillola in fondo (dove sta gia' il pollice), dentro
+   la colonna come lei. Entra, resta un attimo, esce: 1,4 s in tutto. Non si
+   tocca e non copre niente che serva (`pointer-events: none`). */
+:where(.tbl-pagina .order-aggiunto) {
+  position: fixed; z-index: 36;
+  left: 50%; bottom: calc(1rem + 56px + .7rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: .55rem 1.1rem; border-radius: 999px;
+  background: #2e9e5b; color: #fff; font-weight: 700; font-size: .95rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; white-space: nowrap;
+  animation: tbl-aggiunto 1.4s ease forwards;
+}
+@keyframes tbl-aggiunto {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.tbl-pagina .order-aggiunto) { animation: none; }
+}

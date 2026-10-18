@@ -2108,3 +2108,13 @@ test("la scelta del tavolo si puo' spegnere, e spenta la sala si comporta come s
   // In Réglages la riga c'e' solo se il piano ha dei tavoli.
   assert.match(nudo("src/pages/admin/settings.astro"), /rigaScelta\.style\.display = swTavolo\?\.checked && dati\.sala_con_tavoli \? "" : "none";/);
 });
+
+
+test("al tavolo, «Article ajouté»: un toast verde a ogni piatto, solo in sala", () => {
+  const app = readFileSync("src/components/OrderApp.tsx", "utf8");
+  // Solo al tavolo: sulle /order dei clienti comparirebbe senza vestito.
+  assert.match(app, /function segnaAggiunto\(\) \{\s*if \(!inSala\) return;/);
+  assert.match(app, /if \(item\.is_sold_out \|\| v\?\.sold_out\) return;\s*segnaAggiunto\(\);/);
+  assert.match(app, /fr: "Article ajouté"/);
+  assert.match(readFileSync("src/components/TableOrder.css", "utf8"), /:where\(\.tbl-pagina \.order-aggiunto\) \{[\s\S]*?background: #2e9e5b;/);
+});

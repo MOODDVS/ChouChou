@@ -82,6 +82,8 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   table_calls: "sede",
   // Gli invii del conto aperto (#87): della SEDE, come gli ordini che raccolgono.
   table_rounds: "sede",
+  // I pagamenti del conto aperto (#88): della SEDE, come il conto che pagano.
+  table_payments: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
@@ -554,6 +556,8 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_tips: "sede",
   orders_tips_type: "sede",
   orders_tips_values: "sede",
+  // Le mance AL TAVOLO: vuota = come `orders_tips` (`manceInSala`).
+  orders_table_tips: "sede",
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
   /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo

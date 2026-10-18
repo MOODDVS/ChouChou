@@ -4,6 +4,8 @@ import { urlConSede } from "../lib/sedeUrl";
 import { piattiInVetrina } from "../lib/vetrinaRegole";
 import { testoPiatto } from "../lib/i18nMenu";
 import type { TestiConto } from "../lib/contoTesti";
+import { PARAM_PAGATO, PARAM_LASCIATO, type SceltaPagamento } from "../lib/contoRegole";
+import { importoMancia, type TipoMance } from "../lib/manceRegole";
 
 /* ⚠️ IL MENU LO TIPIZZA `OrderApp`, non `lib/db`. Importarlo da la' —
    anche solo come tipo — metterebbe in quest’isola un percorso verso
@@ -159,6 +161,17 @@ interface DatiConto {
     righe: { nome: string; piatti: { nome: string; qty: number; prezzo_cents: number }[]; totale_cents: number; mio: boolean; token?: string }[];
   }[];
   totale_cents: number;
+  /** I pagamenti (fase 4, #88). `null` = senza la migrazione: si paga al
+   *  cameriere. `online` = «Payer l'addition» c'e'. Le cifre delle scelte le
+   *  calcola il server. */
+  pagamento?: {
+    online: boolean;
+    pagato_cents: number;
+    in_corso_cents: number;
+    resto_cents: number;
+    scelte: Record<SceltaPagamento, number>;
+    mance: { tipo: TipoMance; valori: [number, number, number] } | null;
+  } | null;
 }
 /** Il conto del tavolo visto da questa pagina: nessuno, di altri, il mio. */
 type StatoContoPagina =
@@ -554,6 +567,14 @@ export default function TableOrder({
   const [erroreConto, setErroreConto] = useState<string | null>(null);
   const [msgConto, setMsgConto] = useState<string | null>(null);
   const [lavoroConto, setLavoroConto] = useState(false);
+  /* «Payer l'addition»: il pannello, la scelta, la mancia (-1 = Aucun). */
+  const [pagaAperto, setPagaAperto] = useState(false);
+  const [sceltaPaga, setSceltaPaga] = useState<SceltaPagamento | null>(null);
+  const [manciaPaga, setManciaPaga] = useState(-1);
+  /* ⚠️ Tornando da Stripe dopo aver pagato, il conto puo' essere gia'
+     CHIUSO (saldato: lo ha chiuso il webhook). Allora la pagina non deve
+     dire «fermée par le serveur», ma «réglée». */
+  const tornatoPagato = useRef(false);
   useEffect(() => {
     setMembro(leggiMembro());
   }, []);
@@ -590,7 +611,8 @@ export default function TableOrder({
         if (m && m.tableId === scelto.id) {
           salvaMembro(null);
           setAdditionAperta(false);
-          if (tc) mostraAvviso(tc.chiuso, true);
+          setPagaAperto(false);
+          if (tc) mostraAvviso(tornatoPagato.current ? tc.saldato : tc.chiuso, true);
         }
         setStatoConto({ tipo: "nessuno" });
         return;
@@ -630,18 +652,46 @@ export default function TableOrder({
   useEffect(() => {
     if (!contoAttivo) return;
     let cod = "";
+    let pagato = "";
+    let lasciato = "";
+    let sessione = "";
     try {
       const u = new URL(window.location.href);
       cod = (u.searchParams.get("code") ?? "").trim();
       const add = u.searchParams.get("addition") === "1";
-      if (cod || add) {
-        u.searchParams.delete("code");
-        u.searchParams.delete("addition");
+      pagato = (u.searchParams.get(PARAM_PAGATO) ?? "").trim();
+      lasciato = (u.searchParams.get(PARAM_LASCIATO) ?? "").trim();
+      sessione = (u.searchParams.get("session_id") ?? "").trim();
+      if (cod || add || pagato || lasciato) {
+        for (const k of ["code", "addition", PARAM_PAGATO, PARAM_LASCIATO, "session_id"]) u.searchParams.delete(k);
         window.history.replaceState(window.history.state, "", u.toString());
       }
-      if (add) setAdditionAperta(true);
+      if (add || lasciato) setAdditionAperta(true);
     } catch { /* indirizzo non leggibile: pazienza */ }
     if (cod && scelto) void unisciti(cod);
+    /* IL RITORNO DA STRIPE. Pagato: il server ricontrolla la sessione (Stripe
+       e' piu' lento del cliente) e, se il conto e' saldato, l'ha gia' chiuso.
+       Indietro: il pagamento si lascia, e l'importo torna libero per gli
+       altri — se no resterebbe prenotato mezz'ora. */
+    if (pagato) {
+      tornatoPagato.current = true;
+      void (async () => {
+        try {
+          const { d } = await chiediTab({ azione: "pagato", pagamento: pagato, session_id: sessione });
+          if (d.chiuso === true) {
+            salvaMembro(null);
+            if (tc) mostraAvviso(tc.saldato, true);
+          } else {
+            if (tc && d.pagato === true) mostraAvviso(tc.pagatoOk, true);
+            setAdditionAperta(true);
+            await caricaConto();
+          }
+        } catch { /* rete assente: ci pensa il webhook */ }
+      })();
+    }
+    if (lasciato) {
+      void chiediTab({ azione: "annulla", pagamento: lasciato }).then(() => caricaConto()).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contoAttivo]);
 
@@ -750,6 +800,30 @@ export default function TableOrder({
       else setMsgConto(tc.errChiedi);
     } catch {
       setMsgConto(tc.errChiedi);
+    } finally {
+      setLavoroConto(false);
+    }
+  }
+
+  /** «Payer l'addition»: il server prenota la parte e apre Stripe. */
+  async function pagaAddizione() {
+    if (!tc || !scelto || !membro || !sceltaPaga) return;
+    setMsgConto(null);
+    setLavoroConto(true);
+    try {
+      const { ok, d } = await chiediTab({
+        azione: "paga", table: scelto.id, code: membro.code, scelta: sceltaPaga,
+        ...(manciaPaga >= 0 ? { tip: manciaPaga } : {}), miei: leggiMiei(), lang,
+      });
+      if (ok && typeof d.url === "string") {
+        window.location.href = d.url;
+        return;
+      }
+      const e = String(d.error ?? "");
+      setMsgConto(e.includes("cours") ? tc.errInCorso : e.includes("rien") ? tc.errNiente : tc.errPaga);
+      await caricaConto();
+    } catch {
+      setMsgConto(tc.errPaga);
     } finally {
       setLavoroConto(false);
     }
@@ -1296,6 +1370,13 @@ export default function TableOrder({
       {additionAperta && statoConto?.tipo === "membro" && tc && (() => {
         const d = statoConto.dati;
         const inAttesa = d.stato === "pending";
+        const pag = d.pagamento ?? null;
+        /* ⚠️ «Payer l'addition» solo a conto validato, col pagamento online
+           acceso, e se c'e' qualcosa che si puo' prendere adesso (una parte
+           in pagamento da un altro non si ripaga). */
+        const puoPagare = Boolean(pag && pag.online && !inAttesa && pag.scelte.rest > 0);
+        const sceltaValida = sceltaPaga && pag ? pag.scelte[sceltaPaga] : 0;
+        const importoDaPagare = sceltaValida + (pag?.mance && sceltaValida > 0 ? importoMancia(manciaPaga, pag.mance.tipo, pag.mance.valori, sceltaValida) : 0);
         return (
           <div
             className="tbl-modale"
@@ -1355,12 +1436,86 @@ export default function TableOrder({
                 <span>{tc.totale}</span>
                 <strong>{euroConto(d.totale_cents)}</strong>
               </div>
+              {pag && (pag.pagato_cents > 0 || pag.in_corso_cents > 0) && (
+                <div className="tbl-conto-pagati">
+                  {pag.pagato_cents > 0 && <p><span>{tc.giaPagato}</span><span>{euroConto(pag.pagato_cents)}</span></p>}
+                  {pag.in_corso_cents > 0 && <p className="is-in-corso">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>}
+                  <p className="tbl-conto-resta"><span>{tc.resta}</span><strong>{euroConto(pag.resto_cents)}</strong></p>
+                </div>
+              )}
+              {/* «PAYER L'ADDITION»: le tre scelte con la loro cifra (quelle a
+                  zero non ci sono), la mancia, il bottone col totale. Classi da
+                  vestire: `tbl-paga`, `tbl-paga-scelta` (+ `is-selected`),
+                  `tbl-paga-mancia`. */}
+              {pagaAperto && puoPagare && pag && (
+                <div className="tbl-paga" role="group" aria-label={tc.paga}>
+                  {(["mine", "share", "rest"] as const).filter((k) => pag.scelte[k] > 0).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={"tbl-paga-scelta" + (sceltaPaga === k ? " is-selected" : "")}
+                      aria-pressed={sceltaPaga === k}
+                      onClick={() => setSceltaPaga(k)}
+                    >
+                      <span>{k === "mine" ? tc.pagaMio : k === "share" ? tc.pagaParte : tc.pagaResto}</span>
+                      <strong>{euroConto(pag.scelte[k])}</strong>
+                    </button>
+                  ))}
+                  {pag.mance && (
+                    <div className="tbl-paga-mancia" role="group" aria-label={tc.pagaMancia}>
+                      <span className="tbl-conto-lab">{tc.pagaMancia}</span>
+                      <div className="tbl-paga-mance">
+                        {[-1, 0, 1, 2].map((i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            className={"tbl-paga-mancia-btn" + (manciaPaga === i ? " is-selected" : "")}
+                            aria-pressed={manciaPaga === i}
+                            onClick={() => setManciaPaga(i)}
+                          >
+                            {i < 0 ? tc.pagaNessuna : pag.mance!.tipo === "percent" ? `${pag.mance!.valori[i]} %` : euroConto(pag.mance!.valori[i])}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="tbl-avviso-zona" role="status">
                 {msgConto && <p className="tbl-conto-msg">{msgConto}</p>}
               </div>
-              <button type="button" className="tbl-btn" disabled={lavoroConto || d.invii.length === 0} onClick={() => void chiediAddizione()}>
-                {tc.chiedi}
-              </button>
+              {pagaAperto && puoPagare ? (
+                <>
+                  <button type="button" className="tbl-btn" disabled={lavoroConto || !sceltaPaga || sceltaValida <= 0} onClick={() => void pagaAddizione()}>
+                    {tc.pagaBtn.replace("{x}", euroConto(importoDaPagare))}
+                  </button>
+                  <button type="button" className="tbl-conto-ancora" onClick={() => { setPagaAperto(false); setMsgConto(null); }}>
+                    {tc.pagaIndietro}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {puoPagare && (
+                    <button
+                      type="button"
+                      className="tbl-btn"
+                      disabled={lavoroConto}
+                      onClick={() => {
+                        setMsgConto(null);
+                        setManciaPaga(-1);
+                        // Si parte da «ce que j'ai commandé» se c'e', se no dalla parte uguale.
+                        setSceltaPaga(pag!.scelte.mine > 0 ? "mine" : pag!.scelte.share > 0 ? "share" : "rest");
+                        setPagaAperto(true);
+                      }}
+                    >
+                      {tc.paga}
+                    </button>
+                  )}
+                  <button type="button" className={puoPagare ? "tbl-btn tbl-btn--vuoto" : "tbl-btn"} disabled={lavoroConto || d.invii.length === 0} onClick={() => void chiediAddizione()}>
+                    {tc.chiedi}
+                  </button>
+                </>
+              )}
               <button type="button" className="tbl-conto-ancora" onClick={() => setAdditionAperta(false)}>
                 {tc.ancora}
               </button>

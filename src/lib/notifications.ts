@@ -3840,3 +3840,100 @@ export async function emailNotaAssegnata(n: {
     return false;
   }
 }
+
+/* ═════════ LA RICEVUTA UNICA DEL CONTO APERTO (fase 4, conto-aperto.md) ═════════
+   Una sola email alla fine, con tutto: chi ha preso cosa, il totale, chi ha
+   pagato quanto (e la mancia). La manda `ricevutaConto.ts`, UNA volta. */
+
+export interface RicevutaConto {
+  location_id: string | null;
+  lang: string | null;
+  tavolo: string;
+  persone: { nome: string; piatti: { qty: number; nome: string }[]; totale_cents: number }[];
+  totale_cents: number;
+  pagamenti: { chi: string; metodo: "online" | "cash" | "card"; importo_cents: number; mancia_cents: number }[];
+}
+
+const TXT_RICEVUTA: Record<string, {
+  subject: (nome: string) => string; title: string; intro: (t: string) => string; total: string;
+  pagamenti: string; online: string; cash: string; card: string; mancia: string; grazie: string;
+}> = {
+  fr: { subject: (n) => `Votre addition — ${n}`, title: "Votre addition", intro: (t) => (t ? `Merci ! Voici le détail de votre addition à la table ${t}.` : "Merci ! Voici le détail de votre addition."), total: "Total", pagamenti: "Paiements", online: "en ligne", cash: "espèces", card: "carte", mancia: "pourboire", grazie: "À bientôt !" },
+  en: { subject: (n) => `Your bill — ${n}`, title: "Your bill", intro: (t) => (t ? `Thank you! Here is the detail of your bill at table ${t}.` : "Thank you! Here is the detail of your bill."), total: "Total", pagamenti: "Payments", online: "online", cash: "cash", card: "card", mancia: "tip", grazie: "See you soon!" },
+  it: { subject: (n) => `Il vostro conto — ${n}`, title: "Il vostro conto", intro: (t) => (t ? `Grazie! Ecco il dettaglio del vostro conto al tavolo ${t}.` : "Grazie! Ecco il dettaglio del vostro conto."), total: "Totale", pagamenti: "Pagamenti", online: "online", cash: "contanti", card: "carta", mancia: "mancia", grazie: "A presto!" },
+  nl: { subject: (n) => `Uw rekening — ${n}`, title: "Uw rekening", intro: (t) => (t ? `Bedankt! Hier is het detail van uw rekening aan tafel ${t}.` : "Bedankt! Hier is het detail van uw rekening."), total: "Totaal", pagamenti: "Betalingen", online: "online", cash: "contant", card: "kaart", mancia: "fooi", grazie: "Tot binnenkort!" },
+  es: { subject: (n) => `Su cuenta — ${n}`, title: "Su cuenta", intro: (t) => (t ? `¡Gracias! Este es el detalle de su cuenta en la mesa ${t}.` : "¡Gracias! Este es el detalle de su cuenta."), total: "Total", pagamenti: "Pagos", online: "en línea", cash: "efectivo", card: "tarjeta", mancia: "propina", grazie: "¡Hasta pronto!" },
+};
+
+/** La ricevuta a UN indirizzo. ⚠️ Nomi e piatti li scrive la gente: tutto
+ *  passa da `esc`. Rende `true` se Resend l'ha presa. */
+export async function emailRicevutaConto(r: RicevutaConto, a: string): Promise<boolean> {
+  const ambito = ambitoDiRiga(r.location_id);
+  const from = await ordineFromEmail(ambito);
+  if (!resend || !from || !a.trim()) return false;
+  const t = pick5(TXT_RICEVUTA, r.lang);
+  const dati = await datiRistorante(ambito);
+  const tema = await temaEmail();
+  const td = `font-family:Arial,Helvetica,sans-serif;`;
+  const righe = r.persone.map((p) => `
+            <tr>
+              <td style="padding:14px 24px 2px;color:${tema.title};font-size:15px;font-weight:bold;${td}">${esc(p.nome || "—")}</td>
+              <td style="padding:14px 24px 2px;color:${tema.title};font-size:15px;text-align:right;font-weight:bold;${td}">${euro(p.totale_cents)}</td>
+            </tr>
+            <tr><td colspan="2" style="padding:0 24px 12px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;line-height:1.6;${td}">${p.piatti.map((x) => `${x.qty} × ${esc(x.nome)}`).join("<br>")}</td></tr>`).join("");
+  const metodo = (m: string) => (m === "cash" ? t.cash : m === "card" ? t.card : t.online);
+  const pagati = r.pagamenti.map((p) => `
+            <tr>
+              <td style="padding:6px 24px 0;color:${tema.text};font-size:13px;${td}">${esc(p.chi || "—")} · ${metodo(p.metodo)}${p.mancia_cents > 0 ? ` <span style="color:${tema.muted};">(+ ${euro(p.mancia_cents)} ${t.mancia})</span>` : ""}</td>
+              <td style="padding:6px 24px 0;color:${tema.text};font-size:13px;text-align:right;${td}">${euro(p.importo_cents + p.mancia_cents)}</td>
+            </tr>`).join("");
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(dati.nome.toUpperCase())}</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(r.tavolo))}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 20px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${righe}
+            <tr>
+              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;${td}">${t.total}</td>
+              <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;${td}">${euro(r.totale_cents)}</td>
+            </tr>
+            ${pagati ? `<tr><td colspan="2" style="padding:22px 24px 0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;${td}">${t.pagamenti}</td></tr>${pagati}` : ""}
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:26px 44px 34px;text-align:center;">
+          <p style="margin:0;color:${tema.text};font-size:15px;">${t.grazie}</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
+        </td>
+      </tr>
+    </table>
+  `;
+  const esito = await spedisci("addition CONTO client", {
+    from,
+    to: a.trim(),
+    subject: t.subject(dati.nome),
+    bcc: BCC,
+    html: avvolgiTema(html, tema),
+  });
+  return !motivoInvio(esito);
+}

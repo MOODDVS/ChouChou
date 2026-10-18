@@ -561,7 +561,8 @@ export const POST: APIRoute = async ({ request }) => {
   let mancia = 0;
   // Sul conto la mancia si lascia alla fine, pagando l'addizione (fase 4).
   if (!inCassa && !sulConto && body.tip !== undefined && body.tip !== null) {
-    const m = await manceDi(ambitoPub);
+    // Al tavolo decide l'interruttore della sala (`orders_table_tips`).
+    const m = await manceDi(ambitoPub, { sala: aTavolo });
     if (m) mancia = importoMancia(body.tip, m.tipo, m.valori, totaleIncassato);
     if (mancia > 0) {
       const TXT_MANCIA: Record<string, string> = { fr: "Pourboire", en: "Tip", it: "Mancia", nl: "Fooi", es: "Propina" };

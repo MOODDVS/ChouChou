@@ -444,7 +444,9 @@ test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
   // sede unica scrive NULL), ma e' nata il 04/10/2026, a multi-sede gia'
   // fatto: quando quel SQL ha girato, la tabella non esisteva.
   // `table_calls` (#83, 16/10/2026): stessa storia di `print_tickets`.
-  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out", "print_tickets", "table_calls"];
+  // `table_rounds` (#87) e `table_payments` (#88, 18/10/2026): il conto
+  // aperto, nato a multi-sede fatto — nessuna riga storica da riattribuire.
+  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out", "print_tickets", "table_calls", "table_rounds", "table_payments"];
   const attese = di("sede").filter((t) => !SENZA_STORICO.includes(t)).sort();
 
   assert.deepEqual(nelSql, attese,

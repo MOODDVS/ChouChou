@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
-import { opzioniTavolo, tavoliDiSala } from "../../lib/ordiniOpzioni";
+import { ambitoPubblicoChiesto, ambitoDiRiga, leggi, aggiorna } from "../../lib/admin/sede";
+import { opzioniTavolo, tavoliDiSala, modiDiPagamento, manceDi } from "../../lib/ordiniOpzioni";
 import { servizioInCorso } from "../../lib/ordiniRegole";
 import { configSala } from "../../lib/schedule";
 import { fusoDi } from "../../lib/fuso";
@@ -10,10 +10,16 @@ import { registraCliente } from "../../lib/registraCliente";
 import { linkBaseTavolo } from "../../lib/admin/linkTavolo";
 import { linkTavolo } from "../../lib/qrRegole";
 import { qrSvg } from "../../lib/qrSvg";
-import { hannoOrdinato, inizialeDi, PARAM_CODICE } from "../../lib/contoRegole";
+import { hannoOrdinato, inizialeDi, sceltaPagamento, PARAM_CODICE, PARAM_PAGATO, PARAM_LASCIATO } from "../../lib/contoRegole";
 import {
-  addizione, aggiungiTavolo, apriConto, contoDelTavolo, rilasciaInviiScaduti, togliOrdine, verificaCodice, type ContoRiga,
+  addizione, aggiungiTavolo, apriConto, contoDelTavolo, lasciaPagamento, pagamentoPerToken, prenotaPagamento,
+  rilasciaInviiScaduti, segnaPagato, statoPagamenti, togliOrdine, verificaCodice, type ContoRiga,
 } from "../../lib/contoServer";
+import { creaCheckoutConto, stripeDi, type VoceCheckout } from "../../lib/stripe";
+import { importoMancia } from "../../lib/manceRegole";
+import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
+import { prefissoLingua } from "../../lib/linguaUrl";
+import { defaultLang } from "../../i18n/ui";
 
 /**
  * IL CONTO APERTO AL TAVOLO, dal telefono del cliente (conto-aperto.md).
@@ -29,6 +35,15 @@ import {
  *   → { reservation_id, code, table_id }  | 403 { error: "code" | "bloque" }
  * POST { azione: "togli", table, code, token }   un PROPRIO ordine, finche'
  *   → { ok }                                     il suo invio non e' partito
+ * POST { azione: "paga", table, code, scelta, tip?, miei, lang }   (fase 4)
+ *   → { url }   la sessione Stripe per «ce que j'ai commandé» (`mine`), «une
+ *               part égale» (`share`) o «tout le reste» (`rest`)
+ *   | 409 { error: "en cours" }   la parte e' gia' in pagamento da un altro
+ *   | 409 { error: "rien" }       non resta niente da pagare con quella scelta
+ * POST { azione: "pagato", pagamento, session_id }   il ritorno da Stripe
+ *   → { pagato, chiuso }
+ * POST { azione: "annulla", pagamento }   indietro da Stripe: l'importo torna
+ *   → { ok }                              libero per gli altri
  *
  * ⚠️ TUTTO IN POST, anche lo stato: porta il codice e i token dei propri
  * ordini, che in un indirizzo finirebbero nei log e nella cronologia.
@@ -63,6 +78,42 @@ export const POST: APIRoute = async ({ request }) => {
   // Gli invii la cui finestra e' scaduta partono adesso (nessun cron: vedi
   // `rilasciaInviiScaduti`). Mai bloccante per chi e' al tavolo.
   void rilasciaInviiScaduti(ambito);
+
+  /* ⚠️ IL RITORNO DA STRIPE NON PASSA DAL CONTO: il webhook puo' averlo gia'
+     chiuso (saldato), e il telefono deve poter leggere «payé» lo stesso.
+     L'autorizzazione e' il `token` del pagamento, che conosce solo il
+     telefono che ha pagato, piu' la SUA sessione. */
+  if (azione === "pagato" || azione === "annulla") {
+    const p = await pagamentoPerToken(ambito, String(body.pagamento ?? ""));
+    if (!p) return json({ error: "paiement inconnu" }, 404);
+    const suo = ambitoDiRiga(p.location_id);
+    if (azione === "annulla") {
+      if (p.status === "pending") {
+        await lasciaPagamento(suo, p);
+        // La sessione non si deve piu' poter pagare: l'importo e' tornato libero.
+        if (p.stripe_session_id) {
+          try { await (await stripeDi(suo)).checkout.sessions.expire(p.stripe_session_id); } catch { /* gia' scaduta o pagata */ }
+        }
+      }
+      return json({ ok: true });
+    }
+    let pagato = p.status === "paid";
+    const sid = String(body.session_id ?? "").trim();
+    if (!pagato && sid.startsWith("cs_") && sid === p.stripe_session_id) {
+      try {
+        const sess = await (await stripeDi(suo)).checkout.sessions.retrieve(sid);
+        if (sess.payment_status === "paid") {
+          await segnaPagato(suo, p.id, { sessionId: sid, email: sess.customer_details?.email ?? null });
+          pagato = true;
+        }
+      } catch (e) {
+        // Non e' grave: ci pensa il webhook, e la pagina ricontrolla.
+        console.error("[conto] verifica Stripe al ritorno:", e);
+      }
+    }
+    const { data: cr } = await leggi("reservations", suo, "tab_status").eq("id", p.reservation_id).maybeSingle();
+    return json({ pagato, chiuso: (cr as { tab_status?: string } | null)?.tab_status === "closed" });
+  }
 
   const chiesto = String(body.table ?? "").trim();
   const tavolo = chiesto ? (await tavoliDiSala(ambito)).find((t) => t.id === chiesto) ?? null : null;
@@ -125,6 +176,73 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ reservation_id: r.conto.id, code: r.conto.tab_code, table_id: tavolo.id });
   }
 
+  if (azione === "paga") {
+    const conto = await contoDelTavolo(ambito, tavolo.id, oggi);
+    if (!conto) return json({ error: "pas de compte" }, 404);
+    const esito = await verificaCodice(ambito, conto, body.code, adesso);
+    if (esito === "bloccato") return json({ error: "bloque" }, 429);
+    if (esito !== "ok") return json({ error: "code" }, 403);
+    // ⚠️ Un conto ancora da validare non si paga: la cucina non ha cominciato,
+    // e il cameriere potrebbe ancora rifiutarlo.
+    if (conto.tab_status !== "open") return json({ error: "a valider" }, 409);
+    if (!(await modiDiPagamento(ambito)).online) return json({ error: "paiement en ligne indisponible" }, 403);
+    const scelta = sceltaPagamento(body.scelta);
+    if (!scelta) return json({ error: "choix invalide" }, 400);
+    const miei = Array.isArray(body.miei) ? (body.miei as unknown[]).map(String).slice(0, 50) : [];
+    const lang = String(body.lang ?? "fr").slice(0, 5) || "fr";
+    const nome = await nomeDaiMiei(ambito, conto.id, miei);
+    const r = await prenotaPagamento(ambito, conto, { scelta, miei, nome, adesso });
+    if ("errore" in r) {
+      if (r.errore === "in_corso") return json({ error: "en cours" }, 409);
+      if (r.errore === "niente") return json({ error: "rien" }, 409);
+      return json({ error: "paiement indisponible" }, 503);
+    }
+    /* LA MANCIA: dal telefono arriva solo QUALE bottone, la cifra si calcola
+       qui, sulla parte pagata, con i valori della sala. Spente nel frattempo
+       → nessuna, senza errore. */
+    let mancia = 0;
+    if (body.tip !== undefined && body.tip !== null) {
+      const m = await manceDi(ambito, { sala: true });
+      if (m) mancia = importoMancia(body.tip, m.tipo, m.valori, r.importo);
+    }
+    const TXT_VOCE: Record<string, (t: string) => string> = {
+      fr: (t) => `Addition — table ${t}`, en: (t) => `Bill — table ${t}`, it: (t) => `Conto — tavolo ${t}`,
+      nl: (t) => `Rekening — tafel ${t}`, es: (t) => `Cuenta — mesa ${t}`,
+    };
+    const TXT_MANCIA: Record<string, string> = { fr: "Pourboire", en: "Tip", it: "Mancia", nl: "Fooi", es: "Propina" };
+    const voci: VoceCheckout[] = [{ name: (TXT_VOCE[lang] ?? TXT_VOCE.fr)(tavolo.name), price_cents: r.importo, qty: 1 }];
+    if (mancia > 0) voci.push({ name: TXT_MANCIA[lang] ?? TXT_MANCIA.fr, price_cents: mancia, qty: 1 });
+
+    /* Si torna sulla pagina del tavolo, nella lingua e con la sede da cui si
+       era arrivati (come il checkout). ⚠️ `{CHECKOUT_SESSION_ID}` scritto
+       COSI': e' Stripe a sostituirlo, e `searchParams` lo rovinerebbe. */
+    const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
+    const pagina = (k: string, v: string) => {
+      const u = new URL(`${siteUrl.replace(/\/$/, "")}${prefissoLingua(lang, defaultLang)}/table`);
+      const sedeChiesta = sedeDettaDa(request);
+      if (sedeChiesta) u.searchParams.set(PARAM_SEDE, sedeChiesta);
+      u.searchParams.set(k, v);
+      return u.toString();
+    };
+    try {
+      const sess = await creaCheckoutConto({
+        ambito,
+        pagamentoId: r.id,
+        voci,
+        successUrl: `${pagina(PARAM_PAGATO, r.token)}&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: pagina(PARAM_LASCIATO, r.token),
+        expiresAt: r.scade,
+      });
+      const upd = await aggiornaPagamento(ambito, r.id, { stripe_session_id: sess.id, tip_cents: mancia });
+      if (!upd) throw new Error("sessione non salvata");
+      return json({ url: sess.url, pagamento: r.token });
+    } catch (e) {
+      console.error("[conto] Stripe:", e);
+      await aggiornaPagamento(ambito, r.id, { status: "cancelled" });
+      return json({ error: "paiement indisponible" }, 502);
+    }
+  }
+
   if (azione === "unisciti" || azione === "togli") {
     const conto = await contoDelTavolo(ambito, tavolo.id, oggi);
     if (!conto) return json({ error: "pas de compte" }, 404);
@@ -144,6 +262,21 @@ export const POST: APIRoute = async ({ request }) => {
   return json({ error: "action inconnue" }, 400);
 };
 
+/** Il nome di chi paga: quello dei suoi ordini (lo ha scritto ordinando). */
+async function nomeDaiMiei(ambito: Parameters<typeof addizione>[0], contoId: string, miei: string[]): Promise<string> {
+  if (miei.length === 0) return "";
+  const { data } = await leggi("orders", ambito, "customer_name, cancel_token")
+    .eq("reservation_id", contoId)
+    .in("cancel_token", miei)
+    .limit(1);
+  return String(((data ?? []) as unknown as { customer_name?: string }[])[0]?.customer_name ?? "").trim();
+}
+
+async function aggiornaPagamento(ambito: Parameters<typeof addizione>[0], id: string, campi: Record<string, unknown>): Promise<boolean> {
+  const r = await aggiorna("table_payments", ambito, campi).eq("id", id);
+  return !r.error;
+}
+
 /** Quello che vede chi e' nel conto: il codice, il QR «Inviter», l'addizione. */
 async function vistaMembro(request: Request, ambito: Parameters<typeof addizione>[0], conto: ContoRiga, miei: string[], adesso: Date) {
   const add = await addizione(ambito, conto, miei, adesso);
@@ -160,6 +293,12 @@ async function vistaMembro(request: Request, ambito: Parameters<typeof addizione
     } catch { /* nessun invito: resta il codice */ }
   }
   const { ordinato, su } = hannoOrdinato(add.nomi, conto.tab_people ?? conto.people);
+  /* ⚠️ «PAYER L'ADDITION» solo con la #88, il pagamento online acceso e
+     Stripe pronto (`modiDiPagamento`), e a conto validato. Le cifre delle tre
+     scelte le calcola il server: la pagina le mostra e basta. */
+  const st = await statoPagamenti(ambito, conto, miei, adesso);
+  const online = st !== null && conto.tab_status === "open" && (await modiDiPagamento(ambito)).online;
+  const mance = online ? await manceDi(ambito, { sala: true }) : null;
   return {
     membro: true,
     stato: conto.tab_status,
@@ -172,5 +311,15 @@ async function vistaMembro(request: Request, ambito: Parameters<typeof addizione
     persone: su,
     invii: add.invii,
     totale_cents: add.totale_cents,
+    pagamento: st
+      ? {
+          online,
+          pagato_cents: st.quadro.pagato,
+          in_corso_cents: st.quadro.inCorso,
+          resto_cents: st.quadro.resto,
+          scelte: online ? st.scelte : { mine: 0, share: 0, rest: 0 },
+          mance,
+        }
+      : null,
   };
 }

@@ -200,6 +200,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .conto-riga .items { border-top: 0; margin-top: 0.2rem; padding-top: 0; gap: 0.25rem; }
       .conto-riga .item { font-size: 1rem; }
       .conto-chi { display: flex; justify-content: space-between; margin: 0; font-size: 0.9rem; }
+      .conto-pagati .conto-chi { margin-bottom: 0.25rem; }
+      .conto-pagati .conto-chi.is-in-corso { opacity: 0.6; }
+      .conto-pagati .conto-resto { margin-top: 0.4rem; font-weight: 800; }
       /* La consegna: tinta d'accento, fra il pieno della sala e il grigio del
          ritiro — e' un ritiro che esce dalla porta. */
       .card-nastro--consegna { background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); }
@@ -1903,6 +1906,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               .sort((a, b) => (a.pickup_time > b.pickup_time ? -1 : 1));
             labelEl.textContent = `${tr("ord.search")} — ${trovati.length} ${trovati.length === 1 ? tr("ord.result") : tr("ord.results")}`;
             countEl.textContent = "";
+            // In ricerca il messaggio e' suo: i conti non lo toccano.
+            delete stateEl.dataset.vuoto;
             if (trovati.length === 0) {
               stateEl.textContent = tr("ord.noneFound");
               stateEl.style.display = "block";
@@ -1945,15 +1950,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (pendenti) parti.push(`${pendenti} ${tr("ord.pending")}`);
           countEl.textContent = parti.join(" · ");
 
-          if (ordOggi.length === 0) {
-            stateEl.textContent = tr(giornoView ? "ord.noneThisDay" : "ord.nonePaidToday");
-            stateEl.style.display = "block";
-          } else if (attivi.length === 0) {
-            stateEl.textContent = tr("ord.noneInProgress");
-            stateEl.style.display = "block";
-          } else {
-            stateEl.style.display = "none";
-          }
+          /* «Aucune commande en cours» si dice solo se non c'e' NIENTE da
+             servire: un conto aperto al tavolo (la scheda qui sopra) e' una
+             commande en cours, anche se i suoi ordini non stanno nella lista.
+             Il testo si tiene da parte (`data-vuoto`): i conti arrivano dopo,
+             con la loro chiamata, e `mostraVuoto` ridecide anche allora. */
+          stateEl.dataset.vuoto = ordOggi.length === 0
+            ? tr(giornoView ? "ord.noneThisDay" : "ord.nonePaidToday")
+            : attivi.length === 0 ? tr("ord.noneInProgress") : "";
+          mostraVuoto();
 
           /* Una lista sola, nell'ordine di sempre: ritiro o sala lo dice il
              nastro di ogni card (`alTavolo`, la stessa regola del ticket). */
@@ -2636,6 +2641,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             storto, scriverci dentro senza RIACCENDERLO lascia la pagina muta —
             ed e' esattamente cosi' che un errore e' rimasto invisibile. */
         function mostraStato(testo: string) {
+          // Caricamento o errore: `mostraVuoto` (i conti) non deve spegnerlo.
+          delete stateEl.dataset.vuoto;
           stateEl.textContent = testo;
           stateEl.style.display = "block";
         }
@@ -2757,6 +2764,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         type ContoSala = {
           id: string; stato: string; tavolo: string; tavoli: string[]; codice: string; persone: number; ordinato: number;
           dal: string | null; addizione: boolean; totale_cents: number; pagato_cents: number; resto_cents: number; invii: InvioConto[];
+          /* I pagamenti online (#88): pagati, o in corso (qualcuno e' su Stripe adesso). */
+          in_corso_cents?: number;
+          pagamenti?: { chi: string; importo_cents: number; mancia_cents: number; in_corso: boolean }[];
         };
         let conti: ContoSala[] = [];
         let firmaConti = "";
@@ -2827,7 +2837,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                 <span class="conto-codice">${esc(tr("ord.tabCode").replace("{c}", c.codice))}</span>
               </p>
               ${invii}
+              ${pagatiConto(c)}
               ${azioni}
+            </div>`;
+        }
+        /** Chi ha gia' pagato online (e chi sta pagando adesso), e il resto.
+         *  ⚠️ «Encaisser» incassa solo il RESTO: il pagato non si ripaga. */
+        function pagatiConto(c: ContoSala): string {
+          const pag = c.pagamenti ?? [];
+          if (pag.length === 0) return "";
+          return `
+            <div class="conto-invio conto-pagati">
+              <p class="conto-invio-tit">${esc(tr("ord.tabPaidOnline"))}</p>
+              ${pag.map((p) => `
+                <p class="conto-chi${p.in_corso ? " is-in-corso" : ""}"><b>${esc(p.chi || "—")}${p.in_corso ? ` · ${esc(tr("ord.tabPaying"))}` : ""}</b><span>${euro(p.importo_cents)}${p.mancia_cents > 0 ? ` <small>+ ${euro(p.mancia_cents)} ${esc(tr("ord.tabTip"))}</small>` : ""}</span></p>`).join("")}
+              <p class="conto-chi conto-resto"><b>${esc(tr("ord.tabRest"))}</b><span>${euro(c.resto_cents)}</span></p>
             </div>`;
         }
         function renderConti() {
@@ -2837,6 +2861,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const visibili = giornoView ? [] : conti;
           gridConti.hidden = visibili.length === 0;
           gridConti.innerHTML = visibili.map(contoHTML).join("");
+          mostraVuoto();
+        }
+        /** Il messaggio «vuoto» della lista, tenendo conto dei conti aperti.
+         *  ⚠️ Legge la griglia dal DOM, non le variabili dei conti: `render()`
+         *  gira anche prima che quella parte dello script sia arrivata. */
+        function mostraVuoto() {
+          const g = document.getElementById("grid-conti");
+          const conConti = !!g && !g.hidden && g.childElementCount > 0;
+          // Nessuna decisione di `render()` (caricamento, errore, ricerca): si
+          // lascia com'e'.
+          if (stateEl.dataset.vuoto === undefined) return;
+          const testo = stateEl.dataset.vuoto;
+          if (testo && !conConti) {
+            stateEl.textContent = testo;
+            stateEl.style.display = "block";
+          } else {
+            stateEl.style.display = "none";
+          }
         }
         async function caricaConti() {
           if (!gridConti) return;
