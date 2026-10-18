@@ -162,6 +162,17 @@ export const CHIAVI_ORDINI = [
   ...Object.keys(RIPIEGO_ORDINI_SCELTA),
 ];
 
+/**
+ * COME SI PAGA AL TAVOLO (deciso con Enzo il 18/10/2026): MAI «sur place» a
+ * ogni giro. Al tavolo si paga con la carta ordinando, oppure col conto
+ * aperto (anche da soli: «Payer sur place» e' il conto). «Payer au retrait»
+ * di Paiements vale solo per l'asporto.
+ * ⚠️ Senza carta e senza conto, al tavolo non si puo' ordinare: `nessuno`.
+ */
+export function pagamentoAlTavolo<T extends { online: boolean; locale: boolean; nessuno: boolean }>(m: T, conto: boolean): T {
+  return { ...m, locale: false, nessuno: !m.online && !conto };
+}
+
 /** Un valore di `app_config` letto come interruttore, col suo ripiego. */
 export function acceso(valore: unknown, chiave: string): boolean {
   const v = String(valore ?? "").trim();

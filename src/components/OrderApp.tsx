@@ -432,6 +432,8 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   /* Il conto aperto: «apri» aggiunge un bottone, «aggiungi» e' il solo modo. */
   const contoTav = tavolo?.conto ?? null;
   const soloConto = contoTav?.modo === "aggiungi";
+  /** Il bottone «Commander et payer»: no sul conto, e no al tavolo senza carta. */
+  const mostraPaga = !soloConto && !(inSala && !pagamento.online);
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -1739,7 +1741,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 sempre, vuoto e non pieno: pagare subito resta la strada
                 principale. Le classi da vestire: `order-cart-conto`,
                 `order-conto-sotto`. */}
-            {!soloConto && (
+            {/* ⚠️ Al tavolo senza carta il bottone di sempre non c'e': «sur
+                place» a ogni giro al tavolo non esiste (`pagamentoAlTavolo`),
+                si ordina solo sul conto, che allora e' il bottone pieno. */}
+            {mostraPaga && (
               <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={paga}>
                 {pagaInCassa ? (invio ? tp.ordinando : tp.ordina) : (invio ? t.paying : t.pay)}
               </button>
@@ -1747,7 +1752,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
             {contoTav && (
               <button
                 type="button"
-                className={"order-cart-checkout" + (soloConto ? "" : " order-cart-conto")}
+                className={"order-cart-checkout" + (mostraPaga ? " order-cart-conto" : "")}
                 disabled={!formValido || invio}
                 onClick={aggiungiAlConto}
               >

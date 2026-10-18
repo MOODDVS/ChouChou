@@ -602,6 +602,19 @@
 /* «Payer · resto» in fondo: la pillola del carrello, a carrello vuoto. */
 :where(.tbl-pagina .order-mobcart--paga) { padding-left: 1.2rem; justify-content: space-between; }
 
+/* LA MANCIA nel pannello dell'ordine (OrderApp: `order-mancia`): le stesse
+   pillole di «Payer l'addition», quattro su una riga, la scelta piena.
+   ⚠️ Senza queste regole i bottoni restavano quelli grigi del browser. */
+:where(.tbl-pagina .order-mancia) { margin: .2rem 0 .6rem; }
+:where(.tbl-pagina .order-mancia-btns) { display: flex; gap: .4rem; }
+:where(.tbl-pagina .order-mancia-btn) {
+  flex: 1 1 0; min-width: 0; min-height: 44px; padding: .4rem .5rem;
+  border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: transparent; color: var(--tbl-text);
+  font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+:where(.tbl-pagina .order-mancia-btn.is-selected) { background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); }
+
 /* ---------- «Article ajouté» ----------
    Verde, breve, sopra la pillola in fondo (dove sta gia' il pollice), dentro
    la colonna come lei. Entra, resta un attimo, esce: 1,4 s in tutto. Non si

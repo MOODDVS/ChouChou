@@ -22,6 +22,7 @@ import type { Ambito } from "../lib/admin/sedeRegole";
 import { tavoliDellaZona, PARAM_ZONA } from "../lib/qrRegole";
 import { modiDiPagamento, tavoliDiSala, statoServizioSala, tavoliApertiAdesso, attesaChiamataDi } from "../lib/ordiniOpzioni";
 import type { OpzioniTavolo } from "../lib/ordiniOpzioni";
+import { pagamentoAlTavolo } from "../lib/ordiniRegole";
 import { getMenuSala } from "../lib/db";
 import { getLangFromUrl, useTranslations } from "../i18n/ui";
 import TableOrder from "./TableOrder";
@@ -105,6 +106,9 @@ const [menu, pagamento, brand, tavoli, servizio, aperti] = await Promise.all([
      si spengono. Mai quelli delle prenotazioni — vedi `tavoliApertiAlQr`. */
   tavoliApertiAdesso(ambito),
 ]);
+/* ⚠️ AL TAVOLO MAI «SUR PLACE» A OGNI GIRO: carta, oppure il conto aperto
+   (`pagamentoAlTavolo`). «Payer au retrait» di Paiements e' dell'asporto. */
+const pagamentoSala = pagamentoAlTavolo(pagamento, sala.conto);
 
 /* ⚠️ IL VESTITO VIENE DAI REGLAGES DEL CLIENTE, non dal motore. Logo,
    nome e colori sono quelli che il ristoratore ha gia’ messo: una pagina del
@@ -340,7 +344,7 @@ const testiOrdine = {
       tavoloDaUrl={tavoloDaUrl}
       aperti={aperti}
       ripresa={ripresa}
-      chiuso={pagamento.nessuno
+      chiuso={pagamentoSala.nessuno
         ? { riapre: null, motivo: "pagamento" }
         : servizio.aperto ? null : { riapre: servizio.riapre, motivo: "orario" }}
       immagine={brand.immagine}
@@ -349,7 +353,7 @@ const testiOrdine = {
       carrelloDettagliato={true}
       chiamata={sala.chiamata}
       attesaChiamata={attesaChiamataMin}
-      pagamento={pagamento}
+      pagamento={pagamentoSala}
       conto={sala.conto}
       testiConto={TESTI_CONTO[lang] ?? TESTI_CONTO.fr}
     />

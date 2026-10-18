@@ -201,7 +201,8 @@ test("«Demander l'addition» passa dalla campanella, col suo motivo e il suo do
 test("la pagina: «Ouvrir un compte» accanto al pagamento, «Ajouter» al suo posto nel conto", () => {
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /const soloConto = contoTav\?\.modo === "aggiungi";/);
-  assert.match(app, /\{!soloConto && \(\s*<button type="button" className="order-cart-checkout"/);
+  assert.match(app, /const mostraPaga = !soloConto && !\(inSala && !pagamento\.online\);/);
+  assert.match(app, /\{mostraPaga && \(\s*<button type="button" className="order-cart-checkout"/);
   assert.match(app, /pay: "tab",\s*code: c\.code,/);
   const to = nudo("src/components/TableOrder.tsx");
   assert.match(to, /const contoAttivo = conto && conTavoli && tc !== null;/);
@@ -475,4 +476,17 @@ test("nel conto le condizioni si accettano una volta sola", () => {
   assert.match(app, /const accettato = accettatoQui \|\| consensoGiaDato;/);
   assert.match(app, /\{!consensoGiaDato && \(\s*<label className="order-consent">/);
   assert.match(nudo("src/components/TableOrder.tsx"), /consensoDato: statoConto\.dati\.invii\.some\(\(i\) => i\.righe\.some\(\(r\) => r\.mio\)\),/);
+});
+
+test("al tavolo mai «sur place» a ogni giro: carta, oppure il conto", async () => {
+  const { pagamentoAlTavolo } = await import("../src/lib/ordiniRegole.ts");
+  const m = { online: true, locale: true, nessuno: false, coupon: true };
+  assert.deepEqual(pagamentoAlTavolo(m, false), { online: true, locale: false, nessuno: false, coupon: true });
+  // Senza carta: si ordina solo col conto; senza conto, niente.
+  assert.equal(pagamentoAlTavolo({ online: false, locale: true, nessuno: false }, true).nessuno, false);
+  assert.equal(pagamentoAlTavolo({ online: false, locale: true, nessuno: false }, false).nessuno, true);
+  const co = nudo("src/pages/api/checkout.ts");
+  assert.match(co, /if \(aTavolo && !sulConto && !modi\.online\) \{/);
+  assert.match(co, /const inCassa = !sulConto && !aTavolo && modi\.locale/);
+  assert.match(leggi("src/components/PaginaTavolo.astro"), /const pagamentoSala = pagamentoAlTavolo\(pagamento, sala\.conto\);/);
 });

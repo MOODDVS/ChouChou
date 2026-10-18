@@ -1620,7 +1620,8 @@ test("senza un modo di pagare il cliente lo sa PRIMA di comporre la cena", () =>
      allora «Les commandes en ligne ne sont pas disponibles». La sede non
      aveva ne' la carta pronta ne' il pagamento sul posto: la pagina lo
      sapeva gia' (`pagamento.nessuno`) e non lo diceva. */
-  assert.match(TPAG, /chiuso=\{pagamento\.nessuno\n\s*\? \{ riapre: null, motivo: "pagamento" \}/);
+  // Al tavolo «nessuno» tiene conto del conto aperto (`pagamentoAlTavolo`).
+  assert.match(TPAG, /chiuso=\{pagamentoSala\.nessuno\n\s*\? \{ riapre: null, motivo: "pagamento" \}/);
   assert.match(TORD, /const pagamentoAssente = chiuso\?\.motivo === "pagamento";/);
   assert.match(TORD, /\? pagamentoAssente\n\s*\? testi\.nonDisponibileTesto/);
   assert.match(TORD, /\{chiusoTitolo\}<\/p>/);
