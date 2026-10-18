@@ -8,7 +8,7 @@ import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno } from "../../lib/slots";
 import { fusoDi } from "../../lib/fuso";
 import { configGiornoEffettiva, configRitiro } from "../../lib/schedule";
-import { giornoAmmesso, preavvisoDelServizio } from "../../lib/slotsApi";
+import { giornoAmmesso, preavvisoDelServizio, soloOrariLiberi } from "../../lib/slotsApi";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
@@ -295,6 +295,20 @@ export const POST: APIRoute = async ({ request }) => {
     const slotValidi = [...lunch, ...dinner];
     if (!slotValidi.includes(body.slot)) {
       return err(409, "Orario di ritiro non più disponibile");
+    }
+    /* ⚠️ I FATTORINI: l'orario esiste, ma e' ancora libero? Il sito non lo
+       proponeva gia' pieno, ma fra la scelta e il pagamento qualcun altro
+       puo' aver preso l'ultimo posto. Si dice al cliente di sceglierne un
+       altro, prima di prendergli i soldi. */
+    if (consegna && (await soloOrariLiberi([body.slot], true, ambitoPub, giornoRitiro)).length === 0) {
+      const TXT_PIENO: Record<string, string> = {
+        fr: "Ce créneau de livraison vient d’être complet : choisissez une autre heure.",
+        en: "This delivery time has just filled up: please choose another time.",
+        it: "Questo orario di consegna si è appena riempito: scegline un altro.",
+        nl: "Dit levertijdstip is net volzet: kies een ander uur.",
+        es: "Esta hora de entrega acaba de completarse: elige otra hora.",
+      };
+      return err(409, TXT_PIENO[lang] ?? TXT_PIENO.fr);
     }
   }
 

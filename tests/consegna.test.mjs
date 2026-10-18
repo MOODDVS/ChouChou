@@ -206,3 +206,49 @@ test("sito e checkout usano lo stesso preavviso per la consegna", () => {
   assert.match(sp, /\}, \[sede, servizio\]\);/);
   assert.match(nudo("src/components/OrderApp.tsx"), /servizio=\{aConsegna \? "consegna" : "ritiro"\}/);
 });
+
+/* ───────── Punto 4: i fattorini ───────── */
+import { maxConsegne, occupaFattorino, contaPerOrario, orariLiberi } from "../src/lib/consegnaRegole.ts";
+
+test("il limite: intero 1–50, altrimenti nessun limite", () => {
+  assert.equal(maxConsegne("2"), 2);
+  assert.equal(maxConsegne(""), 0);
+  assert.equal(maxConsegne("0"), 0);
+  assert.equal(maxConsegne("due"), 0);
+  assert.equal(maxConsegne("2.5"), 0);
+  assert.equal(maxConsegne("80"), 0);
+});
+
+test("chi occupa un fattorino", () => {
+  const adesso = Date.parse("2026-10-18T18:00:00Z");
+  assert.equal(occupaFattorino({ status: "paid" }, adesso), true);
+  assert.equal(occupaFattorino({ status: "done" }, adesso), true);
+  assert.equal(occupaFattorino({ status: "cancelled" }, adesso), false);
+  assert.equal(occupaFattorino({ status: "pending", payment_method: "onsite" }, adesso), true, "da incassare alla porta");
+  assert.equal(occupaFattorino({ status: "pending", created_at: "2026-10-18T17:50:00Z" }, adesso), true, "su Stripe da 10 minuti");
+  assert.equal(occupaFattorino({ status: "pending", created_at: "2026-10-18T17:00:00Z" }, adesso), false, "carrello abbandonato");
+});
+
+test("conteggio per orario e orari liberi", () => {
+  const adesso = Date.parse("2026-10-18T18:00:00Z");
+  // Bruxelles in ottobre = UTC+2: 17:30Z = 19:30.
+  const righe = [
+    { pickup_time: "2026-10-18T17:30:00Z", status: "paid" },
+    { pickup_time: "2026-10-18T17:30:00Z", status: "pending", payment_method: "onsite" },
+    { pickup_time: "2026-10-18T17:45:00Z", status: "paid" },
+    { pickup_time: "2026-10-18T17:45:00Z", status: "cancelled" },
+  ];
+  const conti = contaPerOrario(righe, "Europe/Brussels", adesso);
+  assert.equal(conti.get("19:30"), 2);
+  assert.equal(conti.get("19:45"), 1);
+  assert.deepEqual(orariLiberi(["19:15", "19:30", "19:45"], conti, 2), ["19:15", "19:45"]);
+  assert.deepEqual(orariLiberi(["19:30"], conti, 0), ["19:30"], "nessun limite");
+});
+
+test("sito e checkout tolgono gli orari pieni con la stessa funzione", () => {
+  const api = nudo("src/lib/slotsApi.ts");
+  assert.match(api, /export async function soloOrariLiberi\(/);
+  assert.match(api, /const lunch = await soloOrariLiberi\(grezzi\.lunch, consegna, ambito, ora\);/);
+  const co = nudo("src/pages/api/checkout.ts");
+  assert.match(co, /if \(consegna && \(await soloOrariLiberi\(\[body\.slot\], true, ambitoPub, giornoRitiro\)\)\.length === 0\)/);
+});

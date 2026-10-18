@@ -168,3 +168,75 @@ export function preavvisoConsegna(prepMinuti: unknown, ritardoMinuti: number): n
   const prep = Math.max(0, Math.round(Number(prepMinuti) || 0));
   return prep + Math.max(0, ritardoMinuti);
 }
+
+/* ───────── I fattorini: quante consegne per orario ─────────
+ *
+ * `orders_delivery_max` (sede): quante consegne si accettano sullo STESSO
+ * orario (lo slot di «Durée d'un créneau»). Di fatto quanti fattorini, o
+ * quanti giri: chi raggruppa due indirizzi vicini mette un numero piu' alto.
+ * Vuoto o 0 = nessun limite, cioe' il comportamento di oggi.
+ * ⚠️ Riguarda SOLO la consegna: un orario pieno sparisce per chi vuole farsi
+ * portare la cena, e resta per chi viene a prenderla.
+ * ⚠️ Il motore non sa se due indirizzi sono vicini: il numero lo regola il
+ * ristoratore, non una mappa.
+ */
+
+/** Oltre questo, e' un errore di battitura. */
+export const MAX_CONSEGNE_LIMITE = 50;
+
+/** Il limite salvato, riletto: intero 1–50, altrimenti 0 = nessun limite. */
+export function maxConsegne(v: unknown): number {
+  const t = String(v ?? "").trim();
+  if (!/^\d+$/.test(t)) return 0;
+  const n = Number(t);
+  return n >= 1 && n <= MAX_CONSEGNE_LIMITE ? n : 0;
+}
+
+/** Quanto si aspetta un pagamento con la carta prima di non contarlo piu':
+ *  chi e' su Stripe sta prendendo quel posto, chi e' sparito da mezz'ora no. */
+export const ATTESA_PAGAMENTO_MIN = 30;
+
+/** Una consegna gia' scritta, per quel tanto che serve a contarla. */
+export interface RigaOccupazione {
+  pickup_time?: unknown;
+  status?: unknown;
+  payment_method?: unknown;
+  created_at?: unknown;
+}
+
+/**
+ * Questa consegna OCCUPA un fattorino?
+ *   · pagata o completata              → si';
+ *   · da incassare alla consegna       → si' (e' un ordine vero);
+ *   · in pagamento su Stripe da poco   → si': sta prendendo quel posto, e
+ *     senza contarla due clienti nello stesso minuto si prenderebbero
+ *     l'ultimo;
+ *   · annullata, o carrello abbandonato da piu' di mezz'ora → no.
+ */
+export function occupaFattorino(r: RigaOccupazione, adessoMs: number): boolean {
+  const stato = String(r.status ?? "");
+  if (stato === "paid" || stato === "done") return true;
+  if (stato !== "pending") return false;
+  if (String(r.payment_method ?? "") === "onsite") return true;
+  const creato = new Date(String(r.created_at ?? "")).getTime();
+  return Number.isFinite(creato) && adessoMs - creato <= ATTESA_PAGAMENTO_MIN * 60_000;
+}
+
+/** Quante consegne occupano ogni orario («HH:mm» nel fuso della sede). */
+export function contaPerOrario(righe: RigaOccupazione[], fuso: string, adessoMs: number): Map<string, number> {
+  const conti = new Map<string, number>();
+  for (const r of righe) {
+    if (!occupaFattorino(r, adessoMs)) continue;
+    const t = new Date(String(r.pickup_time ?? ""));
+    if (!Number.isFinite(t.getTime())) continue;
+    const hhmm = t.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: fuso });
+    conti.set(hhmm, (conti.get(hhmm) ?? 0) + 1);
+  }
+  return conti;
+}
+
+/** Gli orari ancora liberi. `max` 0 = nessun limite, tornano tutti. */
+export function orariLiberi(orari: string[], conti: Map<string, number>, max: number): string[] {
+  if (max <= 0) return orari;
+  return orari.filter((o) => (conti.get(o) ?? 0) < max);
+}

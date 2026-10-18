@@ -2,9 +2,9 @@ import { DateTime } from "luxon";
 import { calcolaSlotGiorno } from "./slots";
 import { fusoDi } from "./fuso";
 import { configRitiro } from "./schedule";
-import { leggiConfig } from "./admin/sede";
+import { leggiConfig, leggi } from "./admin/sede";
 import { giorniAvanti } from "./ordiniGiorniRegole";
-import { ritardoConsegna, preavvisoConsegna } from "./consegnaRegole";
+import { ritardoConsegna, preavvisoConsegna, maxConsegne, contaPerOrario, orariLiberi, type RigaOccupazione } from "./consegnaRegole";
 import type { Ambito } from "./admin/sede";
 
 /**
@@ -74,6 +74,49 @@ export async function preavvisoDelServizio(
   return preavvisoConsegna(prepMinuti, await ritardoConsegnaDi(ambito));
 }
 
+/** Quante consegne per orario si accettano in questo punto (0 = nessun limite). */
+export async function maxConsegneDi(ambito: Ambito): Promise<number> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_max"]);
+    return maxConsegne(valori.get("orders_delivery_max"));
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Le consegne gia' prese per QUEL giorno, contate per orario.
+ * ⚠️ Lettura muta (o colonna `service` assente, #82) → nessun conteggio, cioe'
+ * tutti gli orari liberi: meglio una consegna in piu' su un orario pieno che
+ * un sito che non propone piu' nessuna consegna per un database che tace.
+ */
+export async function consegnePerOrario(ambito: Ambito, giorno: DateTime): Promise<Map<string, number>> {
+  try {
+    const fuso = await fusoDi(ambito);
+    const g = giorno.setZone(fuso);
+    const { data, error } = await leggi("orders", ambito, "pickup_time, status, payment_method, created_at")
+      .eq("service", "delivery")
+      .gte("pickup_time", g.startOf("day").toISO())
+      .lte("pickup_time", g.endOf("day").toISO());
+    if (error || !data) return new Map();
+    return contaPerOrario(data as unknown as RigaOccupazione[], fuso, Date.now());
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Gli orari di una consegna, tolti quelli pieni. ⚠️ UNA funzione per il sito
+ * e per il checkout, come il preavviso: se contassero in due modi, il sito
+ * proporrebbe un orario che il checkout dice pieno.
+ */
+export async function soloOrariLiberi(orari: string[], consegna: boolean, ambito: Ambito, giorno: DateTime): Promise<string[]> {
+  if (!consegna || orari.length === 0) return orari;
+  const max = await maxConsegneDi(ambito);
+  if (max <= 0) return orari;
+  return orariLiberi(orari, await consegnePerOrario(ambito, giorno), max);
+}
+
 export async function slotsDelGiorno(
   data: string | null,
   ambito: Ambito,
@@ -97,12 +140,15 @@ export async function slotsDelGiorno(
   // Niente ripiego: se il database non risponde o la riga manca, lo si dice.
   if (!config) return { errore: "err.hoursConfig" };
 
-  const { lunch, dinner } = calcolaSlotGiorno(
+  const grezzi = calcolaSlotGiorno(
     ora,
     config,
     fuso,
     await preavvisoDelServizio(consegna, config.prep_time_minutes, ambito),
   );
+  // Consegna: via gli orari dove i fattorini sono gia' tutti fuori.
+  const lunch = await soloOrariLiberi(grezzi.lunch, consegna, ambito, ora);
+  const dinner = await soloOrariLiberi(grezzi.dinner, consegna, ambito, ora);
 
   // Giorno CHIUSO: ne' pranzo ne' cena attivi. Diverso da «aperto ma slot
   // gia' passati», dove `closed` e' falso e le liste possono essere vuote.
@@ -148,7 +194,9 @@ export async function giorniOrdinabili(
     const cfg = await configRitiro(ora, ambito);
     if (!cfg) continue;
     const { lunch, dinner } = calcolaSlotGiorno(ora, cfg, fuso, await preavvisoDelServizio(consegna, cfg.prep_time_minutes, ambito));
-    if (lunch.length || dinner.length) giorni.push(ora.toFormat("yyyy-MM-dd"));
+    // Un giorno con tutti gli orari di consegna pieni non si propone.
+    const liberi = await soloOrariLiberi([...lunch, ...dinner], consegna, ambito, ora);
+    if (liberi.length) giorni.push(ora.toFormat("yyyy-MM-dd"));
   }
   // `oggi` nel fuso del RISTORANTE: il sito scrive «Oggi»/«Domani» da qui, non
   // dall'orologio del telefono (un cliente all'estero vedrebbe il giorno sbagliato).

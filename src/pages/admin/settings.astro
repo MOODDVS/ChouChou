@@ -1618,6 +1618,12 @@ const t = adminT(lang);
                   ))}
                 </div>
               </div>
+              {/* I fattorini (`orders_delivery_max`): quante consegne sullo
+                  STESSO orario. Vuoto = nessun limite, come oggi. */}
+              <div class="field field--numero o-delivery-row" style="display:none">
+                <label for="o-delivery-max">{t("set.ord.deliveryMax")}<span class="lab-hint">{t("set.ord.deliveryMaxHint")}</span></label>
+                <input type="text" inputmode="numeric" id="o-delivery-max" placeholder="—" />
+              </div>
               {/* Le soglie: solo a consegna accesa (`o-delivery-row`). UNA riga,
                   due campi affiancati: sono due facce della stessa domanda
                   («quanto deve spendere»), e su due righe sembravano due
@@ -4091,7 +4097,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4344,6 +4350,11 @@ const t = adminT(lang);
         swFuturo?.addEventListener("change", aggiornaRigaGiorni);
         // Il tragitto della consegna: un bottone fra quattro, gia' risolto (45 di ripiego).
         accendiGruppo("#o-delivery-delay", "minuti", String(dati.consegna_ritardo ?? 45));
+        const campoMaxCons = document.getElementById("o-delivery-max") as HTMLInputElement | null;
+        if (campoMaxCons) {
+          campoMaxCons.value = Number(dati.consegna_max ?? 0) > 0 ? String(dati.consegna_max) : "";
+          campoMaxCons.addEventListener("input", dirty);
+        }
         // ---- Le mance: tipo (% / €) e tre valori, nelle unita' del tipo ----
         // Arrivano risolti dal server: percentuali intere, oppure centesimi.
         const swMance = document.getElementById("o-tips") as HTMLInputElement | null;
@@ -4923,6 +4934,7 @@ const t = adminT(lang);
                 // In euro come scritti: la conversione (e il rifiuto) la fa il server.
                 consegna_costo: (document.getElementById("o-delivery-fee") as HTMLInputElement | null)?.value ?? "",
                 consegna_ritardo: Number(document.querySelector<HTMLButtonElement>("#o-delivery-delay .prep-btn.active")?.dataset.minuti ?? 45),
+                consegna_max: (document.getElementById("o-delivery-max") as HTMLInputElement | null)?.value ?? "",
                 // Le mance: tipo e i tre valori COME SCRITTI (il server converte e rifiuta).
                 mance_tipo: document.querySelector<HTMLButtonElement>("#o-tips-type .prep-btn.active")?.dataset.tipo === "fixed" ? "fixed" : "percent",
                 mance_valori: Array.from(document.querySelectorAll<HTMLInputElement>(".o-tip-val")).map((c) => c.value),

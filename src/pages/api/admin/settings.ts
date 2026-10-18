@@ -22,7 +22,7 @@ import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
-import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA } from "../../../lib/consegnaRegole";
+import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, MAX_CONSEGNE_LIMITE } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
 export const prerender = false;
@@ -218,6 +218,7 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_delivery_fee_cents",
     "orders_tips_type",
     "orders_delivery_delay",
+    "orders_delivery_max",
     "orders_tips_values",
     "daily_brief_enabled",
     "daily_brief_hour",
@@ -294,6 +295,7 @@ export const GET: APIRoute = async ({ request }) => {
     consegna_gratis_cents: sogliaCents(cfg.get("orders_delivery_free_cents")),
     consegna_costo_cents: sogliaCents(cfg.get("orders_delivery_fee_cents")),
     consegna_ritardo: ritardoConsegna(cfg.get("orders_delivery_delay")),
+    consegna_max: maxConsegne(cfg.get("orders_delivery_max")),
     /* Le mance: tipo e tre valori gia' risolti (percentuali intere o
        centesimi), col ripiego dentro — la pagina non deve sapere che e' 5/10/15. */
     mance_tipo: tipoMance(cfg.get("orders_tips_type")),
@@ -443,6 +445,8 @@ export const PUT: APIRoute = async ({ request }) => {
     consegna_costo?: string;
     /** Minuti di tragitto della consegna: 30, 45, 60, 90. */
     consegna_ritardo?: number;
+    /** Consegne per orario, come scritte («2», vuoto = nessun limite). */
+    consegna_max?: unknown;
     /** Le mance: "percent" | "fixed", e i tre valori come scritti nella pagina. */
     mance_tipo?: string;
     mance_valori?: unknown;
@@ -836,6 +840,16 @@ export const PUT: APIRoute = async ({ request }) => {
   // Il tragitto della consegna: solo valori dell'elenco, fuori elenco non si tocca.
   if (body.consegna_ritardo !== undefined && (RITARDI_CONSEGNA as readonly number[]).includes(Number(body.consegna_ritardo))) {
     const err = await scriviConfig(ambitoPut, { orders_delivery_delay: String(Number(body.consegna_ritardo)) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* I FATTORINI: vuoto o 0 = nessun limite; un numero intero 1–50; tutto il
+     resto si RIFIUTA — «due» a lettere non deve diventare «nessun limite». */
+  if (body.consegna_max !== undefined) {
+    const t = String(body.consegna_max ?? "").trim();
+    const n = t === "" ? 0 : maxConsegne(t);
+    if (t !== "" && t !== "0" && n === 0) return json({ error: await msg("err.deliveryMax") }, 400);
+    const err = await scriviConfig(ambitoPut, { orders_delivery_max: String(n) });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
