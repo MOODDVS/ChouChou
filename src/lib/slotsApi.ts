@@ -4,6 +4,7 @@ import { fusoDi } from "./fuso";
 import { configRitiro } from "./schedule";
 import { leggiConfig } from "./admin/sede";
 import { giorniAvanti } from "./ordiniGiorniRegole";
+import { ritardoConsegna, preavvisoConsegna } from "./consegnaRegole";
 import type { Ambito } from "./admin/sede";
 
 /**
@@ -46,9 +47,38 @@ export async function slotsDelMese(
   return { closed };
 }
 
+/** I minuti di tragitto della consegna di questo punto (Réglages). Lettura
+ *  muta → il ripiego (45), mai 0. */
+export async function ritardoConsegnaDi(ambito: Ambito): Promise<number> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_delay"]);
+    return ritardoConsegna(valori.get("orders_delivery_delay"));
+  } catch {
+    return ritardoConsegna(undefined);
+  }
+}
+
+/**
+ * Il preavviso da passare a `calcolaSlotGiorno`: `undefined` per il ritiro
+ * (vale la sola preparazione, com'e' sempre stato), preparazione + tragitto
+ * per la consegna. ⚠️ UNA funzione per il sito e per il checkout: se
+ * calcolassero il preavviso in due modi, il cliente sceglierebbe un orario
+ * che il checkout rifiuta.
+ */
+export async function preavvisoDelServizio(
+  consegna: boolean,
+  prepMinuti: unknown,
+  ambito: Ambito,
+): Promise<number | undefined> {
+  if (!consegna) return undefined;
+  return preavvisoConsegna(prepMinuti, await ritardoConsegnaDi(ambito));
+}
+
 export async function slotsDelGiorno(
   data: string | null,
   ambito: Ambito,
+  /** Gli orari di una CONSEGNA: piu' tardi del ritiro di quanto serve a portarla. */
+  consegna = false,
 ): Promise<{ lunch: string[]; dinner: string[]; closed: boolean } | { errore: string }> {
   const fuso = await fusoDi(ambito);
   const adesso = DateTime.now().setZone(fuso);
@@ -67,7 +97,12 @@ export async function slotsDelGiorno(
   // Niente ripiego: se il database non risponde o la riga manca, lo si dice.
   if (!config) return { errore: "err.hoursConfig" };
 
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
+  const { lunch, dinner } = calcolaSlotGiorno(
+    ora,
+    config,
+    fuso,
+    await preavvisoDelServizio(consegna, config.prep_time_minutes, ambito),
+  );
 
   // Giorno CHIUSO: ne' pranzo ne' cena attivi. Diverso da «aperto ma slot
   // gia' passati», dove `closed` e' falso e le liste possono essere vuote.
@@ -100,6 +135,9 @@ export async function giorniAvantiDi(ambito: Ambito): Promise<number> {
  */
 export async function giorniOrdinabili(
   ambito: Ambito,
+  /** ⚠️ Anche i GIORNI dipendono dal servizio: alle 21:30 oggi si ritira
+   *  ancora, ma non si consegna piu'. */
+  consegna = false,
 ): Promise<{ avanti: number; oggi: string; giorni: string[] }> {
   const fuso = await fusoDi(ambito);
   const adesso = DateTime.now().setZone(fuso);
@@ -109,7 +147,7 @@ export async function giorniOrdinabili(
     const ora = d === 0 ? adesso : adesso.plus({ days: d }).startOf("day");
     const cfg = await configRitiro(ora, ambito);
     if (!cfg) continue;
-    const { lunch, dinner } = calcolaSlotGiorno(ora, cfg, fuso);
+    const { lunch, dinner } = calcolaSlotGiorno(ora, cfg, fuso, await preavvisoDelServizio(consegna, cfg.prep_time_minutes, ambito));
     if (lunch.length || dinner.length) giorni.push(ora.toFormat("yyyy-MM-dd"));
   }
   // `oggi` nel fuso del RISTORANTE: il sito scrive «Oggi»/«Domani» da qui, non

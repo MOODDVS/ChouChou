@@ -1372,6 +1372,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                   lang={lang === "en" ? "en" : "fr"}
                   lingua={lang}
                   sede={sede}
+                  servizio={aConsegna ? "consegna" : "ritiro"}
                 />
               </>
             )}

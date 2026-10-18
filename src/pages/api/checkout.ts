@@ -8,7 +8,7 @@ import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno } from "../../lib/slots";
 import { fusoDi } from "../../lib/fuso";
 import { configGiornoEffettiva, configRitiro } from "../../lib/schedule";
-import { giornoAmmesso } from "../../lib/slotsApi";
+import { giornoAmmesso, preavvisoDelServizio } from "../../lib/slotsApi";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
@@ -283,7 +283,15 @@ export const POST: APIRoute = async ({ request }) => {
       return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
     }
   } else {
-    const { lunch, dinner } = calcolaSlotGiorno(giornoRitiro, config, fuso);
+    /* ⚠️ La consegna ha il SUO preavviso (preparazione + tragitto): lo
+       stesso calcolo che ha dato gli orari al sito (`preavvisoDelServizio`),
+       o il cliente sceglierebbe un orario che qui viene rifiutato. */
+    const { lunch, dinner } = calcolaSlotGiorno(
+      giornoRitiro,
+      config,
+      fuso,
+      await preavvisoDelServizio(consegna, config.prep_time_minutes, ambitoPub),
+    );
     const slotValidi = [...lunch, ...dinner];
     if (!slotValidi.includes(body.slot)) {
       return err(409, "Orario di ritiro non più disponibile");

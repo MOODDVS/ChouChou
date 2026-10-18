@@ -347,7 +347,8 @@ test("da asporto non cambia niente: slot, cognome e telefono restano obbligatori
   assert.match(CK, /body\.customer\.surname \?\? ""\)\.trim\(\) \|\| !String\(body\.customer\.phone/);
   // Il giorno del ritiro e' oggi oppure quello scelto (ordini per i giorni
   // seguenti): gli orari si calcolano su quello, non sempre su adesso.
-  assert.match(CK, /calcolaSlotGiorno\(giornoRitiro, config, fuso\)/);
+  // (Con un quarto argomento, il preavviso: per la consegna e' preparazione + tragitto.)
+  assert.match(CK, /calcolaSlotGiorno\(\s*giornoRitiro,\s*config,\s*fuso[,)]/);
   assert.match(CK, /Orario di ritiro non pi/,
     "lo slot non si controlla piu': si ordinerebbe per un'ora che non esiste");
 });

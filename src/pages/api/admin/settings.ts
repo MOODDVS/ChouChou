@@ -22,7 +22,7 @@ import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
-import { sogliaCents, euroInCents } from "../../../lib/consegnaRegole";
+import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
 export const prerender = false;
@@ -217,6 +217,7 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_delivery_free_cents",
     "orders_delivery_fee_cents",
     "orders_tips_type",
+    "orders_delivery_delay",
     "orders_tips_values",
     "daily_brief_enabled",
     "daily_brief_hour",
@@ -292,6 +293,7 @@ export const GET: APIRoute = async ({ request }) => {
     consegna_minimo_cents: sogliaCents(cfg.get("orders_delivery_min_cents")),
     consegna_gratis_cents: sogliaCents(cfg.get("orders_delivery_free_cents")),
     consegna_costo_cents: sogliaCents(cfg.get("orders_delivery_fee_cents")),
+    consegna_ritardo: ritardoConsegna(cfg.get("orders_delivery_delay")),
     /* Le mance: tipo e tre valori gia' risolti (percentuali intere o
        centesimi), col ripiego dentro — la pagina non deve sapere che e' 5/10/15. */
     mance_tipo: tipoMance(cfg.get("orders_tips_type")),
@@ -439,6 +441,8 @@ export const PUT: APIRoute = async ({ request }) => {
     consegna_minimo?: string;
     consegna_gratis?: string;
     consegna_costo?: string;
+    /** Minuti di tragitto della consegna: 30, 45, 60, 90. */
+    consegna_ritardo?: number;
     /** Le mance: "percent" | "fixed", e i tre valori come scritti nella pagina. */
     mance_tipo?: string;
     mance_valori?: unknown;
@@ -826,6 +830,12 @@ export const PUT: APIRoute = async ({ request }) => {
       if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
     }
     const err = await scriviConfig(ambitoPut, { [chiave]: String(c) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  // Il tragitto della consegna: solo valori dell'elenco, fuori elenco non si tocca.
+  if (body.consegna_ritardo !== undefined && (RITARDI_CONSEGNA as readonly number[]).includes(Number(body.consegna_ritardo))) {
+    const err = await scriviConfig(ambitoPut, { orders_delivery_delay: String(Number(body.consegna_ritardo)) });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 

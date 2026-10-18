@@ -17,6 +17,10 @@ interface SlotPickerProps {
   lingua?: string;
   /** Il punto da cui si ritira. Vuoto = punto unico (vedi lib/sedeUrl). */
   sede?: string;
+  /** Ritiro o consegna: la consegna ha orari piu' tardi (preparazione +
+   *  tragitto, Réglages → «Délai de livraison»). Cambiando, orari e giorni si
+   *  richiedono e l'orario scelto si spegne. */
+  servizio?: "ritiro" | "consegna";
 }
 
 type Stato = "loading" | "ok" | "chiuso" | "errore";
@@ -55,8 +59,11 @@ function etichettaGiorno(iso: string, oggi: string, lingua: string): string {
   }
 }
 
-export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, sede = "" }: SlotPickerProps) {
+export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, sede = "", servizio = "ritiro" }: SlotPickerProps) {
   const conSede = (u: string) => urlConSede(u, sede);
+  // Il servizio viaggia con ogni richiesta: senza, una consegna vedrebbe gli
+  // orari del ritiro e il checkout ne rifiuterebbe i primi.
+  const conServizio = (u: string) => (servizio === "consegna" ? `${u}${u.includes("?") ? "&" : "?"}service=delivery` : u);
   const t = useTranslations(lang);
 
   const [stato, setStato] = useState<Stato>("loading");
@@ -73,7 +80,7 @@ export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, se
     setStato("loading");
     try {
       // ⚠️ Gli orari di ritiro sono di UN punto: senza sede erano quelli del primo.
-      const res = await fetch(data ? conSede(`/api/slots?date=${data}`) : conSede("/api/slots"));
+      const res = await fetch(data ? conSede(conServizio(`/api/slots?date=${data}`)) : conSede(conServizio("/api/slots")));
       if (!res.ok) {
         if (vivo()) setStato("errore");
         return;
@@ -100,7 +107,7 @@ export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, se
       let lista: string[] = [];
       let finestra = 0;
       try {
-        const res = await fetch(conSede("/api/slots?days=1"));
+        const res = await fetch(conSede(conServizio("/api/slots?days=1")));
         if (res.ok) {
           const d: { avanti?: number; oggi?: string; giorni?: string[] } = await res.json();
           finestra = d.avanti ?? 0;
@@ -111,6 +118,10 @@ export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, se
         // Senza la lista dei giorni si ripiega su oggi: come prima.
       }
       if (!attivo) return;
+      // Cambiando servizio l'orario scelto non vale piu': le 19:00 del ritiro
+      // possono non esistere per la consegna.
+      setSelezionato(null);
+      onSelect?.(null);
       if (finestra > 0) {
         setGiorni(lista);
         if (lista.length === 0) {
@@ -132,7 +143,7 @@ export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, se
     return () => {
       attivo = false;
     };
-  }, [sede]); // ⚠️ `sede`: se la pagina cambia punto, giorni e orari vanno richiesti di nuovo.
+  }, [sede, servizio]); // ⚠️ `sede` e `servizio`: cambiando punto o fra ritiro e consegna, giorni e orari si richiedono.
 
   function scegli(slot: string) {
     const nuovo = slot === selezionato ? null : slot;

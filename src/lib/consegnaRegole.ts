@@ -139,3 +139,32 @@ export function costoConsegna(piattiCents: number, costoCents: number, gratisCen
   if (gratisCents > 0 && Math.round(piattiCents) >= gratisCents) return 0;
   return costoCents;
 }
+
+/* ───────── Il tempo della consegna ─────────
+ *
+ * `orders_delivery_delay` (sede): i minuti che servono a portarla, SOPRA il
+ * tempo di preparazione. Il primo orario proposto per una consegna e'
+ * adesso + preparazione + questo tempo (e lo stesso dall'apertura: alle
+ * 18:00 in punto nessuno e' gia' per strada).
+ * ⚠️ Solo per la consegna: il ritiro resta con la sola preparazione.
+ */
+
+/** Le scelte in Réglages. Un elenco chiuso, come la campanella: si preme un
+ *  bottone, non si scrive un numero. */
+export const RITARDI_CONSEGNA = [30, 45, 60, 90] as const;
+
+/** Il ripiego: tre quarti d'ora, il tempo piu' comune in citta'. */
+export const RITARDO_CONSEGNA_RIPIEGO = 45;
+
+/** Valore salvato riletto. Fuori elenco o illeggibile → 45: mai 0, che
+ *  proporrebbe una consegna «fra 15 minuti» che nessuno puo' mantenere. */
+export function ritardoConsegna(v: unknown): number {
+  const n = Math.round(Number(String(v ?? "").trim()));
+  return (RITARDI_CONSEGNA as readonly number[]).includes(n) ? n : RITARDO_CONSEGNA_RIPIEGO;
+}
+
+/** Il preavviso di una consegna: preparazione + tragitto. */
+export function preavvisoConsegna(prepMinuti: unknown, ritardoMinuti: number): number {
+  const prep = Math.max(0, Math.round(Number(prepMinuti) || 0));
+  return prep + Math.max(0, ritardoMinuti);
+}

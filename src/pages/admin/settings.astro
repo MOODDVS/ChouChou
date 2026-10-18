@@ -695,6 +695,17 @@ const t = adminT(lang);
       .soglie { display: flex; gap: 0.75rem; margin-left: auto; flex: 0 0 auto; }
       .mance-dx { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; margin-left: auto; }
       .mance-dx .soglie { margin-left: 0; }
+      .soglia--unita { position: relative; }
+      .soglia--unita input { padding-right: 1.9rem; }
+      .soglia-unita {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--c-muted);
+        font-size: 0.9rem;
+        pointer-events: none;
+      }
       .soglia { display: flex; flex-direction: column; align-items: stretch; width: 5.5rem; }
       .soglia input { width: 100%; text-align: right; }
       .soglia-lab { margin-top: 0.3rem; font-size: 0.72rem; line-height: 1.3; color: var(--c-muted); text-align: right; }
@@ -709,7 +720,8 @@ const t = adminT(lang);
          nera lo stacca, come le pastiglie spente di altre pagine: scurisce
          qualunque tema senza scegliere un colore. L'acceso resta quello di
          prep.css (`:not(.active)`). */
-      .field > .prep-btns .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
+      .field > .prep-btns .prep-btn:not(.active),
+      .mance-dx > .prep-btns .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
       @media (max-width: 640px) {
         .field:has(> .prep-btns) { flex-wrap: wrap; }
         .field > .prep-btns { margin-left: 0; flex-wrap: wrap; }
@@ -1572,11 +1584,13 @@ const t = adminT(lang);
                     <button type="button" class="prep-btn" data-tipo="percent" aria-pressed="false"><span class="m">%</span></button>
                     <button type="button" class="prep-btn" data-tipo="fixed" aria-pressed="false"><span class="m">€</span></button>
                   </div>
+                  {/* L'unita' DENTRO il campo, a destra del numero: «10 %» si
+                      legge come un valore solo, una didascalia sotto no. */}
                   <div class="soglie">
                     {[0, 1, 2].map((i) => (
-                      <div class="soglia">
+                      <div class="soglia soglia--unita">
                         <input type="text" inputmode="decimal" class="o-tip-val" data-i={String(i)} aria-label={`${t("set.ord.tipsValues")} ${i + 1}`} />
-                        <span class="soglia-lab o-tip-unit">%</span>
+                        <span class="soglia-unita o-tip-unit" aria-hidden="true">%</span>
                       </div>
                     ))}
                   </div>
@@ -1592,6 +1606,17 @@ const t = adminT(lang);
               <div class="field">
                 <label>{t("set.ord.delivery")}<span class="lab-hint">{t("set.ord.deliveryHint")}</span></label>
                 <label class="switch"><input type="checkbox" id="o-delivery" /><span class="track"></span></label>
+              </div>
+              {/* Il tempo del tragitto (`orders_delivery_delay`), SOPRA la
+                  preparazione: il primo orario di consegna proposto e' adesso +
+                  preparazione + questo. Bottoni come la campanella. */}
+              <div class="field o-delivery-row" style="display:none">
+                <label>{t("set.ord.deliveryDelay")}<span class="lab-hint">{t("set.ord.deliveryDelayHint")}</span></label>
+                <div class="prep-btns" id="o-delivery-delay" role="group" aria-label={t("set.ord.deliveryDelay")}>
+                  {[30, 45, 60, 90].map((m) => (
+                    <button type="button" class="prep-btn" data-minuti={String(m)} aria-pressed="false"><span class="m">{m} min</span></button>
+                  ))}
+                </div>
               </div>
               {/* Le soglie: solo a consegna accesa (`o-delivery-row`). UNA riga,
                   due campi affiancati: sono due facce della stessa domanda
@@ -4066,7 +4091,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4317,6 +4342,8 @@ const t = adminT(lang);
         };
         aggiornaRigaGiorni();
         swFuturo?.addEventListener("change", aggiornaRigaGiorni);
+        // Il tragitto della consegna: un bottone fra quattro, gia' risolto (45 di ripiego).
+        accendiGruppo("#o-delivery-delay", "minuti", String(dati.consegna_ritardo ?? 45));
         // ---- Le mance: tipo (% / €) e tre valori, nelle unita' del tipo ----
         // Arrivano risolti dal server: percentuali intere, oppure centesimi.
         const swMance = document.getElementById("o-tips") as HTMLInputElement | null;
@@ -4625,7 +4652,7 @@ const t = adminT(lang);
           .querySelectorAll<HTMLInputElement>('.section[data-tab="cuisine"] input[type="checkbox"][id^="o-"]')
           .forEach((el) => el.addEventListener("change", dirty));
         // Fonte degli orari e giorni in anticipo: un bottone acceso per gruppo.
-        for (const sel of ["#o-slot-source", "#o-future-days", "#o-tips-type"]) {
+        for (const sel of ["#o-slot-source", "#o-future-days", "#o-tips-type", "#o-delivery-delay"]) {
           document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((b) =>
             b.addEventListener("click", () => {
               if (b.classList.contains("active")) return;
@@ -4895,6 +4922,7 @@ const t = adminT(lang);
                 slot_duration_minutes: Number(slotEl.value),
                 // In euro come scritti: la conversione (e il rifiuto) la fa il server.
                 consegna_costo: (document.getElementById("o-delivery-fee") as HTMLInputElement | null)?.value ?? "",
+                consegna_ritardo: Number(document.querySelector<HTMLButtonElement>("#o-delivery-delay .prep-btn.active")?.dataset.minuti ?? 45),
                 // Le mance: tipo e i tre valori COME SCRITTI (il server converte e rifiuta).
                 mance_tipo: document.querySelector<HTMLButtonElement>("#o-tips-type .prep-btn.active")?.dataset.tipo === "fixed" ? "fixed" : "percent",
                 mance_valori: Array.from(document.querySelectorAll<HTMLInputElement>(".o-tip-val")).map((c) => c.value),

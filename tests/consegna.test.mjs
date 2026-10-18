@@ -180,3 +180,29 @@ test("Réglages non mette un costo senza la #85", () => {
   const st = nudo("src/pages/api/admin/settings.ts");
   assert.match(st, /campo === "consegna_costo" && c > 0[\s\S]{0,160}"delivery_fee_cents"[\s\S]{0,120}err\.deliveryMigration/);
 });
+
+/* ───────── Punto 2: il tempo della consegna ───────── */
+import { ritardoConsegna, preavvisoConsegna, RITARDI_CONSEGNA } from "../src/lib/consegnaRegole.ts";
+
+test("il tragitto: quattro scelte, 45 di ripiego, mai 0", () => {
+  assert.deepEqual([...RITARDI_CONSEGNA], [30, 45, 60, 90]);
+  assert.equal(ritardoConsegna("60"), 60);
+  assert.equal(ritardoConsegna(undefined), 45);
+  assert.equal(ritardoConsegna("0"), 45);
+  assert.equal(ritardoConsegna("37"), 45);
+  assert.equal(preavvisoConsegna(15, 45), 60, "preparazione + tragitto");
+  assert.equal(preavvisoConsegna("x", 30), 30);
+});
+
+test("sito e checkout usano lo stesso preavviso per la consegna", () => {
+  const api = nudo("src/lib/slotsApi.ts");
+  assert.match(api, /export async function preavvisoDelServizio\(/);
+  assert.match(api, /calcolaSlotGiorno\(\n\s*ora,\n\s*config,\n\s*fuso,\n\s*await preavvisoDelServizio\(consegna, config\.prep_time_minutes, ambito\),/);
+  const co = nudo("src/pages/api/checkout.ts");
+  assert.match(co, /await preavvisoDelServizio\(consegna, config\.prep_time_minutes, ambitoPub\),/);
+  assert.match(nudo("src/pages/api/slots.ts"), /const consegna = url\.searchParams\.get\("service"\) === "delivery";/);
+  // Il selettore chiede gli orari del servizio scelto e li richiede cambiandolo.
+  const sp = nudo("src/components/SlotPicker.tsx");
+  assert.match(sp, /\}, \[sede, servizio\]\);/);
+  assert.match(nudo("src/components/OrderApp.tsx"), /servizio=\{aConsegna \? "consegna" : "ritiro"\}/);
+});
