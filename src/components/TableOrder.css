@@ -521,7 +521,7 @@
 }
 
 /* «Votre addition». */
-:where(.tbl-pagina .tbl-conto) { max-height: min(88dvh, 46rem); overflow-y: auto; }
+/* L'altezza fissa e i tre piani stanno in PaginaTavolo.astro (`.tbl-modale-box.tbl-conto`). */
 :where(.tbl-pagina .tbl-conto-stato) {
   margin: 0 0 .5rem; padding: .65rem .8rem; border-radius: .6rem;
   background: color-mix(in srgb, var(--tbl-ink) 14%, transparent); font-weight: 600; line-height: 1.35;
@@ -597,7 +597,8 @@
 :where(.tbl-pagina .tbl-paga-o)::before, :where(.tbl-pagina .tbl-paga-o)::after {
   content: ""; flex: 1; border-top: 1px solid var(--tbl-line);
 }
-:where(.tbl-pagina .tbl-paga + .tbl-btn) { margin-top: .2rem; }
+:where(.tbl-pagina .tbl-conto-piede .tbl-conto-totale) { margin-top: 0; border-top: 0; }
+:where(.tbl-pagina .tbl-conto-piede .tbl-conto-pagati) { margin-top: -.4rem; }
 /* «Payer · resto» in fondo: la pillola del carrello, a carrello vuoto. */
 :where(.tbl-pagina .order-mobcart--paga) { padding-left: 1.2rem; justify-content: space-between; }
 

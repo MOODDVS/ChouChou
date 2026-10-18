@@ -327,6 +327,9 @@ interface OrderAppProps {
        *  resto» e apre la schermata del pagamento della pagina. Con un
        *  piatto nel carrello torna la pillola del carrello. */
       paga?: { etichetta: string; totale_cents: number; apri: () => void };
+      /** Questo telefono ha GIA' accettato le condizioni ordinando su questo
+       *  conto: la casella non si richiede a ogni giro. */
+      consensoDato?: boolean;
     } | null;
   } | null;
   /**
@@ -611,7 +614,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
       setCouponMsg(null);
     }
   }
-  const [accettato, setAccettato] = useState(false);
+  const [accettatoQui, setAccettato] = useState(false);
+  /* ⚠️ NEL CONTO APERTO LE CONDIZIONI SI ACCETTANO UNA VOLTA: chi ha gia'
+     ordinato su questo conto da questo telefono le ha accettate allora, e
+     richiederle a ogni giro (acqua, caffe') e' solo un ostacolo. */
+  const consensoGiaDato = tavolo?.conto?.modo === "aggiungi" && tavolo.conto.consensoDato === true;
+  const accettato = accettatoQui || consensoGiaDato;
 
   const [invio, setInvio] = useState(false);
   /* ⚠️ IL TASTO INDIETRO DEL TELEFONO, DA STRIPE. Il browser puo' rimettere
@@ -1653,6 +1661,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
               {couponMsg && <p className="order-coupon-msg">{couponMsg}</p>}
             </div>
             )}
+            {!consensoGiaDato && (
             <label className="order-consent">
               <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} />
               <span>
@@ -1660,6 +1669,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 <a href={t.privacyHref} target="_blank" rel="noopener">{t.consentLink}</a>
               </span>
             </label>
+            )}
             {/* LA MANCIA, sopra il totale: e' l'ultima scelta prima di pagare,
                 e il totale qui sotto la mostra subito. Classi da vestire:
                 `order-mancia`, `order-mancia-btn` (+ `is-selected`). */}

@@ -451,10 +451,28 @@ test("«Payer»: un bottone, poi online o il cameriere; in fondo al posto del ca
   assert.match(to, /if \(modo === "ordine" && tavoloBloccato\.current\) \{\s*setPagaAperto\(false\);\s*setAdditionAperta\(true\);/);
   // La modale ha UN bottone «Payer», che porta alle due strade.
   assert.match(to, /onClick=\{apriPaga\}>\s*\{tc\.pagaTit\}/);
-  assert.match(to, /\{puoPagare && pag && \(/);
+  assert.match(to, /\{puoPagare && pag \? \(/);
   assert.match(to, /className=\{puoPagare \? "tbl-btn tbl-btn--vuoto" : "tbl-btn"\}/);
   // La pillola: solo a carrello vuoto, con il resto da pagare.
   assert.match(to, /paga: statoConto\.dati\.invii\.length > 0/);
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /linee\.length === 0 && tavolo\?\.conto\?\.paga \? \(/);
+});
+
+test("«Votre commande»: altezza fissa, scorre solo il corpo (QR e invii)", () => {
+  const to = nudo("src/components/TableOrder.tsx");
+  assert.match(to, /<div className="tbl-conto-corpo">/);
+  assert.match(to, /<div className="tbl-conto-piede">/);
+  const pag = leggi("src/components/PaginaTavolo.astro");
+  assert.match(pag, /\.tbl-modale-box\.tbl-conto \{ display: flex; flex-direction: column; height: min\(86dvh, 46rem\);\s*max-height: none; overflow: hidden; \}/);
+  assert.match(pag, /\.tbl-conto-corpo \{ flex: 1 1 auto; min-height: 0; overflow-y: auto;/);
+  assert.equal(TESTI_CONTO.fr.titolo, "Votre commande");
+});
+
+test("nel conto le condizioni si accettano una volta sola", () => {
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /const consensoGiaDato = tavolo\?\.conto\?\.modo === "aggiungi" && tavolo\.conto\.consensoDato === true;/);
+  assert.match(app, /const accettato = accettatoQui \|\| consensoGiaDato;/);
+  assert.match(app, /\{!consensoGiaDato && \(\s*<label className="order-consent">/);
+  assert.match(nudo("src/components/TableOrder.tsx"), /consensoDato: statoConto\.dati\.invii\.some\(\(i\) => i\.righe\.some\(\(r\) => r\.mio\)\),/);
 });

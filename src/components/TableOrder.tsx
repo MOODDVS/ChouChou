@@ -863,6 +863,8 @@ export default function TableOrder({
     : statoConto.tipo === "membro"
       ? {
           modo: "aggiungi" as const, etichetta: tc.aggiungi, invio: tc.invio, invia: inviaAggiungi, fatto: contoFatto,
+          // Ha gia' ordinato su questo conto (quindi accettato le condizioni).
+          consensoDato: statoConto.dati.invii.some((i) => i.righe.some((r) => r.mio)),
           /* «Payer» in fondo, al posto della pillola del carrello quando il
              carrello e' vuoto: con un piatto dentro torna il carrello. */
           paga: statoConto.dati.invii.length > 0
@@ -1424,6 +1426,12 @@ export default function TableOrder({
             onClick={() => setAdditionAperta(false)}
             onKeyDown={(e) => { if (e.key === "Escape") setAdditionAperta(false); }}
           >
+            {/* ⚠️ TRE PIANI, e scorre SOLO quello di mezzo. In alto il titolo e
+                la × (si chiude sempre), in fondo il totale e i bottoni (si
+                paga sempre): tra i due il QR col codice e gli invii, che con
+                un tavolo da otto diventano lunghi. Il riquadro ha un'altezza
+                FISSA (PaginaTavolo.astro, `.tbl-modale-box.tbl-conto`): niente
+                scorrimento del riquadro intero sopra quello del corpo. */}
             <div className="tbl-modale-box tbl-conto" onClick={(e) => e.stopPropagation()}>
               <div className="tbl-modale-testa">
                 <p className="tbl-modale-tit">{pagaAperto ? tc.pagaTit : tc.titolo}</p>
@@ -1432,140 +1440,150 @@ export default function TableOrder({
               </div>
               {pagaAperto ? (
                 /* «PAYER»: la seconda schermata. Due strade — online (se c'e')
-                   o il cameriere — e sopra quanto resta. Le classi da vestire:
-                   `tbl-paga`, `tbl-paga-scelta` (+ `is-selected`),
-                   `tbl-paga-mancia`, `tbl-paga-o`. */
+                   o il cameriere. Le classi da vestire: `tbl-paga`,
+                   `tbl-paga-scelta` (+ `is-selected`), `tbl-paga-mancia`,
+                   `tbl-paga-o`. */
                 <>
-                  <div className="tbl-conto-totale">
-                    <span>{pag && pag.pagato_cents > 0 ? tc.resta : tc.totale}</span>
-                    <strong>{euroConto(pag ? pag.resto_cents : d.totale_cents)}</strong>
-                  </div>
-                  {pag && pag.in_corso_cents > 0 && (
-                    <p className="tbl-conto-ordinato">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>
-                  )}
-                  {puoPagare && pag && (
-                    <>
-                      <p className="tbl-conto-lab">{tc.pagaOnline}</p>
-                      <div className="tbl-paga" role="group" aria-label={tc.pagaOnline}>
-                        {(["mine", "share", "rest"] as const).filter((k) => pag.scelte[k] > 0).map((k) => (
-                          <button
-                            key={k}
-                            type="button"
-                            className={"tbl-paga-scelta" + (sceltaPaga === k ? " is-selected" : "")}
-                            aria-pressed={sceltaPaga === k}
-                            onClick={() => setSceltaPaga(k)}
-                          >
-                            <span>{k === "mine" ? tc.pagaMio : k === "share" ? tc.pagaParte : tc.pagaResto}</span>
-                            <strong>{euroConto(pag.scelte[k])}</strong>
-                          </button>
-                        ))}
-                        {pag.mance && (
-                          <div className="tbl-paga-mancia" role="group" aria-label={tc.pagaMancia}>
-                            <span className="tbl-conto-lab">{tc.pagaMancia}</span>
-                            <div className="tbl-paga-mance">
-                              {[-1, 0, 1, 2].map((i) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  className={"tbl-paga-mancia-btn" + (manciaPaga === i ? " is-selected" : "")}
-                                  aria-pressed={manciaPaga === i}
-                                  onClick={() => setManciaPaga(i)}
-                                >
-                                  {i < 0 ? tc.pagaNessuna : pag.mance!.tipo === "percent" ? `${pag.mance!.valori[i]} %` : euroConto(pag.mance!.valori[i])}
-                                </button>
-                              ))}
+                  <div className="tbl-conto-corpo">
+                    {pag && pag.in_corso_cents > 0 && (
+                      <p className="tbl-conto-ordinato">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>
+                    )}
+                    {puoPagare && pag ? (
+                      <>
+                        <p className="tbl-conto-lab">{tc.pagaOnline}</p>
+                        <div className="tbl-paga" role="group" aria-label={tc.pagaOnline}>
+                          {(["mine", "share", "rest"] as const).filter((k) => pag.scelte[k] > 0).map((k) => (
+                            <button
+                              key={k}
+                              type="button"
+                              className={"tbl-paga-scelta" + (sceltaPaga === k ? " is-selected" : "")}
+                              aria-pressed={sceltaPaga === k}
+                              onClick={() => setSceltaPaga(k)}
+                            >
+                              <span>{k === "mine" ? tc.pagaMio : k === "share" ? tc.pagaParte : tc.pagaResto}</span>
+                              <strong>{euroConto(pag.scelte[k])}</strong>
+                            </button>
+                          ))}
+                          {pag.mance && (
+                            <div className="tbl-paga-mancia" role="group" aria-label={tc.pagaMancia}>
+                              <span className="tbl-conto-lab">{tc.pagaMancia}</span>
+                              <div className="tbl-paga-mance">
+                                {[-1, 0, 1, 2].map((i) => (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    className={"tbl-paga-mancia-btn" + (manciaPaga === i ? " is-selected" : "")}
+                                    aria-pressed={manciaPaga === i}
+                                    onClick={() => setManciaPaga(i)}
+                                  >
+                                    {i < 0 ? tc.pagaNessuna : pag.mance!.tipo === "percent" ? `${pag.mance!.valori[i]} %` : euroConto(pag.mance!.valori[i])}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                      <button type="button" className="tbl-btn" disabled={lavoroConto || !sceltaPaga || sceltaValida <= 0} onClick={() => void pagaAddizione()}>
-                        {tc.pagaBtn.replace("{x}", euroConto(importoDaPagare))}
-                      </button>
-                      <p className="tbl-paga-o"><span>{tc.oppure}</span></p>
-                    </>
-                  )}
-                  {/* Il cameriere c'e' SEMPRE: e' la strada di chi paga in
-                      contanti, e l'unica quando online non si puo'. */}
-                  <button
-                    type="button"
-                    className={puoPagare ? "tbl-btn tbl-btn--vuoto" : "tbl-btn"}
-                    disabled={lavoroConto || d.invii.length === 0}
-                    onClick={() => void chiediAddizione()}
-                  >
-                    {tc.chiedi}
-                  </button>
-                  <div className="tbl-avviso-zona" role="status">
-                    {msgConto && <p className="tbl-conto-msg">{msgConto}</p>}
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      inAttesa && <p className="tbl-conto-stato is-attesa">{tc.attesa}</p>
+                    )}
                   </div>
-                  <button type="button" className="tbl-conto-ancora" onClick={() => { setPagaAperto(false); setMsgConto(null); }}>
-                    {tc.pagaIndietro}
-                  </button>
+                  <div className="tbl-conto-piede">
+                    <div className="tbl-conto-totale">
+                      <span>{pag && pag.pagato_cents > 0 ? tc.resta : tc.totale}</span>
+                      <strong>{euroConto(pag ? pag.resto_cents : d.totale_cents)}</strong>
+                    </div>
+                    {msgConto && <p className="tbl-conto-msg" role="status">{msgConto}</p>}
+                    {puoPagare && (
+                      <>
+                        <button type="button" className="tbl-btn" disabled={lavoroConto || !sceltaPaga || sceltaValida <= 0} onClick={() => void pagaAddizione()}>
+                          {tc.pagaBtn.replace("{x}", euroConto(importoDaPagare))}
+                        </button>
+                        <p className="tbl-paga-o"><span>{tc.oppure}</span></p>
+                      </>
+                    )}
+                    {/* Il cameriere c'e' SEMPRE: e' la strada di chi paga in
+                        contanti, e l'unica quando online non si puo'. */}
+                    <button
+                      type="button"
+                      className={puoPagare ? "tbl-btn tbl-btn--vuoto" : "tbl-btn"}
+                      disabled={lavoroConto || d.invii.length === 0}
+                      onClick={() => void chiediAddizione()}
+                    >
+                      {tc.chiedi}
+                    </button>
+                    <button type="button" className="tbl-conto-ancora" onClick={() => { setPagaAperto(false); setMsgConto(null); }}>
+                      {tc.pagaIndietro}
+                    </button>
+                  </div>
                 </>
               ) : (
                 <>
-                  <p className={`tbl-conto-stato${inAttesa ? " is-attesa" : ""}`} role="status">{inAttesa ? tc.attesa : tc.aperta}</p>
-                  <p className="tbl-conto-ordinato">
-                    {tc.ordinato.replace("{n}", String(d.ordinato)).replace("{p}", String(d.persone))}
-                  </p>
-                  <div className="tbl-conto-invita">
-                    {d.invito_svg && <div className="tbl-conto-qr" aria-hidden="true" dangerouslySetInnerHTML={{ __html: d.invito_svg }} />}
-                    <div className="tbl-conto-invita-testo">
-                      <p className="tbl-conto-lab">{tc.invita}</p>
-                      <p className="tbl-conto-code">{d.code}</p>
-                      <p className="tbl-conto-aiuto">{tc.invitaTesto}</p>
+                  <div className="tbl-conto-corpo">
+                    <p className={`tbl-conto-stato${inAttesa ? " is-attesa" : ""}`} role="status">{inAttesa ? tc.attesa : tc.aperta}</p>
+                    <p className="tbl-conto-ordinato">
+                      {tc.ordinato.replace("{n}", String(d.ordinato)).replace("{p}", String(d.persone))}
+                    </p>
+                    <div className="tbl-conto-invita">
+                      {d.invito_svg && <div className="tbl-conto-qr" aria-hidden="true" dangerouslySetInnerHTML={{ __html: d.invito_svg }} />}
+                      <div className="tbl-conto-invita-testo">
+                        <p className="tbl-conto-lab">{tc.invita}</p>
+                        <p className="tbl-conto-code">{d.code}</p>
+                        <p className="tbl-conto-aiuto">{tc.invitaTesto}</p>
+                      </div>
                     </div>
-                  </div>
-                  {d.invii.length === 0 ? (
-                    <p className="tbl-conto-vuoto">{tc.vuoto}</p>
-                  ) : (
-                    d.invii.map((inv) => (
-                      <section className="tbl-conto-invio" key={inv.numero}>
-                        <p className="tbl-conto-invio-tit">
-                          {tc.invioN.replace("{k}", String(inv.numero))}
-                          <span className={`tbl-conto-invio-stato${inv.inviato ? " is-cucina" : ""}`}>{inv.inviato ? tc.inCucina : tc.inAttesa}</span>
-                        </p>
-                        {inv.righe.map((r, i) => (
-                          <div className={`tbl-conto-riga${r.mio ? " is-mia" : ""}`} key={i}>
-                            <div className="tbl-conto-chi">
-                              <strong>{r.nome}</strong>
-                              <span>{euroConto(r.totale_cents)}</span>
+                    {d.invii.length === 0 ? (
+                      <p className="tbl-conto-vuoto">{tc.vuoto}</p>
+                    ) : (
+                      d.invii.map((inv) => (
+                        <section className="tbl-conto-invio" key={inv.numero}>
+                          <p className="tbl-conto-invio-tit">
+                            {tc.invioN.replace("{k}", String(inv.numero))}
+                            <span className={`tbl-conto-invio-stato${inv.inviato ? " is-cucina" : ""}`}>{inv.inviato ? tc.inCucina : tc.inAttesa}</span>
+                          </p>
+                          {inv.righe.map((r, i) => (
+                            <div className={`tbl-conto-riga${r.mio ? " is-mia" : ""}`} key={i}>
+                              <div className="tbl-conto-chi">
+                                <strong>{r.nome}</strong>
+                                <span>{euroConto(r.totale_cents)}</span>
+                              </div>
+                              <ul className="tbl-conto-piatti">
+                                {r.piatti.map((p, j) => <li key={j}>{p.qty} × {p.nome}</li>)}
+                              </ul>
+                              {r.token && (
+                                <button type="button" className="tbl-conto-togli" onClick={() => void togliDalConto(r.token as string)}>
+                                  {tc.togli}
+                                </button>
+                              )}
                             </div>
-                            <ul className="tbl-conto-piatti">
-                              {r.piatti.map((p, j) => <li key={j}>{p.qty} × {p.nome}</li>)}
-                            </ul>
-                            {r.token && (
-                              <button type="button" className="tbl-conto-togli" onClick={() => void togliDalConto(r.token as string)}>
-                                {tc.togli}
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </section>
-                    ))
-                  )}
-                  <div className="tbl-conto-totale">
-                    <span>{tc.totale}</span>
-                    <strong>{euroConto(d.totale_cents)}</strong>
+                          ))}
+                        </section>
+                      ))
+                    )}
                   </div>
-                  {pag && (pag.pagato_cents > 0 || pag.in_corso_cents > 0) && (
-                    <div className="tbl-conto-pagati">
-                      {pag.pagato_cents > 0 && <p><span>{tc.giaPagato}</span><span>{euroConto(pag.pagato_cents)}</span></p>}
-                      {pag.in_corso_cents > 0 && <p className="is-in-corso">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>}
-                      <p className="tbl-conto-resta"><span>{tc.resta}</span><strong>{euroConto(pag.resto_cents)}</strong></p>
+                  <div className="tbl-conto-piede">
+                    <div className="tbl-conto-totale">
+                      <span>{tc.totale}</span>
+                      <strong>{euroConto(d.totale_cents)}</strong>
                     </div>
-                  )}
-                  <div className="tbl-avviso-zona" role="status">
-                    {msgConto && <p className="tbl-conto-msg">{msgConto}</p>}
-                  </div>
-                  {/* UN bottone, «Payer»: porta alla schermata delle due strade. */}
-                  {d.invii.length > 0 && (
-                    <button type="button" className="tbl-btn" disabled={lavoroConto} onClick={apriPaga}>
-                      {tc.pagaTit}
+                    {pag && (pag.pagato_cents > 0 || pag.in_corso_cents > 0) && (
+                      <div className="tbl-conto-pagati">
+                        {pag.pagato_cents > 0 && <p><span>{tc.giaPagato}</span><span>{euroConto(pag.pagato_cents)}</span></p>}
+                        {pag.in_corso_cents > 0 && <p className="is-in-corso">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>}
+                        <p className="tbl-conto-resta"><span>{tc.resta}</span><strong>{euroConto(pag.resto_cents)}</strong></p>
+                      </div>
+                    )}
+                    {msgConto && <p className="tbl-conto-msg" role="status">{msgConto}</p>}
+                    {/* UN bottone, «Payer»: porta alla schermata delle due strade. */}
+                    {d.invii.length > 0 && (
+                      <button type="button" className="tbl-btn" disabled={lavoroConto} onClick={apriPaga}>
+                        {tc.pagaTit}
+                      </button>
+                    )}
+                    <button type="button" className="tbl-conto-ancora" onClick={() => setAdditionAperta(false)}>
+                      {tc.ancora}
                     </button>
-                  )}
-                  <button type="button" className="tbl-conto-ancora" onClick={() => setAdditionAperta(false)}>
-                    {tc.ancora}
-                  </button>
+                  </div>
                 </>
               )}
             </div>
