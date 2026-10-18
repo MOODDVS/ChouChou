@@ -158,7 +158,9 @@ test("con due strade aperte, la carta e' quella preselezionata", () => {
   assert.match(app, /useState<"online" \| "onsite">\(\s*pagamento\.online \? "online" : "onsite",?\s*\)/);
   // La scelta compare solo dove c'e' da scegliere...
   // (sul conto aperto non si sceglie: si paga alla fine)
-  assert.match(app, /const scegliePagamento = pagamento\.online && pagamento\.locale && !soloConto;/);
+  // (col conto aperto al tavolo «sur place» non si sceglie: e' il conto)
+  assert.match(app, /const scegliePagamento = pagamento\.online && pagamento\.locale && !contoTav;/);
+  assert.match(app, /const pagaInCassa = !pagamento\.online \|\| \(pagamento\.locale && modoPagamento === "onsite" && !contoTav\);/);
   // ...e il ripiego e' il comportamento di sempre, per i siti che non la
   // passano: niente elementi nuovi e nudi il giorno del merge.
   assert.match(app, /pagamento = \{ online: true, locale: false, coupon: true, couponInCassa: false \}/);

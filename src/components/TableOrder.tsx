@@ -762,7 +762,12 @@ export default function TableOrder({
     : statoConto.tipo === "membro"
       ? { modo: "aggiungi" as const, etichetta: tc.aggiungi, invio: tc.invio, invia: inviaAggiungi, fatto: contoFatto }
       : statoConto.tipo === "nessuno"
-        ? { modo: "apri" as const, etichetta: tc.apri, sotto: tc.apriSotto, invio: tc.invio, invia: inviaApri, fatto: contoFatto }
+        /* ⚠️ DA SOLI non si «apre un conto»: si paga sul posto, alla fine.
+           E' lo stesso conto (convalida, ticket, addizione), detto con le
+           parole di chi e' seduto da solo. */
+        ? Number(persone) === 1
+          ? { modo: "apri" as const, etichetta: tc.apriSolo, sotto: tc.apriSoloSotto, invio: tc.invio, invia: inviaApri, fatto: contoFatto }
+          : { modo: "apri" as const, etichetta: tc.apri, sotto: tc.apriSotto, invio: tc.invio, invia: inviaApri, fatto: contoFatto }
         : null;
   const nelConto = statoConto?.tipo === "membro";
   const contoDiAltri = statoConto?.tipo === "altri" ? statoConto : null;

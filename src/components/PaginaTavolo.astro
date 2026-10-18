@@ -608,8 +608,15 @@ const testiOrdine = {
      La scritta gira piano: un bottone fermo in fondo allo schermo si
      confonde col resto, uno che si muove appena si trova. Con «riduci
      movimento» sta ferma. */
+  /* ⚠️ ATTACCATA ALLA COLONNA, NON ALLO SCHERMO. La pagina e' pensata per il
+     telefono: su un tablet o un computer resta una colonna di 34rem al
+     centro, e la campanella deve stare sul SUO bordo destro, accanto alla
+     pillola — non in fondo a destra dello schermo, a 60 cm dal resto.
+     `50% - 16rem` = il bordo interno della colonna (34rem meno 1rem di
+     margine per lato); sul telefono vince `1rem`. Le pillole in fondo
+     (TableOrder.css) usano la stessa misura. */
   .tbl-campanello { --tbl-chiama: #2563eb;
-                    position: fixed; z-index: 30; right: 1rem;
+                    position: fixed; z-index: 30; right: max(1rem, calc(50% - 16rem));
                     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
                     width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%;
                     display: grid; place-items: center; cursor: pointer;
@@ -625,7 +632,7 @@ const testiOrdine = {
   @keyframes tbl-giro { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .tbl-campanello-giro { animation: none; } }
   /* La conferma della chiamata: sopra la barra, dove si sta gia' guardando. */
-  .tbl-avviso-zona { position: fixed; z-index: 35; left: 1rem; right: 1rem;
+  .tbl-avviso-zona { position: fixed; z-index: 35; left: max(1rem, calc(50% - 16rem)); right: max(1rem, calc(50% - 16rem));
                      bottom: calc(1rem + 68px + env(safe-area-inset-bottom, 0px));
                      display: flex; justify-content: center; pointer-events: none; }
   .tbl-avviso { margin: 0; max-width: 28rem; padding: .8rem 1.1rem; border-radius: .8rem;

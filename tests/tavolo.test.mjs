@@ -1861,7 +1861,10 @@ test("la campanella si accende dai Réglages, spenta di ripiego", () => {
 
 test("la barra del carrello lascia il posto alla campanella", () => {
   const css = leggi("src/components/TableOrder.css");
-  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-mobcart\) \{ right: calc\(1rem \+ 56px \+ \.6rem\); \}/);
+  // ⚠️ Dal bordo della COLONNA, non dello schermo: su tablet e computer la
+  // pillola e la campanella restano dentro la carta, centrate con lei.
+  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-mobcart\) \{ right: calc\(max\(1rem, calc\(50% - 16rem\)\) \+ 56px \+ \.6rem\); \}/);
+  assert.match(TPAG, /\.tbl-campanello \{[\s\S]*?right: max\(1rem, calc\(50% - 16rem\)\);/);
   // Il cerchio e' alto quanto la barra (56px) e poggia sullo stesso fondo.
   assert.match(TPAG, /\.tbl-campanello \{[\s\S]*?bottom: calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\);[\s\S]*?width: 56px; height: 56px;/);
   assert.match(leggi("src/components/TableOrder.css"), /:where\(\.tbl-pagina \.order-mobcart\) \{[\s\S]*?min-height: 56px;/);
@@ -1961,7 +1964,7 @@ test("il timer della campanella: lo decide il server, sopravvive al ricaricament
 test("sui dati, «Retour au menu» e' una pillola in fondo, accanto alla campanella", () => {
   const css = leggi("src/components/TableOrder.css");
   assert.match(css, /:where\(\.tbl-pagina \.order-wrap:has\(\.order-cart--checkout\) > \.order-filterbar\) \{\s*position: fixed;/);
-  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-wrap:has\(\.order-cart--checkout\) > \.order-filterbar\) \{ right: calc\(1rem \+ 56px \+ \.6rem\); \}/);
+  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-wrap:has\(\.order-cart--checkout\) > \.order-filterbar\) \{ right: calc\(max\(1rem, calc\(50% - 16rem\)\) \+ 56px \+ \.6rem\); \}/);
   // Lo spazio in fondo, perche' il bottone per pagare non finisca sotto la pillola.
   assert.match(css, /:where\(\.tbl-pagina \.order-wrap:has\(\.order-cart--checkout\)\) \{ padding-bottom: 6rem; \}/);
   // Nel colore d'accento, come la pillola del carrello.

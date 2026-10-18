@@ -12,6 +12,9 @@
 export interface TestiConto {
   apri: string;
   apriSotto: string;
+  /** Da soli (1 persona): lo stesso conto, «Payer sur place». */
+  apriSolo: string;
+  apriSoloSotto: string;
   aggiungi: string;
   invio: string;
   giaAperto: string;
@@ -49,6 +52,7 @@ export interface TestiConto {
 export const TESTI_CONTO: Record<string, TestiConto> = {
   fr: {
     apri: "Ouvrir un compte", apriSotto: "Commandez maintenant, payez à la fin. Vos amis rejoignent avec un code.",
+    apriSolo: "Payer sur place", apriSoloSotto: "Commandez maintenant, payez à la fin.",
     aggiungi: "Ajouter à l’addition", invio: "Envoi…",
     giaAperto: "Une addition est déjà ouverte sur cette table ({i}). Entrez son code pour la rejoindre.",
     codice: "Code de l’addition", codicePh: "2 chiffres", unisciti: "Rejoindre",
@@ -70,6 +74,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
   },
   en: {
     apri: "Open a tab", apriSotto: "Order now, pay at the end. Your friends join with a code.",
+    apriSolo: "Pay on site", apriSoloSotto: "Order now, pay at the end.",
     aggiungi: "Add to the bill", invio: "Sending…",
     giaAperto: "A bill is already open at this table ({i}). Enter its code to join.",
     codice: "Bill code", codicePh: "2 digits", unisciti: "Join",
@@ -91,6 +96,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
   },
   it: {
     apri: "Apri un conto", apriSotto: "Ordina adesso, paga alla fine. I tuoi amici si uniscono con un codice.",
+    apriSolo: "Paga sul posto", apriSoloSotto: "Ordina adesso, paga alla fine.",
     aggiungi: "Aggiungi al conto", invio: "Invio…",
     giaAperto: "C’è già un conto aperto su questo tavolo ({i}). Inserisci il suo codice per unirti.",
     codice: "Codice del conto", codicePh: "2 cifre", unisciti: "Unisciti",
@@ -112,6 +118,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
   },
   nl: {
     apri: "Rekening openen", apriSotto: "Bestel nu, betaal op het einde. Je vrienden doen mee met een code.",
+    apriSolo: "Ter plaatse betalen", apriSoloSotto: "Bestel nu, betaal op het einde.",
     aggiungi: "Toevoegen aan de rekening", invio: "Verzenden…",
     giaAperto: "Aan deze tafel is al een rekening open ({i}). Geef de code in om mee te doen.",
     codice: "Code van de rekening", codicePh: "2 cijfers", unisciti: "Meedoen",
@@ -133,6 +140,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
   },
   es: {
     apri: "Abrir una cuenta", apriSotto: "Pida ahora, pague al final. Sus amigos se unen con un código.",
+    apriSolo: "Pagar en el local", apriSoloSotto: "Pida ahora, pague al final.",
     aggiungi: "Añadir a la cuenta", invio: "Enviando…",
     giaAperto: "Ya hay una cuenta abierta en esta mesa ({i}). Introduzca su código para unirse.",
     codice: "Código de la cuenta", codicePh: "2 cifras", unisciti: "Unirse",

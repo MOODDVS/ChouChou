@@ -159,8 +159,12 @@
    coprirebbe a meta'. */
 :where(.tbl-pagina .order-mobcart) {
   position: fixed; z-index: 30;
-  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  max-width: 32rem; margin: 0 auto;
+  /* ⚠️ I bordi della COLONNA, non dello schermo (vedi la campanella in
+     PaginaTavolo.astro): su un tablet o un computer la pillola resta larga
+     quanto la carta e centrata con lei, invece di spostarsi a sinistra per
+     far posto a una campanella lontana. Sul telefono vince `1rem`. */
+  left: max(1rem, calc(50% - 16rem)); right: max(1rem, calc(50% - 16rem));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   display: flex; align-items: center; gap: .7rem;
   min-height: 56px; padding: .5rem 1.1rem .5rem .6rem;
   border: 0; border-radius: 999px;
@@ -170,7 +174,7 @@
 }
 /* Con la campanella «Appeler le serveur» a destra (56px, vedi table.astro),
    la barra si accorcia e le lascia il posto: le due cose non si coprono mai. */
-:where(.tbl-pagina--campanello .order-mobcart) { right: calc(1rem + 56px + .6rem); }
+:where(.tbl-pagina--campanello .order-mobcart) { right: calc(max(1rem, calc(50% - 16rem)) + 56px + .6rem); }
 /* ⚠️ Accorciata dalla campanella, su un telefono la barra non ha posto per
    «Voir le panier»: a 375px diventava «Voir le pa…» e il totale andava a
    capo su due righe («23,00 / €»). Sotto i 420px resta il numero, il totale
@@ -189,11 +193,12 @@
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout)) { padding-bottom: 6rem; }
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout) > .order-filterbar) {
   position: fixed; z-index: 30; top: auto;
-  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  max-width: 32rem; margin: 0 auto; padding: 0;
+  left: max(1rem, calc(50% - 16rem)); right: max(1rem, calc(50% - 16rem));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  margin: 0; padding: 0;
   background: none; border: 0; transition: none;
 }
-:where(.tbl-pagina--campanello .order-wrap:has(.order-cart--checkout) > .order-filterbar) { right: calc(1rem + 56px + .6rem); }
+:where(.tbl-pagina--campanello .order-wrap:has(.order-cart--checkout) > .order-filterbar) { right: calc(max(1rem, calc(50% - 16rem)) + 56px + .6rem); }
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-filterbar-inner) { overflow: visible; }
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-tab) {
   flex: 1 1 auto; min-height: 56px; padding: .5rem 1.2rem;

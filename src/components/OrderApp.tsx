@@ -153,12 +153,14 @@ interface OrderStrings {
  * dire cinque siti che non compilano piu' il giorno del merge. Un cliente che
  * vuole parole sue le mette in `t`, e vincono le sue.
  */
-const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: string; ordina: string; ordinando: string }> = {
-  fr: { titolo: "Paiement", ora: "Payer maintenant par carte", ritiro: "Payer au retrait", ordina: "Commander", ordinando: "Envoi…" },
-  en: { titolo: "Payment", ora: "Pay now by card", ritiro: "Pay at pickup", ordina: "Place order", ordinando: "Sending…" },
-  it: { titolo: "Pagamento", ora: "Paga ora con la carta", ritiro: "Paga al ritiro", ordina: "Ordina", ordinando: "Invio…" },
-  nl: { titolo: "Betaling", ora: "Nu betalen met kaart", ritiro: "Betalen bij afhalen", ordina: "Bestellen", ordinando: "Versturen…" },
-  es: { titolo: "Pago", ora: "Pagar ahora con tarjeta", ritiro: "Pagar al recoger", ordina: "Pedir", ordinando: "Enviando…" },
+const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: string; sala: string; ordina: string; ordinando: string }> = {
+  /* `sala`: al tavolo non si ritira niente — «Payer au retrait» a chi e'
+     seduto vuol dire niente. Si paga sul posto, al cameriere o alla cassa. */
+  fr: { titolo: "Paiement", ora: "Payer maintenant par carte", ritiro: "Payer au retrait", sala: "Payer sur place", ordina: "Commander", ordinando: "Envoi…" },
+  en: { titolo: "Payment", ora: "Pay now by card", ritiro: "Pay at pickup", sala: "Pay on site", ordina: "Place order", ordinando: "Sending…" },
+  it: { titolo: "Pagamento", ora: "Paga ora con la carta", ritiro: "Paga al ritiro", sala: "Paga sul posto", ordina: "Ordina", ordinando: "Invio…" },
+  nl: { titolo: "Betaling", ora: "Nu betalen met kaart", ritiro: "Betalen bij afhalen", sala: "Ter plaatse betalen", ordina: "Bestellen", ordinando: "Versturen…" },
+  es: { titolo: "Pago", ora: "Pagar ahora con tarjeta", ritiro: "Pagar al recoger", sala: "Pagar en el local", ordina: "Pedir", ordinando: "Enviando…" },
 };
 
 /* LA CONSEGNA (Réglages → «Livraison»). Testi del motore come
@@ -506,8 +508,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     pagamento.online ? "online" : "onsite",
   );
   /** Si sceglie solo se c'e' qualcosa da scegliere. */
-  const scegliePagamento = pagamento.online && pagamento.locale && !soloConto;
-  const pagaInCassa = !pagamento.online || (pagamento.locale && modoPagamento === "onsite");
+  /* ⚠️ COL CONTO APERTO NON SI SCEGLIE «SUR PLACE». «Ouvrir un compte» e'
+     gia' il «pago dopo», e meglio: passa dalla convalida del cameriere e fa
+     un ticket per tavolo. Due modi di pagare dopo, uno accanto all'altro, non
+     si capiscono (18/10/2026): restano la carta subito e il conto. */
+  const scegliePagamento = pagamento.online && pagamento.locale && !contoTav;
+  const pagaInCassa = !pagamento.online || (pagamento.locale && modoPagamento === "onsite" && !contoTav);
   /** ⚠️ Il campo del codice sparisce quando il codice non varrebbe: meglio non
    *  mostrarlo che mostrarlo e poi rifiutarlo al momento di confermare. */
   const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa) && !soloConto;
@@ -1529,7 +1535,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 <span className="order-field-label">{tp.titolo}</span>
                 {([
                   { v: "online" as const, testo: tp.ora },
-                  { v: "onsite" as const, testo: aConsegna ? tc.pagaConsegna : tp.ritiro },
+                  { v: "onsite" as const, testo: aConsegna ? tc.pagaConsegna : inSala ? tp.sala : tp.ritiro },
                 ]).map((o) => (
                   <label key={o.v} className="order-pay-opt">
                     <input

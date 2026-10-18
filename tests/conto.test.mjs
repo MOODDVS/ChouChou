@@ -284,3 +284,11 @@ test("la stampa: l'addizione e' `customer`, l'invio unisce gli ordini; la richie
   // Senza la #87 la campanella continua a suonare.
   assert.match(nudo("src/pages/api/admin/table-calls.ts"), /if \(error\) \(\{ data, error \} = await sel\("id, table_id, table_label, caller_name, created_at"\)\);/);
 });
+
+
+test("col conto: niente «sur place» da scegliere; da soli il conto si chiama «Payer sur place»", () => {
+  const to = nudo("src/components/TableOrder.tsx");
+  assert.match(to, /\? Number\(persone\) === 1\s*\? \{ modo: "apri" as const, etichetta: tc\.apriSolo, sotto: tc\.apriSoloSotto,/);
+  for (const l of ["fr", "en", "it", "nl", "es"]) assert.ok(TESTI_CONTO[l].apriSolo && TESTI_CONTO[l].apriSoloSotto, l);
+  assert.equal(TESTI_CONTO.fr.apriSolo, "Payer sur place");
+});
