@@ -563,6 +563,11 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_table_call: "sede",
   orders_table_call_wait: "sede", // minuti prima di poter richiamare
   orders_table_choose: "sede",    // col piano, il cliente sceglie il tavolo (o da' solo il nome)
+  // Quando si ordina dal tavolo: orari d'apertura o service scelti, + margine.
+  // Della SEDE: Educazione ordina dal tavolo solo a pranzo, un altro punto no.
+  orders_table_hours: "sede",
+  orders_table_services: "sede",
+  orders_table_extend: "sede",
   orders_table_qr_sel: "sede",    // quali QR di sezione e di tavolo si stampano (JSON)
   // Orari di ritiro (d'apertura o dai service) e giorni in anticipo: sono
   // della CUCINA che prepara, cioe' del punto.

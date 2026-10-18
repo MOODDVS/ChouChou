@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { ambitoPubblicoChiesto, leggi, inserisci } from "../../lib/admin/sede";
 import { opzioniTavolo, tavoliDiSala, attesaChiamataDi } from "../../lib/ordiniOpzioni";
 import { servizioInCorso } from "../../lib/ordiniRegole";
-import { configGiornoEffettiva } from "../../lib/schedule";
+import { configSala } from "../../lib/schedule";
 import { fusoDi } from "../../lib/fuso";
 import { decidiChiamata, chiaveChiamata, FINESTRA_CHIAMATE_MIN, type ChiamataAperta } from "../../lib/chiamateRegole";
 import { normalizzaNome } from "../../lib/normalizzaNome";
@@ -66,7 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const fuso = await fusoDi(ambito);
   const adesso = DateTime.now();
-  const cfg = await configGiornoEffettiva(adesso, ambito);
+  const cfg = await configSala(adesso, ambito);
   if (!servizioInCorso(cfg, adesso.setZone(fuso).toFormat("HH:mm"))) {
     return json({ error: "service ferme" }, 409);
   }

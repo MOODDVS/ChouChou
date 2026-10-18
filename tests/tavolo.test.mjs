@@ -1495,7 +1495,7 @@ test("la pagina chiede «aperto?» con la stessa regola delle rotte", () => {
   const corpo = opz.slice(i, i + 700);
   // Gli stessi tre passi di /api/table-session: fuso, orari di oggi, regola.
   assert.match(corpo, /setZone\(await fusoDi\(ambito\)\)/);
-  assert.match(corpo, /configGiornoEffettiva\(ora, ambito\)/);
+  assert.match(corpo, /configSala\(ora, ambito\)/);
   assert.match(corpo, /servizioInCorso\(cfg, hhmm\)/);
   // Illeggibile = chiuso, come le rotte: meglio il modale di un rifiuto alla cassa.
   assert.match(corpo, /catch \{\n\s*return \{ aperto: false, riapre: null \};/);

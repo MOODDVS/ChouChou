@@ -7,7 +7,7 @@ import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno } from "../../lib/slots";
 import { fusoDi } from "../../lib/fuso";
-import { configGiornoEffettiva, configRitiro } from "../../lib/schedule";
+import { configSala, configRitiro } from "../../lib/schedule";
 import { giornoAmmesso, preavvisoDelServizio, soloOrariLiberi } from "../../lib/slotsApi";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
@@ -264,9 +264,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   /* ⚠️ DUE CONFIG, NON UNA. Da asporto contano gli orari di RITIRO — che
      possono seguire i service delle prenotazioni (`configRitiro`); al tavolo
-     contano gli orari d'APERTURA: un «Soir» chiuso perche' complet non deve
-     fermare chi e' gia' seduto. */
-  const config = aTavolo ? await configGiornoEffettiva(ora, ambitoPub) : await configRitiro(giornoRitiro, ambitoPub);
+     gli orari della SALA (`configSala`: d'apertura, o i service scelti per la
+     sala) — la stessa della pagina del QR. Un «Soir» chiuso perche' complet
+     non ferma comunque chi e' gia' seduto. */
+  const config = aTavolo ? await configSala(ora, ambitoPub) : await configRitiro(giornoRitiro, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
   }

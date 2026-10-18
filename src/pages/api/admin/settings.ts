@@ -21,7 +21,8 @@ import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
 import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { sceltaQr, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
-import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
+import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI, serviziDaConfig } from "../../../lib/ordiniGiorniRegole";
+import { fonteSala, FONTI_SALA, prolungaSala, PROLUNGHE_SALA, serviziSalaDaConfig, serviziDellaSala } from "../../../lib/salaOrariRegole";
 import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, MAX_CONSEGNE_LIMITE, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
@@ -211,6 +212,9 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_closed",
     "orders_table_call_wait",
     "orders_table_qr_sel",
+    "orders_table_hours",
+    "orders_table_services",
+    "orders_table_extend",
     "orders_slot_source",
     "orders_future_days",
     "orders_delivery_min_cents",
@@ -286,6 +290,32 @@ export const GET: APIRoute = async ({ request }) => {
     /* I minuti prima di poter richiamare il cameriere: gia' risolti col
        ripiego, come gli interruttori — la pagina non deve sapere che e' 5. */
     chiamata_attesa: attesaChiamata(cfg.get("orders_table_call_wait")),
+    /* Gli orari della SALA (`configSala`): la fonte, i service scelti (`null`
+       = tutti), il margine dopo la fine — gia' risolti. `sala_servizi_elenco`:
+       i service delle prenotazioni SALVATI, uno per chiave con i suoi orari,
+       per disegnare le pillole. `sala_servizi_orfani`: i scelti non esistono
+       piu' e la sala li sta seguendo tutti — la pagina lo dice. */
+    sala_fonte: fonteSala(cfg.get("orders_table_hours")),
+    sala_servizi: serviziSalaDaConfig(cfg.get("orders_table_services")),
+    sala_prolunga: prolungaSala(cfg.get("orders_table_extend")),
+    sala_servizi_elenco: (() => {
+      const elenco: { key: string; orari: string[] }[] = [];
+      for (const sv of serviziDaConfig(cfg.get("reservation_services"))) {
+        const riga = elenco.find((x) => x.key === sv.key);
+        const orario = `${sv.from}–${sv.to}`;
+        if (riga) riga.orari.push(orario);
+        else elenco.push({ key: sv.key, orari: [orario] });
+      }
+      /* ⚠️ Nell'ordine della GIORNATA, non in quello in cui sono stati
+         scritti: «Soir» prima di «Midi» si legge come un errore. «HH:mm» si
+         ordina come testo. */
+      for (const x of elenco) x.orari.sort();
+      return elenco.sort((x, y) => x.orari[0].localeCompare(y.orari[0]));
+    })(),
+    sala_servizi_orfani: serviziDellaSala(
+      serviziDaConfig(cfg.get("reservation_services")),
+      serviziSalaDaConfig(cfg.get("orders_table_services")),
+    ).orfana,
     /* Gli orari di ritiro: «hours» (apertura) o «services» (prenotazioni),
        e fino a quanti giorni in anticipo (0 = solo oggi). Gia' risolti. */
     ritiro_fonte: fonteOrari(cfg.get("orders_slot_source")),
@@ -438,6 +468,11 @@ export const PUT: APIRoute = async ({ request }) => {
     orders?: Record<string, boolean>;
     /** Minuti prima di poter richiamare il cameriere (1, 3, 5, 10). */
     chiamata_attesa?: number;
+    /** Orari della sala: "hours" | "services", i service scelti (chiavi; vuoto
+     *  = rifiutato con «services»), il margine in minuti (0, 30, 60, 90). */
+    sala_fonte?: string;
+    sala_servizi?: unknown;
+    sala_prolunga?: number;
     /** Da dove vengono gli orari di ritiro: "hours" o "services". */
     ritiro_fonte?: string;
     /** Giorni in anticipo per gli ordini da asporto: 0, 2, 7, 14, 30. */
@@ -803,6 +838,31 @@ export const PUT: APIRoute = async ({ request }) => {
       const err = await scriviConfig(ambitoPut, { orders_table_call_wait: String(v) });
       if (err) return json({ error: await msg("err.generalSave") }, 500);
     }
+  }
+
+  /* GLI ORARI DELLA SALA. ⚠️ «Services» senza nessun service scelto e' una
+     sala chiusa per sempre con l'interruttore acceso: si rifiuta, e si dice
+     perche' (per spegnerla c'e' l'interruttore). Tutti scelti → si salva
+     VUOTO = «tutti»: un service aggiunto domani vale anche per la sala. */
+  if (body.sala_fonte !== undefined && (FONTI_SALA as readonly string[]).includes(String(body.sala_fonte))) {
+    const coppie: Record<string, string> = { orders_table_hours: String(body.sala_fonte) };
+    if (body.sala_servizi !== undefined) {
+      const scelti = serviziSalaDaConfig(body.sala_servizi) ?? [];
+      // ⚠️ Riletti ADESSO: lo stesso salvataggio puo' aver appena cambiato i
+      // service delle prenotazioni (il blocco `reservations` qui sopra).
+      const servRes = (await leggiConfig(ambitoPut, ["reservation_services"])).valori.get("reservation_services");
+      const tutti = [...new Set(serviziDaConfig(servRes).map((s) => s.key))];
+      if (body.sala_fonte === "services" && tutti.length > 0 && !scelti.some((k) => tutti.includes(k))) {
+        return json({ error: await msg("err.tableServices") }, 400);
+      }
+      coppie.orders_table_services = tutti.every((k) => scelti.includes(k)) ? "" : JSON.stringify(scelti.filter((k) => tutti.includes(k)));
+    }
+    if (body.sala_prolunga !== undefined) {
+      const v = Number(body.sala_prolunga);
+      if ((PROLUNGHE_SALA as readonly number[]).includes(v)) coppie.orders_table_extend = String(v);
+    }
+    const err = await scriviConfig(ambitoPut, coppie);
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
   // ⚠️ Solo valori dell'elenco, come la campanella: un numero qualunque

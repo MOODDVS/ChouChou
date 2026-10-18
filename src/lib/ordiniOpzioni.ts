@@ -9,7 +9,7 @@
 import { leggi, leggiConfig, pagamentoOnlineAttivo, type Ambito } from "./admin/sede";
 import { DateTime } from "luxon";
 import { CHIAVI_ORDINI, acceso, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
-import { configGiornoEffettiva } from "./schedule";
+import { configSala } from "./schedule";
 import { fusoDi } from "./fuso";
 import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
 import { attesaChiamata } from "./chiamateRegole";
@@ -254,7 +254,7 @@ export interface StatoServizio {
 export async function statoServizioSala(ambito: Ambito): Promise<StatoServizio> {
   try {
     const ora = DateTime.now().setZone(await fusoDi(ambito));
-    const cfg = await configGiornoEffettiva(ora, ambito);
+    const cfg = await configSala(ora, ambito);
     const hhmm = ora.toFormat("HH:mm");
     if (servizioInCorso(cfg, hhmm)) return { aperto: true, riapre: null };
     return { aperto: false, riapre: prossimaApertura(cfg, hhmm) };

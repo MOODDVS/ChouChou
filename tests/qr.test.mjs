@@ -96,12 +96,12 @@ test("Réglages: tre generatori, le pillole accese sono la scelta salvata, «Gé
   const corpo = set.slice(i, set.indexOf("};", i));
   assert.match(corpo, /fetch\("\/api\/admin\/qr", \{\s*method: "PUT"/);
   assert.match(corpo, /body: JSON\.stringify\(\{ sezioni: spuntate\(boxSez\), tavoli: spuntate\(boxTav\) \}\)/);
-  assert.ok(corpo.indexOf("await fetch") < corpo.indexOf('location.href = "/admin/assets?tab=qr"'), "aperta prima del salvataggio, la scheda leggerebbe la scelta vecchia");
+  assert.ok(corpo.indexOf("await fetch") < corpo.indexOf("location.href = `/admin/assets?tab=qr&vedi=${vedi}`"), "aperta prima del salvataggio, la scheda leggerebbe la scelta vecchia");
   // ⚠️ Senza scelta del tavolo, solo il QR generico.
   assert.match(nudo("src/pages/admin/settings.astro"), /rigaTav\.style\.display = acceso && sceltaTavolo &&/);
 });
 
-test("Assets: una pagina sola, l'unico + la scelta salvata, filtrata sui tavoli veri", () => {
+test("Assets: tre filtri, l'unico + la scelta salvata, filtrata sui tavoli veri", () => {
   const qr = nudo("src/pages/api/admin/qr.ts");
   assert.match(qr, /const scelta = sceltaQr\(cfg\.valori\.get\("orders_table_qr_sel"\)\);/);
   assert.match(qr, /cartonciniScelti\(base, tavoli, scelta, sala\.conTavoli\)/);
@@ -109,10 +109,12 @@ test("Assets: una pagina sola, l'unico + la scelta salvata, filtrata sui tavoli 
   assert.doesNotMatch(qr, /searchParams\.get(All)?\("(modo|sel)"\)/, "la scelta si legge salvata, non dall'indirizzo");
   assert.match(leggi("src/lib/admin/sedeRegole.ts"), /orders_table_qr_sel: "sede",/);
   const as = nudo("src/pages/admin/assets.astro");
-  // Niente piu' schede «Un seul / Par section / Par table».
-  assert.doesNotMatch(as, /id="qr-modi"|data-qr=/);
-  assert.match(as, /\(\["unico", "sezione", "tavolo"\] as GenereQr\[\]\)/);
-  assert.match(as, /<h3 class="qr-gruppo">\$\{esc\(titoli\[g\]\)\}<\/h3>/);
+  // Filtri, non tutto in uno: si vede un gruppo per volta, e si stampa quello.
+  assert.match(as, /<div class="tabs tabs-sub" id="qr-filtri">/);
+  assert.match(as, /qrGriglia\.innerHTML = carteDelFiltro\(\)\.map/);
+  assert.match(as, /let carte = carteDelFiltro\(\)\.map\(\(x\) => x\.c\);/);
+  // Un filtro senza QR non compare.
+  assert.match(as, /b\.hidden = !generi\.has\(b\.dataset\.qr as GenereQr\);/);
 });
 
 test("Assets › QR codes: si vedono, si copiano, si stampano", () => {

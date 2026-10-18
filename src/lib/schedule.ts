@@ -5,6 +5,7 @@ import { type ConfigGiorno } from "./slots";
 import { fusoDi } from "./fuso";
 import { leggiOrari, applicaFiltro, leggi, leggiConfig, type Ambito } from "./admin/sede";
 import { fonteOrari, serviziDaConfig, finestreDaServizi, type ServizioOrari } from "./ordiniGiorniRegole";
+import { fonteSala, serviziSalaDaConfig, prolungaSala, finestreSala, type FonteSala } from "./salaOrariRegole";
 
 /**
  * Config oraria EFFETTIVA del giorno di `ora`:
@@ -244,3 +245,84 @@ export async function configRitiro(ora: DateTime, ambito: Ambito): Promise<Confi
   };
 }
 
+/* ───────── Gli orari della SALA ─────────
+ *
+ * ⚠️ UNA FUNZIONE SOLA per tutti quelli che chiedono «si puo' ordinare dal
+ * tavolo adesso?»: la pagina del QR (`statoServizioSala`), `/api/table-session`,
+ * `/api/table-call` e il checkout al tavolo. Se uno usasse gli orari d'apertura
+ * e un altro i service, la pagina mostrerebbe il menu e la cassa rifiuterebbe
+ * l'ordine dopo che il cliente ha composto il pranzo.
+ */
+
+interface DatiSala {
+  fonte: FonteSala;
+  servizi: ServizioOrari[];
+  scelta: string[] | null;
+  prolunga: number;
+}
+
+async function datiSala(ambito: Ambito): Promise<DatiSala> {
+  // ⚠️ Sotto `sched:ritiro`: `scadeOrariRitiro` (chiamata da ogni salvataggio
+  // dei Réglages) la svuota insieme agli orari di ritiro.
+  return cacheOr(`sched:ritiro:sala:${perAmbito(ambito)}`, async () => {
+    const { valori } = await leggiConfig(ambito, [
+      "orders_table_hours",
+      "orders_table_services",
+      "orders_table_extend",
+      "reservation_services",
+    ]);
+    return {
+      fonte: fonteSala(valori.get("orders_table_hours")),
+      servizi: serviziDaConfig(valori.get("reservation_services")),
+      scelta: serviziSalaDaConfig(valori.get("orders_table_services")),
+      prolunga: prolungaSala(valori.get("orders_table_extend")),
+    };
+  });
+}
+
+/**
+ * La config del giorno per la SALA: gli orari d'apertura, oppure — se il
+ * ristoratore l'ha scelto (`orders_table_hours = services`) — i service scelti
+ * di quel giorno, allungati del margine. Stessa forma di
+ * `configGiornoEffettiva`, quindi `servizioInCorso` e `prossimaApertura` non
+ * cambiano.
+ *
+ * ⚠️ I giorni chiusi del calendario chiudono anche qui; le chiusure dei
+ * SERVICE no (un «complet» non ferma chi e' seduto — `salaOrariRegole`).
+ * ⚠️ Config illeggibile, o nessun service definito: gli orari d'apertura,
+ * come prima. Mai una sala chiusa per un errore di lettura.
+ */
+export async function configSala(ora: DateTime, ambito: Ambito): Promise<ConfigGiorno | null> {
+  const base = await configGiornoEffettiva(ora, ambito);
+  if (!base) return null;
+  let dati: DatiSala;
+  try {
+    dati = await datiSala(ambito);
+  } catch {
+    return base;
+  }
+  if (dati.fonte === "hours" || dati.servizi.length === 0) return base;
+
+  const giorno = ora.setZone(await fusoDi(ambito));
+  const iso = giorno.toFormat("yyyy-MM-dd");
+  let sp: RigaSpeciale | undefined;
+  try {
+    sp = (await giorniSpeciali(ambito)).find((s) => s.date_from <= iso && s.date_to >= iso);
+  } catch { /* nessuno */ }
+  if (sp?.type === "closed") return { ...base, lunch_active: false, dinner_active: false };
+  const speciale = sp?.type === "open"
+    ? { services: Array.isArray(sp.services) ? (sp.services as unknown[]).map((x) => String(x)) : null }
+    : undefined;
+
+  const dow = giorno.weekday === 7 ? 0 : giorno.weekday;
+  const f = finestreSala(dati.servizi, dow, speciale, dati.scelta, dati.prolunga);
+  return {
+    ...base,
+    lunch_active: !!f.lunch,
+    lunch_open: f.lunch?.[0] ?? null,
+    lunch_close: f.lunch?.[1] ?? null,
+    dinner_active: !!f.dinner,
+    dinner_open: f.dinner?.[0] ?? null,
+    dinner_close: f.dinner?.[1] ?? null,
+  };
+}

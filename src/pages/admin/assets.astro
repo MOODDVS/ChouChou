@@ -257,32 +257,32 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           <div class="grid" id="doc-grid" style="display:none"></div>
         </section>
 
-        {/* I QR CODES DEI TAVOLI: si vedono, si copiano, si stampano. Una
-            pagina sola, in tre gruppi: il QR unico (sempre), le sezioni e i
-            tavoli SCELTI in Réglages › Cuisine («Générer» salva la scelta).
-            Quelli non scelti non compaiono ma continuano a funzionare. */}
+        {/* I QR CODES DEI TAVOLI: si vedono, si copiano, si stampano. Tre
+            filtri: il QR unico (sempre), le sezioni e i tavoli SCELTI in
+            Réglages › Cuisine («Générer» salva la scelta). Un filtro senza
+            QR non compare. Quelli non scelti continuano a funzionare. */}
         <section data-tab="qr" style="display:none">
-          <div class="qr-barra">
-            <p class="site-hint">{t("as.qrHint")}</p>
-            {/* La stampa in alto a destra, piena nel colore d'accento: e'
-                l'azione della scheda, e in fondo si perdeva dopo i QR. */}
+          <div class="tabs tabs-sub" id="qr-filtri">
+            <button type="button" class="tab" data-qr="unico" hidden>{t("as.qrFUnico")}</button>
+            <button type="button" class="tab" data-qr="sezione" hidden>{t("as.qrFSezione")}</button>
+            <button type="button" class="tab" data-qr="tavolo" hidden>{t("as.qrFTavolo")}</button>
+            {/* La stampa sulla STESSA riga dei filtri, in fondo a destra, piena
+                nel colore d'accento: stampa quelli del filtro acceso. */}
             <button type="button" class="btn btn-primary qr-stampa" id="qr-stampa" hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></svg>
               {t("set.ord.qrPrint")}
             </button>
           </div>
+          <p class="site-hint">{t("as.qrHint")}</p>
           <div class="state" id="qr-state">{t("sup.loading")}</div>
           {/* ⚠️ La STESSA scheda di tutti gli asset (`.card`: immagine, nome,
               etichette, bottoni tondi in fondo): un QR e' un asset come una
               foto, e deve sembrarlo. */}
-          <div class="qr-gruppi" id="qr-griglia" style="display:none"></div>
+          <div class="grid" id="qr-griglia" style="display:none"></div>
         </section>
         <style>
-          .qr-barra { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: .75rem; }
-          .qr-barra .site-hint { flex: 1 1 auto; margin: 0; }
-          .qr-barra .qr-stampa { flex-shrink: 0; }
-          .qr-gruppo { margin: 1.5rem 0 .6rem; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--c-muted); }
-          .qr-gruppo:first-child { margin-top: 0; }
+          #qr-filtri { align-items: center; }
+          #qr-filtri .qr-stampa { margin-left: auto; flex-shrink: 0; }
           /* Il QR su fondo BIANCO, sempre, al posto della foto: su un tema
              scuro un QR nero sul fondo della scheda non lo legge nessun
              telefono. Quadrato come le foto delle altre schede. */
@@ -981,9 +981,17 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         const qrState = document.getElementById("qr-state") as HTMLDivElement;
         const qrGriglia = document.getElementById("qr-griglia") as HTMLDivElement;
         const qrStampa = document.getElementById("qr-stampa") as HTMLButtonElement;
+        const qrFiltri = document.getElementById("qr-filtri") as HTMLDivElement;
         let qrCaricati = false;
         type GenereQr = "unico" | "sezione" | "tavolo";
         let qrCarte: { genere: GenereQr; titolo: string; sotto: string; link: string; svg: string }[] = [];
+        /* Il filtro acceso. «Générer» dei Réglages arriva con `?vedi=…`: si
+           apre sul gruppo appena generato. */
+        let qrFiltro: GenereQr = (["unico", "sezione", "tavolo"] as const).find(
+          (g) => g === new URLSearchParams(location.search).get("vedi"),
+        ) ?? "unico";
+        const carteDelFiltro = () => qrCarte.map((c, i) => ({ c, i })).filter((x) => x.c.genere === qrFiltro);
+        let disegnaQr = () => {};
         async function caricaQr() {
           qrCaricati = true;
           qrState.style.display = "";
@@ -1020,21 +1028,20 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
                   <a class="i-btn" href="${esc(c.link)}" target="_blank" rel="noopener" title="${esc(tr("as.qrOpen"))}" aria-label="${esc(tr("as.qrOpen"))}">${icoApri}</a>
                 </div>
               </div>`;
-            /* Tre gruppi, ognuno col suo titolo, nell'ordine dei Réglages. Un
-               gruppo senza cartoncini non compare. ⚠️ `data-i` resta l'indice
-               in `qrCarte`: copia e scarica lo leggono da li'. */
-            const titoli: Record<GenereQr, string> = {
-              unico: tr("set.ord.qrUnicoTitle"),
-              sezione: tr("set.ord.qrSezTitle"),
-              tavolo: tr("set.ord.qrTavTitle"),
+            /* Tre filtri, nell'ordine dei Réglages. Un filtro senza cartoncini
+               non compare; se quello chiesto non ne ha, si apre il primo che
+               ne ha (l'unico c'e' sempre). ⚠️ `data-i` resta l'indice in
+               `qrCarte`: copia e scarica lo leggono da li'. */
+            const generi = new Set(qrCarte.map((c) => c.genere));
+            if (!generi.has(qrFiltro)) qrFiltro = qrCarte[0].genere;
+            disegnaQr = () => {
+              qrFiltri.querySelectorAll<HTMLButtonElement>(".tab").forEach((b) => {
+                b.hidden = !generi.has(b.dataset.qr as GenereQr);
+                b.classList.toggle("is-active", b.dataset.qr === qrFiltro);
+              });
+              qrGriglia.innerHTML = carteDelFiltro().map((x) => carta(x.c, x.i)).join("");
             };
-            qrGriglia.innerHTML = (["unico", "sezione", "tavolo"] as GenereQr[])
-              .map((g) => {
-                const del = qrCarte.map((c, i) => ({ c, i })).filter((x) => x.c.genere === g);
-                if (del.length === 0) return "";
-                return `<h3 class="qr-gruppo">${esc(titoli[g])}</h3><div class="grid">${del.map((x) => carta(x.c, x.i)).join("")}</div>`;
-              })
-              .join("");
+            disegnaQr();
             qrState.style.display = "none";
             qrGriglia.style.display = "";
             qrStampa.hidden = false;
@@ -1042,6 +1049,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
             qrState.textContent = tr("res.connErr");
           }
         }
+        qrFiltri.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
+          const g = b?.dataset.qr as GenereQr | undefined;
+          if (!g || g === qrFiltro) return;
+          qrFiltro = g;
+          disegnaQr();
+        });
         /* «Scarica l'SVG»: il file del QR, per chi lo mette in un menu stampato,
            su un adesivo o lo passa a un grafico. SVG e non PNG: resta netto a
            qualunque misura, dal cartoncino al cavalletto in vetrina. Il nome
@@ -1081,9 +1095,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
            nello stesso tocco — dopo un'attesa di rete il browser la
            prenderebbe per un pop-up non chiesto e la bloccherebbe. */
         qrStampa.addEventListener("click", () => {
-          let carte = qrCarte;
-          // Solo il QR unico: un foglio intero di copie, una per tavolo da ritagliare.
-          if (carte.length === 1 && carte[0].genere === "unico") carte = Array.from({ length: 6 }, () => carte[0]);
+          // Si stampano quelli del filtro acceso.
+          let carte = carteDelFiltro().map((x) => x.c);
+          if (carte.length === 0) return;
+          // QR unico: un foglio intero di copie, una per tavolo da ritagliare.
+          if (qrFiltro === "unico") carte = Array.from({ length: 6 }, () => carte[0]);
           const invito = esc(tr("set.ord.qrCard"));
           const html = `<!doctype html><html><head><meta charset="utf-8"><title>QR</title><style>
             @page { size: A4; margin: 10mm; }
