@@ -309,3 +309,22 @@ test("con le zone il codice postale si sceglie da un menu, senza resta libero", 
   // Il nome della zona arriva al carrello: e' quello che il cliente legge.
   assert.match(nudo("src/pages/api/order-options.ts"), /zone: soglie\.zone\.map\(\(z\) => \(\{ nome: z\.nome, cap: z\.cap, costo_cents: z\.costo_cents \}\)\),/);
 });
+
+/* ───────── Punto 9: le altre email di una consegna ───────── */
+test("annullo, ritardo e modifica di una consegna parlano di consegna", () => {
+  const n = nudo("src/lib/notifications.ts");
+  // Cinque lingue, tutte le voci.
+  for (const voce of ["annLabel", "ritSubject", "ritTitle", "ritIntro", "ritEtichetta", "modSubject", "modEtichetta", "modDove"]) {
+    assert.equal((n.match(new RegExp(`\\n    ${voce}: `, "g")) ?? []).length, 5, `manca ${voce} in qualche lingua`);
+  }
+  assert.match(n, /const etichettaOra = o\.consegna \? pick5\(TXT_CONSEGNA_ALTRE, o\.lang\)\.annLabel : t\.pickupLabel;/);
+  assert.match(n, /const tca = o\.consegna && variante === "ritardo" \? pick5\(TXT_CONSEGNA_ALTRE, o\.lang\) : null;/);
+  assert.match(n, /subject: tca \? tca\.modSubject\(o\.numero, ora\) : t\.subject\(o\.numero, ora\),/);
+  assert.match(n, /subject: kc \? kc\.subjAnnul\(o\.numero, ora\) : k\.subjAnnul\(o\.numero, ora\),/);
+  // Chi manda queste email passa la consegna.
+  assert.match(nudo("src/pages/api/admin/order-delay.ts"), /consegna: await consegnaDellOrdine\(/);
+  assert.match(nudo("src/pages/api/order-cancel.ts"), /consegna: await consegnaDellOrdine\(/);
+  const ord = nudo("src/pages/api/admin/orders.ts");
+  assert.equal((ord.match(/consegna: await consegnaDellOrdine\(/g) ?? []).length, 2, "annullo e modifica");
+  assert.match(ord, /mancia_cents: await manciaDellOrdine\(/);
+});

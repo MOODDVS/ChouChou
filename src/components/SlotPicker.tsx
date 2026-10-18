@@ -40,6 +40,18 @@ const PAROLE_GIORNO: Record<string, [string, string]> = {
   de: ["Heute", "Morgen"],
 };
 
+/* ⚠️ NESSUN ORARIO DI CONSEGNA non vuol dire «commandes fermées»: il ritiro
+   puo' essere ancora aperto (la consegna parte piu' tardi, o i fattorini sono
+   tutti fuori). Il messaggio di sempre farebbe andar via chi potrebbe ancora
+   passare a prenderla. */
+const CONSEGNA_CHIUSA: Record<string, string> = {
+  fr: "Plus de livraison possible pour ce jour — le retrait reste possible.",
+  en: "No more deliveries for this day — pickup is still available.",
+  it: "Nessuna consegna possibile per questo giorno — il ritiro resta possibile.",
+  nl: "Geen levering meer mogelijk voor deze dag — afhalen blijft mogelijk.",
+  es: "No quedan entregas para este día — la recogida sigue siendo posible.",
+};
+
 function etichettaGiorno(iso: string, oggi: string, lingua: string): string {
   const parole = PAROLE_GIORNO[lingua] ?? PAROLE_GIORNO.fr;
   const diff = Math.round((Date.parse(iso) - Date.parse(oggi)) / 86_400_000);
@@ -186,7 +198,11 @@ export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, se
   } else if (stato === "errore") {
     corpo = <p className="slotpicker-msg">{t("slot.error")}</p>;
   } else if (stato === "chiuso") {
-    corpo = <p className="slotpicker-msg">{t("slot.closed")}</p>;
+    corpo = (
+      <p className="slotpicker-msg">
+        {servizio === "consegna" ? (CONSEGNA_CHIUSA[lingua ?? lang] ?? CONSEGNA_CHIUSA.fr) : t("slot.closed")}
+      </p>
+    );
   } else {
     // I label "Midi"/"Soir" servono solo con orario spezzato: se il servizio
     // è continuato (una sola fascia con slot) si mostrano solo gli orari.

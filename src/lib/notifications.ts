@@ -171,6 +171,81 @@ export interface OrdineNotifica {
   mancia_cents?: number;
 }
 
+/**
+ * LE ALTRE EMAIL DI UNA CONSEGNA: annullo, ritardo, modifica. Erano scritte
+ * solo per il ritiro — «retrait décalé à 20:15» a chi aspetta il fattorino.
+ * Un dizionario a parte e non tre varianti dentro TXT_ANN/TXT_STATO/TXT_MOD:
+ * cambiano poche parole, e cosi' si vede in un colpo solo che ci sono tutte e
+ * cinque le lingue.
+ */
+const TXT_CONSEGNA_ALTRE: Record<string, {
+  annLabel: string;
+  ritSubject: (num: string, ora: string) => string;
+  ritTitle: string;
+  ritIntro: (name: string, num: string, prima: string) => string;
+  ritEtichetta: string;
+  modSubject: (num: string, ora: string) => string;
+  modEtichetta: string;
+  modTimeLbl: string;
+  modDove: string;
+}> = {
+  fr: {
+    annLabel: "Livraison initialement prévue",
+    ritSubject: (num, ora) => `Commande #${num} — livraison décalée vers ${ora}`,
+    ritTitle: "Livraison décalée",
+    ritIntro: (name, num, prima) => `Bonjour ${name},<br>votre commande #${num}, prévue vers ${prima}, sera livrée un peu plus tard. Désolés pour l'attente.`,
+    ritEtichetta: "Nouvelle heure de livraison",
+    modSubject: (num, ora) => `Commande #${num} modifiée — livraison vers ${ora}`,
+    modEtichetta: "Livraison prévue vers",
+    modTimeLbl: "Heure de livraison",
+    modDove: "Adresse de livraison",
+  },
+  en: {
+    annLabel: "Delivery originally planned",
+    ritSubject: (num, ora) => `Order #${num} — delivery moved to around ${ora}`,
+    ritTitle: "Delivery moved",
+    ritIntro: (name, num, prima) => `Hello ${name},<br>your order #${num}, due around ${prima}, will be delivered a little later. Sorry for the wait.`,
+    ritEtichetta: "New delivery time",
+    modSubject: (num, ora) => `Order #${num} updated — delivery around ${ora}`,
+    modEtichetta: "Delivery around",
+    modTimeLbl: "Delivery time",
+    modDove: "Delivery address",
+  },
+  it: {
+    annLabel: "Consegna inizialmente prevista",
+    ritSubject: (num, ora) => `Ordine #${num} — consegna spostata verso le ${ora}`,
+    ritTitle: "Consegna spostata",
+    ritIntro: (name, num, prima) => `Ciao ${name},<br>il tuo ordine #${num}, previsto verso le ${prima}, arriverà un po' più tardi. Ci scusiamo per l'attesa.`,
+    ritEtichetta: "Nuovo orario di consegna",
+    modSubject: (num, ora) => `Ordine #${num} modificato — consegna verso le ${ora}`,
+    modEtichetta: "Consegna prevista verso le",
+    modTimeLbl: "Orario di consegna",
+    modDove: "Indirizzo di consegna",
+  },
+  nl: {
+    annLabel: "Levering oorspronkelijk gepland",
+    ritSubject: (num, ora) => `Bestelling #${num} — levering verzet naar rond ${ora}`,
+    ritTitle: "Levering verzet",
+    ritIntro: (name, num, prima) => `Hallo ${name},<br>uw bestelling #${num}, voorzien rond ${prima}, wordt iets later geleverd. Sorry voor het wachten.`,
+    ritEtichetta: "Nieuw levertijdstip",
+    modSubject: (num, ora) => `Bestelling #${num} gewijzigd — levering rond ${ora}`,
+    modEtichetta: "Levering rond",
+    modTimeLbl: "Levertijd",
+    modDove: "Leveradres",
+  },
+  es: {
+    annLabel: "Entrega prevista inicialmente",
+    ritSubject: (num, ora) => `Pedido #${num} — entrega aplazada hacia las ${ora}`,
+    ritTitle: "Entrega aplazada",
+    ritIntro: (name, num, prima) => `Hola ${name},<br>su pedido #${num}, previsto hacia las ${prima}, llegará un poco más tarde. Disculpe la espera.`,
+    ritEtichetta: "Nueva hora de entrega",
+    modSubject: (num, ora) => `Pedido #${num} modificado — entrega hacia las ${ora}`,
+    modEtichetta: "Entrega prevista hacia las",
+    modTimeLbl: "Hora de entrega",
+    modDove: "Dirección de entrega",
+  },
+};
+
 /** «Pourboire» nelle cinque lingue: email al cliente (sua lingua) e alla
  *  cucina (lingua dell'admin). */
 const TXT_MANCIA_EMAIL: Record<string, string> = { fr: "Pourboire", en: "Tip", it: "Mancia", nl: "Fooi", es: "Propina" };
@@ -212,12 +287,12 @@ function rigaCostoConsegna(
               <td style="padding:${pad};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(c)}</td>
             </tr>`;
 }
-const K_CONSEGNA: Record<string, { at: string; subject: (num: string, ora: string) => string; mappa: string; costo: string }> = {
-  fr: { at: "Livraison à", subject: (num, ora) => `Nouvelle commande #${num} — LIVRAISON ${ora}`, mappa: "Ouvrir le plan", costo: "Livraison" },
-  en: { at: "Delivery at", subject: (num, ora) => `New order #${num} — DELIVERY ${ora}`, mappa: "Open map", costo: "Delivery" },
-  it: { at: "Consegna alle", subject: (num, ora) => `Nuovo ordine #${num} — CONSEGNA ${ora}`, mappa: "Apri la mappa", costo: "Consegna" },
-  nl: { at: "Levering om", subject: (num, ora) => `Nieuwe bestelling #${num} — LEVERING ${ora}`, mappa: "Kaart openen", costo: "Levering" },
-  es: { at: "Entrega a las", subject: (num, ora) => `Nuevo pedido #${num} — ENTREGA ${ora}`, mappa: "Abrir el mapa", costo: "Entrega" },
+const K_CONSEGNA: Record<string, { at: string; subject: (num: string, ora: string) => string; mappa: string; costo: string; subjAnnul: (num: string, ora: string) => string }> = {
+  fr: { at: "Livraison à", subject: (num, ora) => `Nouvelle commande #${num} — LIVRAISON ${ora}`, mappa: "Ouvrir le plan", costo: "Livraison", subjAnnul: (num, ora) => `❌ Commande #${num} ANNULÉE par le client — LIVRAISON ${ora}` },
+  en: { at: "Delivery at", subject: (num, ora) => `New order #${num} — DELIVERY ${ora}`, mappa: "Open map", costo: "Delivery", subjAnnul: (num, ora) => `❌ Order #${num} CANCELLED by the customer — DELIVERY ${ora}` },
+  it: { at: "Consegna alle", subject: (num, ora) => `Nuovo ordine #${num} — CONSEGNA ${ora}`, mappa: "Apri la mappa", costo: "Consegna", subjAnnul: (num, ora) => `❌ Ordine #${num} ANNULLATO dal cliente — CONSEGNA ${ora}` },
+  nl: { at: "Levering om", subject: (num, ora) => `Nieuwe bestelling #${num} — LEVERING ${ora}`, mappa: "Kaart openen", costo: "Levering", subjAnnul: (num, ora) => `❌ Bestelling #${num} GEANNULEERD door de klant — LEVERING ${ora}` },
+  es: { at: "Entrega a las", subject: (num, ora) => `Nuevo pedido #${num} — ENTREGA ${ora}`, mappa: "Abrir el mapa", costo: "Entrega", subjAnnul: (num, ora) => `❌ Pedido #${num} CANCELADO por el cliente — ENTREGA ${ora}` },
 };
 
 function euro(cents: number): string {
@@ -604,6 +679,8 @@ async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promis
   const ora = oraRitiro(o.pickup_time, fuso);
   const giorno = new Date(o.pickup_time).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   const pickupVal = `${giorno} · ${ora}`;
+  // Una consegna annullata dice «livraison», non «retrait».
+  const etichettaOra = o.consegna ? pick5(TXT_CONSEGNA_ALTRE, o.lang).annLabel : t.pickupLabel;
   const importo = euro(opts.refund_cents ?? o.total_cents);
 
   // Blocco condizionale in base al metodo di pagamento
@@ -663,7 +740,7 @@ async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promis
               <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">#${esc(o.numero)}</td>
             </tr>
             <tr>
-              <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${t.pickupLabel}</td>
+              <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${etichettaOra}</td>
               <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${pickupVal}</td>
             </tr>
             ${rigaImporto}
@@ -828,14 +905,24 @@ async function emailStatoOrdine(
 
   /* Ordinato dal tavolo e da ritirare al banco: «venez la chercher au
      comptoir», non un generico «venez la chercher» che fa pensare alla porta. */
+  /* ⚠️ IL RITARDO DI UNA CONSEGNA parla di consegna: «livraison décalée»,
+     «sera livrée un peu plus tard». Le parole del ritiro («sera prête»,
+     «retrait décalé») farebbero pensare di dover passare a prenderla. */
+  const tca = o.consegna && variante === "ritardo" ? pick5(TXT_CONSEGNA_ALTRE, o.lang) : null;
   const intro = variante === "pronto"
     ? (o.sala?.alBanco
         ? (v as (typeof TXT_STATO)["fr"]["pronto"]).introBanco
         : (v as (typeof TXT_STATO)["fr"]["pronto"]).intro)(esc(o.customer_name), esc(o.numero))
-    : (v as (typeof TXT_STATO)["fr"]["ritardo"]).intro(esc(o.customer_name), esc(o.numero), esc(oraPrima));
+    : tca
+      ? tca.ritIntro(esc(o.customer_name), esc(o.numero), esc(oraPrima))
+      : (v as (typeof TXT_STATO)["fr"]["ritardo"]).intro(esc(o.customer_name), esc(o.numero), esc(oraPrima));
   const subject = variante === "pronto"
     ? (v as (typeof TXT_STATO)["fr"]["pronto"]).subject(o.numero)
-    : (v as (typeof TXT_STATO)["fr"]["ritardo"]).subject(o.numero, oraGrande);
+    : tca
+      ? tca.ritSubject(o.numero, oraGrande)
+      : (v as (typeof TXT_STATO)["fr"]["ritardo"]).subject(o.numero, oraGrande);
+  const titolo = tca ? tca.ritTitle : v.title;
+  const etichetta = tca ? tca.ritEtichetta : v.etichetta;
 
   const html = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
@@ -848,7 +935,7 @@ async function emailStatoOrdine(
       </tr>
       <tr>
         <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
-          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${v.title}</h1>
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${titolo}</h1>
           <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${intro}</p>
         </td>
       </tr>
@@ -856,7 +943,7 @@ async function emailStatoOrdine(
         <td class="em-pad" style="padding:28px 44px 6px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
-              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${v.etichetta}</p>
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichetta}</p>
               <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraInGrande(oraGrande)}</p>
             </td></tr>
           </table>
@@ -1140,6 +1227,8 @@ async function emailModificaCliente(
   }
   if (!o.customer_email?.trim()) return;
   const t = pick5(TXT_MOD, o.lang);
+  // Una consegna modificata parla di consegna, e dice ancora dove.
+  const tca = o.consegna ? pick5(TXT_CONSEGNA_ALTRE, o.lang) : null;
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time, fuso, o.lang ?? "fr");
   const dati = await datiRistorante(ambito);
@@ -1213,11 +1302,12 @@ async function emailModificaCliente(
         <td class="em-pad" style="padding:28px 44px 6px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
-              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${tca ? tca.modEtichetta : t.pickup}</p>
               <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${oraInGrande(ora)}</p>
               ${wasHtml}
             </td></tr>
           </table>
+          ${o.consegna ? `<p style="margin:14px 0 0;color:${tema.text};font-size:15px;line-height:1.6;text-align:center;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${tca?.modDove ?? ""}</strong><br>${esc(o.consegna.indirizzo)}</p>` : ""}
         </td>
       </tr>
       <tr>
@@ -1226,6 +1316,8 @@ async function emailModificaCliente(
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">
             ${lineRows}
             ${noteHtml}
+            ${rigaCostoConsegna(o.consegna ?? null, pick5(TXT_CONSEGNA_CLIENTE, o.lang).costo, tema, "13px 22px 0")}
+            ${rigaImporto(pick5(TXT_MANCIA_EMAIL, o.lang), o.mancia_cents, tema, "13px 22px 0")}
             ${totalRow}
           </table>
         </td>
@@ -1249,7 +1341,7 @@ async function emailModificaCliente(
     await spedisci("modification commande client", {
       from,
       to: o.customer_email,
-      subject: t.subject(o.numero, ora),
+      subject: tca ? tca.modSubject(o.numero, ora) : t.subject(o.numero, ora),
       bcc: BCC,
       html: avvolgiTema(html, tema),
     });
@@ -1554,6 +1646,9 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
   const ora = oraRitiro(o.pickup_time, fuso, await adminLang().catch(() => "fr"));
   const tema = await temaEmail();
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
+  // Una consegna annullata: «LIVRAISON» nell'oggetto e in testa — il
+  // fattorino non deve uscire, e chi legge deve capirlo dal primo sguardo.
+  const kc = o.consegna ? K_CONSEGNA[await adminLang().catch(() => "fr" as const)] ?? K_CONSEGNA.fr : null;
   const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CUCINA);
 
   // Rosso, non il colore del marchio: questa e' l'unica email che chiede di
@@ -1573,7 +1668,7 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
       </tr>
       <tr>
         <td class="em-pad" style="padding:16px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
-          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${k.pickupAt}</p>
+          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${kc ? kc.at : k.pickupAt}</p>
           <p class="em-big" style="margin:6px 0 0;color:${ROSSO};font-size:52px;font-weight:bold;line-height:1;text-decoration:line-through;">${oraInGrande(ora)}</p>
           <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
         </td>
@@ -1601,7 +1696,7 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
-      subject: k.subjAnnul(o.numero, ora),
+      subject: kc ? kc.subjAnnul(o.numero, ora) : k.subjAnnul(o.numero, ora),
       html: avvolgiTema(html, tema),
     });
   } catch (e) {

@@ -18,6 +18,9 @@ import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA, avvisaChePronto, alTavo
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { applicaStatoSede } from "../../../lib/menuStato";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine, emailOrdinePronto } from "../../../lib/notifications";
+// Consegna e mancia dell'ordine, per le email di annullo e di modifica: senza,
+// parlerebbero di «retrait» a chi aspetta il fattorino.
+import { consegnaDellOrdine, manciaDellOrdine } from "../../../lib/consegnaOrdine";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -729,6 +732,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       items: [] as { name: string; qty: number; price_cents: number }[],
       total_cents: totale,
       lang: String(prima.lang ?? "fr"),
+      consegna: await consegnaDellOrdine(String(prima.id), contoAnn.modo === "sede" ? contoAnn.id : null),
     };
     // NON si aspetta l'email: l'annullamento e' gia scritto nel database e
     // la risposta deve tornare subito, altrimenti l'admin resta fermo per
@@ -1012,6 +1016,8 @@ export const PUT: APIRoute = async ({ request }) => {
     items: itemsOrdine,
     total_cents: totale,
     lang,
+    consegna: await consegnaDellOrdine(id, conto.modo === "sede" ? conto.id : null),
+    mancia_cents: await manciaDellOrdine(id, conto.modo === "sede" ? conto.id : null),
   };
 
   // Diff ordine per l'email "cosa è cambiato": lista unione vecchio+nuovo,
