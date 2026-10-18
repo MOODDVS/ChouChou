@@ -22,7 +22,7 @@ import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
-import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, MAX_CONSEGNE_LIMITE } from "../../../lib/consegnaRegole";
+import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, MAX_CONSEGNE_LIMITE, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
 export const prerender = false;
@@ -219,6 +219,7 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_tips_type",
     "orders_delivery_delay",
     "orders_delivery_max",
+    "orders_delivery_zones",
     "orders_tips_values",
     "daily_brief_enabled",
     "daily_brief_hour",
@@ -296,6 +297,7 @@ export const GET: APIRoute = async ({ request }) => {
     consegna_costo_cents: sogliaCents(cfg.get("orders_delivery_fee_cents")),
     consegna_ritardo: ritardoConsegna(cfg.get("orders_delivery_delay")),
     consegna_max: maxConsegne(cfg.get("orders_delivery_max")),
+    consegna_zone: zoneDaConfig(cfg.get("orders_delivery_zones")),
     /* Le mance: tipo e tre valori gia' risolti (percentuali intere o
        centesimi), col ripiego dentro — la pagina non deve sapere che e' 5/10/15. */
     mance_tipo: tipoMance(cfg.get("orders_tips_type")),
@@ -447,6 +449,8 @@ export const PUT: APIRoute = async ({ request }) => {
     consegna_ritardo?: number;
     /** Consegne per orario, come scritte («2», vuoto = nessun limite). */
     consegna_max?: unknown;
+    /** Le zone come scritte nella pagina: nome, codici, costo in €. */
+    consegna_zone?: unknown;
     /** Le mance: "percent" | "fixed", e i tre valori come scritti nella pagina. */
     mance_tipo?: string;
     mance_valori?: unknown;
@@ -850,6 +854,24 @@ export const PUT: APIRoute = async ({ request }) => {
     const n = t === "" ? 0 : maxConsegne(t);
     if (t !== "" && t !== "0" && n === 0) return json({ error: await msg("err.deliveryMax") }, 400);
     const err = await scriviConfig(ambitoPut, { orders_delivery_max: String(n) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* LE ZONE: pulite e controllate da `zoneDaPagina`. ⚠️ Un errore si dice con
+     il pezzo sbagliato («1o00», «1050 in due zone»): «zone non valide» e
+     basta lascerebbe il ristoratore a cercarlo fra trenta codici. */
+  if (body.consegna_zone !== undefined) {
+    const r = zoneDaPagina(body.consegna_zone);
+    if ("errore" in r) {
+      const chiave = { cap: "err.zoneCap", doppio: "err.zoneDouble", costo: "err.zoneFee", troppe: "err.zoneTooMany" }[r.errore];
+      return json({ error: `${await msg(chiave)}${r.dettaglio ? ` (${r.dettaglio})` : ""}` }, 400);
+    }
+    // Un costo di zona ha bisogno della stessa colonna del costo unico (#85).
+    if (r.zone.some((z) => (z.costo_cents ?? 0) > 0)) {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_fee_cents").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
+    }
+    const err = await scriviConfig(ambitoPut, { orders_delivery_zones: r.zone.length ? JSON.stringify(r.zone) : "" });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 

@@ -546,6 +546,7 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_delivery_fee_cents: "sede",  // quanto costa la consegna
   orders_delivery_delay: "sede",      // minuti di tragitto, sopra la preparazione
   orders_delivery_max: "sede",        // consegne per orario (fattorini), 0 = senza limite
+  orders_delivery_zones: "sede",      // codici postali serviti, con costo per zona
   // Le mance: chiederle e' una scelta del PUNTO (lo snack si', il ristorante
   // col servizio forse no).
   orders_tips: "sede",

@@ -13,7 +13,7 @@ import { configGiornoEffettiva } from "./schedule";
 import { fusoDi } from "./fuso";
 import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
 import { attesaChiamata } from "./chiamateRegole";
-import { sogliaCents } from "./consegnaRegole";
+import { sogliaCents, zoneDaConfig, type ZonaConsegna } from "./consegnaRegole";
 import { tipoMance, valoriMance, type TipoMance } from "./manceRegole";
 
 export { CHIAVI_ORDINI, acceso, RIPIEGO_ORDINI, type OpzioniOrdini } from "./ordiniRegole";
@@ -177,18 +177,20 @@ export async function tavoliDiSala(ambito: Ambito): Promise<TavoloDiSala[]> {
 /** Le soglie della consegna di questo punto, in centesimi (0 = nessuna).
  *  Lettura muta → nessuna soglia: meglio una consegna sotto il minimo che
  *  nessuna consegna per un database che non risponde. */
-export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; gratis: number; costo: number }> {
+export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; gratis: number; costo: number; zone: ZonaConsegna[] }> {
   try {
-    const { valori } = await leggiConfig(ambito, ["orders_delivery_min_cents", "orders_delivery_free_cents", "orders_delivery_fee_cents"]);
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_min_cents", "orders_delivery_free_cents", "orders_delivery_fee_cents", "orders_delivery_zones"]);
     return {
       minimo: sogliaCents(valori.get("orders_delivery_min_cents")),
       gratis: sogliaCents(valori.get("orders_delivery_free_cents")),
       // ⚠️ Anche il costo: lettura muta → gratis. Meglio una consegna regalata
       // una volta che un carrello che non sa quanto chiedere.
       costo: sogliaCents(valori.get("orders_delivery_fee_cents")),
+      // Le zone (codici postali, costo per zona). Vuote = si consegna ovunque.
+      zone: zoneDaConfig(valori.get("orders_delivery_zones")),
     };
   } catch {
-    return { minimo: 0, gratis: 0, costo: 0 };
+    return { minimo: 0, gratis: 0, costo: 0, zone: [] };
   }
 }
 

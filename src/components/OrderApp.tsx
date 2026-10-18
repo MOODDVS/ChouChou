@@ -4,7 +4,7 @@ import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 import { urlConSede } from "../lib/sedeUrl";
-import { costoConsegna } from "../lib/consegnaRegole";
+import { costoConsegna, zonaDelCap, costoBaseZona, capPulito, type ZonaConsegna } from "../lib/consegnaRegole";
 import { importoMancia, type TipoMance } from "../lib/manceRegole";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
@@ -177,12 +177,14 @@ const TXT_CONSEGNA: Record<string, {
   offerta: string;
   gratisDa: (g: string) => string;
   gratisManca: (x: string) => string;
+  /** Fuori zona: «Nous ne livrons pas encore au 1180». */
+  fuori: (cap: string) => string;
 }> = {
-  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison", minimo: (m) => `Livraison à partir de ${m} de commande`, manca: (x) => `Il manque ${x}.`, costo: "Livraison", offerta: "Offerte", gratisDa: (g) => `Livraison offerte dès ${g} de commande`, gratisManca: (x) => `encore ${x}` },
-  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery", minimo: (m) => `Delivery from ${m} per order`, manca: (x) => `${x} to go.`, costo: "Delivery", offerta: "Free", gratisDa: (g) => `Free delivery from ${g} per order`, gratisManca: (x) => `${x} to go` },
-  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.`, costo: "Consegna", offerta: "Gratis", gratisDa: (g) => `Consegna gratuita da ${g} di ordine`, gratisManca: (x) => `mancano ${x}` },
-  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.`, costo: "Levering", offerta: "Gratis", gratisDa: (g) => `Gratis levering vanaf ${g} per bestelling`, gratisManca: (x) => `nog ${x}` },
-  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.`, costo: "Entrega", offerta: "Gratis", gratisDa: (g) => `Entrega gratuita desde ${g} de pedido`, gratisManca: (x) => `faltan ${x}` },
+  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison", minimo: (m) => `Livraison à partir de ${m} de commande`, manca: (x) => `Il manque ${x}.`, costo: "Livraison", offerta: "Offerte", gratisDa: (g) => `Livraison offerte dès ${g} de commande`, gratisManca: (x) => `encore ${x}`, fuori: (c) => `Nous ne livrons pas encore au ${c}. Le retrait reste possible.` },
+  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery", minimo: (m) => `Delivery from ${m} per order`, manca: (x) => `${x} to go.`, costo: "Delivery", offerta: "Free", gratisDa: (g) => `Free delivery from ${g} per order`, gratisManca: (x) => `${x} to go`, fuori: (c) => `We don't deliver to ${c} yet. Pickup is still available.` },
+  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.`, costo: "Consegna", offerta: "Gratis", gratisDa: (g) => `Consegna gratuita da ${g} di ordine`, gratisManca: (x) => `mancano ${x}`, fuori: (c) => `Non consegniamo ancora al ${c}. Il ritiro resta possibile.` },
+  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.`, costo: "Levering", offerta: "Gratis", gratisDa: (g) => `Gratis levering vanaf ${g} per bestelling`, gratisManca: (x) => `nog ${x}`, fuori: (c) => `We leveren nog niet in ${c}. Afhalen blijft mogelijk.` },
+  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.`, costo: "Entrega", offerta: "Gratis", gratisDa: (g) => `Entrega gratuita desde ${g} de pedido`, gratisManca: (x) => `faltan ${x}`, fuori: (c) => `Aún no entregamos en el ${c}. La recogida sigue siendo posible.` },
 };
 
 /* LE MANCE (Réglages → Paiements → «Pourboires»). Testi del motore, come
@@ -495,7 +497,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   /* Le soglie e il costo della consegna (centesimi, 0 = nessuno). ⚠️ Il
      costo qui serve solo a MOSTRARLO: quello che si paga lo decide il server,
      che lo ricalcola con la stessa regola (`costoConsegna`). */
-  const [soglie, setSoglie] = useState({ minimo: 0, gratis: 0, costo: 0 });
+  const [soglie, setSoglie] = useState<{ minimo: number; gratis: number; costo: number; zone: ZonaConsegna[] }>({ minimo: 0, gratis: 0, costo: 0, zone: [] });
   /* Le mance del punto (`null` = spente) e il bottone scelto (-1 = Aucun). */
   const [mance, setMance] = useState<{ tipo: TipoMance; valori: [number, number, number] } | null>(null);
   const [manciaScelta, setManciaScelta] = useState(-1);
@@ -511,7 +513,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     let vivo = true;
     fetch(conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
         if (!vivo) return;
         setConsegnaPossibile(!inSala && d?.consegna === true);
         const m = d?.mance;
@@ -524,6 +526,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           minimo: Math.max(0, Number(d?.minimo_cents) || 0),
           gratis: Math.max(0, Number(d?.gratis_cents) || 0),
           costo: Math.max(0, Number(d?.costo_cents) || 0),
+          // Le zone: solo codici e costo (il nome resta del ristoratore).
+          zone: (Array.isArray(d?.zone) ? d.zone : []).map((z) => ({
+            nome: "",
+            cap: Array.isArray(z?.cap) ? z.cap.map(String) : [],
+            costo_cents: typeof z?.costo_cents === "number" ? z.costo_cents : null,
+          })),
         });
       })
       .catch(() => {
@@ -865,7 +873,14 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   /* Il costo della consegna per QUESTO carrello, e il totale da pagare. Stessa
      regola del server (`costoConsegna`): gratis quando i piatti scontati
      arrivano alla soglia. */
-  const costoCons = aConsegna ? costoConsegna(totaleFinale, soglie.costo, soglie.gratis) : 0;
+  /* LA ZONA del codice postale scritto: decide se si consegna e a che prezzo.
+     Senza zone = ovunque. Codice ancora incompleto = non si giudica (nessun
+     messaggio mentre il cliente sta scrivendo «10…»). */
+  const capScritto = capPulito(indirizzo.cap);
+  const zonaCliente = aConsegna ? zonaDelCap(soglie.zone, indirizzo.cap) : "ovunque";
+  const fuoriZona = aConsegna && capScritto !== null && zonaCliente === null;
+  const costoBase = zonaCliente ? costoBaseZona(zonaCliente, soglie.costo) : soglie.costo;
+  const costoCons = aConsegna ? costoConsegna(totaleFinale, costoBase, soglie.gratis) : 0;
   /* LA MANCIA: solo pagando con la carta (chi paga sul posto la lascia di
      persona), sui piatti scontati, con la stessa regola del server — che
      comunque la ricalcola: da qui parte solo QUALE bottone. */
@@ -874,7 +889,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   const totaleDaPagare = totaleFinale + costoCons + mancia;
   // La riga «Livraison» nel totale c'e' solo se la consegna ha un prezzo:
   // dove e' sempre gratis, una riga «Offerte» sarebbe rumore.
-  const rigaConsegna = aConsegna && soglie.costo > 0;
+  const rigaConsegna = aConsegna && costoBase > 0;
   const mancaGratis = rigaConsegna && soglie.gratis > 0 ? Math.max(0, soglie.gratis - totaleFinale) : 0;
 
   // Se il carrello cambia dopo aver applicato un coupon, l'importo dello sconto
@@ -960,6 +975,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     (inSala || cognome.trim() !== "") &&
     (inSala || telefono.trim() !== "") &&
     (!aConsegna || indirizzoOk) &&
+    !fuoriZona &&
     mancaMinimo === 0 &&
     emailOk &&
     accettato;
@@ -1361,6 +1377,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                     <input className="order-input" type="text" autoComplete="address-level2" placeholder={tc.comune} value={indirizzo.comune} onChange={campoIndirizzo("comune")} />
                     <textarea className="order-input" rows={2} placeholder={tc.note} value={indirizzo.note} onChange={campoIndirizzo("note")} />
                   </div>
+                )}
+                {/* Fuori zona, appena il codice postale e' completo: prima di
+                    scegliere l'ora, non al momento di pagare. Classe da
+                    vestire: `order-consegna-fuori`. */}
+                {fuoriZona && capScritto && (
+                  <p className="order-consegna-fuori" role="alert">{tc.fuori(capScritto)}</p>
                 )}
                 <label className="order-field-label">{aConsegna ? tc.quando : t.pickupTime}</label>
                 {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),

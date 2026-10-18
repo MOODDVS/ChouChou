@@ -688,11 +688,28 @@ const t = adminT(lang);
          destro, come gli interruttori e i bottoni. */
       .field.field--numero > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .field.field--numero > input { flex: 0 0 6.5rem; width: 6.5rem; margin-left: auto; text-align: right; }
+      /* ⚠️ Con una descrizione lunga sotto il titolo, il campo andava a capo
+         sotto tutto il testo: la riga va tenuta su una sola linea, e il campo
+         ALLINEATO AL TITOLO (in alto), come i due importi della consegna. */
+      .field.field--numero { flex-wrap: nowrap; align-items: flex-start; }
+      @media (max-width: 640px) {
+        .field.field--numero { flex-wrap: wrap; }
+      }
       /* Due importi affiancati a destra, ALLINEATI AL TITOLO (in alto, non al
          centro della descrizione), con la didascalia sotto ciascuno. */
       .field.field--soglie { align-items: flex-start; flex-wrap: nowrap; }
       .field.field--soglie > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .soglie { display: flex; gap: 0.75rem; margin-left: auto; flex: 0 0 auto; }
+      /* Le zone di consegna: nome · codici postali · costo (€ dentro) · ×. */
+      .czones { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; }
+      .cz-row { display: flex; gap: 0.5rem; align-items: center; }
+      .cz-row .cz-nome { flex: 0 0 8rem; width: 8rem; }
+      .cz-row .cz-cap { flex: 1 1 auto; min-width: 0; }
+      .cz-row .soglia { width: 6rem; flex: 0 0 6rem; }
+      @media (max-width: 640px) {
+        .cz-row { flex-wrap: wrap; }
+        .cz-row .cz-cap { flex-basis: 100%; order: 3; }
+      }
       .mance-dx { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; margin-left: auto; }
       .mance-dx .soglie { margin-left: 0; }
       .soglia--unita { position: relative; }
@@ -1623,6 +1640,18 @@ const t = adminT(lang);
               <div class="field field--numero o-delivery-row" style="display:none">
                 <label for="o-delivery-max">{t("set.ord.deliveryMax")}<span class="lab-hint">{t("set.ord.deliveryMaxHint")}</span></label>
                 <input type="text" inputmode="numeric" id="o-delivery-max" placeholder="—" />
+              </div>
+              {/* LE ZONE (`orders_delivery_zones`): codici postali serviti,
+                  raggruppati come vuole il ristoratore (un comune, un
+                  quartiere), con un costo per zona facoltativo. ⚠️ Nessuna
+                  zona = si consegna ovunque: una lista vuota non deve spegnere
+                  la consegna appena accesa. */}
+              <div class="field o-delivery-row" style="display:none">
+                <label>{t("set.ord.deliveryZones")}<span class="lab-hint">{t("set.ord.deliveryZonesHint")}</span></label>
+                <div class="dyn-col">
+                  <div class="czones" id="o-zones"></div>
+                  <button type="button" class="kemail-add" id="o-zone-add">{t("set.ord.deliveryZoneAdd")}</button>
+                </div>
               </div>
               {/* Le soglie: solo a consegna accesa (`o-delivery-row`). UNA riga,
                   due campi affiancati: sono due facce della stessa domanda
@@ -4097,7 +4126,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; consegna_zone?: { nome: string; cap: string[]; costo_cents: number | null }[]; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4350,6 +4379,34 @@ const t = adminT(lang);
         swFuturo?.addEventListener("change", aggiornaRigaGiorni);
         // Il tragitto della consegna: un bottone fra quattro, gia' risolto (45 di ripiego).
         accendiGruppo("#o-delivery-delay", "minuti", String(dati.consegna_ritardo ?? 45));
+        // ---- Le zone di consegna: una riga per zona ----
+        const boxZone = document.getElementById("o-zones") as HTMLDivElement | null;
+        const aggiungiZona = (z?: { nome?: string; cap?: string[]; costo_cents?: number | null }) => {
+          if (!boxZone) return;
+          const riga = document.createElement("div");
+          riga.className = "cz-row";
+          riga.innerHTML =
+            `<input type="text" class="cz-nome" maxlength="40" placeholder="${tr("set.ord.deliveryZoneName")}" />` +
+            `<input type="text" class="cz-cap" inputmode="numeric" placeholder="1000, 1040, 1050" />` +
+            `<div class="soglia soglia--unita"><input type="text" class="cz-costo" inputmode="decimal" placeholder="—" title="${tr("set.ord.deliveryZoneFee")}" aria-label="${tr("set.ord.deliveryZoneFee")}" /><span class="soglia-unita" aria-hidden="true">€</span></div>` +
+            `<button type="button" class="kemail-del" aria-label="${tr("common.delete")}">×</button>`;
+          (riga.querySelector(".cz-nome") as HTMLInputElement).value = z?.nome ?? "";
+          (riga.querySelector(".cz-cap") as HTMLInputElement).value = (z?.cap ?? []).join(", ");
+          (riga.querySelector(".cz-costo") as HTMLInputElement).value =
+            z?.costo_cents !== null && z?.costo_cents !== undefined ? inEuro(z.costo_cents) || "0" : "";
+          riga.querySelectorAll("input").forEach((i) => i.addEventListener("input", dirty));
+          (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
+            riga.remove();
+            dirty();
+          });
+          boxZone.appendChild(riga);
+        };
+        if (boxZone) boxZone.innerHTML = "";
+        (dati.consegna_zone ?? []).forEach((z) => aggiungiZona(z));
+        document.getElementById("o-zone-add")?.addEventListener("click", () => {
+          aggiungiZona();
+          dirty();
+        });
         const campoMaxCons = document.getElementById("o-delivery-max") as HTMLInputElement | null;
         if (campoMaxCons) {
           campoMaxCons.value = Number(dati.consegna_max ?? 0) > 0 ? String(dati.consegna_max) : "";
@@ -4935,6 +4992,12 @@ const t = adminT(lang);
                 consegna_costo: (document.getElementById("o-delivery-fee") as HTMLInputElement | null)?.value ?? "",
                 consegna_ritardo: Number(document.querySelector<HTMLButtonElement>("#o-delivery-delay .prep-btn.active")?.dataset.minuti ?? 45),
                 consegna_max: (document.getElementById("o-delivery-max") as HTMLInputElement | null)?.value ?? "",
+                // Le zone COME SCRITTE: il server pulisce, controlla e rifiuta.
+                consegna_zone: Array.from(document.querySelectorAll<HTMLElement>("#o-zones .cz-row")).map((r) => ({
+                  nome: (r.querySelector(".cz-nome") as HTMLInputElement).value,
+                  cap: (r.querySelector(".cz-cap") as HTMLInputElement).value,
+                  costo: (r.querySelector(".cz-costo") as HTMLInputElement).value,
+                })),
                 // Le mance: tipo e i tre valori COME SCRITTI (il server converte e rifiuta).
                 mance_tipo: document.querySelector<HTMLButtonElement>("#o-tips-type .prep-btn.active")?.dataset.tipo === "fixed" ? "fixed" : "percent",
                 mance_valori: Array.from(document.querySelectorAll<HTMLInputElement>(".o-tip-val")).map((c) => c.value),

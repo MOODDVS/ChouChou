@@ -140,7 +140,7 @@ test("quanto manca al minimo", () => {
 test("il minimo vale sui piatti scontati, nel carrello e nel checkout", () => {
   const co = nudo("src/pages/api/checkout.ts");
   // Dopo il codice promo: si misura su `totaleIncassato`.
-  assert.match(co, /const \{ minimo, gratis, costo \} = await soglieConsegna\(ambitoPub\);[\s\S]{0,120}const manca = mancaAlMinimo\(totaleIncassato, minimo\);/);
+  assert.match(co, /const \{ minimo, gratis, costo(, zone)? \} = await soglieConsegna\(ambitoPub\);[\s\S]{0,1400}const manca = mancaAlMinimo\(totaleIncassato, minimo\);/);
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /const mancaMinimo = aConsegna && soglie\.minimo > 0 \? Math\.max\(0, soglie\.minimo - totaleFinale\) : 0;/);
   assert.match(app, /mancaMinimo === 0 &&/);
@@ -161,14 +161,14 @@ test("il costo: quello del ristoratore, gratis sopra la soglia", () => {
 
 test("il server decide il costo, lo somma al totale e lo salva a parte", () => {
   const co = nudo("src/pages/api/checkout.ts");
-  assert.match(co, /costoCons = costoConsegna\(totaleIncassato, costo, gratis\);/);
+  assert.match(co, /costoCons = costoConsegna\(totaleIncassato, (costo|costoBaseZona\(zona, costo\)), gratis\);/);
   assert.match(co, /total_cents: totaleIncassato \+ costoCons( \+ mancia)?,/);
   assert.match(co, /\.\.\.\(costoCons > 0 \? \{ delivery_fee_cents: costoCons \} : \{\}\),/);
   // Una voce sua su Stripe: la ricevuta la mostra separata.
   assert.match(co, /voci\.push\(\{ name: TXT_VOCE\[lang\] \?\? TXT_VOCE\.fr, price_cents: costoCons, qty: 1 \}\);/);
   // Il carrello mostra lo stesso numero con la stessa regola.
   const app = nudo("src/components/OrderApp.tsx");
-  assert.match(app, /const costoCons = aConsegna \? costoConsegna\(totaleFinale, soglie\.costo, soglie\.gratis\) : 0;/);
+  assert.match(app, /const costoCons = aConsegna \? costoConsegna\(totaleFinale, (soglie\.costo|costoBase), soglie\.gratis\) : 0;/);
 });
 
 test("modificare un ordine non toglie la consegna dal totale", () => {
@@ -251,4 +251,53 @@ test("sito e checkout tolgono gli orari pieni con la stessa funzione", () => {
   assert.match(api, /const lunch = await soloOrariLiberi\(grezzi\.lunch, consegna, ambito, ora\);/);
   const co = nudo("src/pages/api/checkout.ts");
   assert.match(co, /if \(consegna && \(await soloOrariLiberi\(\[body\.slot\], true, ambitoPub, giornoRitiro\)\)\.length === 0\)/);
+});
+
+/* ───────── Punto 6: le zone ───────── */
+import { capPulito, zoneDaConfig, zoneDaPagina, zonaDelCap, costoBaseZona } from "../src/lib/consegnaRegole.ts";
+
+test("nessuna zona = si consegna ovunque, al costo unico", () => {
+  assert.equal(zonaDelCap([], "1180"), "ovunque");
+  assert.equal(costoBaseZona("ovunque", 350), 350);
+  assert.deepEqual(zoneDaConfig(""), []);
+  assert.deepEqual(zoneDaConfig("{storto"), [], "JSON rovinato non ferma le consegne");
+});
+
+test("le zone scritte in Réglages", () => {
+  const r = zoneDaPagina([
+    { nome: "Centre", cap: "1000, 1040;1050", costo: "2,50" },
+    { nome: "Sud", cap: "1180 1190", costo: "" },
+    { nome: "", cap: "", costo: "" }, // riga vuota appena aggiunta
+  ]);
+  assert.ok("zone" in r);
+  assert.equal(r.zone.length, 2);
+  assert.deepEqual(r.zone[0], { nome: "Centre", cap: ["1000", "1040", "1050"], costo_cents: 250 });
+  assert.equal(r.zone[1].costo_cents, null, "vuoto = costo unico");
+  // Errori detti col pezzo sbagliato.
+  assert.deepEqual(zoneDaPagina([{ nome: "A", cap: "1o", costo: "" }]), { errore: "cap", dettaglio: "1o" });
+  assert.deepEqual(zoneDaPagina([{ nome: "A", cap: "1000", costo: "" }, { nome: "B", cap: "1000", costo: "" }]), { errore: "doppio", dettaglio: "1000" });
+  assert.deepEqual(zoneDaPagina([{ nome: "A", cap: "1000", costo: "due" }]), { errore: "costo", dettaglio: "due" });
+  assert.deepEqual(zoneDaPagina([{ nome: "A", cap: "", costo: "3" }]), { errore: "cap", dettaglio: "A" });
+});
+
+test("la zona di un codice postale, e il suo costo", () => {
+  const zone = zoneDaConfig(JSON.stringify([
+    { nome: "Centre", cap: ["1000", "1040"], costo_cents: 250 },
+    { nome: "Sud", cap: ["1180"], costo_cents: null },
+  ]));
+  assert.equal(zonaDelCap(zone, " 1040 ").nome, "Centre");
+  assert.equal(zonaDelCap(zone, "1210"), null, "fuori zona");
+  assert.equal(zonaDelCap(zone, ""), null);
+  assert.equal(costoBaseZona(zonaDelCap(zone, "1000"), 400), 250, "il costo della zona sostituisce quello unico");
+  assert.equal(costoBaseZona(zonaDelCap(zone, "1180"), 400), 400, "zona senza costo = costo unico");
+  assert.equal(capPulito("w1a 1aa"), "W1A 1AA");
+});
+
+test("checkout e carrello rifiutano un codice fuori zona", () => {
+  const co = nudo("src/pages/api/checkout.ts");
+  assert.match(co, /const zona = zonaDelCap\(zone, indirizzo\?\.cap\);\n\s*if \(!zona\) \{/);
+  assert.match(co, /costoCons = costoConsegna\(totaleIncassato, costoBaseZona\(zona, costo\), gratis\);/);
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /!fuoriZona &&/);
+  assert.match(app, /const costoCons = aConsegna \? costoConsegna\(totaleFinale, costoBase, soglie\.gratis\) : 0;/);
 });

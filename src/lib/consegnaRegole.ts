@@ -240,3 +240,126 @@ export function orariLiberi(orari: string[], conti: Map<string, number>, max: nu
   if (max <= 0) return orari;
   return orari.filter((o) => (conti.get(o) ?? 0) < max);
 }
+
+/* ───────── Le zone: dove si consegna, e a che prezzo ─────────
+ *
+ * `orders_delivery_zones` (sede): un elenco JSON di zone, ognuna con un nome
+ * (per il ristoratore), i codici postali che copre e, se vuole, un costo suo.
+ *   [{ "nome": "Centre", "cap": ["1000", "1040"], "costo_cents": 250 }, …]
+ *
+ * ⚠️ NESSUNA ZONA = SI CONSEGNA OVUNQUE, cioe' il comportamento di prima. Una
+ * lista vuota non deve diventare «non si consegna da nessuna parte»: il
+ * ristoratore che ha acceso la consegna e non ha ancora scritto le zone si
+ * troverebbe un interruttore acceso che non fa niente.
+ *
+ * ⚠️ CODICI POSTALI, NON UN RAGGIO IN KM. Il raggio vuol dire un servizio
+ * esterno che trasforma l'indirizzo in coordinate (a pagamento, o con limiti,
+ * e se non risponde il checkout non sa decidere), e la citta' non e' un
+ * cerchio: 3 km oltre il canale non sono 3 km di strada. Il codice postale il
+ * cliente lo sa, e si controlla senza chiedere niente a nessuno.
+ *
+ * ⚠️ Il costo della zona SOSTITUISCE il costo unico (`orders_delivery_fee_cents`);
+ * zona senza costo = costo unico. La soglia «gratuite dès» vale per tutte.
+ */
+
+export interface ZonaConsegna {
+  nome: string;
+  cap: string[];
+  /** `null` = il costo unico di Réglages. */
+  costo_cents: number | null;
+}
+
+/** Quante zone al massimo: oltre, e' un elenco che nessuno rilegge. */
+export const MAX_ZONE = 30;
+
+/** Un codice postale normalizzato: maiuscolo, spazi tolti ai bordi e
+ *  compressi. `null` = illeggibile (stessa forma del campo del checkout). */
+export function capPulito(v: unknown): string | null {
+  const t = String(v ?? "").replace(/\s+/g, " ").trim().toUpperCase();
+  return /^[0-9A-Z][0-9A-Z -]{2,9}$/.test(t) ? t : null;
+}
+
+/** Le zone salvate, rilette. JSON storto → nessuna zona (= ovunque): una
+ *  riga rovinata non deve fermare tutte le consegne. Zone storte si saltano. */
+export function zoneDaConfig(raw: unknown): ZonaConsegna[] {
+  let arr: unknown = raw;
+  if (typeof raw === "string") {
+    if (!raw.trim()) return [];
+    try {
+      arr = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(arr)) return [];
+  const out: ZonaConsegna[] = [];
+  for (const z of arr.slice(0, MAX_ZONE)) {
+    if (!z || typeof z !== "object") continue;
+    const r = z as Record<string, unknown>;
+    const cap = (Array.isArray(r.cap) ? r.cap : []).map(capPulito).filter((c): c is string => !!c);
+    if (cap.length === 0) continue;
+    const c = Math.round(Number(r.costo_cents));
+    out.push({
+      nome: String(r.nome ?? "").trim().slice(0, 40),
+      cap: [...new Set(cap)],
+      costo_cents: r.costo_cents === null || r.costo_cents === undefined || !Number.isFinite(c) || c < 0 || c > SOGLIA_MAX_CENTS ? null : c,
+    });
+  }
+  return out;
+}
+
+/**
+ * Le zone scritte in Réglages: nome, codici separati da virgole o spazi, costo
+ * in € (vuoto = costo unico). Ritorna le zone pulite oppure l'errore da dire.
+ * ⚠️ Un codice in DUE zone si rifiuta: quale costo varrebbe? Il primo trovato,
+ * cioe' un prezzo deciso dall'ordine delle righe — nessuno se ne accorgerebbe.
+ */
+export function zoneDaPagina(
+  righe: unknown,
+): { zone: ZonaConsegna[] } | { errore: "cap" | "doppio" | "costo" | "troppe"; dettaglio?: string } {
+  if (!Array.isArray(righe)) return { zone: [] };
+  const zone: ZonaConsegna[] = [];
+  const visti = new Map<string, string>();
+  for (const r of righe as Record<string, unknown>[]) {
+    const nome = String(r?.nome ?? "").trim().slice(0, 40);
+    const pezzi = String(r?.cap ?? "").split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+    const costoTesto = String(r?.costo ?? "").trim();
+    // Riga del tutto vuota: si ignora (e' quella appena aggiunta e mai riempita).
+    if (!nome && pezzi.length === 0 && !costoTesto) continue;
+    if (pezzi.length === 0) return { errore: "cap", dettaglio: nome };
+    const cap: string[] = [];
+    for (const p of pezzi) {
+      const c = capPulito(p);
+      if (!c) return { errore: "cap", dettaglio: p };
+      if (visti.has(c) && visti.get(c) !== nome) return { errore: "doppio", dettaglio: c };
+      visti.set(c, nome);
+      if (!cap.includes(c)) cap.push(c);
+    }
+    let costo: number | null = null;
+    if (costoTesto) {
+      const c = euroInCents(costoTesto);
+      if (c === null) return { errore: "costo", dettaglio: costoTesto };
+      costo = c;
+    }
+    zone.push({ nome, cap, costo_cents: costo });
+  }
+  if (zone.length > MAX_ZONE) return { errore: "troppe" };
+  return { zone };
+}
+
+/**
+ * La zona di un codice postale. Senza zone → `"ovunque"` (si consegna, al costo
+ * unico). Con zone e codice fuori da tutte → `null` (non si consegna li').
+ */
+export function zonaDelCap(zone: ZonaConsegna[], cap: unknown): ZonaConsegna | "ovunque" | null {
+  if (zone.length === 0) return "ovunque";
+  const c = capPulito(cap);
+  if (!c) return null;
+  return zone.find((z) => z.cap.includes(c)) ?? null;
+}
+
+/** Il costo base di una consegna in quella zona, prima della soglia gratis. */
+export function costoBaseZona(zona: ZonaConsegna | "ovunque", costoUnico: number): number {
+  if (zona === "ovunque" || zona.costo_cents === null) return costoUnico;
+  return zona.costo_cents;
+}

@@ -20,7 +20,7 @@ import { defaultLang } from "../../i18n/ui";
 import { modiDiPagamento, opzioniTavolo, soglieConsegna, manceDi, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
 import { importoMancia } from "../../lib/manceRegole";
 import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordiniRegole";
-import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, type IndirizzoConsegna } from "../../lib/consegnaRegole";
+import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBaseZona, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
@@ -490,8 +490,24 @@ export const POST: APIRoute = async ({ request }) => {
      su Stripe, cosi' la ricevuta del cliente la mostra separata. */
   let costoCons = 0;
   if (consegna) {
-    const { minimo, gratis, costo } = await soglieConsegna(ambitoPub);
-    costoCons = costoConsegna(totaleIncassato, costo, gratis);
+    const { minimo, gratis, costo, zone } = await soglieConsegna(ambitoPub);
+    /* ⚠️ LA ZONA PRIMA DI TUTTO: fuori zona non si consegna, qualunque cosa ci
+       sia nel carrello. Il modulo lo dice gia' scrivendo il codice postale;
+       qui si ricontrolla, perche' questa rotta si raggiunge anche senza. */
+    const zona = zonaDelCap(zone, indirizzo?.cap);
+    if (!zona) {
+      const cap = String(indirizzo?.cap ?? "");
+      const TXT_FUORI: Record<string, string> = {
+        fr: `Nous ne livrons pas encore au ${cap}. Le retrait reste possible.`,
+        en: `We don't deliver to ${cap} yet. Pickup is still available.`,
+        it: `Non consegniamo ancora al ${cap}. Il ritiro resta possibile.`,
+        nl: `We leveren nog niet in ${cap}. Afhalen blijft mogelijk.`,
+        es: `Aún no entregamos en el ${cap}. La recogida sigue siendo posible.`,
+      };
+      return err(409, TXT_FUORI[lang] ?? TXT_FUORI.fr);
+    }
+    // Il costo della ZONA (o quello unico), poi la soglia «gratuite dès».
+    costoCons = costoConsegna(totaleIncassato, costoBaseZona(zona, costo), gratis);
     const manca = mancaAlMinimo(totaleIncassato, minimo);
     if (manca > 0) {
       const eur = (c: number) => (c / 100).toFixed(2).replace(".", ",") + " €";

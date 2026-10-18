@@ -21,7 +21,7 @@ export const prerender = false;
 export const GET: APIRoute = async ({ request }) => {
   let consegna = false;
   // Le soglie si dicono: sono scritte sul sito («minimum 50 €»), non segreti.
-  let soglie = { minimo: 0, gratis: 0, costo: 0 };
+  let soglie: Awaited<ReturnType<typeof soglieConsegna>> = { minimo: 0, gratis: 0, costo: 0, zone: [] };
   // Le mance: tipo e tre valori, o `null` se spente. Vanno anche al TAVOLO.
   let mance: Awaited<ReturnType<typeof manceDi>> = null;
   try {
@@ -32,7 +32,11 @@ export const GET: APIRoute = async ({ request }) => {
   } catch {
     consegna = false;
   }
-  return new Response(JSON.stringify({ consegna, minimo_cents: soglie.minimo, gratis_cents: soglie.gratis, costo_cents: soglie.costo, mance }), {
+  return new Response(JSON.stringify({ consegna, minimo_cents: soglie.minimo, gratis_cents: soglie.gratis, costo_cents: soglie.costo,
+    // Le zone senza il nome (e' un'etichetta del ristoratore): codici e costo,
+    // quanto basta al carrello per dire subito «non consegniamo li'» e il prezzo.
+    zone: soglie.zone.map((z) => ({ cap: z.cap, costo_cents: z.costo_cents })),
+    mance }), {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 };
