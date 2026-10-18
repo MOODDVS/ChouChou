@@ -527,7 +527,14 @@ const testiOrdine = {
                     padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
                     border-radius: .9rem .9rem 0 0; background: var(--tbl-bg);
                     border-top: 1px solid var(--tbl-line); }
-  .tbl-modale-testa { display: flex; align-items: center; justify-content: space-between; margin-bottom: .9rem; }
+  /* ⚠️ LA TESTA (titolo e ×) RESTA FERMA IN ALTO mentre il riquadro scorre:
+     una lista lunga — l'addizione di un tavolo da otto, una sala da sessanta
+     tavoli — portava via la × e non si sapeva piu' come chiudere. I margini
+     negativi la incollano al bordo vero del riquadro (che ha 1rem di
+     padding), il fondo copre quello che le scorre sotto. */
+  .tbl-modale-testa { display: flex; align-items: center; justify-content: space-between;
+                      position: sticky; top: 0; z-index: 2; background: var(--tbl-bg);
+                      margin: -1rem -1rem .9rem; padding: 1rem 1rem .5rem; }
   .tbl-modale-tit { margin: 0; font-size: .9rem; color: var(--tbl-muted); }
   .tbl-modale-x { width: 36px; height: 36px; border: 0; background: none; color: inherit;
                   font-size: 1.6rem; line-height: 1; cursor: pointer; }
@@ -570,6 +577,8 @@ const testiOrdine = {
                      border-color: var(--tbl-ink); }
   .tbl-tav-ico { position: absolute; right: 2px; bottom: 2px; width: 13px; height: 13px; opacity: .85; }
   .tbl-tav-ico svg { width: 100%; height: 100%; }
+  /* Nel conto il tavolo non si cambia: niente matita, niente manina. */
+  .tbl-tav--bloccato { cursor: default; }
   /* ⚠️ L'errore non e' una riga di testo in fondo al modulo: e' la
      risposta alla cosa che la persona ha appena fatto, e deve leggersi
      come un blocco. Centrato, con bordo e un velo del suo stesso rosso,

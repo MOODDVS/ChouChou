@@ -2118,3 +2118,9 @@ test("al tavolo, «Article ajouté»: un toast verde a ogni piatto, solo in sala
   assert.match(app, /fr: "Article ajouté"/);
   assert.match(readFileSync("src/components/TableOrder.css", "utf8"), /:where\(\.tbl-pagina \.order-aggiunto\) \{[\s\S]*?background: #2e9e5b;/);
 });
+
+test("le righe del carrello non si rimontano a ogni disegno (le foto lampeggiavano)", () => {
+  const app = readFileSync("src/components/OrderApp.tsx", "utf8");
+  assert.doesNotMatch(app, /<RigheCarrello\s*\/>/);
+  assert.match(app, /\{RigheCarrello\(\)\}/);
+});

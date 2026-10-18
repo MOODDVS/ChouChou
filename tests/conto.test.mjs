@@ -434,3 +434,27 @@ test("Commandes: «Aucune commande en cours» non si dice con un conto aperto", 
   assert.match(pag, /const conConti = !!g && !g\.hidden && g\.childElementCount > 0;/);
   assert.match(pag, /gridConti\.innerHTML = visibili\.map\(contoHTML\)\.join\(""\);\s*mostraVuoto\(\);/);
 });
+
+test("nel conto il tavolo non si cambia; la × del modale resta sempre visibile", () => {
+  const to = nudo("src/components/TableOrder.tsx");
+  assert.match(to, /if \(modo === "ordine" && tavoloBloccato\.current\) \{/);
+  assert.match(to, /tavoloBloccato\.current = nelConto && scelto !== null;/);
+  assert.match(to, /\{!nelConto && \(\s*<span className="tbl-tav-ico"/);
+  const pag = leggi("src/components/PaginaTavolo.astro");
+  assert.match(pag, /\.tbl-modale-testa \{[^}]*position: sticky; top: 0;/);
+});
+
+test("«Payer»: un bottone, poi online o il cameriere; in fondo al posto del carrello vuoto", () => {
+  const to = nudo("src/components/TableOrder.tsx");
+  // Niente «Addition» in alto: toccare il tavolo apre l'addizione.
+  assert.doesNotMatch(to, /className="tbl-conto-btn"/);
+  assert.match(to, /if \(modo === "ordine" && tavoloBloccato\.current\) \{\s*setPagaAperto\(false\);\s*setAdditionAperta\(true\);/);
+  // La modale ha UN bottone «Payer», che porta alle due strade.
+  assert.match(to, /onClick=\{apriPaga\}>\s*\{tc\.pagaTit\}/);
+  assert.match(to, /\{puoPagare && pag && \(/);
+  assert.match(to, /className=\{puoPagare \? "tbl-btn tbl-btn--vuoto" : "tbl-btn"\}/);
+  // La pillola: solo a carrello vuoto, con il resto da pagare.
+  assert.match(to, /paga: statoConto\.dati\.invii\.length > 0/);
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /linee\.length === 0 && tavolo\?\.conto\?\.paga \? \(/);
+});

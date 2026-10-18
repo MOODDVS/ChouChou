@@ -323,6 +323,10 @@ interface OrderAppProps {
       >;
       /** Dopo l'ordine: il token, per poterlo togliere finche' non parte. */
       fatto?: (r: { token: string }) => void;
+      /** Nel conto, a carrello VUOTO: la pillola in fondo diventa «Payer ·
+       *  resto» e apre la schermata del pagamento della pagina. Con un
+       *  piatto nel carrello torna la pillola del carrello. */
+      paga?: { etichetta: string; totale_cents: number; apri: () => void };
     } | null;
   } | null;
   /**
@@ -1282,6 +1286,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     return () => window.removeEventListener(EVENTO_AGGIUNGI, ascolta);
   }, [menu, sceltaFormato, lang]);
 
+  /* ⚠️ SI CHIAMA COME FUNZIONE, `{RigheCarrello()}`, MAI COME TAG JSX.
+     E' definita DENTRO OrderApp: a ogni disegno e' una funzione nuova, e come
+     componente React la prenderebbe per un tipo diverso — smonterebbe e
+     rimonterebbe tutte le righe a ogni tasto, timer o toast. Le foto del
+     riepilogo ripartivano da zero ogni volta: lampeggiavano (18/10/2026).
+     Stessa regola di `ModaleVarianti()`. */
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
@@ -1407,7 +1417,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
               <p className="order-cart-empty">{t.cartEmpty}</p>
             ) : (
               <>
-                <RigheCarrello />
+                {RigheCarrello()}
                 <div className="order-note">
                   <label className="order-field-label" htmlFor="order-note-field">{t.notes}</label>
                   <textarea
@@ -1893,7 +1903,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           ) : (
             <>
               <h2 className="order-cart-title">{t.cartTitle}</h2>
-              <RigheCarrello />
+              {RigheCarrello()}
               <div className="order-cart-total">
                 <span>{t.total} ({numArticoli} {t.items})</span>
                 <strong>{euro(totale)}</strong>
@@ -1914,6 +1924,17 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           </svg>
           <span>{t.closedToday}</span>
         </div>
+      ) : linee.length === 0 && tavolo?.conto?.paga ? (
+        <button type="button" className="order-mobcart order-mobcart--paga" onClick={tavolo.conto.paga.apri}>
+          <span className="order-mobcart-label">{tavolo.conto.paga.etichetta}</span>
+          <span className="order-mobcart-total">{euro(tavolo.conto.paga.totale_cents)}</span>
+          <span className="order-mobcart-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
+          </span>
+        </button>
       ) : (
         linee.length > 0 && (
           <button type="button" className="order-mobcart" onClick={() => setVista("checkout")}>

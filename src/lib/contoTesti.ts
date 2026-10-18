@@ -65,6 +65,13 @@ export interface TestiConto {
   pagatoOk: string;
   /** Pagato tutto: il conto si e' chiuso da solo. */
   saldato: string;
+  /** Nel conto il tavolo non si cambia dal telefono. */
+  tavoloBloccato: string;
+  /** «Payer»: il bottone della modale, la pillola in fondo, il titolo
+   *  della schermata con le due strade. */
+  pagaTit: string;
+  pagaOnline: string;
+  oppure: string;
 }
 
 export const TESTI_CONTO: Record<string, TestiConto> = {
@@ -97,6 +104,8 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errPaga: "Le paiement n’a pas pu démarrer. Réessayez, ou demandez au serveur.",
     pagatoOk: "Merci ! Votre paiement est bien reçu.",
     saldato: "Merci ! L’addition est réglée. À bientôt !",
+    tavoloBloccato: "Votre addition est ouverte sur cette table. Pour changer de table, demandez au serveur.",
+    pagaTit: "Payer", pagaOnline: "Payer en ligne", oppure: "ou",
   },
   en: {
     apri: "Open a tab", apriSotto: "Order now, pay at the end. Your friends join with a code.",
@@ -127,6 +136,8 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errPaga: "The payment could not start. Try again, or ask the waiter.",
     pagatoOk: "Thank you! Your payment has been received.",
     saldato: "Thank you! The bill is settled. See you soon!",
+    tavoloBloccato: "Your bill is open at this table. To change tables, ask the waiter.",
+    pagaTit: "Pay", pagaOnline: "Pay online", oppure: "or",
   },
   it: {
     apri: "Apri un conto", apriSotto: "Ordina adesso, paga alla fine. I tuoi amici si uniscono con un codice.",
@@ -157,6 +168,8 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errPaga: "Il pagamento non è partito. Riprovate, o chiedete al cameriere.",
     pagatoOk: "Grazie! Il pagamento è arrivato.",
     saldato: "Grazie! Il conto è saldato. A presto!",
+    tavoloBloccato: "Il vostro conto è aperto su questo tavolo. Per cambiare tavolo, chiedete al cameriere.",
+    pagaTit: "Paga", pagaOnline: "Paga online", oppure: "oppure",
   },
   nl: {
     apri: "Rekening openen", apriSotto: "Bestel nu, betaal op het einde. Je vrienden doen mee met een code.",
@@ -187,6 +200,8 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errPaga: "De betaling kon niet starten. Probeer opnieuw, of vraag het de ober.",
     pagatoOk: "Bedankt! Uw betaling is ontvangen.",
     saldato: "Bedankt! De rekening is betaald. Tot binnenkort!",
+    tavoloBloccato: "Uw rekening staat open op deze tafel. Vraag de ober om van tafel te wisselen.",
+    pagaTit: "Betalen", pagaOnline: "Online betalen", oppure: "of",
   },
   es: {
     apri: "Abrir una cuenta", apriSotto: "Pida ahora, pague al final. Sus amigos se unen con un código.",
@@ -217,5 +232,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     errPaga: "El pago no pudo empezar. Inténtelo de nuevo, o pregunte al camarero.",
     pagatoOk: "¡Gracias! Hemos recibido su pago.",
     saldato: "¡Gracias! La cuenta está pagada. ¡Hasta pronto!",
+    tavoloBloccato: "Su cuenta está abierta en esta mesa. Para cambiar de mesa, pregunte al camarero.",
+    pagaTit: "Pagar", pagaOnline: "Pagar en línea", oppure: "o",
   },
 };

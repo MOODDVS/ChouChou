@@ -183,6 +183,9 @@
 :where(.tbl-pagina .order-mobcart-total) { white-space: nowrap; }
 @media (max-width: 419px) {
   :where(.tbl-pagina--campanello .order-mobcart-label) { visibility: hidden; }
+  /* «Payer» invece si legge sempre: senza la parola la pillola sarebbe solo
+     una cifra, e non si capirebbe che serve a pagare. */
+  :where(.tbl-pagina--campanello .order-mobcart--paga .order-mobcart-label) { visibility: visible; }
 }
 /* ---------- «Retour au menu» sul pannello dei dati: in fondo, fluttuante ----------
    ⚠️ Era la barra fissa in CIMA (la stessa delle categorie, con un solo
@@ -586,6 +589,17 @@
 :where(.tbl-pagina .tbl-conto .tbl-btn--vuoto) {
   margin-top: .5rem; background: transparent; color: var(--tbl-ink); box-shadow: inset 0 0 0 2px var(--tbl-ink);
 }
+
+:where(.tbl-pagina .tbl-paga-o) {
+  display: flex; align-items: center; gap: .8rem; margin: .9rem 0 .4rem;
+  color: var(--tbl-muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .08em;
+}
+:where(.tbl-pagina .tbl-paga-o)::before, :where(.tbl-pagina .tbl-paga-o)::after {
+  content: ""; flex: 1; border-top: 1px solid var(--tbl-line);
+}
+:where(.tbl-pagina .tbl-paga + .tbl-btn) { margin-top: .2rem; }
+/* «Payer · resto» in fondo: la pillola del carrello, a carrello vuoto. */
+:where(.tbl-pagina .order-mobcart--paga) { padding-left: 1.2rem; justify-content: space-between; }
 
 /* ---------- «Article ajouté» ----------
    Verde, breve, sopra la pillola in fondo (dove sta gia' il pollice), dentro
