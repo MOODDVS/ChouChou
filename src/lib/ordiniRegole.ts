@@ -73,6 +73,8 @@ export interface OpzioniOrdini {
   /** Col piano della sala, il cliente sceglie il suo tavolo. Spento: da' solo
    *  il nome, come in una sala senza piano. */
   sceltaTavolo: boolean;
+  /** «Ouvrir un compte»: si ordina dal tavolo e si paga alla fine. */
+  conto: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -113,6 +115,11 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      tavoli, il cliente sceglie il suo. Il ristoratore che non lo vuole (i
      tavoli li assegna lui, o il cliente si sposta) lo spegne. */
   orders_table_choose: "1",
+  /* ⚠️ SPENTO di ripiego: il conto aperto vuol dire la cucina che cucina
+     PRIMA di essere pagata, e un cameriere che valida il primo invio di ogni
+     tavolo. E' una scelta di servizio, non si accende da sola. Serve anche la
+     #87 (conto-aperto.md). */
+  orders_table_tab: "0",
 };
 
 /**

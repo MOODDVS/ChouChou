@@ -22,8 +22,9 @@ import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
 import { sceltaQr, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI, serviziDaConfig } from "../../../lib/ordiniGiorniRegole";
+import { finestraInvio, FINESTRE_INVIO } from "../../../lib/contoRegole";
 import { fonteSala, FONTI_SALA, prolungaSala, PROLUNGHE_SALA, serviziSalaDaConfig, serviziDellaSala } from "../../../lib/salaOrariRegole";
-import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, MAX_CONSEGNE_LIMITE, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
+import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
 export const prerender = false;
@@ -215,6 +216,7 @@ export const GET: APIRoute = async ({ request }) => {
     "orders_table_hours",
     "orders_table_services",
     "orders_table_extend",
+    "orders_table_batch",
     "orders_slot_source",
     "orders_future_days",
     "orders_delivery_min_cents",
@@ -295,6 +297,9 @@ export const GET: APIRoute = async ({ request }) => {
        i service delle prenotazioni SALVATI, uno per chiave con i suoi orari,
        per disegnare le pillole. `sala_servizi_orfani`: i scelti non esistono
        piu' e la sala li sta seguendo tutti — la pagina lo dice. */
+    /* Il conto aperto: la finestra di raggruppamento degli invii, in minuti
+       (0, 1, 2), gia' risolta col ripiego. L'interruttore sta in `orders`. */
+    conto_finestra: finestraInvio(cfg.get("orders_table_batch")),
     sala_fonte: fonteSala(cfg.get("orders_table_hours")),
     sala_servizi: serviziSalaDaConfig(cfg.get("orders_table_services")),
     sala_prolunga: prolungaSala(cfg.get("orders_table_extend")),
@@ -473,6 +478,8 @@ export const PUT: APIRoute = async ({ request }) => {
     sala_fonte?: string;
     sala_servizi?: unknown;
     sala_prolunga?: number;
+    /** Il conto aperto: minuti di raggruppamento degli invii (0, 1, 2). */
+    conto_finestra?: number;
     /** Da dove vengono gli orari di ritiro: "hours" o "services". */
     ritiro_fonte?: string;
     /** Giorni in anticipo per gli ordini da asporto: 0, 2, 7, 14, 30. */
@@ -819,6 +826,13 @@ export const PUT: APIRoute = async ({ request }) => {
       const { error: senzaColonna } = await leggi("orders", ambitoPut, "tip_cents").limit(1);
       if (senzaColonna) return json({ error: await msg("err.tipsMigration") }, 409);
     }
+    /* Il conto aperto, stesso cancello (#87): senza le colonne del conto e la
+       tabella degli invii, «Ouvrir un compte» porterebbe a un errore davanti
+       al cliente seduto, col carrello pieno. */
+    if (mappa.get("orders_table_tab") === "1") {
+      const { error: senzaColonna } = await leggi("reservations", ambitoPut, "tab_status").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.tabMigration") }, 409);
+    }
     if (mappa.get("orders_delivery") === "1") {
       const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_address").limit(1);
       if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
@@ -838,6 +852,12 @@ export const PUT: APIRoute = async ({ request }) => {
       const err = await scriviConfig(ambitoPut, { orders_table_call_wait: String(v) });
       if (err) return json({ error: await msg("err.generalSave") }, 500);
     }
+  }
+
+  // La finestra degli invii: solo valori dell'elenco, fuori elenco non si tocca.
+  if (body.conto_finestra !== undefined && (FINESTRE_INVIO as readonly number[]).includes(Number(body.conto_finestra))) {
+    const err = await scriviConfig(ambitoPut, { orders_table_batch: String(Number(body.conto_finestra)) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
   /* GLI ORARI DELLA SALA. ⚠️ «Services» senza nessun service scelto e' una

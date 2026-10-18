@@ -80,6 +80,8 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   // «Appeler le serveur». ⚠️ Della SEDE: il tavolo 4 di Jourdan che suona sul
   // tablet di Stockel e' un cameriere che cerca un tavolo nel locale sbagliato.
   table_calls: "sede",
+  // Gli invii del conto aperto (#87): della SEDE, come gli ordini che raccolgono.
+  table_rounds: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
@@ -566,6 +568,10 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // Quando si ordina dal tavolo: orari d'apertura o service scelti, + margine.
   // Della SEDE: Educazione ordina dal tavolo solo a pranzo, un altro punto no.
   orders_table_hours: "sede",
+  // Il conto aperto (#87) e la finestra di raggruppamento degli invii: un
+  // punto lo usa, un altro col banco no.
+  orders_table_tab: "sede",
+  orders_table_batch: "sede",
   orders_table_services: "sede",
   orders_table_extend: "sede",
   orders_table_qr_sel: "sede",    // quali QR di sezione e di tavolo si stampano (JSON)

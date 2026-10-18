@@ -1747,6 +1747,23 @@ const t = adminT(lang);
                 ))}
               </div>
             </div>
+            {/* IL CONTO APERTO (`orders_table_tab`, conto-aperto.md): si ordina
+                dal tavolo e si paga alla fine. Compare solo a sala accesa E con
+                la scelta del tavolo: senza tavolo il conto vivrebbe solo nel
+                telefono del cliente. Sotto, a conto acceso, la finestra che
+                raggruppa gli invii in un ticket solo (`orders_table_batch`). */}
+            <div class="field" id="o-table-tab-row" style="display:none">
+              <label>{t("set.ord.tableTab")}<span class="lab-hint">{t("set.ord.tableTabHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-tab" /><span class="track"></span></label>
+            </div>
+            <div class="field" id="o-table-batch-row" style="display:none">
+              <label>{t("set.ord.tableBatch")}<span class="lab-hint">{t("set.ord.tableBatchHint")}</span></label>
+              <div class="prep-btns" id="o-table-batch" role="group" aria-label={t("set.ord.tableBatch")}>
+                {[0, 1, 2].map((m) => (
+                  <button type="button" class="prep-btn" data-minuti={String(m)} aria-pressed="false"><span class="m">{m === 0 ? t("set.ord.tableExtendNo") : `${m} min`}</span></button>
+                ))}
+              </div>
+            </div>
             {/* «Appeler le serveur». ⚠️ Anche questa solo a sala accesa: la
                 campanella vive sulla pagina del tavolo, e senza quella pagina
                 non c'e' niente da toccare. */}
@@ -4195,7 +4212,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; consegna_zone?: { nome: string; cap: string[]; costo_cents: number | null }[]; qr_scelta?: { sezioni: string[]; tavoli: string[] }; sala_fonte?: string; sala_servizi?: string[] | null; sala_prolunga?: number; sala_servizi_elenco?: { key: string; orari: string[] }[]; sala_servizi_orfani?: boolean; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { id: string; sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; consegna_zone?: { nome: string; cap: string[]; costo_cents: number | null }[]; qr_scelta?: { sezioni: string[]; tavoli: string[] }; sala_fonte?: string; sala_servizi?: string[] | null; sala_prolunga?: number; sala_servizi_elenco?: { key: string; orari: string[] }[]; sala_servizi_orfani?: boolean; conto_finestra?: number; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { id: string; sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4392,6 +4409,7 @@ const t = adminT(lang);
         met("o-table", "orders_table");
         met("o-table-call", "orders_table_call");
         met("o-table-choose", "orders_table_choose");
+        met("o-table-tab", "orders_table_tab");
         met("o-delivery", "orders_delivery");
         met("o-tips", "orders_tips");
         // Le soglie in euro («50» e non «50,00»: si legge meglio, e si salva uguale).
@@ -4615,6 +4633,22 @@ const t = adminT(lang);
         };
         aggiornaOrariSala();
         swTavolo?.addEventListener("change", aggiornaOrariSala);
+        /* ---- IL CONTO APERTO ----
+           La riga c'e' solo se il cliente sceglie il tavolo: sala accesa, piano
+           con dei tavoli, scelta del tavolo accesa. La finestra, solo a conto
+           acceso. Seguono gli interruttori anche mentre li si tocca. */
+        const rigaConto = document.getElementById("o-table-tab-row") as HTMLElement | null;
+        const rigaFinestra = document.getElementById("o-table-batch-row") as HTMLElement | null;
+        const swConto = document.getElementById("o-table-tab") as HTMLInputElement | null;
+        const swSceltaConto = document.getElementById("o-table-choose") as HTMLInputElement | null;
+        accendiGruppo("#o-table-batch", "minuti", String(dati.conto_finestra ?? 1));
+        const aggiornaConto = () => {
+          const puo = Boolean(swTavolo?.checked && dati.sala_con_tavoli && (swSceltaConto?.checked ?? true));
+          if (rigaConto) rigaConto.style.display = puo ? "" : "none";
+          if (rigaFinestra) rigaFinestra.style.display = puo && swConto?.checked ? "" : "none";
+        };
+        aggiornaConto();
+        for (const el of [swTavolo, swSceltaConto, swConto]) el?.addEventListener("change", aggiornaConto);
         document.querySelectorAll<HTMLButtonElement>("#o-table-hours .prep-btn").forEach((b) =>
           b.addEventListener("click", () => setTimeout(aggiornaOrariSala)),
         );
@@ -4894,7 +4928,7 @@ const t = adminT(lang);
           .querySelectorAll<HTMLInputElement>('.section[data-tab="cuisine"] input[type="checkbox"][id^="o-"]')
           .forEach((el) => el.addEventListener("change", dirty));
         // Fonte degli orari e giorni in anticipo: un bottone acceso per gruppo.
-        for (const sel of ["#o-slot-source", "#o-future-days", "#o-tips-type", "#o-delivery-delay", "#o-table-hours", "#o-table-extend"]) {
+        for (const sel of ["#o-slot-source", "#o-future-days", "#o-tips-type", "#o-delivery-delay", "#o-table-hours", "#o-table-extend", "#o-table-batch"]) {
           document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((b) =>
             b.addEventListener("click", () => {
               if (b.classList.contains("active")) return;
@@ -5159,6 +5193,7 @@ const t = adminT(lang);
                 sala_fonte: document.querySelector<HTMLButtonElement>("#o-table-hours .prep-btn.active")?.dataset.fonte ?? "hours",
                 sala_servizi: Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-services .prep-btn.active")).map((b) => b.dataset.v ?? ""),
                 sala_prolunga: Number(document.querySelector<HTMLButtonElement>("#o-table-extend .prep-btn.active")?.dataset.minuti ?? 0),
+                conto_finestra: Number(document.querySelector<HTMLButtonElement>("#o-table-batch .prep-btn.active")?.dataset.minuti ?? 1),
                 ritiro_fonte: document.querySelector<HTMLButtonElement>("#o-slot-source .prep-btn.active")?.dataset.fonte ?? "hours",
                 // Interruttore spento = 0 (solo oggi), qualunque bottone sia acceso sotto.
                 ritiro_giorni: (document.getElementById("o-future") as HTMLInputElement | null)?.checked
@@ -5191,6 +5226,7 @@ const t = adminT(lang);
                   orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_call: (document.getElementById("o-table-call") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_choose: (document.getElementById("o-table-choose") as HTMLInputElement | null)?.checked ?? true,
+                  orders_table_tab: (document.getElementById("o-table-tab") as HTMLInputElement | null)?.checked ?? false,
                   orders_delivery: (document.getElementById("o-delivery") as HTMLInputElement | null)?.checked ?? false,
                   orders_tips: (document.getElementById("o-tips") as HTMLInputElement | null)?.checked ?? false,
                   /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un
