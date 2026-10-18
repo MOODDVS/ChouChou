@@ -32,6 +32,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       avvisoScelto: String(valori.get("orders_table_notify") ?? ""),
       consegna: acceso(valori.get("orders_delivery"), "orders_delivery"),
       mance: acceso(valori.get("orders_tips"), "orders_tips"),
+      sceltaTavolo: acceso(valori.get("orders_table_choose"), "orders_table_choose"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
@@ -40,7 +41,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
        muto non deve spegnere gli ordini — da sempre si continua a prenderli —
        ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
        porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
-    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false, mance: false };
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false, mance: false, sceltaTavolo: true };
   }
 }
 
@@ -96,8 +97,12 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
 export interface OpzioniTavolo {
   /** Il ristoratore ha acceso gli ordini dal locale. */
   attivo: boolean;
-  /** La sala ha almeno un tavolo disegnato. */
+  /** Il cliente SCEGLIE il tavolo: il piano ne ha almeno uno E il
+   *  ristoratore non ha spento la scelta (`orders_table_choose`). Falso = si
+   *  chiede solo il nome, come in una sala senza piano. */
   conTavoli: boolean;
+  /** Il piano della sala ha almeno un tavolo (che si scelga o no). */
+  tavoliNelPiano: boolean;
   /** Si manda l’email «c’e’ pronto» a chi ordina dal locale. */
   avvisa: boolean;
   /** La campanella «Appeler le serveur»: interruttore acceso E sala accesa.
@@ -124,11 +129,21 @@ export interface OpzioniTavolo {
  */
 export async function opzioniTavolo(ambito: Ambito): Promise<OpzioniTavolo> {
   const [opz, quanti] = await Promise.all([opzioniOrdini(ambito), contaTavoli(ambito)]);
-  const conTavoli = quanti > 0;
+  const tavoliNelPiano = quanti > 0;
+  /* ⚠️ UNA SOLA DOMANDA PER TUTTO IL RESTO: «si sceglie il tavolo?». Pagina,
+     sessione, campanella e checkout leggono `conTavoli`, quindi spegnere la
+     scelta fa comportare la sala esattamente come una senza piano — nessuna
+     regola da ripetere in quattro posti. */
+  const conTavoli = tavoliNelPiano && opz.sceltaTavolo;
   return {
     attivo: opz.tavolo,
     conTavoli,
-    avvisa: avvisaIlCliente(opz.avvisoScelto, conTavoli),
+    tavoliNelPiano,
+    /* ⚠️ L'avviso «c'e' pronto» di ripiego guarda il PIANO, non la scelta:
+       chi ha i tavoli ha di solito chi porta i piatti, anche se non vuole
+       che il cliente scelga il posto. Spegnere la scelta non deve far
+       partire email che nessuno ha chiesto. */
+    avvisa: avvisaIlCliente(opz.avvisoScelto, tavoliNelPiano),
     chiamata: opz.tavolo && opz.chiamata,
   };
 }

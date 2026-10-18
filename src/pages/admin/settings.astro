@@ -1691,6 +1691,14 @@ const t = adminT(lang);
               <label>{t("set.ord.table")}<span class="lab-hint">{t("set.ord.tableHint")}</span><span class="lab-hint" id="o-table-notables" style="display:none">{t("set.ord.tableNoTables")}</span></label>
               <label class="switch"><input type="checkbox" id="o-table" /><span class="track"></span></label>
             </div>
+            {/* SCEGLIERE IL TAVOLO (`orders_table_choose`): compare solo se il
+                piano ha dei tavoli — senza piano non c'e' niente da scegliere.
+                Spento, il cliente da' solo il nome, come in una sala senza
+                piano, e il QR e' uno solo. */}
+            <div class="field" id="o-table-choose-row" style="display:none">
+              <label>{t("set.ord.tableChoose")}<span class="lab-hint">{t("set.ord.tableChooseHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-choose" /><span class="track"></span></label>
+            </div>
             {/* «Appeler le serveur». ⚠️ Anche questa solo a sala accesa: la
                 campanella vive sulla pagina del tavolo, e senza quella pagina
                 non c'e' niente da toccare. */}
@@ -4322,6 +4330,7 @@ const t = adminT(lang);
         met("o-coupons-onsite", "orders_coupons_onsite");
         met("o-table", "orders_table");
         met("o-table-call", "orders_table_call");
+        met("o-table-choose", "orders_table_choose");
         met("o-delivery", "orders_delivery");
         met("o-tips", "orders_tips");
         // Le soglie in euro («50» e non «50,00»: si legge meglio, e si salva uguale).
@@ -4557,15 +4566,25 @@ const t = adminT(lang);
             boxListaQr.appendChild(riga);
           }
         }
+        // La scelta del tavolo: la riga c'e' solo se il piano ha dei tavoli.
+        const rigaScelta = document.getElementById("o-table-choose-row") as HTMLElement | null;
+        const swScelta = document.getElementById("o-table-choose") as HTMLInputElement | null;
         function aggiornaQr() {
           // ⚠️ Senza link (vista «tutte le sedi») nessuna di queste righe
           // compare: un campo vuoto con «Copier» accanto copierebbe il niente.
           const acceso = Boolean(swTavolo?.checked && dati.link_tavolo);
-          if (rigaQr) rigaQr.style.display = acceso ? "" : "none";
-          if (rigaLink) rigaLink.style.display = acceso && modoQrOra === "unico" ? "" : "none";
-          if (rigaListaQr) rigaListaQr.style.display = acceso && modoQrOra !== "unico" ? "" : "none";
+          if (rigaScelta) rigaScelta.style.display = swTavolo?.checked && dati.sala_con_tavoli ? "" : "none";
+          /* ⚠️ Senza scelta del tavolo il QR e' UNO: il tipo non si propone, e
+             vale il link unico (il tipo salvato resta, per quando la scelta
+             torna accesa). */
+          const sceltaTavolo = Boolean(dati.sala_con_tavoli && (swScelta?.checked ?? true));
+          const modoEffettivo = sceltaTavolo ? modoQrOra : "unico";
+          if (rigaQr) rigaQr.style.display = acceso && sceltaTavolo ? "" : "none";
+          if (rigaLink) rigaLink.style.display = acceso && modoEffettivo === "unico" ? "" : "none";
+          if (rigaListaQr) rigaListaQr.style.display = acceso && modoEffettivo !== "unico" ? "" : "none";
           if (rigaStampaQr) rigaStampaQr.style.display = acceso ? "" : "none";
         }
+        swScelta?.addEventListener("change", () => aggiornaQr());
         accendiModoQr();
         disegnaListaQr();
         for (const b of bottoniQr) {
@@ -5013,6 +5032,7 @@ const t = adminT(lang);
                   orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_call: (document.getElementById("o-table-call") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_choose: (document.getElementById("o-table-choose") as HTMLInputElement | null)?.checked ?? true,
                   orders_delivery: (document.getElementById("o-delivery") as HTMLInputElement | null)?.checked ?? false,
                   orders_tips: (document.getElementById("o-tips") as HTMLInputElement | null)?.checked ?? false,
                   /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un

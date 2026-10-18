@@ -306,7 +306,9 @@ export const GET: APIRoute = async ({ request }) => {
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
        un guasto. */
-    sala_con_tavoli: sala.conTavoli,
+    // Il PIANO ha dei tavoli (che si scelgano o no): decide se mostrare la
+    // riga «le client choisit sa table» e la nota «cette salle n'a pas de tables».
+    sala_con_tavoli: sala.tavoliNelPiano,
     /* ⚠️ IL LINK DEL QR LO SCRIVE IL SERVER, CON LA SEDE DENTRO. Un QR
        stampato vive anni su un tavolo: se puntasse a `/table` e basta,
        varrebbe per «la prima sede attiva» — giusto finche' ne e' accesa una

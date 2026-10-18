@@ -91,7 +91,9 @@ const [menu, pagamento, brand, tavoli, servizio, aperti] = await Promise.all([
      server rifiuta i primi tre e accetta il quarto, che e’ il peggiore — i
      piatti partono per un tavolo dove siede qualcun altro. Da una tendina si
      puo’ scegliere solo un tavolo che esiste. */
-  tavoliDiSala(ambito),
+  /* ⚠️ Solo se si SCEGLIE il tavolo (`sala.conTavoli`): con la scelta spenta
+     l'elenco vuoto fa chiedere solo il nome, come in una sala senza piano. */
+  sala.conTavoli ? tavoliDiSala(ambito) : Promise.resolve([]),
   /* ⚠️ APERTO O CHIUSO SI DECIDE QUI, prima di mostrare il menu, con la
      stessa regola delle due rotte (`statoServizioSala`, nel motore). Prima
      lo si scopriva solo al momento di pagare: il cliente componeva la cena

@@ -705,7 +705,7 @@ test("la pagina mostra l'avviso RISOLTO, non quello che direbbe `acceso()`", () 
   assert.match(SET_API, /const sala = await opzioniTavolo\(ambito\);/,
     "il valore non lo risolve piu' la stessa funzione che decide a ordine fatto: i due possono allontanarsi");
   // E la pagina deve poter DIRE che tavoli non ce ne sono.
-  assert.match(SET_API, /sala_con_tavoli: sala\.conTavoli/);
+  assert.match(SET_API, /sala_con_tavoli: sala\.(conTavoli|tavoliNelPiano)/);
 });
 
 test("i due interruttori esistono, si leggono e si salvano", () => {
@@ -1385,7 +1385,7 @@ test("senza link la riga del QR non compare", () => {
   // Un campo vuoto con «Copier» accanto copierebbe il niente.
   const pag = nudo("src/pages/admin/settings.astro");
   assert.match(pag, /const acceso = Boolean\(swTavolo\?\.checked && dati\.link_tavolo\);/);
-  assert.match(pag, /if \(rigaLink\) rigaLink\.style\.display = acceso && modoQrOra === "unico" \? "" : "none";/);
+  assert.match(pag, /if \(rigaLink\) rigaLink\.style\.display = acceso && (modoQrOra|modoEffettivo) === "unico" \? "" : "none";/);
 });
 
 test("le parole del link del QR esistono in tutte e cinque le lingue", () => {
@@ -2085,3 +2085,20 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   assert.match(rit, /if \(!silenzio && String\(ord\.customer_email \?\? ""\)\.trim\(\)\)/);
 });
 
+
+/* ───────── Scegliere il tavolo: un interruttore, solo col piano ───────── */
+test("la scelta del tavolo si puo' spegnere, e spenta la sala si comporta come senza piano", () => {
+  const regole = leggi("src/lib/ordiniRegole.ts");
+  assert.match(regole, /orders_table_choose: "1",/, "acceso di ripiego: il comportamento di prima");
+  const opz = nudo("src/lib/ordiniOpzioni.ts");
+  // Una sola domanda per tutto il resto: `conTavoli`.
+  assert.match(opz, /const conTavoli = tavoliNelPiano && opz\.sceltaTavolo;/);
+  // L'avviso di ripiego guarda il piano, non la scelta.
+  assert.match(opz, /avvisa: avvisaIlCliente\(opz\.avvisoScelto, tavoliNelPiano\),/);
+  // La pagina del tavolo non riceve l'elenco se non si sceglie.
+  assert.match(nudo("src/components/PaginaTavolo.astro"), /sala\.conTavoli \? tavoliDiSala\(ambito\) : Promise\.resolve\(\[\]\),/);
+  // Senza scelta, un QR solo.
+  assert.match(nudo("src/pages/api/admin/qr.ts"), /const modo = sala\.conTavoli \? modoQr\(/);
+  // In Réglages la riga c'e' solo se il piano ha dei tavoli.
+  assert.match(nudo("src/pages/admin/settings.astro"), /rigaScelta\.style\.display = swTavolo\?\.checked && dati\.sala_con_tavoli \? "" : "none";/);
+});

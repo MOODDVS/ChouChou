@@ -70,6 +70,9 @@ export interface OpzioniOrdini {
   consegna: boolean;
   /** Le mance al momento di pagare online (tutti gli ordini). */
   mance: boolean;
+  /** Col piano della sala, il cliente sceglie il suo tavolo. Spento: da' solo
+   *  il nome, come in una sala senza piano. */
+  sceltaTavolo: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -106,6 +109,10 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      ristorante, e comparire da sola nel checkout di nove siti sarebbe
      l'ultima cosa che un ristoratore si aspetta. Serve anche la #86. */
   orders_tips: "0",
+  /* ⚠️ ACCESO di ripiego: e' il comportamento di oggi — dove il piano ha dei
+     tavoli, il cliente sceglie il suo. Il ristoratore che non lo vuole (i
+     tavoli li assegna lui, o il cliente si sposta) lo spegne. */
+  orders_table_choose: "1",
 };
 
 /**

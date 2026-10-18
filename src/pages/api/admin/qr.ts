@@ -49,7 +49,10 @@ export const GET: APIRoute = async ({ request, url }) => {
     leggiConfig(ambito, ["orders_table_qr_mode"]),
   ]);
   const chiesto = url.searchParams.get("modo");
-  const modo = modoQr(chiesto ?? cfg.valori.get("orders_table_qr_mode"));
+  /* ⚠️ Senza scelta del tavolo (sala senza piano, o scelta spenta) esiste un
+     QR solo: un cartoncino «Table 7» porterebbe a una pagina che il tavolo
+     non lo chiede. */
+  const modo = sala.conTavoli ? modoQr(chiesto ?? cfg.valori.get("orders_table_qr_mode")) : "unico";
   // «Tutte le sedi»: nessun link, quindi nessun cartoncino da stampare.
   if (!base) return json({ modo, attivo: sala.attivo, cartoncini: [] });
 
