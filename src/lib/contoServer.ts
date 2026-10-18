@@ -12,6 +12,7 @@
  * solo non apre niente.
  */
 import { leggi, inserisci, aggiorna, leggiConfig, type Ambito } from "./admin/sede";
+import { accodaTicket, ordiniDiInvio } from "./stampaCoda";
 import {
   codiceBloccato, codiceLetto, dopoTentativo, finestraInvio, invioDaUsare, nuovoCodice,
   ordineTogliibile, tavoliUnitiDa, type InvioEsistente,
@@ -320,4 +321,44 @@ export async function togliOrdine(ambito: Ambito, conto: ContoRiga, token: strin
   if (!ordineTogliibile(inv as unknown as { status: string; release_at: string | null } | null, conto.tab_status, adesso)) return "tardi";
   const upd = await aggiorna("orders", ambito, { status: "cancelled" }).eq("id", o.id).eq("status", "pending");
   return upd.error ? "non_trovato" : "ok";
+}
+
+/**
+ * GLI INVII CHE DEVONO PARTIRE: quelli in attesa la cui ora e' passata (fine
+ * della finestra, o la validazione che ha messo `release_at` ad adesso).
+ * Ognuno diventa `released` e va in coda di stampa: UN ticket per invio.
+ *
+ * ⚠️ NESSUN CRON: lo chiamano il tablet (Commandes, ogni 25 s), la pagina del
+ * tavolo e il checkout del conto. Durante il servizio c'e' sempre qualcuno
+ * che guarda; a locale chiuso non ci sono invii da far partire.
+ * ⚠️ Il passaggio a `released` e' CONDIZIONATO (`status = 'waiting'`): due
+ * chiamate nello stesso istante non stampano due volte lo stesso invio —
+ * una sola riesce a cambiarlo, ed e' lei che stampa.
+ */
+export async function rilasciaInviiScaduti(ambito: Ambito, contoId?: string): Promise<number> {
+  try {
+    const adesso = new Date().toISOString();
+    let q = leggi("table_rounds", ambito, "id, reservation_id, location_id, release_at")
+      .eq("status", "waiting")
+      .lte("release_at", adesso);
+    if (contoId) q = q.eq("reservation_id", contoId);
+    const { data, error } = await q;
+    if (error) return 0;
+    let partiti = 0;
+    for (const r of (data ?? []) as unknown as { id: string; reservation_id: string; location_id: string | null }[]) {
+      const upd = await aggiorna("table_rounds", ambito, { status: "released", released_at: adesso })
+        .eq("id", r.id)
+        .eq("status", "waiting")
+        .select("id");
+      if (upd.error || ((upd.data ?? []) as unknown[]).length === 0) continue;
+      partiti++;
+      const ordini = await ordiniDiInvio(ambito, r.id);
+      if (ordini.length === 0) continue; // tutti tolti prima di partire: niente ticket
+      void accodaTicket({ id: ordini[0].id, location_id: r.location_id }, { invio: r.id });
+    }
+    return partiti;
+  } catch (e) {
+    console.error("[conto] rilascio invii:", e);
+    return 0;
+  }
 }

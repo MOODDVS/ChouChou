@@ -368,6 +368,14 @@ export interface OrdineDaStampare {
   indirizzo?: string | null;
   /** Per il fattorino: piano, campanello, codice. */
   notaConsegna?: string | null;
+  /**
+   * IL CONTO APERTO (conto-aperto.md): il ticket e' di un INVIO del tavolo, non
+   * di un ordine. `invio` = il suo numero («INVIO 2»: la cucina sa che e' un
+   * seguito); i piatti sono gia' SOMMATI fra tutti quelli del tavolo, e
+   * `perPersona` dice chi ha preso cosa, per chi porta i piatti.
+   */
+  invio?: number | null;
+  perPersona?: { nome: string; piatti: string[] }[] | null;
 }
 
 /** Una riga di `orders` per quel poco che serve a stampare. Scritta qui e non
@@ -512,7 +520,9 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   // Dove va: tavolo, nome o ora — vedi `doveVa`.
   const dove = doveVa(o);
   righe.push({
-    testo: `#${o.numero} · ${dove.breve}`,
+    // Conto aperto: «TAVOLO 7 · INVIO 2» — il numero dell'ordine non dice
+    // niente, il numero dell'invio dice che e' un seguito.
+    testo: o.invio ? `${dove.breve} · INVIO ${o.invio}` : `#${o.numero} · ${dove.breve}`,
     taglia: "largo", grassetto: true, centrato: true, linea: true,
   });
 
@@ -559,16 +569,114 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
     });
   }
 
+  // ---- Conto aperto: chi ha preso cosa, per chi porta i piatti ----
+  if (o.perPersona && o.perPersona.length > 0) {
+    for (const p of o.perPersona) {
+      righe.push({ testo: `${p.nome.toUpperCase()}: ${p.piatti.join(", ")}`, taglia: "normale", grassetto: true });
+    }
+    righe.push({ testo: "", linea: true });
+  }
+
   // ---- L'ora (o il tavolo), e per chi e' ----
   /* ⚠️ La riga grossa in fondo e’ quella che si legge col ticket in mano,
      appoggiando il sacchetto o portando il piatto: dice DOVE va. Da asporto
      l’ora, col tavolo il tavolo, in sala senza tavoli il nome. */
   righe.push({ testo: dove.grande, taglia: "gigante", grassetto: true, centrato: true, linea: true });
-  righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
+  // ⚠️ Un invio del conto non ha UN cliente: i nomi sono in `perPersona`.
+  if (o.cliente) righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
   if (o.telefono) righe.push({ testo: o.telefono, taglia: "largo" });
   // L'indirizzo sotto il telefono: nome, numero e dove, insieme, per chi esce.
   if (o.indirizzo) righe.push({ testo: o.indirizzo, taglia: "largo", grassetto: true });
   if (o.indirizzo && o.notaConsegna) righe.push({ testo: o.notaConsegna, taglia: "largo" });
   if (o.note) righe.push({ testo: o.note, taglia: "largo", grassetto: true });
+  return righe;
+}
+
+/* ==========================================================================
+   IL CONTO APERTO: un ticket per invio, e l'addizione
+   ========================================================================== */
+
+/**
+ * I piatti di un invio SOMMATI: quattro amici che prendono il tiramisu' sono
+ * «4x Tiramisu'», non quattro righe. La cucina deve sapere quanti farne, non
+ * chi li mangia (per quello c'e' `perPersona`).
+ * ⚠️ Si sommano solo i piatti UGUALI in tutto: nome, formato e nota. «Senza
+ * cipolla» non si fonde con quello normale, o la cipolla torna nel piatto.
+ */
+export function sommaPiatti<T extends { qty: number; nome: string; variante?: string | null; nota?: string | null }>(piatti: T[]): T[] {
+  const out: T[] = [];
+  for (const p of piatti) {
+    const uguale = out.find((q) => q.nome === p.nome && (q.variante ?? null) === (p.variante ?? null) && (q.nota ?? null) === (p.nota ?? null));
+    if (uguale) uguale.qty += p.qty;
+    else out.push({ ...p });
+  }
+  return out;
+}
+
+/** «2x Tiramisu'» per la riga di una persona (formato fra parentesi). */
+export function piattoBreve(p: { qty: number; nome: string; variante?: string | null }): string {
+  return `${p.qty}x ${p.nome}${p.variante ? ` (${p.variante})` : ""}`;
+}
+
+/** I tavoli di un invio, uniti: «01+02» quando gli amici erano su due tavoli
+ *  uniti. Senza doppioni, nell'ordine in cui compaiono. */
+export function tavoliInsieme(etichette: (string | null | undefined)[]): string {
+  const visti: string[] = [];
+  for (const e of etichette) {
+    const t = String(e ?? "").trim();
+    if (t && !visti.includes(t)) visti.push(t);
+  }
+  return visti.join("+");
+}
+
+/** Le parole dell'addizione stampata, che va in mano al CLIENTE: nella lingua
+ *  pubblica del locale, non nell'italiano dei ticket di cucina. */
+export const TESTI_ADDIZIONE: Record<string, { titolo: string; tavolo: string; totale: string; grazie: string }> = {
+  fr: { titolo: "ADDITION", tavolo: "Table", totale: "TOTAL", grazie: "Merci et à bientôt !" },
+  en: { titolo: "BILL", tavolo: "Table", totale: "TOTAL", grazie: "Thank you, see you soon!" },
+  it: { titolo: "CONTO", tavolo: "Tavolo", totale: "TOTALE", grazie: "Grazie e a presto!" },
+  nl: { titolo: "REKENING", tavolo: "Tafel", totale: "TOTAAL", grazie: "Bedankt en tot ziens!" },
+  es: { titolo: "CUENTA", tavolo: "Mesa", totale: "TOTAL", grazie: "¡Gracias y hasta pronto!" },
+};
+
+export interface AddizioneDaStampare {
+  insegna?: string | null;
+  tavolo: string;
+  quando: string;
+  persone: { nome: string; righe: { testo: string; cents: number }[]; totale: number }[];
+  totale: number;
+  lang: string;
+}
+
+function euroTicket(c: number): string {
+  return (c / 100).toFixed(2).replace(".", ",") + " EUR";
+}
+
+/** Una riga «nome ........ prezzo» su 48 colonne (taglia normale). */
+function rigaPrezzo(sinistra: string, cents: number, colonne = 48): string {
+  const destra = euroTicket(cents);
+  const spazio = colonne - destra.length - 1;
+  const s = sinistra.length > spazio ? sinistra.slice(0, Math.max(0, spazio - 1)) + "." : sinistra;
+  return `${s}${" ".repeat(Math.max(1, colonne - s.length - destra.length))}${destra}`;
+}
+
+/** L'ADDIZIONE stampata («Imprimer l'addition»): per persona, coi prezzi, e il
+ *  totale. ⚠️ Non e' una fattura ne' uno scontrino fiscale: e' il conto da
+ *  portare al tavolo. */
+export function ticketAddizione(a: AddizioneDaStampare): RigaTicket[] {
+  const tx = TESTI_ADDIZIONE[a.lang] ?? TESTI_ADDIZIONE.fr;
+  const righe: RigaTicket[] = [];
+  if (a.insegna) righe.push({ testo: a.insegna.toUpperCase(), taglia: "gigante", grassetto: true, centrato: true });
+  righe.push({ testo: `${tx.titolo} · ${tx.tavolo} ${a.tavolo}`, taglia: "largo", grassetto: true, centrato: true });
+  righe.push({ testo: a.quando, taglia: "normale", centrato: true, linea: true });
+  for (const p of a.persone) {
+    righe.push({ testo: p.nome.toUpperCase(), taglia: "normale", grassetto: true });
+    for (const r of p.righe) righe.push({ testo: rigaPrezzo(`  ${r.testo}`, r.cents), taglia: "normale" });
+    righe.push({ testo: rigaPrezzo("", p.totale), taglia: "normale", grassetto: true });
+    righe.push({ testo: "" });
+  }
+  righe.push({ testo: "", linea: true });
+  righe.push({ testo: `${tx.totale}  ${euroTicket(a.totale)}`, taglia: "largo", grassetto: true, centrato: true, linea: true });
+  righe.push({ testo: tx.grazie, taglia: "normale", centrato: true });
   return righe;
 }

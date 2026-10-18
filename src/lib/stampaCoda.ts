@@ -44,10 +44,16 @@ export async function accodaTicket(o: {
   status?: string | null;
   payment_method?: string | null;
   location_id?: string | null;
-}, opz: { origine?: Origine } = {}): Promise<EsitoCoda> {
+}, opz: { origine?: Origine; invio?: string } = {}): Promise<EsitoCoda> {
   const origine: Origine = opz.origine ?? "auto";
   try {
-    if (!daStampare(o.status, o.payment_method)) return { accodati: 0, motivo: "stato" };
+    /* ⚠️ L'INVIO DEL CONTO APERTO NON PASSA DA `daStampare`: i suoi ordini
+       sono `pending` + `tab`, e la regola giustamente non li stampa. Qui
+       l'autorizzazione e' un'altra — il personale ha validato il primo invio
+       (conto-aperto.md) — e la chiede chi chiama: `rilasciaInviiScaduti`.
+       `o` e' il «capo» dell'invio, il suo primo ordine: la coda e' per
+       ordine, e un invio e' UN ticket. */
+    if (!opz.invio && !daStampare(o.status, o.payment_method)) return { accodati: 0, motivo: "stato" };
     if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
 
     const ambito = ambitoDiRiga(o.location_id ?? null);
@@ -75,8 +81,15 @@ export async function accodaTicket(o: {
     }
 
     // L'ordine vero: chi chiama ci da' l'id, i piatti stanno nella riga.
-    const { data: riga } = await leggi("orders", ambito, "id, items").eq("id", o.id).maybeSingle();
-    const ordine = (riga ?? { id: o.id, items: [] }) as unknown as RigaOrdine;
+    // Un invio del conto: i piatti di TUTTI i suoi ordini.
+    let ordine: RigaOrdine;
+    if (opz.invio) {
+      const ordini = await ordiniDiInvio(ambito, opz.invio);
+      ordine = { id: o.id, items: ordini.flatMap((x) => (Array.isArray(x.items) ? x.items : [])) };
+    } else {
+      const { data: riga } = await leggi("orders", ambito, "id, items").eq("id", o.id).maybeSingle();
+      ordine = (riga ?? { id: o.id, items: [] }) as unknown as RigaOrdine;
+    }
 
     const gruppi = await dividiPerStampante(ordine, ambito, cfg.valori.get(CHIAVE_DESTINAZIONI), principale);
     let accodati = 0;
@@ -196,3 +209,68 @@ export async function ticketDiOrdine(orderId: string, location_id: string | null
 }
 
 export { ordineDaRiga };
+
+/** Un ordine di un invio del conto aperto, per quel che serve a stampare. */
+export interface OrdineDiInvio {
+  id: string;
+  customer_name: string | null;
+  table_label: string | null;
+  items: RigaOrdine["items"];
+  total_cents: number | null;
+  created_at: string;
+}
+
+/** Gli ordini (non annullati) di un invio, dal primo. Il primo e' il «capo»:
+ *  e' a lui che si attacca la riga in coda di stampa. */
+export async function ordiniDiInvio(ambito: ReturnType<typeof ambitoDiRiga>, invioId: string): Promise<OrdineDiInvio[]> {
+  const { data } = await leggi("orders", ambito, "id, customer_name, table_label, items, total_cents, created_at, status")
+    .eq("round_id", invioId)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: true });
+  return (data ?? []) as unknown as OrdineDiInvio[];
+}
+
+/**
+ * «IMPRIMER L'ADDITION»: il conto del tavolo sulla stampante principale.
+ *
+ * ⚠️ Una riga `kind = 'customer'` (la #76 l'aveva prevista per questo) e
+ * `origin = 'manual'`: si puo' stampare quante volte serve — l'indice unico
+ * vale solo per gli automatici. Si attacca al primo ordine del conto
+ * (`capoId`): la rotta del ticket, vedendo `customer`, disegna l'addizione
+ * dell'intero conto.
+ */
+export async function accodaAddizione(capo: { id: string; location_id?: string | null }): Promise<EsitoCoda> {
+  try {
+    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    const ambito = ambitoDiRiga(capo.location_id ?? null);
+    const cfg = await leggiConfig(ambito, ["print_printer_id"]);
+    const principale = idStampante(cfg.valori.get("print_printer_id"));
+    if (!principale) return { accodati: 0, motivo: "stampante" };
+    const base = indirizzoPubblico();
+    if (!base) return { accodati: 0, motivo: "indirizzo" };
+    const token = randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
+    const { data, error } = await inserisci("print_tickets", ambito, {
+      order_id: capo.id,
+      kind: "customer",
+      origin: "manual",
+      status: "queued",
+      dest: "",
+      token,
+    }).select("id").maybeSingle();
+    if (error || !data) {
+      console.error("[stampa] addizione:", error?.message);
+      return { accodati: 0, motivo: "coda" };
+    }
+    const r = await mandaStampa(Number(principale), `${base}/api/print/${token}`, `Addition ${capo.id.slice(-4).toUpperCase()}`);
+    await aggiorna("print_tickets", ambito, {
+      attempts: 1,
+      job_id: r.ok ? (r.jobId ?? null) : null,
+      last_error: r.ok ? null : String(r.errore ?? "").slice(0, 500),
+      updated_at: new Date().toISOString(),
+    }).eq("id", String((data as { id?: string }).id ?? ""));
+    return { accodati: 1 };
+  } catch (e) {
+    console.error("[stampa] accodaAddizione:", String((e as Error)?.message ?? e));
+    return { accodati: 0, motivo: "errore" };
+  }
+}

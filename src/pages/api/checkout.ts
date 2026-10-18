@@ -23,7 +23,7 @@ import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordi
 import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBaseZona, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
-import { contoPerId, verificaCodice, invioPerOrdine } from "../../lib/contoServer";
+import { contoPerId, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
 import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
 import { inviaPushConto } from "../../lib/push";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
@@ -605,6 +605,8 @@ export const POST: APIRoute = async ({ request }) => {
     if (!conto) return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
     const esitoCodice = await verificaCodice(ambitoPub, conto, body.code, ora.toJSDate());
     if (esitoCodice !== "ok") return err(403, "code");
+    // Prima si fa partire l'invio scaduto, se c'e': questo ordine va nel prossimo.
+    await rilasciaInviiScaduti(ambitoPub, conto.id);
     invioId = await invioPerOrdine(ambitoPub, conto, ora.toJSDate());
     if (!invioId) return err(500, "Impossibile creare l'ordine");
     contoInAttesa = conto.tab_status === "pending";

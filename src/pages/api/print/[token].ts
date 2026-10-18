@@ -1,7 +1,13 @@
 import type { APIRoute } from "astro";
 import { CLIENT } from "../../../config/client";
 import { leggi, aggiorna, tutteLeSedi, ambitoDiRiga, leggiConfig } from "../../../lib/admin/sede";
-import { ordineDaRiga, idStampante, CHIAVE_DESTINAZIONI, type RigaOrdine } from "../../../lib/stampaRegole";
+import {
+  ordineDaRiga, idStampante, CHIAVE_DESTINAZIONI, sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione,
+  type RigaOrdine,
+} from "../../../lib/stampaRegole";
+import { ordiniDiInvio } from "../../../lib/stampaCoda";
+import { piattiVeri, notaCliente } from "../../../lib/admin/ordiniConti";
+import { defaultLang } from "../../../i18n/ui";
 // ⚠️ Il DISEGNO del ticket si prende da `config/`, che e' del cliente: ogni
 // ristorante lo vuole a modo suo, e un disegno dentro `lib/` vorrebbe dire
 // modificare il motore per cambiarlo — cioe' un conflitto a ogni merge.
@@ -150,7 +156,7 @@ export const GET: APIRoute = async ({ params }) => {
   // ⚠️ AGGREGATO, come l'annullo pubblico: il token e' gia' l'autorizzazione,
   // e filtrare per sede romperebbe la stampa di ogni punto che non sia il
   // primo — il ticket semplicemente non uscirebbe, senza dirlo a nessuno.
-  const { data: riga } = await leggi("print_tickets", tutteLeSedi(), "id, order_id, location_id, status, created_at, dest")
+  const { data: riga } = await leggi("print_tickets", tutteLeSedi(), "id, order_id, location_id, status, created_at, dest, kind")
     .eq("token", token)
     .maybeSingle();
   if (!riga) return vuoto();
@@ -170,8 +176,10 @@ export const GET: APIRoute = async ({ params }) => {
   const CAMPI = "id, status, payment_method, customer_name, customer_phone, items, pickup_time";
   const leggiOrdine = (campi: string) =>
     leggi("orders", ambito, campi).eq("id", riga.order_id).maybeSingle();
-  // ⚠️ Tre tentativi, dal piu' largo: #84 (l'indirizzo), poi #82, poi la base.
-  let { data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label, delivery_address`);
+  // ⚠️ Quattro tentativi, dal piu' largo: #87 (il conto aperto), #84
+  // (l'indirizzo), poi #82, poi la base.
+  let { data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label, delivery_address, round_id, reservation_id`);
+  if (!ordine) ({ data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label, delivery_address`));
   if (!ordine) ({ data: ordine } = await leggiOrdine(`${CAMPI}, service, table_label`));
   if (!ordine) ({ data: ordine } = await leggiOrdine(CAMPI));
   if (!ordine) return vuoto();
@@ -180,6 +188,101 @@ export const GET: APIRoute = async ({ params }) => {
   const fuso = String(cfg.valori.get("timezone") || "Europe/Brussels");
   const pickupIso = (ordine as { pickup_time?: string }).pickup_time;
   const ora = oraDi(pickupIso, fuso);
+  const segnaInviato = async () => {
+    if (String(riga.status) === "queued") {
+      await aggiorna("print_tickets", ambito, { status: "sent", sent_at: new Date().toISOString() }).eq("id", riga.id);
+    }
+  };
+  const conto = ordine as unknown as { round_id?: string | null; reservation_id?: string | null };
+
+  /* ---- L'ADDIZIONE del conto aperto («Imprimer l'addition») ----
+     ⚠️ Riga `customer`: va in mano al cliente, quindi i prezzi ci sono, per
+     persona, e la lingua e' quella pubblica del locale. Tutti gli ordini del
+     conto, non solo quello a cui e' attaccata la riga. */
+  if (String((riga as { kind?: string }).kind ?? "") === "customer") {
+    if (!conto.reservation_id) return vuoto();
+    const { data: tuttiRaw } = await leggi("orders", ambito, "customer_name, items, total_cents, table_label, created_at")
+      .eq("reservation_id", conto.reservation_id)
+      .not("round_id", "is", null)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: true });
+    const tutti = (tuttiRaw ?? []) as unknown as { customer_name: string | null; items: RigaOrdine["items"]; total_cents: number | null; table_label: string | null }[];
+    const perNome = new Map<string, { nome: string; righe: { testo: string; cents: number }[]; totale: number }>();
+    for (const o of tutti) {
+      const nome = String(o.customer_name ?? "").trim() || "-";
+      const p = perNome.get(nome) ?? { nome, righe: [], totale: 0 };
+      for (const i of piattiVeri(o.items ?? [])) {
+        const qty = Math.max(1, Math.floor(Number(i.qty) || 1));
+        const prezzo = Number((i as { price_cents?: number }).price_cents) || 0;
+        p.righe.push({ testo: piattoBreve({ qty, nome: String(i.base_name ?? i.name ?? "").trim(), variante: String(i.variant_label ?? "").trim() || null }), cents: prezzo * qty });
+      }
+      p.totale += Number(o.total_cents) || 0;
+      perNome.set(nome, p);
+    }
+    const persone = [...perNome.values()];
+    const quando = new Date().toLocaleString("fr-BE", { timeZone: fuso, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+    await segnaInviato();
+    return ticket(componiTesto(ticketAddizione({
+      insegna: CLIENT.nome,
+      tavolo: tavoliInsieme(tutti.map((o) => o.table_label)),
+      quando,
+      persone,
+      totale: persone.reduce((t, p) => t + p.totale, 0),
+      lang: defaultLang,
+    })));
+  }
+
+  /* ---- UN INVIO del conto aperto: un ticket per tutto il tavolo ----
+     I piatti di tutti gli ordini dell'invio, SOMMATI; sotto, chi ha preso
+     cosa (solo i piatti di QUESTA stampante); in testa «TAVOLO 7 · INVIO 2». */
+  if (conto.round_id) {
+    const ordiniInvio = await ordiniDiInvio(ambito, conto.round_id);
+    const { data: invRaw } = await leggi("table_rounds", ambito, "number").eq("id", conto.round_id).maybeSingle();
+    const numero = Number((invRaw as { number?: number } | null)?.number) || null;
+    const unito: RigaOrdine = {
+      ...(ordine as unknown as RigaOrdine),
+      table_label: tavoliInsieme(ordiniInvio.map((o) => o.table_label)) || (ordine as unknown as RigaOrdine).table_label,
+      items: ordiniInvio.flatMap((o) => (Array.isArray(o.items) ? o.items : []).filter((i) => String(i?.id ?? "") !== "note")),
+    };
+    const datiInvio = ordineDaRiga(unito, ora);
+    datiInvio.insegna = CLIENT.nome;
+    datiInvio.invio = numero;
+    datiInvio.cliente = "";
+    datiInvio.telefono = null;
+    datiInvio.daIncassare = false;
+    // Le note di ognuno, col suo nome: «Marco: sans oignon».
+    const note = ordiniInvio
+      .map((o) => ({ nome: String(o.customer_name ?? "").trim(), nota: notaCliente(o.items ?? []) }))
+      .filter((x) => x.nota)
+      .map((x) => (x.nome ? `${x.nome}: ${x.nota}` : String(x.nota)));
+    datiInvio.note = note.length ? note.join(" / ") : null;
+    const principale = idStampante(cfg.valori.get("print_printer_id"));
+    const destGrezze = cfg.valori.get(CHIAVE_DESTINAZIONI);
+    const gruppi = await dividiPerStampante(unito, ambito, destGrezze, principale);
+    const dest = String((riga as { dest?: string }).dest ?? "");
+    const i = gruppi.findIndex((g) => g.chiave === dest);
+    if (i >= 0) {
+      datiInvio.piatti = sommaPiatti(gruppi[i].piatti);
+      datiInvio.parte = {
+        n: i + 1,
+        su: gruppi.length,
+        altri: gruppi.filter((_, k) => k !== i).map((g) => ({ nome: g.nome || "?", righe: g.piatti.reduce((n, p) => n + p.qty, 0) })),
+      };
+    } else {
+      datiInvio.piatti = sommaPiatti(datiInvio.piatti);
+    }
+    // Chi ha preso cosa, fra i piatti di questa stampante.
+    const perPersona: { nome: string; piatti: string[] }[] = [];
+    for (const o of ordiniInvio) {
+      const g = (await dividiPerStampante({ id: o.id, items: o.items }, ambito, destGrezze, principale)).find((x) => x.chiave === dest);
+      const piatti = (g?.piatti ?? []).map(piattoBreve);
+      if (piatti.length) perPersona.push({ nome: String(o.customer_name ?? "").trim() || "-", piatti });
+    }
+    datiInvio.perPersona = perPersona;
+    await segnaInviato();
+    return ticket(componiTesto(disegnaTicket(datiInvio)));
+  }
+
   const dati = ordineDaRiga(ordine as unknown as RigaOrdine, ora);
   dati.giorno = giornoDi(pickupIso, fuso);
   // L'insegna in testa al ticket: il nome del locale, non un titolo scritto a

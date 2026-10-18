@@ -42,6 +42,8 @@ export interface TestiConto {
   chiesto: string;
   errChiedi: string;
   ancora: string;
+  /** Il conto e' stato chiuso dal personale (incassato o rifiutato). */
+  chiuso: string;
 }
 
 export const TESTI_CONTO: Record<string, TestiConto> = {
@@ -64,6 +66,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     chiedi: "Demander l’addition", chiesto: "C’est noté : le serveur apporte l’addition.",
     errChiedi: "La demande n’est pas passée. Faites signe à un serveur.",
     ancora: "Commander autre chose",
+    chiuso: "Votre addition a été fermée par le serveur.",
   },
   en: {
     apri: "Open a tab", apriSotto: "Order now, pay at the end. Your friends join with a code.",
@@ -84,6 +87,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     chiedi: "Ask for the bill", chiesto: "Got it: the waiter is bringing the bill.",
     errChiedi: "The request didn’t go through. Please wave to a member of staff.",
     ancora: "Order something else",
+    chiuso: "Your bill has been closed by the waiter.",
   },
   it: {
     apri: "Apri un conto", apriSotto: "Ordina adesso, paga alla fine. I tuoi amici si uniscono con un codice.",
@@ -104,6 +108,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     chiedi: "Chiedi il conto", chiesto: "Fatto: il cameriere porta il conto.",
     errChiedi: "La richiesta non è partita. Fate un cenno a un cameriere.",
     ancora: "Ordina altro",
+    chiuso: "Il vostro conto è stato chiuso dal cameriere.",
   },
   nl: {
     apri: "Rekening openen", apriSotto: "Bestel nu, betaal op het einde. Je vrienden doen mee met een code.",
@@ -124,6 +129,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     chiedi: "Rekening vragen", chiesto: "Genoteerd: de ober brengt de rekening.",
     errChiedi: "De vraag is niet verstuurd. Wenk even een ober.",
     ancora: "Nog iets bestellen",
+    chiuso: "Jullie rekening is door de ober afgesloten.",
   },
   es: {
     apri: "Abrir una cuenta", apriSotto: "Pida ahora, pague al final. Sus amigos se unen con un código.",
@@ -144,5 +150,6 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     chiedi: "Pedir la cuenta", chiesto: "Hecho: el camarero trae la cuenta.",
     errChiedi: "La petición no se envió. Haga una seña a un camarero.",
     ancora: "Pedir algo más",
+    chiuso: "El camarero ha cerrado su cuenta.",
   },
 };

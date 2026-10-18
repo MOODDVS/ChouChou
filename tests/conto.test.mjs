@@ -211,3 +211,76 @@ test("la pagina: «Ouvrir un compte» accanto al pagamento, «Ajouter» al suo p
   assert.match(to, /u\.searchParams\.delete\("code"\);/);
   assert.match(leggi("src/components/PaginaTavolo.astro"), /conto=\{sala\.conto\}/);
 });
+
+/* ───────── Fase 3: il ristorante ───────── */
+import { sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione, ticketCucina } from "../src/lib/stampaRegole.ts";
+
+test("il ticket di un invio: piatti sommati, chi ha preso cosa, «TAVOLO 7 · INVIO 2»", () => {
+  const somma = sommaPiatti([
+    { qty: 1, nome: "Tiramisù", variante: null, nota: null },
+    { qty: 2, nome: "Tiramisù", variante: null, nota: null },
+    { qty: 1, nome: "Tiramisù", variante: null, nota: "sans cacao" },
+  ]);
+  assert.deepEqual(somma.map((p) => [p.qty, p.nota]), [[3, null], [1, "sans cacao"]], "«senza» non si fonde con quello normale");
+  assert.equal(piattoBreve({ qty: 2, nome: "Margherita", variante: "33 cm" }), "2x Margherita (33 cm)");
+  assert.equal(tavoliInsieme(["01", "02", "01", ""]), "01+02");
+  const righe = ticketCucina({
+    numero: "AB12", ora: "20:00", cliente: "", servizio: "table", tavolo: "7", invio: 2,
+    piatti: [{ qty: 3, nome: "Tiramisù" }], perPersona: [{ nome: "Marco", piatti: ["2x Tiramisù"] }, { nome: "Sara", piatti: ["1x Tiramisù"] }],
+  });
+  const testi = righe.map((r) => r.testo);
+  assert.ok(testi.includes("TAVOLO 7 · INVIO 2"));
+  assert.ok(testi.includes("MARCO: 2x Tiramisù"));
+  // Un invio non ha UN cliente: nessuna riga col nome in fondo.
+  assert.ok(!righe.some((r) => r.taglia === "largo" && r.grassetto && r.testo === ""));
+});
+
+test("l'addizione stampata: per persona coi prezzi, il totale, nella lingua del locale", () => {
+  const righe = ticketAddizione({
+    insegna: "Chez Test", tavolo: "01+02", quando: "18/10 21:30", lang: "fr", totale: 3150,
+    persone: [{ nome: "Marco", righe: [{ testo: "2x Tiramisù", cents: 1400 }], totale: 1400 }, { nome: "Sara", righe: [{ testo: "1x Pasta", cents: 1750 }], totale: 1750 }],
+  }).map((r) => r.testo);
+  assert.ok(righe.includes("ADDITION · Table 01+02"));
+  assert.ok(righe.includes("TOTAL  31,50 EUR"));
+  assert.ok(righe.some((r) => r.startsWith("  2x Tiramisù") && r.endsWith("14,00 EUR") && r.length === 48));
+});
+
+test("gli invii partono una volta sola, e solo dopo la validazione o la finestra", () => {
+  const cs = nudo("src/lib/contoServer.ts");
+  // Il passaggio a `released` e' condizionato: due chiamate insieme, un ticket.
+  assert.match(cs, /aggiorna\("table_rounds", ambito, \{ status: "released", released_at: adesso \}\)\s*\.eq\("id", r\.id\)\s*\.eq\("status", "waiting"\)/);
+  assert.match(cs, /\.lte\("release_at", adesso\)/);
+  assert.match(cs, /void accodaTicket\(\{ id: ordini\[0\]\.id, location_id: r\.location_id \}, \{ invio: r\.id \}\);/);
+  // Solo l'invio salta `daStampare`: l'autorizzazione e' la validazione.
+  assert.match(nudo("src/lib/stampaCoda.ts"), /if \(!opz\.invio && !daStampare\(o\.status, o\.payment_method\)\)/);
+  // Il primo invio aspetta la validazione: `release_at` NULL non passa mai `lte`.
+  const api = nudo("src/pages/api/admin/table-tabs.ts");
+  assert.match(api, /await aggiorna\("table_rounds", ambito, \{ release_at: adessoIso \}\)\s*\.eq\("reservation_id", conto\.id\)\s*\.eq\("status", "waiting"\)\s*\.is\("release_at", null\);/);
+  assert.match(nudo("src/pages/api/checkout.ts"), /await rilasciaInviiScaduti\(ambitoPub, conto\.id\);\s*invioId = await invioPerOrdine/);
+});
+
+test("il tablet: valida, rifiuta, incassa (contanti/carta), chiudi, stampa — e il tavolo si libera", () => {
+  const api = nudo("src/pages/api/admin/table-tabs.ts");
+  for (const a of ["valida", "rifiuta", "incassa", "chiudi", "stampa"]) assert.match(api, new RegExp(`if \\(azione === "${a}"\\)`), a);
+  assert.match(api, /if \(metodo !== "cash" && metodo !== "card"\)/);
+  assert.match(api, /tab_status: "closed",\s*tab_closed_at: adessoIso,\s*status: "done",/);
+  assert.match(api, /\{ status: "done", payment_method: metodo \}/);
+  // Non si incassa un conto da validare.
+  assert.match(api, /if \(conto\.tab_status === "pending"\) return json\(\{ error: await msg\("err\.tabValidateFirst"\) \}, 409\);/);
+  const pag = nudo("src/pages/admin/orders.astro");
+  assert.match(pag, /<div class="grid grid-conti" id="grid-conti" hidden><\/div>/);
+  assert.match(pag, /return min >= 15 \? 3 : min >= 10 \? 2 : min >= 5 \? 1 : 0;/);
+  assert.match(pag, /fetch\("\/api\/admin\/table-tabs", \{ headers \}\)/);
+});
+
+test("la stampa: l'addizione e' `customer`, l'invio unisce gli ordini; la richiesta d'addizione sul tablet", () => {
+  const pr = nudo("src/pages/api/print/[token].ts");
+  assert.match(pr, /if \(String\(\(riga as \{ kind\?: string \}\)\.kind \?\? ""\) === "customer"\) \{/);
+  assert.match(pr, /if \(conto\.round_id\) \{/);
+  assert.match(pr, /datiInvio\.piatti = sommaPiatti\(gruppi\[i\]\.piatti\);/);
+  assert.match(nudo("src/lib/stampaCoda.ts"), /kind: "customer",\s*origin: "manual",/);
+  const nav = leggi("src/components/admin/AdminNav.astro");
+  assert.match(nav, /chiamate\[0\]\.reason === "bill" \? T\.addizione : T\.chiamata/);
+  // Senza la #87 la campanella continua a suonare.
+  assert.match(nudo("src/pages/api/admin/table-calls.ts"), /if \(error\) \(\{ data, error \} = await sel\("id, table_id, table_label, caller_name, created_at"\)\);/);
+});

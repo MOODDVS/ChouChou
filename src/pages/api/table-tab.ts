@@ -12,7 +12,7 @@ import { linkTavolo } from "../../lib/qrRegole";
 import { qrSvg } from "../../lib/qrSvg";
 import { hannoOrdinato, inizialeDi, PARAM_CODICE } from "../../lib/contoRegole";
 import {
-  addizione, aggiungiTavolo, apriConto, contoDelTavolo, togliOrdine, verificaCodice, type ContoRiga,
+  addizione, aggiungiTavolo, apriConto, contoDelTavolo, rilasciaInviiScaduti, togliOrdine, verificaCodice, type ContoRiga,
 } from "../../lib/contoServer";
 
 /**
@@ -60,6 +60,9 @@ export const POST: APIRoute = async ({ request }) => {
      comporta come prima e questa rotta non apre niente. */
   const opz = await opzioniTavolo(ambito);
   if (!opz.conto) return json({ attivo: false, conto: null }, azione === "stato" ? 200 : 403);
+  // Gli invii la cui finestra e' scaduta partono adesso (nessun cron: vedi
+  // `rilasciaInviiScaduti`). Mai bloccante per chi e' al tavolo.
+  void rilasciaInviiScaduti(ambito);
 
   const chiesto = String(body.table ?? "").trim();
   const tavolo = chiesto ? (await tavoliDiSala(ambito)).find((t) => t.id === chiesto) ?? null : null;

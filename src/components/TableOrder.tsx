@@ -584,8 +584,14 @@ export default function TableOrder({
       });
       const c = d.conto as (DatiConto & { membro?: boolean; iniziale?: string; errore?: string }) | null | undefined;
       if (!c) {
-        // Nessun conto qui (chiuso, o mai aperto): il telefono lo dimentica.
-        if (m && m.tableId === scelto.id) salvaMembro(null);
+        /* Nessun conto qui: chiuso dal cameriere (incassato, o rifiutato), o
+           mai aperto. Il telefono lo dimentica, e se ne faceva parte lo dice:
+           un'addizione che sparisce senza una parola sembra un guasto. */
+        if (m && m.tableId === scelto.id) {
+          salvaMembro(null);
+          setAdditionAperta(false);
+          if (tc) mostraAvviso(tc.chiuso, true);
+        }
         setStatoConto({ tipo: "nessuno" });
         return;
       }

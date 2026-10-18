@@ -45,7 +45,7 @@ const breve = (chiave: string): string => {
   ordine: t("nav.toastOrder"), ordineMulti: t("nav.toastOrderMulti"),
   pers: t("nav.toastPers"),
   chiamata: t("nav.toastCall"), chiamataNome: t("nav.toastCallName"), chiamataMulti: t("nav.toastCallMulti"),
-  chiamataHint: t("nav.toastCallHint"),
+  chiamataHint: t("nav.toastCallHint"), addizione: t("nav.toastBill"),
 })} />
 <nav class="admin-nav" aria-label="Navigation admin" data-current={current ?? ""}>
   <!-- SUPER ADMIN (solo admin@moodd.online): primo item a sinistra + separatore -->
@@ -788,7 +788,7 @@ const breve = (chiave: string): string => {
     // (2) se un ordine o una prenotazione le passano davanti, torna appena
     // quel toast si chiude, e (3) toccarla vuol dire «ci vado»: si chiude
     // sul server, e gli altri tablet smettono di mostrarla al giro dopo.
-    type Chiamata = { id: string; table_label: string; caller_name?: string | null };
+    type Chiamata = { id: string; table_label: string; caller_name?: string | null; reason?: string | null };
     let chiamateInAttesa: Chiamata[] = [];
     // Il tavolo se c'e'; se la sala non ha tavoli, il nome di chi chiama.
     const chi = (c: Chiamata) => String(c.table_label || c.caller_name || "").trim();
@@ -832,9 +832,10 @@ const breve = (chiave: string): string => {
       const n = chiamate.length;
       // ⚠️ Il nome lo scrive il CLIENTE: passa da `esc` come tutto il resto,
       // se no un «nome» con dentro dell'HTML finirebbe eseguito sul tablet.
+      // «Demander l'addition» (conto aperto): la stessa campanella, un'altra frase.
       const titolo = n === 1
         ? chiamate[0].table_label
-          ? String(T.chiamata ?? "").replace("{t}", esc(chiamate[0].table_label))
+          ? String((chiamate[0].reason === "bill" ? T.addizione : T.chiamata) ?? "").replace("{t}", esc(chiamate[0].table_label))
           : String(T.chiamataNome ?? "").replace("{nome}", esc(chi(chiamate[0])))
         : conN(T.chiamataMulti, n);
       const dettaglio = n === 1
