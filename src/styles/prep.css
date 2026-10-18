@@ -72,10 +72,14 @@
    scelta, solo dentro una colonna: senza, il suo bottone acceso restava col
    contorno e l'ombra mentre tutti gli altri della scheda sono pieni. */
 .field > .prep-btns .prep-btn,
-.mance-dx > .prep-btns .prep-btn { box-shadow: none; }
+.mance-dx > .prep-btns .prep-btn,
+.qr-pillole .prep-btn { box-shadow: none; }
 .field > .prep-btns .prep-btn.active,
-.mance-dx > .prep-btns .prep-btn.active { background: var(--c-accent); border-color: var(--c-accent); }
+.mance-dx > .prep-btns .prep-btn.active,
+.qr-pillole .prep-btn.active { background: var(--c-accent); border-color: var(--c-accent); }
 .field > .prep-btns .prep-btn.active,
 .field > .prep-btns .prep-btn.active .m,
 .mance-dx > .prep-btns .prep-btn.active,
-.mance-dx > .prep-btns .prep-btn.active .m { color: var(--c-bg); }
+.mance-dx > .prep-btns .prep-btn.active .m,
+.qr-pillole .prep-btn.active,
+.qr-pillole .prep-btn.active .m { color: var(--c-bg); }

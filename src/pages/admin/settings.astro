@@ -802,6 +802,16 @@ const t = adminT(lang);
       .qr-lista .qr-riga input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: .78rem; }
       .qr-lista .qr-vuoto { margin: 0; color: var(--c-muted); font-size: .85rem; }
       .qr-stampa-riga { justify-content: flex-end; }
+      /* I generatori di QR: caselle da spuntare, poi «Générer». */
+      .qr-azioni { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+      .qr-azioni .kemail-add[aria-busy="true"] { opacity: .6; pointer-events: none; }
+      .qr-azioni .qr-gen-err { outline: 2px solid var(--c-error, #c0392b); }
+      .qr-scelte { display: flex; flex-direction: column; gap: .35rem; width: 100%; }
+      .qr-scelte .qr-sez { margin: .5rem 0 .1rem; display: flex; align-items: center; gap: .5rem; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--c-muted); }
+      .qr-scelte .qr-sez:first-child { margin-top: 0; }
+      .qr-scelte .qr-pillole { flex-wrap: wrap; }
+      .qr-scelte .qr-pillole .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
+      .qr-scelte .qr-tutti { font-size: .72rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--c-accent); background: none; border: 0; padding: 0; cursor: pointer; }
       .dyn-col .kemails, .dyn-col .rzones { width: 100%; }
       /* Righe "sezione sala": nome + coperti + elimina */
       .rzones { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -1734,30 +1744,43 @@ const t = adminT(lang);
                 stessi bottoni a scelta del resto della scheda. I link li
                 scrive il server (`qr_sezioni`, `qr_tavoli`): qui si mostrano,
                 si copiano e si stampano, mai si compongono. */}
-            <div class="field" id="o-table-qr-row" style="display:none">
-              <label>{t("set.ord.qrMode")}<span class="lab-hint">{t("set.ord.qrModeHint")}</span></label>
-              <div class="prep-btns" id="o-table-qr-mode" role="group" aria-label={t("set.ord.qrMode")}>
-                <button type="button" class="prep-btn" data-qr="unico" aria-pressed="false"><span class="m">{t("set.ord.qrUnico")}</span></button>
-                <button type="button" class="prep-btn" data-qr="sezione" aria-pressed="false"><span class="m">{t("set.ord.qrSezione")}</span></button>
-                <button type="button" class="prep-btn" data-qr="tavolo" aria-pressed="false"><span class="m">{t("set.ord.qrTavolo")}</span></button>
-              </div>
-            </div>
-            <div class="field" id="o-table-qr-list-row" style="display:none">
-              <label>{t("set.ord.qrList")}<span class="lab-hint">{t("set.ord.qrListHint")}</span></label>
-              <div class="dyn-col qr-lista" id="o-table-qr-list"></div>
-            </div>
+            {/* ⚠️ IL TIPO DI QR NON E' UN'IMPOSTAZIONE. Il link unico, quelli di
+                sezione e quelli di tavolo funzionano TUTTI, sempre e insieme
+                (bancone col QR unico, terrazza per sezione, sala per tavolo):
+                il «tipo» decideva solo quali cartoncini stampare, e come scelta
+                esclusiva faceva credere che gli altri smettessero di andare.
+                Adesso sono tre generatori: le pillole accese sono la SCELTA
+                salvata (`orders_table_qr_sel`), «Générer» la salva e apre
+                Assets › QR codes, che mostra l'unico + quelle. Togliere un QR
+                dalla scelta non lo spegne. Senza scelta del tavolo (sala senza
+                piano o scelta spenta) esiste solo il QR generico. */}
             <div class="field" id="o-table-link-row" style="display:none">
-              <label>{t("set.ord.tableLink")}<span class="lab-hint">{t("set.ord.tableLinkHint")}</span></label>
+              <label>{t("set.ord.qrUnicoTitle")}<span class="lab-hint">{t("set.ord.tableLinkHint")}</span></label>
               <div class="dyn-col qr-link">
                 <input type="text" id="o-table-link" readonly data-noauto="1" />
-                <button type="button" class="kemail-add" id="o-table-link-copy">{t("common.copy")}</button>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-table-link-copy">{t("common.copy")}</button>
+                  <a class="kemail-add" id="o-qr-gen-unico" href="/admin/assets?tab=qr">{t("set.ord.qrGenerate")}</a>
+                </div>
               </div>
             </div>
-            {/* I cartoncini si VEDONO e si stampano in Assets › QR codes: e' li'
-                che vivono le cose da mettere in mano a qualcuno (immagini,
-                documenti). Qui si sceglie il tipo; li' lo si guarda. */}
-            <div class="field qr-stampa-riga" id="o-table-qr-print-row" style="display:none">
-              <a class="kemail-add" id="o-table-qr-see" href="/admin/assets?tab=qr">{t("set.ord.qrSee")}</a>
+            <div class="field" id="o-qr-sez-row" style="display:none">
+              <label>{t("set.ord.qrSezTitle")}<span class="lab-hint">{t("set.ord.qrSezHint")}</span></label>
+              <div class="dyn-col">
+                <div class="qr-scelte" id="o-qr-sez-list"></div>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-qr-gen-sez">{t("set.ord.qrGenerate")}</button>
+                </div>
+              </div>
+            </div>
+            <div class="field" id="o-qr-tav-row" style="display:none">
+              <label>{t("set.ord.qrTavTitle")}<span class="lab-hint">{t("set.ord.qrTavHint")}</span></label>
+              <div class="dyn-col">
+                <div class="qr-scelte" id="o-qr-tav-list"></div>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-qr-gen-tav">{t("set.ord.qrGenerate")}</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -4134,7 +4157,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; consegna_zone?: { nome: string; cap: string[]; costo_cents: number | null }[]; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; consegna_zone?: { nome: string; cap: string[]; costo_cents: number | null }[]; qr_scelta?: { sezioni: string[]; tavoli: string[] }; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { id: string; sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4498,73 +4521,116 @@ const t = adminT(lang);
         const campoLink = document.getElementById("o-table-link") as HTMLInputElement | null;
         const copiaLink = document.getElementById("o-table-link-copy") as HTMLButtonElement | null;
         if (campoLink) campoLink.value = dati.link_tavolo ?? "";
-        // --- I QR della sala: il tipo (unico / per sezione / per tavolo),
-        // l'elenco dei link e la stampa dei cartoncini ---
-        const rigaQr = document.getElementById("o-table-qr-row") as HTMLElement | null;
-        const rigaListaQr = document.getElementById("o-table-qr-list-row") as HTMLElement | null;
-        const boxListaQr = document.getElementById("o-table-qr-list") as HTMLElement | null;
-        const rigaStampaQr = document.getElementById("o-table-qr-print-row") as HTMLElement | null;
-        const bottoniQr = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-qr-mode .prep-btn"));
-        let modoQrOra = String(dati.qr_modo ?? "unico");
-        function accendiModoQr() {
-          for (const b of bottoniQr) {
-            const si = b.dataset.qr === modoQrOra;
+        /* ---- I GENERATORI DI QR ----
+           Le caselle si DISEGNANO dai dati del server (`qr_sezioni`,
+           `qr_tavoli`), con `textContent` e `value`: i nomi di sezione e di
+           tavolo li scrive il ristoratore, e in `innerHTML` un «<» romperebbe
+           la pagina. Le pillole accese all'apertura sono la scelta SALVATA
+           (`qr_scelta`); «Générer» la salva e porta in Assets › QR codes, che
+           mostra l'unico + quelle. I link li compone sempre e solo il server. */
+        const rigaSez = document.getElementById("o-qr-sez-row") as HTMLElement | null;
+        const rigaTav = document.getElementById("o-qr-tav-row") as HTMLElement | null;
+        const boxSez = document.getElementById("o-qr-sez-list") as HTMLElement | null;
+        const boxTav = document.getElementById("o-qr-tav-list") as HTMLElement | null;
+        const genSez = document.getElementById("o-qr-gen-sez") as HTMLButtonElement | null;
+        const genTav = document.getElementById("o-qr-gen-tav") as HTMLButtonElement | null;
+        /* ⚠️ PILLOLE, NON CASELLE. Una `<label>` dentro `.field` prende
+           `flex: 0 0 220px` (la regola che incolonna i titoli dei campi), e in
+           una colonna quei 220px diventano l'ALTEZZA: ogni casella era alta
+           mezzo schermo. Le stesse pillole del resto della scheda (`.prep-btn`):
+           si tocca per accendere, si ritocca per spegnere. */
+        const pillola = (valore: string, testo: string, accesa: boolean) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "prep-btn";
+          b.dataset.v = valore;
+          b.classList.toggle("active", accesa);
+          b.setAttribute("aria-pressed", accesa ? "true" : "false");
+          const t = document.createElement("span");
+          t.className = "m";
+          t.textContent = testo;
+          b.appendChild(t);
+          b.addEventListener("click", () => {
+            const si = !b.classList.contains("active");
             b.classList.toggle("active", si);
             b.setAttribute("aria-pressed", si ? "true" : "false");
+          });
+          return b;
+        };
+        const gruppo = () => {
+          const g = document.createElement("div");
+          g.className = "prep-btns qr-pillole";
+          return g;
+        };
+        const spuntate = (box: HTMLElement | null) =>
+          Array.from(box?.querySelectorAll<HTMLButtonElement>(".prep-btn.active") ?? []).map((b) => b.dataset.v ?? "");
+        const sezSalvate = new Set(dati.qr_scelta?.sezioni ?? []);
+        const tavSalvati = new Set(dati.qr_scelta?.tavoli ?? []);
+        if (boxSez) {
+          boxSez.innerHTML = "";
+          const g = gruppo();
+          for (const z of dati.qr_sezioni ?? []) g.appendChild(pillola(z.nome, z.nome, sezSalvate.has(z.nome)));
+          boxSez.appendChild(g);
+        }
+        if (boxTav) {
+          boxTav.innerHTML = "";
+          // Raggruppati per sezione, con «Tout» per spuntarne una intera.
+          const perSez = new Map<string, { id: string; nome: string }[]>();
+          for (const t of dati.qr_tavoli ?? []) {
+            const k = t.sezione ?? "";
+            if (!perSez.has(k)) perSez.set(k, []);
+            perSez.get(k)!.push({ id: t.id, nome: t.nome });
+          }
+          for (const [sez, tavoli] of perSez) {
+            const testa = document.createElement("div");
+            testa.className = "qr-sez";
+            const nomeSez = document.createElement("span");
+            nomeSez.textContent = sez || "—";
+            const tutti = document.createElement("button");
+            tutti.type = "button";
+            tutti.className = "qr-tutti";
+            tutti.textContent = tr("set.ord.qrAll");
+            const griglia = gruppo();
+            for (const t of tavoli) griglia.appendChild(pillola(t.id, t.nome, tavSalvati.has(t.id)));
+            // «Tout»: le accende tutte; se lo erano gia', le spegne tutte.
+            tutti.addEventListener("click", () => {
+              const pillole = Array.from(griglia.querySelectorAll<HTMLButtonElement>(".prep-btn"));
+              const accese = pillole.every((b) => b.classList.contains("active"));
+              for (const b of pillole) {
+                b.classList.toggle("active", !accese);
+                b.setAttribute("aria-pressed", !accese ? "true" : "false");
+              }
+            });
+            testa.append(nomeSez, tutti);
+            boxTav.append(testa, griglia);
           }
         }
-        /* L'elenco si DISEGNA dai link del server, con `textContent` e `value`:
-           i nomi di sezione e di tavolo li scrive il ristoratore, e messi in
-           `innerHTML` un nome con un «<» romperebbe la pagina. */
-        function disegnaListaQr() {
-          if (!boxListaQr) return;
-          boxListaQr.innerHTML = "";
-          const voci = modoQrOra === "sezione"
-            ? (dati.qr_sezioni ?? []).map((x) => ({ sez: "", nome: x.nome, link: x.link }))
-            : (dati.qr_tavoli ?? []).map((x) => ({ sez: x.sezione, nome: x.nome, link: x.link }));
-          if (voci.length === 0) {
-            const vuoto = document.createElement("p");
-            vuoto.className = "qr-vuoto";
-            vuoto.textContent = tr("set.ord.qrNone");
-            boxListaQr.appendChild(vuoto);
-            return;
-          }
-          let ultima: string | null = null;
-          for (const v of voci) {
-            if (modoQrOra === "tavolo" && v.sez !== ultima) {
-              const sez = document.createElement("div");
-              sez.className = "qr-sez";
-              sez.textContent = v.sez;
-              boxListaQr.appendChild(sez);
-              ultima = v.sez;
-            }
-            const riga = document.createElement("div");
-            riga.className = "qr-riga";
-            const nome = document.createElement("span");
-            nome.className = "qr-nome";
-            nome.textContent = v.nome;
-            const campo = document.createElement("input");
-            campo.type = "text";
-            campo.readOnly = true;
-            campo.value = v.link;
-            campo.addEventListener("focus", () => campo.select());
-            const copia = document.createElement("button");
-            copia.type = "button";
-            copia.className = "kemail-add";
-            copia.textContent = tr("common.copy");
-            copia.addEventListener("click", async () => {
-              try {
-                await navigator.clipboard.writeText(v.link);
-              } catch {
-                campo.focus();
-                return;
-              }
-              copia.textContent = tr("set.ord.tableLinkCopied");
-              setTimeout(() => { copia.textContent = tr("common.copy"); }, 1600);
+        /* «Générer» (tutti e tre): SALVA la scelta — sezioni e tavoli insieme,
+           com'e' adesso nella pagina — e apre Assets › QR codes. ⚠️ Prima si
+           salva, poi si va: aperta subito, la scheda leggerebbe la scelta
+           vecchia. Nessuna pillola accesa e' una scelta valida (solo l'unico).
+           Se il salvataggio non va, si resta qui e lo si dice. */
+        const vaiAiQr = async (b: HTMLElement) => {
+          b.setAttribute("aria-busy", "true");
+          try {
+            const res = await fetch("/api/admin/qr", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ sezioni: spuntate(boxSez), tavoli: spuntate(boxTav) }),
             });
-            riga.append(nome, campo, copia);
-            boxListaQr.appendChild(riga);
+            if (!res.ok) throw new Error();
+            location.href = "/admin/assets?tab=qr";
+          } catch {
+            b.removeAttribute("aria-busy");
+            b.title = tr("common.netErr");
+            b.classList.add("qr-gen-err");
           }
+        };
+        for (const b of [genSez, genTav, document.getElementById("o-qr-gen-unico")]) {
+          b?.addEventListener("click", (e) => {
+            e.preventDefault();
+            void vaiAiQr(b);
+          });
         }
         // La scelta del tavolo: la riga c'e' solo se il piano ha dei tavoli.
         const rigaScelta = document.getElementById("o-table-choose-row") as HTMLElement | null;
@@ -4574,29 +4640,15 @@ const t = adminT(lang);
           // compare: un campo vuoto con «Copier» accanto copierebbe il niente.
           const acceso = Boolean(swTavolo?.checked && dati.link_tavolo);
           if (rigaScelta) rigaScelta.style.display = swTavolo?.checked && dati.sala_con_tavoli ? "" : "none";
-          /* ⚠️ Senza scelta del tavolo il QR e' UNO: il tipo non si propone, e
-             vale il link unico (il tipo salvato resta, per quando la scelta
-             torna accesa). */
+          /* ⚠️ Se il cliente non sceglie il tavolo (sala senza piano, o scelta
+             spenta) esiste SOLO il QR generico: un cartoncino «Table 7»
+             porterebbe a una pagina che il tavolo non lo chiede. */
           const sceltaTavolo = Boolean(dati.sala_con_tavoli && (swScelta?.checked ?? true));
-          const modoEffettivo = sceltaTavolo ? modoQrOra : "unico";
-          if (rigaQr) rigaQr.style.display = acceso && sceltaTavolo ? "" : "none";
-          if (rigaLink) rigaLink.style.display = acceso && modoEffettivo === "unico" ? "" : "none";
-          if (rigaListaQr) rigaListaQr.style.display = acceso && modoEffettivo !== "unico" ? "" : "none";
-          if (rigaStampaQr) rigaStampaQr.style.display = acceso ? "" : "none";
+          if (rigaLink) rigaLink.style.display = acceso ? "" : "none";
+          if (rigaSez) rigaSez.style.display = acceso && sceltaTavolo && (dati.qr_sezioni ?? []).length > 0 ? "" : "none";
+          if (rigaTav) rigaTav.style.display = acceso && sceltaTavolo && (dati.qr_tavoli ?? []).length > 0 ? "" : "none";
         }
         swScelta?.addEventListener("change", () => aggiornaQr());
-        accendiModoQr();
-        disegnaListaQr();
-        for (const b of bottoniQr) {
-          b.addEventListener("click", () => {
-            if (b.dataset.qr === modoQrOra) return;
-            modoQrOra = b.dataset.qr ?? "unico";
-            accendiModoQr();
-            disegnaListaQr();
-            aggiornaQr();
-            dirty();
-          });
-        }
         const aggiornaRigaLink = () => {
           aggiornaQr();
         };
@@ -5000,7 +5052,6 @@ const t = adminT(lang);
                 days,
                 prep_time_minutes: prepCorrente,
                 chiamata_attesa: Number(document.querySelector<HTMLButtonElement>("#o-table-call-wait .prep-btn.active")?.dataset.attesa ?? 5),
-                qr_modo: document.querySelector<HTMLButtonElement>("#o-table-qr-mode .prep-btn.active")?.dataset.qr ?? "unico",
                 ritiro_fonte: document.querySelector<HTMLButtonElement>("#o-slot-source .prep-btn.active")?.dataset.fonte ?? "hours",
                 // Interruttore spento = 0 (solo oggi), qualunque bottone sia acceso sotto.
                 ritiro_giorni: (document.getElementById("o-future") as HTMLInputElement | null)?.checked

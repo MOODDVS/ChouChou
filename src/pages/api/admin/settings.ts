@@ -20,7 +20,7 @@ import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordin
 import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
 import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
-import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
+import { sceltaQr, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
 import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI } from "../../../lib/ordiniGiorniRegole";
 import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, MAX_CONSEGNE_LIMITE, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
@@ -210,7 +210,7 @@ export const GET: APIRoute = async ({ request }) => {
     "kitchen_email",
     "orders_closed",
     "orders_table_call_wait",
-    "orders_table_qr_mode",
+    "orders_table_qr_sel",
     "orders_slot_source",
     "orders_future_days",
     "orders_delivery_min_cents",
@@ -325,15 +325,16 @@ export const GET: APIRoute = async ({ request }) => {
        Lo riconosce `riconosciSede`, nello stesso posto dove si riconosce
        l'id. Senza slug (non dovrebbe succedere: e' obbligatorio) resta l'id. */
     link_tavolo: linkTavoloBase,
-    /* I QR della sala: il modo scelto, e i link per sezione e per tavolo —
-       scritti QUI, a partire dal link della sede, mai composti dalla pagina.
-       Vuoti con «tutte le sedi», come il link qui sopra. */
-    qr_modo: modoQr(cfg.get("orders_table_qr_mode")),
+    /* I QR della sala: i link per sezione e per tavolo — scritti QUI, a
+       partire dal link della sede, mai composti dalla pagina. Vuoti con
+       «tutte le sedi», come il link qui sopra. `qr_scelta`: quelli che
+       «Générer» ha salvato, per riaccendere le pillole all'apertura. */
+    qr_scelta: sceltaQr(cfg.get("orders_table_qr_sel")),
     qr_sezioni: linkTavoloBase
       ? sezioniConTavoli(tavoliQr).map((z) => ({ nome: z, link: linkSezione(linkTavoloBase, z) }))
       : [],
     qr_tavoli: linkTavoloBase
-      ? tavoliQr.map((t) => ({ sezione: t.zone, nome: t.name, link: linkTavolo(linkTavoloBase, t.id) }))
+      ? tavoliQr.map((t) => ({ id: t.id, sezione: t.zone, nome: t.name, link: linkTavolo(linkTavoloBase, t.id) }))
       : [],
     // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
     // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
@@ -437,8 +438,6 @@ export const PUT: APIRoute = async ({ request }) => {
     orders?: Record<string, boolean>;
     /** Minuti prima di poter richiamare il cameriere (1, 3, 5, 10). */
     chiamata_attesa?: number;
-    /** Il tipo di QR della sala: unico, per sezione, per tavolo. */
-    qr_modo?: string;
     /** Da dove vengono gli orari di ritiro: "hours" o "services". */
     ritiro_fonte?: string;
     /** Giorni in anticipo per gli ordini da asporto: 0, 2, 7, 14, 30. */
@@ -885,11 +884,6 @@ export const PUT: APIRoute = async ({ request }) => {
     const valori = valoriDaPagina(tipo, body.mance_valori);
     if (!valori) return json({ error: await msg("err.tipsAmount") }, 400);
     const err = await scriviConfig(ambitoPut, { orders_tips_type: tipo, orders_tips_values: valori.join(",") });
-    if (err) return json({ error: await msg("err.generalSave") }, 500);
-  }
-
-  if (body.qr_modo !== undefined && (MODI_QR as readonly string[]).includes(String(body.qr_modo))) {
-    const err = await scriviConfig(ambitoPut, { orders_table_qr_mode: String(body.qr_modo) });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 

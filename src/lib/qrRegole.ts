@@ -1,13 +1,16 @@
 /**
- * I QR DELLA SALA — che link ci va dentro, senza database.
+ * I QR DELLA SALA — che link ci va dentro, e quali si stampano.
  *
- * Tre modi, scelti dal ristoratore nei Réglages (`orders_table_qr_mode`):
- *   · `unico`    — un QR uguale su tutti i tavoli: si sceglie il tavolo in
- *                  pagina. Il piu' semplice da stampare.
- *   · `sezione`  — un QR per sezione (sala, terrazza, 1° piano): la griglia
- *                  mostra solo i tavoli di quella sezione.
- *   · `tavolo`   — un QR per tavolo: il tavolo parte gia' scelto (e si puo'
- *                  cambiare, se ci si e' seduti altrove).
+ * Tre generi di QR, che funzionano TUTTI, sempre e insieme:
+ *   · unico    — uguale su tutti i tavoli: si sceglie il tavolo in pagina.
+ *   · sezione  — uno per sezione (sala, terrazza, 1° piano): la griglia
+ *                mostra solo i tavoli di quella sezione.
+ *   · tavolo   — uno per tavolo: il tavolo parte gia' scelto (e si puo'
+ *                cambiare, se ci si e' seduti altrove).
+ *
+ * ⚠️ LA SCELTA (`orders_table_qr_sel`) DICE SOLO QUALI CARTONCINI SI
+ * VEDONO E SI STAMPANO in Assets › QR codes. Non spegne niente: un QR gia'
+ * stampato e tolto dalla scelta continua ad aprire la sua pagina.
  *
  * ⚠️ IL LINK LO SCRIVE IL SERVER, sempre a partire dal link della sede
  * (`link_tavolo`, con `?sede=` gia' dentro). Qui si aggiunge solo il pezzo
@@ -15,14 +18,74 @@
  * di sezione con uno spazio o una «é» deve arrivare intero alla pagina.
  */
 
-export const MODI_QR = ["unico", "sezione", "tavolo"] as const;
-export type ModoQr = (typeof MODI_QR)[number];
+export type GenereQr = "unico" | "sezione" | "tavolo";
 
-/** Il valore salvato, letto come modo. Qualunque altra cosa → `unico`:
- *  e' quello che c'era prima, e i QR gia' stampati restano giusti. */
-export function modoQr(valore: unknown): ModoQr {
-  const v = String(valore ?? "").trim();
-  return (MODI_QR as readonly string[]).includes(v) ? (v as ModoQr) : "unico";
+/** Le sezioni (per NOME) e i tavoli (per ID) scelti nei Réglages. */
+export type SceltaQr = { sezioni: string[]; tavoli: string[] };
+
+/** Oltre, la scelta e' un errore o un attacco: nessuna sala ha 500 tavoli. */
+export const MAX_SCELTA_QR = 500;
+
+function elenco(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const visti: string[] = [];
+  for (const x of v) {
+    const k = typeof x === "string" ? x.trim().slice(0, 120) : "";
+    if (k && !visti.includes(k)) visti.push(k);
+    if (visti.length >= MAX_SCELTA_QR) break;
+  }
+  return visti;
+}
+
+/** La scelta, da quello che arriva (JSON salvato o corpo della richiesta).
+ *  Illeggibile → vuota: si vede solo il QR unico, che c'e' sempre. */
+export function sceltaQr(valore: unknown): SceltaQr {
+  let v: unknown = valore;
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      v = null;
+    }
+  }
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  return { sezioni: elenco(o.sezioni), tavoli: elenco(o.tavoli) };
+}
+
+/** La scelta come si salva in `app_config`. */
+export function sceltaQrDaSalvare(valore: unknown): string {
+  return JSON.stringify(sceltaQr(valore));
+}
+
+/**
+ * I cartoncini di Assets: il QR unico SEMPRE, poi le sezioni scelte, poi i
+ * tavoli scelti, nell'ordine della sala.
+ *
+ * ⚠️ Si filtra sui tavoli VERI del piano: una sezione rinominata o un tavolo
+ * cancellato dopo la scelta non producono un cartoncino verso il niente.
+ * ⚠️ Senza scelta del tavolo (`conTavoli` falso: sala senza piano, o scelta
+ * spenta) c'e' solo l'unico: un cartoncino «Table 7» porterebbe a una pagina
+ * che il tavolo non lo chiede.
+ */
+export function cartonciniScelti(
+  base: string,
+  tavoli: { id: string; name: string; zone: string }[],
+  scelta: SceltaQr,
+  conTavoli: boolean,
+): { genere: GenereQr; titolo: string; sotto: string; link: string }[] {
+  const unico = { genere: "unico" as const, titolo: "", sotto: "", link: base };
+  if (!conTavoli) return [unico];
+  const sez = new Set(scelta.sezioni);
+  const tav = new Set(scelta.tavoli);
+  return [
+    unico,
+    ...sezioniConTavoli(tavoli)
+      .filter((z) => sez.has(z))
+      .map((z) => ({ genere: "sezione" as const, titolo: z, sotto: "", link: linkSezione(base, z) })),
+    ...tavoli
+      .filter((t) => tav.has(t.id))
+      .map((t) => ({ genere: "tavolo" as const, titolo: t.name, sotto: t.zone, link: linkTavolo(base, t.id) })),
+  ];
 }
 
 /** Il parametro della sezione nella pagina `/table`. */

@@ -1385,7 +1385,7 @@ test("senza link la riga del QR non compare", () => {
   // Un campo vuoto con «Copier» accanto copierebbe il niente.
   const pag = nudo("src/pages/admin/settings.astro");
   assert.match(pag, /const acceso = Boolean\(swTavolo\?\.checked && dati\.link_tavolo\);/);
-  assert.match(pag, /if \(rigaLink\) rigaLink\.style\.display = acceso && (modoQrOra|modoEffettivo) === "unico" \? "" : "none";/);
+  assert.match(pag, /if \(rigaLink\) rigaLink\.style\.display = acceso \? "" : "none";/);
 });
 
 test("le parole del link del QR esistono in tutte e cinque le lingue", () => {
@@ -2098,7 +2098,7 @@ test("la scelta del tavolo si puo' spegnere, e spenta la sala si comporta come s
   // La pagina del tavolo non riceve l'elenco se non si sceglie.
   assert.match(nudo("src/components/PaginaTavolo.astro"), /sala\.conTavoli \? tavoliDiSala\(ambito\) : Promise\.resolve\(\[\]\),/);
   // Senza scelta, un QR solo.
-  assert.match(nudo("src/pages/api/admin/qr.ts"), /const modo = sala\.conTavoli \? modoQr\(/);
+  assert.match(nudo("src/pages/api/admin/qr.ts"), /cartonciniScelti\(base, tavoli, scelta, sala\.conTavoli\)/);
   // In Réglages la riga c'e' solo se il piano ha dei tavoli.
   assert.match(nudo("src/pages/admin/settings.astro"), /rigaScelta\.style\.display = swTavolo\?\.checked && dati\.sala_con_tavoli \? "" : "none";/);
 });
