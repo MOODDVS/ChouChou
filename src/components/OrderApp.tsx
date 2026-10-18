@@ -513,7 +513,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     let vivo = true;
     fetch(conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { nome?: string; cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
         if (!vivo) return;
         setConsegnaPossibile(!inSala && d?.consegna === true);
         const m = d?.mance;
@@ -526,9 +526,9 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           minimo: Math.max(0, Number(d?.minimo_cents) || 0),
           gratis: Math.max(0, Number(d?.gratis_cents) || 0),
           costo: Math.max(0, Number(d?.costo_cents) || 0),
-          // Le zone: solo codici e costo (il nome resta del ristoratore).
+          // Le zone: nome (per il menu a tendina), codici e costo.
           zone: (Array.isArray(d?.zone) ? d.zone : []).map((z) => ({
-            nome: "",
+            nome: String(z?.nome ?? ""),
             cap: Array.isArray(z?.cap) ? z.cap.map(String) : [],
             costo_cents: typeof z?.costo_cents === "number" ? z.costo_cents : null,
           })),
@@ -877,6 +877,11 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      Senza zone = ovunque. Codice ancora incompleto = non si giudica (nessun
      messaggio mentre il cliente sta scrivendo «10…»). */
   const capScritto = capPulito(indirizzo.cap);
+  /* Il menu dei codici postali: uno per codice, in ordine, col nome della
+     sua zona. Vuoto = nessuna zona = campo libero. */
+  const opzioniCap = soglie.zone
+    .flatMap((z) => z.cap.map((cap) => ({ cap, nome: z.nome })))
+    .sort((a, b) => a.cap.localeCompare(b.cap, undefined, { numeric: true }));
   const zonaCliente = aConsegna ? zonaDelCap(soglie.zone, indirizzo.cap) : "ovunque";
   const fuoriZona = aConsegna && capScritto !== null && zonaCliente === null;
   const costoBase = zonaCliente ? costoBaseZona(zonaCliente, soglie.costo) : soglie.costo;
@@ -1373,7 +1378,27 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                     <input className="order-input" type="text" autoComplete="address-line1" placeholder={tc.via} value={indirizzo.via} onChange={campoIndirizzo("via")} />
                     <input className="order-input" type="text" placeholder={tc.numero} value={indirizzo.numero} onChange={campoIndirizzo("numero")} />
                     <input className="order-input" type="text" autoComplete="address-line2" placeholder={tc.box} value={indirizzo.box} onChange={campoIndirizzo("box")} />
-                    <input className="order-input" type="text" inputMode="numeric" autoComplete="postal-code" placeholder={tc.cap} value={indirizzo.cap} onChange={campoIndirizzo("cap")} />
+                    {/* ⚠️ CON LE ZONE IL CODICE POSTALE SI SCEGLIE, non si
+                        scrive: solo quelli serviti, col nome della zona
+                        accanto («1050 — Ixelles»). Fuori zona non si puo'
+                        nemmeno arrivare a compilare il resto. Senza zone resta
+                        il campo libero di sempre. */}
+                    {opzioniCap.length > 0 ? (
+                      <select
+                        className="order-input order-cap-scelta"
+                        autoComplete="postal-code"
+                        aria-label={tc.cap}
+                        value={opzioniCap.some((o) => o.cap === indirizzo.cap) ? indirizzo.cap : ""}
+                        onChange={campoIndirizzo("cap")}
+                      >
+                        <option value="" disabled>{tc.cap}</option>
+                        {opzioniCap.map((o) => (
+                          <option key={o.cap} value={o.cap}>{o.nome ? `${o.cap} — ${o.nome}` : o.cap}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input className="order-input" type="text" inputMode="numeric" autoComplete="postal-code" placeholder={tc.cap} value={indirizzo.cap} onChange={campoIndirizzo("cap")} />
+                    )}
                     <input className="order-input" type="text" autoComplete="address-level2" placeholder={tc.comune} value={indirizzo.comune} onChange={campoIndirizzo("comune")} />
                     <textarea className="order-input" rows={2} placeholder={tc.note} value={indirizzo.note} onChange={campoIndirizzo("note")} />
                   </div>

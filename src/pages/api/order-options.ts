@@ -33,9 +33,9 @@ export const GET: APIRoute = async ({ request }) => {
     consegna = false;
   }
   return new Response(JSON.stringify({ consegna, minimo_cents: soglie.minimo, gratis_cents: soglie.gratis, costo_cents: soglie.costo,
-    // Le zone senza il nome (e' un'etichetta del ristoratore): codici e costo,
-    // quanto basta al carrello per dire subito «non consegniamo li'» e il prezzo.
-    zone: soglie.zone.map((z) => ({ cap: z.cap, costo_cents: z.costo_cents })),
+    // Le zone col nome: il checkout le mostra in un menu a tendina
+    // («1050 — Ixelles»), e il nome e' scritto in Réglages sapendolo.
+    zone: soglie.zone.map((z) => ({ nome: z.nome, cap: z.cap, costo_cents: z.costo_cents })),
     mance }), {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });

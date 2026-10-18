@@ -301,3 +301,11 @@ test("checkout e carrello rifiutano un codice fuori zona", () => {
   assert.match(app, /!fuoriZona &&/);
   assert.match(app, /const costoCons = aConsegna \? costoConsegna\(totaleFinale, costoBase, soglie\.gratis\) : 0;/);
 });
+
+test("con le zone il codice postale si sceglie da un menu, senza resta libero", () => {
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /\{opzioniCap\.length > 0 \? \(\n\s*<select/);
+  assert.match(app, /o\.nome \? `\$\{o\.cap\} — \$\{o\.nome\}` : o\.cap/);
+  // Il nome della zona arriva al carrello: e' quello che il cliente legge.
+  assert.match(nudo("src/pages/api/order-options.ts"), /zone: soglie\.zone\.map\(\(z\) => \(\{ nome: z\.nome, cap: z\.cap, costo_cents: z\.costo_cents \}\)\),/);
+});
