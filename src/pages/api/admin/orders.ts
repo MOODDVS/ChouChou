@@ -7,7 +7,7 @@ import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from 
 import { basePubblicaOpz } from "../../../lib/basePubblica";
 import { calcolaSlotGiorno } from "../../../lib/slots";
 import { fusoDi } from "../../../lib/fuso";
-import { configGiornoEffettiva } from "../../../lib/schedule";
+import { configRitiro } from "../../../lib/schedule";
 // Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
 // quindi l'importazione e' rinominata invece di rinominare le loro.
 import {
@@ -18,6 +18,9 @@ import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA, avvisaChePronto, alTavo
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { applicaStatoSede } from "../../../lib/menuStato";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine, emailOrdinePronto } from "../../../lib/notifications";
+// Consegna e mancia dell'ordine, per le email di annullo e di modifica: senza,
+// parlerebbero di «retrait» a chi aspetta il fattorino.
+import { consegnaDellOrdine, manciaDellOrdine } from "../../../lib/consegnaOrdine";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -255,7 +258,18 @@ export const GET: APIRoute = async ({ request, url }) => {
       q3.order("pickup_time", { ascending: true }),
     ]);
   };
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
+  /* #84 (la consegna): un tentativo in piu', davanti. Senza la colonna si
+     ripiega sulla #82 e la lista resta quella di ieri — che senza la #84 e'
+     anche la verita': nessuna consegna puo' essere stata salvata. */
+  const EXTRA_84 = ", delivery_address";
+  // #85 (il costo della consegna): ancora un passo davanti, stesso ripiego.
+  const EXTRA_85 = ", delivery_fee_cents";
+  // #86 (la mancia): un passo in piu', stesso ripiego.
+  const EXTRA_86 = ", tip_cents";
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE);
 
@@ -450,7 +464,7 @@ export const POST: APIRoute = async ({ request }) => {
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   // Créneau valido per QUELLA data (stessa fonte del sito: /api/slots)
-  const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
+  const config = await configRitiro(ora, await ambitoDiRichiesta(request, staff));
   if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
   const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   if (![...lunch, ...dinner].includes(slot)) return json({ error: await msg("err.slotGone") }, 409);
@@ -718,6 +732,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       items: [] as { name: string; qty: number; price_cents: number }[],
       total_cents: totale,
       lang: String(prima.lang ?? "fr"),
+      consegna: await consegnaDellOrdine(String(prima.id), contoAnn.modo === "sede" ? contoAnn.id : null),
     };
     // NON si aspetta l'email: l'annullamento e' gia scritto nel database e
     // la risposta deve tornare subito, altrimenti l'admin resta fermo per
@@ -861,7 +876,7 @@ export const PUT: APIRoute = async ({ request }) => {
     if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
-  const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
+  const config = await configRitiro(ora, await ambitoDiRichiesta(request, staff));
   if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
   const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   // Orario originale dell'ordine (fuso ristorante): se lo staff NON lo cambia,
@@ -895,7 +910,22 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   const noteText = String(body.note ?? "").trim().slice(0, 500);
   if (noteText) itemsOrdine.push({ id: "note", name: "NOTE CLIENT", qty: 0, price_cents: 0, notes: noteText });
-  const totale = itemsOrdine.reduce((t, i) => t + i.price_cents * i.qty, 0);
+  /* ⚠️ IL COSTO DELLA CONSEGNA RESTA NEL TOTALE. `items` si ricostruisce dai
+     piatti scelti, e la consegna non e' un piatto: senza questa riga il totale
+     scenderebbe di 3,50 € e il pannello proporrebbe di RIMBORSARE una
+     consegna che c'e' ancora. Lettura a parte (#85): colonna assente → 0, che
+     senza la #85 e' anche la verita'. */
+  let fuoriPiatti = 0;
+  {
+    const r = await leggi("orders", ambito, "delivery_fee_cents").eq("id", id).maybeSingle();
+    if (!r.error) fuoriPiatti = Math.max(0, Math.round(Number((r.data as { delivery_fee_cents?: unknown } | null)?.delivery_fee_cents ?? 0)) || 0);
+  }
+  // ⚠️ La mancia, uguale: non e' un piatto, e resta nel totale (#86).
+  {
+    const r = await leggi("orders", ambito, "tip_cents").eq("id", id).maybeSingle();
+    if (!r.error) fuoriPiatti += Math.max(0, Math.round(Number((r.data as { tip_cents?: unknown } | null)?.tip_cents ?? 0)) || 0);
+  }
+  const totale = itemsOrdine.reduce((t, i) => t + i.price_cents * i.qty, 0) + fuoriPiatti;
 
   const [h, m] = slot.split(":").map((n) => parseInt(n, 10));
   const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
@@ -986,6 +1016,8 @@ export const PUT: APIRoute = async ({ request }) => {
     items: itemsOrdine,
     total_cents: totale,
     lang,
+    consegna: await consegnaDellOrdine(id, conto.modo === "sede" ? conto.id : null),
+    mancia_cents: await manciaDellOrdine(id, conto.modo === "sede" ? conto.id : null),
   };
 
   // Diff ordine per l'email "cosa è cambiato": lista unione vecchio+nuovo,

@@ -1,9 +1,11 @@
-import type { DateTime } from "luxon";
+import { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
-import { cacheOr } from "./cache";
+import { cacheOr, cacheDelPrefisso } from "./cache";
 import { type ConfigGiorno } from "./slots";
 import { fusoDi } from "./fuso";
-import { leggiOrari, applicaFiltro, type Ambito } from "./admin/sede";
+import { leggiOrari, applicaFiltro, leggi, leggiConfig, type Ambito } from "./admin/sede";
+import { fonteOrari, serviziDaConfig, finestreDaServizi, type ServizioOrari } from "./ordiniGiorniRegole";
+import { fonteSala, serviziSalaDaConfig, prolungaSala, finestreSala, type FonteSala } from "./salaOrariRegole";
 
 /**
  * Config oraria EFFETTIVA del giorno di `ora`:
@@ -46,6 +48,9 @@ interface RigaSpeciale {
   date_from: string;
   date_to: string;
   type: string;
+  /** #33 — i service aperti quel giorno (`null` = tutti). Assente sui
+   *  database dove la migrazione non e' stata lanciata. */
+  services?: unknown;
   lunch_open: string | null;
   lunch_close: string | null;
   dinner_open: string | null;
@@ -67,17 +72,25 @@ async function tutteLeSettings(ambito: Ambito): Promise<RigaSettings[]> {
  *  che valgono per tutte — Natale chiude tutti, i lavori chiudono uno. */
 async function giorniSpeciali(ambito: Ambito): Promise<RigaSpeciale[]> {
   return cacheOr(`sched:special:${perAmbito(ambito)}`, async () => {
-    const q = applicaFiltro(
-      supabaseAdmin
-        .from("special_days")
-        .select("date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close")
-        .order("type", { ascending: true }) as never, // 'closed' prima di 'open'
-      "special_days",
-      ambito,
-    );
-    const { data, error } = await (q as unknown as PromiseLike<{ data: RigaSpeciale[] | null; error: unknown }>);
-    if (error || !data) throw new Error("special_days illeggibili");
-    return data as RigaSpeciale[];
+    const leggiSpeciali = async (campi: string) => {
+      const q = applicaFiltro(
+        supabaseAdmin
+          .from("special_days")
+          .select(campi)
+          .order("type", { ascending: true }) as never, // 'closed' prima di 'open'
+        "special_days",
+        ambito,
+      );
+      return (await (q as unknown as PromiseLike<{ data: RigaSpeciale[] | null; error: unknown }>));
+    };
+    /* ⚠️ `services` (#33) serve solo agli orari di ritiro dai service: su un
+       database che non ce l'ha, una `select` con quella colonna FALLISCE —
+       e qui un errore chiude gli ordini di tutti. Si riprova senza. */
+    const BASE = "date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close";
+    let r = await leggiSpeciali(`${BASE}, services`);
+    if (r.error || !r.data) r = await leggiSpeciali(BASE);
+    if (r.error || !r.data) throw new Error("special_days illeggibili");
+    return r.data as RigaSpeciale[];
   });
 }
 
@@ -131,5 +144,185 @@ export async function configGiornoEffettiva(
     dinner_open: sp.dinner_open,
     dinner_close: sp.dinner_close,
     exceptional_closures: [],
+  };
+}
+
+/* ───────── Gli orari di RITIRO ─────────
+ *
+ * ⚠️ UNA FUNZIONE A PARTE, non un ramo dentro `configGiornoEffettiva`. Quella
+ * dice gli ORARI D'APERTURA, e la usano anche la sala (si ordina dal tavolo
+ * finche' la cucina e' aperta), la home dell'admin e la pagina pubblica degli
+ * orari. Se seguisse i service delle prenotazioni, un «Soir» chiuso perche'
+ * COMPLET fermerebbe gli ordini di chi e' gia' seduto al tavolo. I service
+ * valgono solo per l'ASPORTO — sito, checkout e ordine a mano dell'admin.
+ */
+
+interface DatiServizi {
+  fonte: "hours" | "services";
+  servizi: ServizioOrari[];
+  /** Service chiusi per data (`service_closures`), da oggi in poi. */
+  chiusePerData: Map<string, Set<string>>;
+  /** Service chiusi «fino a riapertura». */
+  permanenti: string[];
+}
+
+async function datiServizi(ambito: Ambito, oggiIso: string): Promise<DatiServizi> {
+  return cacheOr(`sched:ritiro:${perAmbito(ambito)}:${oggiIso}`, async () => {
+    const { valori } = await leggiConfig(ambito, ["orders_slot_source", "reservation_services", "service_closures_permanent"]);
+    const fonte = fonteOrari(valori.get("orders_slot_source"));
+    if (fonte === "hours") return { fonte, servizi: [], chiusePerData: new Map(), permanenti: [] };
+    let permanenti: string[] = [];
+    try {
+      const arr = JSON.parse(valori.get("service_closures_permanent") || "[]");
+      if (Array.isArray(arr)) permanenti = arr.map((x) => String(x).trim()).filter(Boolean);
+    } catch { /* nessuna */ }
+    const chiusePerData = new Map<string, Set<string>>();
+    const { data } = await leggi("service_closures", ambito, "date, service_key").gte("date", oggiIso);
+    for (const c of (data ?? []) as { date: string; service_key: string }[]) {
+      const d = String(c.date);
+      if (!chiusePerData.has(d)) chiusePerData.set(d, new Set());
+      chiusePerData.get(d)!.add(String(c.service_key));
+    }
+    return { fonte, servizi: serviziDaConfig(valori.get("reservation_services")), chiusePerData, permanenti };
+  });
+}
+
+/** Da chiamare quando cambia qualcosa che decide gli orari di ritiro (la
+ *  fonte, i service, una chiusura): altrimenti per un minuto il sito propone
+ *  uno slot che il ristoratore ha appena chiuso. */
+export function scadeOrariRitiro(): void {
+  cacheDelPrefisso("sched:ritiro");
+}
+
+/**
+ * La config del giorno per il RITIRO: gli orari d'apertura, oppure — se il
+ * ristoratore l'ha scelto (`orders_slot_source = services`) — i service delle
+ * prenotazioni di quel giorno, senza quelli chiusi. Stessa forma di
+ * `configGiornoEffettiva`, quindi `calcolaSlotGiorno` non cambia.
+ *
+ * ⚠️ La usano TUTTI quelli che propongono o controllano un orario di ritiro:
+ * `/api/slots`, il checkout, l'ordine a mano dell'admin. Devono essere
+ * d'accordo, o il cliente sceglie uno slot che il checkout rifiuta.
+ */
+export async function configRitiro(ora: DateTime, ambito: Ambito): Promise<ConfigGiorno | null> {
+  const base = await configGiornoEffettiva(ora, ambito);
+  if (!base) return null;
+  const fuso = await fusoDi(ambito);
+  const giorno = ora.setZone(fuso);
+  const iso = giorno.toFormat("yyyy-MM-dd");
+  let dati: DatiServizi;
+  try {
+    // Le chiusure si leggono da OGGI in poi: un giorno nel futuro (ordini
+    // per i prossimi giorni) le trova nella stessa lettura.
+    dati = await datiServizi(ambito, DateTime.now().setZone(fuso).toFormat("yyyy-MM-dd"));
+  } catch {
+    // Config dei service illeggibile: gli orari d'apertura, come prima.
+    return base;
+  }
+  if (dati.fonte === "hours") return base;
+
+  // Il giorno speciale vale anche qui: «fermé» chiude, «ouvert» sceglie i service.
+  let sp: RigaSpeciale | undefined;
+  try {
+    sp = (await giorniSpeciali(ambito)).find((s) => s.date_from <= iso && s.date_to >= iso);
+  } catch { /* nessuno */ }
+  if (sp?.type === "closed") return { ...base, lunch_active: false, dinner_active: false };
+  const speciale = sp?.type === "open"
+    ? { services: Array.isArray(sp.services) ? (sp.services as unknown[]).map((x) => String(x)) : null }
+    : undefined;
+
+  const dow = giorno.weekday === 7 ? 0 : giorno.weekday;
+  const chiusi = new Set([...(dati.chiusePerData.get(iso) ?? []), ...dati.permanenti]);
+  const f = finestreDaServizi(dati.servizi, dow, speciale, chiusi);
+  return {
+    ...base,
+    lunch_active: !!f.lunch,
+    lunch_open: f.lunch?.[0] ?? null,
+    lunch_close: f.lunch?.[1] ?? null,
+    dinner_active: !!f.dinner,
+    dinner_open: f.dinner?.[0] ?? null,
+    dinner_close: f.dinner?.[1] ?? null,
+  };
+}
+
+/* ───────── Gli orari della SALA ─────────
+ *
+ * ⚠️ UNA FUNZIONE SOLA per tutti quelli che chiedono «si puo' ordinare dal
+ * tavolo adesso?»: la pagina del QR (`statoServizioSala`), `/api/table-session`,
+ * `/api/table-call` e il checkout al tavolo. Se uno usasse gli orari d'apertura
+ * e un altro i service, la pagina mostrerebbe il menu e la cassa rifiuterebbe
+ * l'ordine dopo che il cliente ha composto il pranzo.
+ */
+
+interface DatiSala {
+  fonte: FonteSala;
+  servizi: ServizioOrari[];
+  scelta: string[] | null;
+  prolunga: number;
+}
+
+async function datiSala(ambito: Ambito): Promise<DatiSala> {
+  // ⚠️ Sotto `sched:ritiro`: `scadeOrariRitiro` (chiamata da ogni salvataggio
+  // dei Réglages) la svuota insieme agli orari di ritiro.
+  return cacheOr(`sched:ritiro:sala:${perAmbito(ambito)}`, async () => {
+    const { valori } = await leggiConfig(ambito, [
+      "orders_table_hours",
+      "orders_table_services",
+      "orders_table_extend",
+      "reservation_services",
+    ]);
+    return {
+      fonte: fonteSala(valori.get("orders_table_hours")),
+      servizi: serviziDaConfig(valori.get("reservation_services")),
+      scelta: serviziSalaDaConfig(valori.get("orders_table_services")),
+      prolunga: prolungaSala(valori.get("orders_table_extend")),
+    };
+  });
+}
+
+/**
+ * La config del giorno per la SALA: gli orari d'apertura, oppure — se il
+ * ristoratore l'ha scelto (`orders_table_hours = services`) — i service scelti
+ * di quel giorno, allungati del margine. Stessa forma di
+ * `configGiornoEffettiva`, quindi `servizioInCorso` e `prossimaApertura` non
+ * cambiano.
+ *
+ * ⚠️ I giorni chiusi del calendario chiudono anche qui; le chiusure dei
+ * SERVICE no (un «complet» non ferma chi e' seduto — `salaOrariRegole`).
+ * ⚠️ Config illeggibile, o nessun service definito: gli orari d'apertura,
+ * come prima. Mai una sala chiusa per un errore di lettura.
+ */
+export async function configSala(ora: DateTime, ambito: Ambito): Promise<ConfigGiorno | null> {
+  const base = await configGiornoEffettiva(ora, ambito);
+  if (!base) return null;
+  let dati: DatiSala;
+  try {
+    dati = await datiSala(ambito);
+  } catch {
+    return base;
+  }
+  if (dati.fonte === "hours" || dati.servizi.length === 0) return base;
+
+  const giorno = ora.setZone(await fusoDi(ambito));
+  const iso = giorno.toFormat("yyyy-MM-dd");
+  let sp: RigaSpeciale | undefined;
+  try {
+    sp = (await giorniSpeciali(ambito)).find((s) => s.date_from <= iso && s.date_to >= iso);
+  } catch { /* nessuno */ }
+  if (sp?.type === "closed") return { ...base, lunch_active: false, dinner_active: false };
+  const speciale = sp?.type === "open"
+    ? { services: Array.isArray(sp.services) ? (sp.services as unknown[]).map((x) => String(x)) : null }
+    : undefined;
+
+  const dow = giorno.weekday === 7 ? 0 : giorno.weekday;
+  const f = finestreSala(dati.servizi, dow, speciale, dati.scelta, dati.prolunga);
+  return {
+    ...base,
+    lunch_active: !!f.lunch,
+    lunch_open: f.lunch?.[0] ?? null,
+    lunch_close: f.lunch?.[1] ?? null,
+    dinner_active: !!f.dinner,
+    dinner_open: f.dinner?.[0] ?? null,
+    dinner_close: f.dinner?.[1] ?? null,
   };
 }

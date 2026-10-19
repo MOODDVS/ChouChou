@@ -57,3 +57,29 @@
 .prep-close:hover { border-color: #ed1c24; }
 .prep-close.closed { border-color: #ed1c24; background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
 .prep-close.closed .m { color: #ff6b6b; font-weight: 700; }
+
+/* ---- DENTRO UNA RIGA DI SCELTA (Réglages: fonte degli orari, giorni,
+   attesa della chiamata, QR) ----
+   ⚠️ Qui e non nel <style> della pagina: l'aspetto di `.prep-btn` sta in un
+   posto solo (vedi motore.test). Due differenze, perche' la' la pillola sta
+   gia' sopra una scheda:
+   · niente ombra — scalata con l'ombra del tema, sotto ogni pillola di una
+     riga diventava una macchia scura;
+   · l'accesa e' PIENA, come le schede dei filtri (`.m-tab.is-on`) e il
+     giorno scelto nel datepicker: il solo contorno, su una riga velata, si
+     distingueva appena dalle spente. */
+/* ⚠️ `.mance-dx > .prep-btns` (il tipo delle mance) e' la stessa riga di
+   scelta, solo dentro una colonna: senza, il suo bottone acceso restava col
+   contorno e l'ombra mentre tutti gli altri della scheda sono pieni. */
+.field > .prep-btns .prep-btn,
+.mance-dx > .prep-btns .prep-btn,
+.qr-pillole .prep-btn { box-shadow: none; }
+.field > .prep-btns .prep-btn.active,
+.mance-dx > .prep-btns .prep-btn.active,
+.qr-pillole .prep-btn.active { background: var(--c-accent); border-color: var(--c-accent); }
+.field > .prep-btns .prep-btn.active,
+.field > .prep-btns .prep-btn.active .m,
+.mance-dx > .prep-btns .prep-btn.active,
+.mance-dx > .prep-btns .prep-btn.active .m,
+.qr-pillole .prep-btn.active,
+.qr-pillole .prep-btn.active .m { color: var(--c-bg); }

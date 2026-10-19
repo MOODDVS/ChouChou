@@ -4,6 +4,10 @@ import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 import { urlConSede } from "../lib/sedeUrl";
+import { costoConsegna, zonaDelCap, costoBaseZona, capPulito, type ZonaConsegna } from "../lib/consegnaRegole";
+import { importoMancia, type TipoMance } from "../lib/manceRegole";
+import { PREFISSI, separaPrefisso, telefonoCompleto } from "../lib/prefissi";
+import { CLIENT } from "../config/client";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
  *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
@@ -151,12 +155,61 @@ interface OrderStrings {
  * dire cinque siti che non compilano piu' il giorno del merge. Un cliente che
  * vuole parole sue le mette in `t`, e vincono le sue.
  */
-const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: string; ordina: string; ordinando: string }> = {
-  fr: { titolo: "Paiement", ora: "Payer maintenant par carte", ritiro: "Payer au retrait", ordina: "Commander", ordinando: "Envoi…" },
-  en: { titolo: "Payment", ora: "Pay now by card", ritiro: "Pay at pickup", ordina: "Place order", ordinando: "Sending…" },
-  it: { titolo: "Pagamento", ora: "Paga ora con la carta", ritiro: "Paga al ritiro", ordina: "Ordina", ordinando: "Invio…" },
-  nl: { titolo: "Betaling", ora: "Nu betalen met kaart", ritiro: "Betalen bij afhalen", ordina: "Bestellen", ordinando: "Versturen…" },
-  es: { titolo: "Pago", ora: "Pagar ahora con tarjeta", ritiro: "Pagar al recoger", ordina: "Pedir", ordinando: "Enviando…" },
+/** «(facultatif)» accanto al telefono, dove non e’ obbligatorio. */
+const TXT_FACOLTATIVO: Record<string, string> = {
+  fr: "facultatif", en: "optional", it: "facoltativo", nl: "optioneel", es: "opcional",
+};
+
+/** Il toast «Article ajouté» (solo al tavolo). */
+const TXT_AGGIUNTO: Record<string, string> = {
+  fr: "Article ajouté", en: "Item added", it: "Articolo aggiunto", nl: "Artikel toegevoegd", es: "Artículo añadido",
+};
+
+const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: string; sala: string; ordina: string; ordinando: string }> = {
+  /* `sala`: al tavolo non si ritira niente — «Payer au retrait» a chi e'
+     seduto vuol dire niente. Si paga sul posto, al cameriere o alla cassa. */
+  fr: { titolo: "Paiement", ora: "Payer maintenant par carte", ritiro: "Payer au retrait", sala: "Payer au comptoir", ordina: "Commander", ordinando: "Envoi…" },
+  en: { titolo: "Payment", ora: "Pay now by card", ritiro: "Pay at pickup", sala: "Pay at the counter", ordina: "Place order", ordinando: "Sending…" },
+  it: { titolo: "Pagamento", ora: "Paga ora con la carta", ritiro: "Paga al ritiro", sala: "Paga al banco", ordina: "Ordina", ordinando: "Invio…" },
+  nl: { titolo: "Betaling", ora: "Nu betalen met kaart", ritiro: "Betalen bij afhalen", sala: "Betalen aan de toonbank", ordina: "Bestellen", ordinando: "Versturen…" },
+  es: { titolo: "Pago", ora: "Pagar ahora con tarjeta", ritiro: "Pagar al recoger", sala: "Pagar en la barra", ordina: "Pedir", ordinando: "Enviando…" },
+};
+
+/* LA CONSEGNA (Réglages → «Livraison»). Testi del motore come
+ * `TXT_PAGAMENTO`, e per la stessa ragione: la pagina /order e' del cliente,
+ * e chiedergli parole nuove vorrebbe dire siti che non compilano piu' il
+ * giorno del merge. */
+const TXT_CONSEGNA: Record<string, {
+  titolo: string; ritiro: string; consegna: string; quando: string;
+  via: string; numero: string; box: string; cap: string; comune: string; note: string;
+  pagaConsegna: string;
+  /** «Minimum 50,00 € pour la livraison», e quanto manca. */
+  minimo: (m: string) => string;
+  manca: (x: string) => string;
+  /** La riga del totale, «Livraison offerte», e la soglia della gratuita'. */
+  costo: string;
+  offerta: string;
+  gratisDa: (g: string) => string;
+  gratisManca: (x: string) => string;
+  /** Fuori zona: «Nous ne livrons pas encore au 1180». */
+  fuori: (cap: string) => string;
+}> = {
+  fr: { titolo: "Retrait ou livraison", ritiro: "À emporter", consegna: "Livraison", quando: "Heure de livraison", via: "Rue", numero: "N°", box: "Boîte", cap: "Code postal", comune: "Commune", note: "Étage, sonnette, code… (facultatif)", pagaConsegna: "Payer à la livraison", minimo: (m) => `Livraison à partir de ${m} de commande`, manca: (x) => `Il manque ${x}.`, costo: "Livraison", offerta: "Offerte", gratisDa: (g) => `Livraison offerte dès ${g} de commande`, gratisManca: (x) => `encore ${x}`, fuori: (c) => `Nous ne livrons pas encore au ${c}. Le retrait reste possible.` },
+  en: { titolo: "Pickup or delivery", ritiro: "Takeaway", consegna: "Delivery", quando: "Delivery time", via: "Street", numero: "No.", box: "Box", cap: "Postcode", comune: "Town", note: "Floor, doorbell, code… (optional)", pagaConsegna: "Pay on delivery", minimo: (m) => `Delivery from ${m} per order`, manca: (x) => `${x} to go.`, costo: "Delivery", offerta: "Free", gratisDa: (g) => `Free delivery from ${g} per order`, gratisManca: (x) => `${x} to go`, fuori: (c) => `We don't deliver to ${c} yet. Pickup is still available.` },
+  it: { titolo: "Ritiro o consegna", ritiro: "Da asporto", consegna: "Consegna", quando: "Ora di consegna", via: "Via", numero: "N°", box: "Interno", cap: "CAP", comune: "Comune", note: "Piano, campanello, codice… (facoltativo)", pagaConsegna: "Paga alla consegna", minimo: (m) => `Consegna da ${m} di ordine`, manca: (x) => `Mancano ${x}.`, costo: "Consegna", offerta: "Gratis", gratisDa: (g) => `Consegna gratuita da ${g} di ordine`, gratisManca: (x) => `mancano ${x}`, fuori: (c) => `Non consegniamo ancora al ${c}. Il ritiro resta possibile.` },
+  nl: { titolo: "Afhalen of levering", ritiro: "Afhalen", consegna: "Levering", quando: "Levertijd", via: "Straat", numero: "Nr.", box: "Bus", cap: "Postcode", comune: "Gemeente", note: "Verdieping, bel, code… (optioneel)", pagaConsegna: "Betalen bij levering", minimo: (m) => `Levering vanaf ${m} per bestelling`, manca: (x) => `Nog ${x} te gaan.`, costo: "Levering", offerta: "Gratis", gratisDa: (g) => `Gratis levering vanaf ${g} per bestelling`, gratisManca: (x) => `nog ${x}`, fuori: (c) => `We leveren nog niet in ${c}. Afhalen blijft mogelijk.` },
+  es: { titolo: "Recogida o entrega", ritiro: "Para llevar", consegna: "Entrega", quando: "Hora de entrega", via: "Calle", numero: "N.º", box: "Piso/puerta", cap: "Código postal", comune: "Municipio", note: "Piso, timbre, código… (opcional)", pagaConsegna: "Pagar en la entrega", minimo: (m) => `Entrega a partir de ${m} de pedido`, manca: (x) => `Faltan ${x}.`, costo: "Entrega", offerta: "Gratis", gratisDa: (g) => `Entrega gratuita desde ${g} de pedido`, gratisManca: (x) => `faltan ${x}`, fuori: (c) => `Aún no entregamos en el ${c}. La recogida sigue siendo posible.` },
+};
+
+/* LE MANCE (Réglages → Paiements → «Pourboires»). Testi del motore, come
+ * `TXT_PAGAMENTO`. ⚠️ «Aucun» e' sempre il primo bottone ed e' quello
+ * acceso all'apertura: una mancia preselezionata la paga chi non guarda. */
+const TXT_MANCE: Record<string, { titolo: string; nessuno: string; riga: string }> = {
+  fr: { titolo: "Pourboire", nessuno: "Aucun", riga: "Pourboire" },
+  en: { titolo: "Tip", nessuno: "None", riga: "Tip" },
+  it: { titolo: "Mancia", nessuno: "Nessuna", riga: "Mancia" },
+  nl: { titolo: "Fooi", nessuno: "Geen", riga: "Fooi" },
+  es: { titolo: "Propina", nessuno: "Ninguna", riga: "Propina" },
 };
 
 interface OrderAppProps {
@@ -256,6 +309,35 @@ interface OrderAppProps {
     >;
     /** Per il percorso a tre passi della pagina: scelta, dati, pagamento. */
     onVista?: (vista: "menu" | "checkout") => void;
+    /**
+     * IL CONTO APERTO (conto-aperto.md) — assente = come prima.
+     * - `apri`: accanto a «Commander et payer» un secondo bottone, «Ouvrir un
+     *   compte»: si ordina e si paga alla fine.
+     * - `aggiungi`: si e' gia' nel conto del tavolo. Il bottone e' uno solo,
+     *   «Ajouter à l'addition»; niente scelta del pagamento, codice promo o
+     *   mancia — si decidono alla fine, pagando l'addizione.
+     * ⚠️ `invia` apre (o ritrova) il conto e rende il CODICE: e' quello che
+     * `/api/checkout` ricontrolla. La pagina lo tiene, non questo componente.
+     */
+    conto?: {
+      modo: "apri" | "aggiungi";
+      etichetta: string;
+      sotto?: string;
+      invio: string;
+      invia: (chi: { nome: string; email: string }) => Promise<
+        | { ok: true; reservationId: string; tableId: string; code: string }
+        | { ok: false; errore: string }
+      >;
+      /** Dopo l'ordine: il token, per poterlo togliere finche' non parte. */
+      fatto?: (r: { token: string }) => void;
+      /** Nel conto, a carrello VUOTO: la pillola in fondo diventa «Payer ·
+       *  resto» e apre la schermata del pagamento della pagina. Con un
+       *  piatto nel carrello torna la pillola del carrello. */
+      paga?: { etichetta: string; totale_cents: number; apri: () => void };
+      /** Questo telefono ha GIA' accettato le condizioni ordinando su questo
+       *  conto: la casella non si richiede a ogni giro. */
+      consensoDato?: boolean;
+    } | null;
   } | null;
   /**
    * Su quale schermo aprire. `"checkout"` vale SOLO se nel carrello c'e'
@@ -329,6 +411,9 @@ interface StatoSalvato {
   email: string;
   noteOrdine: string;
   coupon: string;
+  /** L'indirizzo della consegna: chi torna indietro dal pagamento non deve
+   *  riscriverlo. ⚠️ sessionStorage come il resto: muore con la scheda. */
+  indirizzo?: { via: string; numero: string; box: string; cap: string; comune: string; note: string };
 }
 
 function leggiStatoSalvato(): Partial<StatoSalvato> {
@@ -346,11 +431,18 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
   /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
      cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
      non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
   const inSala = tavolo !== null;
+  /* Il conto aperto: «apri» aggiunge un bottone, «aggiungi» e' il solo modo. */
+  const contoTav = tavolo?.conto ?? null;
+  const soloConto = contoTav?.modo === "aggiungi";
+  /** Il bottone «Commander et payer»: no sul conto, e no al tavolo senza carta. */
+  const mostraPaga = !soloConto && !(inSala && !pagamento.online);
+  /** Al tavolo: «Payer au comptoir», se la sala lo vuole. */
+  const mostraBanco = inSala && !soloConto && pagamento.locale;
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -409,9 +501,35 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [attivo, setAttivo] = useState<string>(gruppiVisibili[0]?.slug ?? "");
 
   const [slot, setSlot] = useState<string | null>(null);
+  /* Il giorno del ritiro scelto nella fila dei giorni (SlotPicker). `null` =
+     oggi, ed e' quello che il checkout riceve quando il ristoratore non ha
+     aperto gli ordini per i giorni seguenti. */
+  const [giorno, setGiorno] = useState<string | null>(null);
+  /* CHIUSO OGGI, MA SI PUO' ORDINARE PER DOMANI. La pagina del cliente calcola
+     `closedToday` sugli orari di OGGI e non sa della finestra dei giorni
+     (Réglages → Commandes). Se il ristoratore l'ha aperta e c'e' almeno un
+     giorno con orari, il carrello resta aperto: il cliente sceglie il giorno
+     al checkout. ⚠️ Al tavolo no: si mangia adesso o niente. */
+  const [closedToday, setClosedToday] = useState(chiusoOggiPagina);
   const [nome, setNome] = useState(salvato.nome ?? "");
   const [cognome, setCognome] = useState(salvato.cognome ?? "");
-  const [telefono, setTelefono] = useState(salvato.telefono ?? "");
+  /* IL TELEFONO COL PREFISSO: bandierina + indicativo a sinistra, il numero
+     a destra. Il prefisso di partenza e' il paese del locale; chi scrive (o
+     incolla, o lascia all'autocompletamento) «+33…» o «0033…» vede la
+     bandierina passare da sola alla Francia, e nel campo resta solo il
+     numero. Si manda il numero intero, «+33 612345678». */
+  const prefissoLocale = PREFISSI.find((p) => p.code === CLIENT.paese)?.dial ?? "+32";
+  const telSalvato = separaPrefisso(salvato.telefono ?? "");
+  const [prefisso, setPrefisso] = useState(telSalvato?.dial ?? prefissoLocale);
+  const [telefono, setTelefono] = useState(telSalvato ? telSalvato.resto : (salvato.telefono ?? ""));
+  function scriviTelefono(v: string) {
+    const sep = separaPrefisso(v);
+    if (sep) {
+      setPrefisso(sep.dial);
+      setTelefono(sep.resto);
+    } else setTelefono(v);
+  }
+  const telefonoIntero = telefonoCompleto(prefisso, telefono) ?? "";
   const [email, setEmail] = useState(salvato.email ?? "");
   const [noteOrdine, setNoteOrdine] = useState(salvato.noteOrdine ?? "");
   /**
@@ -429,12 +547,85 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     pagamento.online ? "online" : "onsite",
   );
   /** Si sceglie solo se c'e' qualcosa da scegliere. */
-  const scegliePagamento = pagamento.online && pagamento.locale;
-  const pagaInCassa = !pagamento.online || (pagamento.locale && modoPagamento === "onsite");
+  /* ⚠️ COL CONTO APERTO NON SI SCEGLIE «SUR PLACE». «Ouvrir un compte» e'
+     gia' il «pago dopo», e meglio: passa dalla convalida del cameriere e fa
+     un ticket per tavolo. Due modi di pagare dopo, uno accanto all'altro, non
+     si capiscono (18/10/2026): restano la carta subito e il conto. */
+  /* ⚠️ AL TAVOLO NIENTE SCELTA A PALLINI: si paga con la carta («Payer et
+     commander»), e se la sala lo vuole c'e' un SECONDO BOTTONE, «Payer au
+     comptoir» (`pagamento.locale` al tavolo vuol dire proprio quello: vedi
+     `pagamentoAlTavolo`). Il bottone dice gia' la scelta. */
+  const scegliePagamento = !inSala && pagamento.online && pagamento.locale && !contoTav;
+  const pagaInCassa = inSala
+    ? !pagamento.online
+    : !pagamento.online || (pagamento.locale && modoPagamento === "onsite" && !contoTav);
   /** ⚠️ Il campo del codice sparisce quando il codice non varrebbe: meglio non
    *  mostrarlo che mostrarlo e poi rifiutarlo al momento di confermare. */
-  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa);
+  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa) && !soloConto;
   const tp = TXT_PAGAMENTO[lang] ?? TXT_PAGAMENTO.fr;
+  const tc = TXT_CONSEGNA[lang] ?? TXT_CONSEGNA.fr;
+
+  /* LA CONSEGNA: la offre questo punto? Lo chiede il carrello da solo
+     (`/api/order-options`): la pagina /order e' del cliente e non lo sa.
+     Spenta di ripiego — e finche' la risposta non arriva — cosi' il checkout
+     e' quello di sempre. ⚠️ Al tavolo non si chiede neanche: si mangia li'. */
+  const [consegnaPossibile, setConsegnaPossibile] = useState(false);
+  /* Le soglie e il costo della consegna (centesimi, 0 = nessuno). ⚠️ Il
+     costo qui serve solo a MOSTRARLO: quello che si paga lo decide il server,
+     che lo ricalcola con la stessa regola (`costoConsegna`). */
+  const [soglie, setSoglie] = useState<{ minimo: number; gratis: number; costo: number; zone: ZonaConsegna[] }>({ minimo: 0, gratis: 0, costo: 0, zone: [] });
+  /* Le mance del punto (`null` = spente) e il bottone scelto (-1 = Aucun). */
+  const [mance, setMance] = useState<{ tipo: TipoMance; valori: [number, number, number] } | null>(null);
+  const [manciaScelta, setManciaScelta] = useState(-1);
+  const tm = TXT_MANCE[lang] ?? TXT_MANCE.fr;
+  const [modoServizio, setModoServizio] = useState<"ritiro" | "consegna">("ritiro");
+  const vuotoIndirizzo = { via: "", numero: "", box: "", cap: "", comune: "", note: "" };
+  const [indirizzo, setIndirizzo] = useState(salvato.indirizzo ?? vuotoIndirizzo);
+  const campoIndirizzo = (k: keyof typeof vuotoIndirizzo) => (e: { target: { value: string } }) =>
+    setIndirizzo((x) => ({ ...x, [k]: e.target.value }));
+  useEffect(() => {
+    // ⚠️ Si chiede ANCHE al tavolo, con `?sala=1`: in sala le mance hanno un
+    // interruttore loro («Commandes depuis la salle» › Pourboires).
+    // La consegna invece no — `aConsegna` la esclude in sala comunque.
+    let vivo = true;
+    fetch(inSala ? conSede("/api/order-options?sala=1") : conSede("/api/order-options"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { nome?: string; cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
+        if (!vivo) return;
+        setConsegnaPossibile(!inSala && d?.consegna === true);
+        const m = d?.mance;
+        setMance(
+          m && Array.isArray(m.valori) && m.valori.length === 3
+            ? { tipo: m.tipo === "fixed" ? "fixed" : "percent", valori: [Number(m.valori[0]), Number(m.valori[1]), Number(m.valori[2])] }
+            : null,
+        );
+        setSoglie({
+          minimo: Math.max(0, Number(d?.minimo_cents) || 0),
+          gratis: Math.max(0, Number(d?.gratis_cents) || 0),
+          costo: Math.max(0, Number(d?.costo_cents) || 0),
+          // Le zone: nome (per il menu a tendina), codici e costo.
+          zone: (Array.isArray(d?.zone) ? d.zone : []).map((z) => ({
+            nome: String(z?.nome ?? ""),
+            cap: Array.isArray(z?.cap) ? z.cap.map(String) : [],
+            costo_cents: typeof z?.costo_cents === "number" ? z.costo_cents : null,
+          })),
+        });
+      })
+      .catch(() => {
+        // Senza risposta: niente consegna, il ritiro di sempre.
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [inSala, sede]);
+  // ⚠️ Spenta nel frattempo (o mai accesa): si torna al ritiro, mai a una
+  // consegna scelta che il server rifiuterebbe al momento di pagare.
+  const aConsegna = consegnaPossibile && !inSala && modoServizio === "consegna";
+  const indirizzoOk =
+    indirizzo.via.trim() !== "" &&
+    indirizzo.numero.trim() !== "" &&
+    indirizzo.comune.trim() !== "" &&
+    /^[0-9A-Za-z][0-9A-Za-z -]{2,9}$/.test(indirizzo.cap.trim());
 
   const [coupon, setCoupon] = useState(salvato.coupon ?? "");
   const [couponApplicato, setCouponApplicato] = useState<{ code: string; discount_cents: number; label: string } | null>(null);
@@ -456,13 +647,35 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
       setCouponMsg(null);
     }
   }
-  const [accettato, setAccettato] = useState(false);
+  const [accettatoQui, setAccettato] = useState(false);
+  /* ⚠️ NEL CONTO APERTO LE CONDIZIONI SI ACCETTANO UNA VOLTA: chi ha gia'
+     ordinato su questo conto da questo telefono le ha accettate allora, e
+     richiederle a ogni giro (acqua, caffe') e' solo un ostacolo. */
+  const consensoGiaDato = tavolo?.conto?.modo === "aggiungi" && tavolo.conto.consensoDato === true;
+  const accettato = accettatoQui || consensoGiaDato;
 
   const [invio, setInvio] = useState(false);
   /* ⚠️ IL TASTO INDIETRO DEL TELEFONO, DA STRIPE. Il browser puo' rimettere
      la pagina com'era quando la si e' lasciata (bfcache): bottone spento e
      «paiement…» scritto sopra, per sempre — il cliente crede che stia ancora
      pagando. Una pagina tornata dalla cache riaccende il bottone. */
+  useEffect(() => {
+    setClosedToday(chiusoOggiPagina);
+    if (!chiusoOggiPagina || inSala) return;
+    let vivo = true;
+    fetch(conSede("/api/slots?days=1"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { giorni?: string[] } | null) => {
+        if (vivo && (d?.giorni?.length ?? 0) > 0) setClosedToday(false);
+      })
+      .catch(() => {
+        // Senza risposta resta chiuso, come prima della finestra dei giorni.
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [chiusoOggiPagina, inSala, sede]);
+
   useEffect(() => {
     const ritorno = (e: PageTransitionEvent) => {
       if (e.persisted) setInvio(false);
@@ -475,12 +688,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const dati: StatoSalvato = { linee, nome, cognome, telefono, email, noteOrdine, coupon };
+      const dati: StatoSalvato = { linee, nome, cognome, telefono: telefonoIntero, email, noteOrdine, coupon, indirizzo };
       window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(dati));
     } catch {
       // sessionStorage non disponibile: l'app funziona comunque.
     }
-  }, [linee, nome, cognome, telefono, email, noteOrdine, coupon]);
+  }, [linee, nome, cognome, telefonoIntero, email, noteOrdine, coupon, indirizzo]);
 
   // Al cambio vista (menu <-> checkout) riporta la pagina in cima:
   // senza questo, passando al checkout la pagina resta scrollata in basso.
@@ -658,9 +871,27 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     chiudiModale();
   }
 
+  /* «ARTICLE AJOUTÉ»: un toast verde, breve, a ogni piatto aggiunto. Solo al
+     tavolo: e' vestito da `TableOrder.css`, e sulle pagine /order dei clienti
+     comparirebbe nudo (la regola di sempre: niente elementi nuovi senza il
+     loro vestito). `toastN` cambia a ogni aggiunta: e' la `key` del toast, e
+     cosi' l'animazione riparte anche aggiungendo due piatti di fila. */
+  const [toastN, setToastN] = useState(0);
+  const toastTimer = useRef<number | undefined>(undefined);
+  function segnaAggiunto() {
+    if (!inSala) return;
+    setToastN((n) => n + 1);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToastN(0), 1400);
+  }
+  const toastAggiunto = inSala && toastN > 0
+    ? <div className="order-aggiunto" role="status" key={toastN}>{TXT_AGGIUNTO[lang] ?? TXT_AGGIUNTO.fr}</div>
+    : null;
+
   /** Differenza rispetto al formato base, col segno. */
   function aggiungi(item: MenuItem, v?: Variante) {
     if (item.is_sold_out || v?.sold_out) return;
+    segnaAggiunto();
     // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
     // il server ricostruisce le righe d'ordine da lì, non da qui.
     const nomeVisto = testoPiatto(item, lang).name;
@@ -735,6 +966,37 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   // Sconto coupon (indicativo lato client: il checkout lo ricalcola e valida).
   const scontoCents = couponApplicato ? Math.min(couponApplicato.discount_cents, totale) : 0;
   const totaleFinale = Math.max(0, totale - scontoCents);
+  /* ⚠️ Il minimo della consegna si misura sui piatti DOPO lo sconto, come lo
+     misura il server (`mancaAlMinimo`): se il carrello dicesse «ok» e il
+     server «manca», il cliente scoprirebbe il minimo dopo aver compilato tutto. */
+  const mancaMinimo = aConsegna && soglie.minimo > 0 ? Math.max(0, soglie.minimo - totaleFinale) : 0;
+  /* Il costo della consegna per QUESTO carrello, e il totale da pagare. Stessa
+     regola del server (`costoConsegna`): gratis quando i piatti scontati
+     arrivano alla soglia. */
+  /* LA ZONA del codice postale scritto: decide se si consegna e a che prezzo.
+     Senza zone = ovunque. Codice ancora incompleto = non si giudica (nessun
+     messaggio mentre il cliente sta scrivendo «10…»). */
+  const capScritto = capPulito(indirizzo.cap);
+  /* Il menu dei codici postali: uno per codice, in ordine, col nome della
+     sua zona. Vuoto = nessuna zona = campo libero. */
+  const opzioniCap = soglie.zone
+    .flatMap((z) => z.cap.map((cap) => ({ cap, nome: z.nome })))
+    .sort((a, b) => a.cap.localeCompare(b.cap, undefined, { numeric: true }));
+  const zonaCliente = aConsegna ? zonaDelCap(soglie.zone, indirizzo.cap) : "ovunque";
+  const fuoriZona = aConsegna && capScritto !== null && zonaCliente === null;
+  const costoBase = zonaCliente ? costoBaseZona(zonaCliente, soglie.costo) : soglie.costo;
+  const costoCons = aConsegna ? costoConsegna(totaleFinale, costoBase, soglie.gratis) : 0;
+  /* LA MANCIA: solo pagando con la carta (chi paga sul posto la lascia di
+     persona), sui piatti scontati, con la stessa regola del server — che
+     comunque la ricalcola: da qui parte solo QUALE bottone. */
+  // Sul conto la mancia si lascia alla fine, pagando l'addizione.
+  const manceAttive = mance !== null && !pagaInCassa && !soloConto;
+  const mancia = manceAttive && mance ? importoMancia(manciaScelta, mance.tipo, mance.valori, totaleFinale) : 0;
+  const totaleDaPagare = totaleFinale + costoCons + mancia;
+  // La riga «Livraison» nel totale c'e' solo se la consegna ha un prezzo:
+  // dove e' sempre gratis, una riga «Offerte» sarebbe rumore.
+  const rigaConsegna = aConsegna && costoBase > 0;
+  const mancaGratis = rigaConsegna && soglie.gratis > 0 ? Math.max(0, soglie.gratis - totaleFinale) : 0;
 
   // Se il carrello cambia dopo aver applicato un coupon, l'importo dello sconto
   // potrebbe non essere più corretto: si annulla e il cliente lo riapplica.
@@ -818,11 +1080,16 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     nome.trim() !== "" &&
     (inSala || cognome.trim() !== "") &&
     (inSala || telefono.trim() !== "") &&
+    (!aConsegna || indirizzoOk) &&
+    !fuoriZona &&
+    mancaMinimo === 0 &&
     emailOk &&
     accettato;
 
-  async function paga() {
+  /** `alBanco`: il bottone «Payer au comptoir» al tavolo. */
+  async function paga(alBanco = false) {
     if (!formValido || invio) return;
+    const inCassaOra = alBanco || pagaInCassa;
     setInvio(true);
     setErroreCheckout(null);
     try {
@@ -854,14 +1121,24 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 reservation_id: sessione.reservationId,
                 ...(sessione.tableId ? { table_id: sessione.tableId } : {}),
               }
-            : { slot }),
+            : {
+                slot,
+                ...(giorno ? { date: giorno } : {}),
+                /* ⚠️ Il server ricontrolla tutto: che la consegna sia accesa
+                   in questo punto, e che l'indirizzo sia completo. Qui si
+                   dice solo cosa ha scelto il cliente. */
+                ...(aConsegna ? { service: "delivery", delivery: indirizzo } : {}),
+              }),
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
           // ⚠️ Il server non si fida di questo campo: ricontrolla che il punto
           // offra davvero quella strada. Qui si dice cosa ha SCELTO il
           // cliente, non cosa gli e' permesso.
-          pay: pagaInCassa ? "onsite" : "online",
-          customer: { name: nome, surname: cognome, phone: telefono, email },
+          pay: inCassaOra ? "onsite" : "online",
+          // Solo QUALE bottone: l'importo lo ricalcola il server. Al banco la
+          // mancia si lascia di persona.
+          ...(manceAttive && !inCassaOra && manciaScelta >= 0 ? { tip: manciaScelta } : {}),
+          customer: { name: nome, surname: cognome, phone: telefonoIntero, email },
           lang,
         }),
       });
@@ -871,6 +1148,59 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
         setInvio(false);
         return;
       }
+      window.location.href = data.url;
+    } catch {
+      setErroreCheckout(t.errConnection);
+      setInvio(false);
+    }
+  }
+
+  /**
+   * L'ORDINE SUL CONTO APERTO: niente Stripe, niente cassa. La pagina apre (o
+   * ritrova) il conto e rende il codice; il server lo ricontrolla, attacca
+   * l'ordine all'invio giusto e rimanda su «Votre addition».
+   * ⚠️ Niente codice promo e niente mancia: si usano alla fine, pagando.
+   * ⚠️ Il carrello si svuota PRIMA di andare: la pagina si ricarica, e un
+   * secondo tocco non deve ordinare due volte gli stessi piatti.
+   */
+  async function aggiungiAlConto() {
+    if (!contoTav || !formValido || invio) return;
+    setInvio(true);
+    setErroreCheckout(null);
+    try {
+      const c = await contoTav.invia({ nome: nome.trim(), email: email.trim() });
+      if (!c.ok) {
+        setErroreCheckout(c.errore);
+        setInvio(false);
+        return;
+      }
+      const res = await fetch(conSede("/api/checkout"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
+          service: "table",
+          reservation_id: c.reservationId,
+          table_id: c.tableId,
+          pay: "tab",
+          code: c.code,
+          note: noteOrdine,
+          customer: { name: nome, surname: "", phone: telefonoIntero, email },
+          lang,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErroreCheckout(data.error && data.error !== "code" ? data.error : t.errPayment);
+        setInvio(false);
+        return;
+      }
+      contoTav.fatto?.({ token: String(data.token ?? "") });
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY);
+        const d = raw ? (JSON.parse(raw) as Partial<StatoSalvato>) : {};
+        window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...d, linee: [], coupon: "", noteOrdine: "" }));
+      } catch { /* senza memoria: la pagina riparte vuota comunque */ }
       window.location.href = data.url;
     } catch {
       setErroreCheckout(t.errConnection);
@@ -1000,6 +1330,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     return () => window.removeEventListener(EVENTO_AGGIUNGI, ascolta);
   }, [menu, sceltaFormato, lang]);
 
+  /* ⚠️ SI CHIAMA COME FUNZIONE, `{RigheCarrello()}`, MAI COME TAG JSX.
+     E' definita DENTRO OrderApp: a ogni disegno e' una funzione nuova, e come
+     componente React la prenderebbe per un tipo diverso — smonterebbe e
+     rimonterebbe tutte le righe a ogni tasto, timer o toast. Le foto del
+     riepilogo ripartivano da zero ogni volta: lampeggiavano (18/10/2026).
+     Stessa regola di `ModaleVarianti()`. */
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
@@ -1125,7 +1461,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               <p className="order-cart-empty">{t.cartEmpty}</p>
             ) : (
               <>
-                <RigheCarrello />
+                {RigheCarrello()}
                 <div className="order-note">
                   <label className="order-field-label" htmlFor="order-note-field">{t.notes}</label>
                   <textarea
@@ -1140,7 +1476,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 {totaleSottoLeNote && (
                   <div className="order-cart-total order-recap-totale">
                     <span>{t.total} ({numArticoli} {t.items})</span>
-                    <strong>{euro(scontoCents > 0 ? totaleFinale : totale)}</strong>
+                    <strong>{euro(scontoCents > 0 || rigaConsegna || mancia > 0 ? totaleDaPagare : totale)}</strong>
                   </div>
                 )}
               </>
@@ -1158,24 +1494,134 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               tavolo.campi
             ) : (
               <>
-                <label className="order-field-label">{t.pickupTime}</label>
+                {/* ⚠️ COMPARE SOLO DOVE LA CONSEGNA E' ACCESA (Réglages), come
+                    la scelta del pagamento: su tutti gli altri siti il checkout
+                    resta identico al pixel. Classi da vestire: `order-servizio`
+                    (+ quelle del pagamento, `order-pay-opt` / `order-pay-lab`,
+                    cosi' chi le ha gia' vestite le ritrova uguali) e
+                    `order-indirizzo`. */}
+                {consegnaPossibile && (
+                  <div className="order-pay order-servizio">
+                    <span className="order-field-label">{tc.titolo}</span>
+                    {([
+                      { v: "ritiro" as const, testo: tc.ritiro },
+                      { v: "consegna" as const, testo: tc.consegna },
+                    ]).map((o) => (
+                      <label key={o.v} className="order-pay-opt">
+                        <input
+                          type="radio"
+                          name="order-servizio"
+                          value={o.v}
+                          checked={modoServizio === o.v}
+                          onChange={() => setModoServizio(o.v)}
+                        />
+                        <span className="order-pay-lab">{o.testo}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {/* Il minimo si dice SUBITO, appena si sceglie la consegna — non
+                    al momento di pagare. Classe da vestire: `order-consegna-minimo`. */}
+                {aConsegna && soglie.minimo > 0 && (
+                  <p className="order-consegna-minimo" role={mancaMinimo > 0 ? "alert" : undefined}>
+                    {tc.minimo(euro(soglie.minimo))}
+                    {mancaMinimo > 0 ? ` — ${tc.manca(euro(mancaMinimo))}` : ""}
+                  </p>
+                )}
+                {/* La soglia della gratuita': solo se la consegna costa, e
+                    finche' non e' raggiunta (raggiunta, lo dice il totale).
+                    Classe da vestire: `order-consegna-gratis`. */}
+                {rigaConsegna && mancaGratis > 0 && (
+                  <p className="order-consegna-gratis">
+                    {tc.gratisDa(euro(soglie.gratis))} — {tc.gratisManca(euro(mancaGratis))}
+                  </p>
+                )}
+                {aConsegna && (
+                  <div className="order-form order-indirizzo">
+                    <input className="order-input" type="text" autoComplete="address-line1" placeholder={tc.via} value={indirizzo.via} onChange={campoIndirizzo("via")} />
+                    <input className="order-input" type="text" placeholder={tc.numero} value={indirizzo.numero} onChange={campoIndirizzo("numero")} />
+                    <input className="order-input" type="text" autoComplete="address-line2" placeholder={tc.box} value={indirizzo.box} onChange={campoIndirizzo("box")} />
+                    {/* ⚠️ CON LE ZONE IL CODICE POSTALE SI SCEGLIE, non si
+                        scrive: solo quelli serviti, col nome della zona
+                        accanto («1050 — Ixelles»). Fuori zona non si puo'
+                        nemmeno arrivare a compilare il resto. Senza zone resta
+                        il campo libero di sempre. */}
+                    {opzioniCap.length > 0 ? (
+                      <select
+                        className="order-input order-cap-scelta"
+                        autoComplete="postal-code"
+                        aria-label={tc.cap}
+                        value={opzioniCap.some((o) => o.cap === indirizzo.cap) ? indirizzo.cap : ""}
+                        onChange={campoIndirizzo("cap")}
+                      >
+                        <option value="" disabled>{tc.cap}</option>
+                        {opzioniCap.map((o) => (
+                          <option key={o.cap} value={o.cap}>{o.nome ? `${o.cap} — ${o.nome}` : o.cap}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input className="order-input" type="text" inputMode="numeric" autoComplete="postal-code" placeholder={tc.cap} value={indirizzo.cap} onChange={campoIndirizzo("cap")} />
+                    )}
+                    <input className="order-input" type="text" autoComplete="address-level2" placeholder={tc.comune} value={indirizzo.comune} onChange={campoIndirizzo("comune")} />
+                    <textarea className="order-input" rows={2} placeholder={tc.note} value={indirizzo.note} onChange={campoIndirizzo("note")} />
+                  </div>
+                )}
+                {/* Fuori zona, appena il codice postale e' completo: prima di
+                    scegliere l'ora, non al momento di pagare. Classe da
+                    vestire: `order-consegna-fuori`. */}
+                {fuoriZona && capScritto && (
+                  <p className="order-consegna-fuori" role="alert">{tc.fuori(capScritto)}</p>
+                )}
+                <label className="order-field-label">{aConsegna ? tc.quando : t.pickupTime}</label>
                 {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
                     che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
                     che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
-                <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
+                <SlotPicker
+                  onSelect={setSlot}
+                  onGiorno={setGiorno}
+                  lang={lang === "en" ? "en" : "fr"}
+                  lingua={lang}
+                  sede={sede}
+                  servizio={aConsegna ? "consegna" : "ritiro"}
+                />
               </>
             )}
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
-              {/* Cognome e telefono: solo da asporto. A chi e’ in sala non si
-                  chiede il cognome, e il telefono non serve a richiamare
-                  nessuno — il cliente e’ a tre metri. */}
+              {/* Il cognome solo da asporto: a chi e’ in sala non serve. */}
               {!inSala && (
-                <>
-                  <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
-                  <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
-                </>
+                <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
               )}
+              {/* IL TELEFONO, col prefisso: obbligatorio da asporto (si richiama
+                  chi non arriva), FACOLTATIVO in sala (il cliente e’ a tre
+                  metri, ma il ristoratore puo’ volerlo per la rubrica).
+                  ⚠️ Il minimo di stile e’ scritto qui (`style`): sulle pagine
+                  /order dei clienti `order-tel` non e’ vestito, e senza
+                  bandierina e numero finirebbero uno sotto l’altro. Classi da
+                  vestire: `order-tel`, `order-tel-prefisso`. */}
+              <div className="order-tel" style={{ display: "flex", gap: ".5rem" }}>
+                <select
+                  className="order-input order-tel-prefisso"
+                  style={{ flex: "0 0 auto", width: "auto" }}
+                  aria-label={t.phone}
+                  value={prefisso}
+                  onChange={(e) => setPrefisso(e.target.value)}
+                >
+                  {PREFISSI.map((p) => (
+                    <option key={p.code} value={p.dial}>{p.flag} {p.dial}</option>
+                  ))}
+                </select>
+                <input
+                  className="order-input"
+                  style={{ flex: "1 1 auto", minWidth: 0 }}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder={inSala ? `${t.phone} (${TXT_FACOLTATIVO[lang] ?? TXT_FACOLTATIVO.fr})` : t.phone}
+                  value={telefono}
+                  onChange={(e) => scriviTelefono(e.target.value)}
+                />
+              </div>
               <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} required={!inSala || tavolo.emailObbligatoria} />
               {inSala && tavolo.emailObbligatoria && t.emailWhyRequired && (
                 <p className="order-email-why">{t.emailWhyRequired}</p>
@@ -1192,7 +1638,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 <span className="order-field-label">{tp.titolo}</span>
                 {([
                   { v: "online" as const, testo: tp.ora },
-                  { v: "onsite" as const, testo: tp.ritiro },
+                  { v: "onsite" as const, testo: aConsegna ? tc.pagaConsegna : inSala ? tp.sala : tp.ritiro },
                 ]).map((o) => (
                   <label key={o.v} className="order-pay-opt">
                     <input
@@ -1276,6 +1722,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               {couponMsg && <p className="order-coupon-msg">{couponMsg}</p>}
             </div>
             )}
+            {!consensoGiaDato && (
             <label className="order-consent">
               <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} />
               <span>
@@ -1283,19 +1730,59 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 <a href={t.privacyHref} target="_blank" rel="noopener">{t.consentLink}</a>
               </span>
             </label>
-            {scontoCents > 0 ? (
+            )}
+            {/* LA MANCIA, sopra il totale: e' l'ultima scelta prima di pagare,
+                e il totale qui sotto la mostra subito. Classi da vestire:
+                `order-mancia`, `order-mancia-btn` (+ `is-selected`). */}
+            {manceAttive && mance && (
+              <div className="order-mancia" role="group" aria-label={tm.titolo}>
+                <span className="order-field-label">{tm.titolo}</span>
+                <div className="order-mancia-btns">
+                  {[-1, 0, 1, 2].map((i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={"order-mancia-btn" + (manciaScelta === i ? " is-selected" : "")}
+                      aria-pressed={manciaScelta === i}
+                      onClick={() => setManciaScelta(i)}
+                    >
+                      {i < 0 ? tm.nessuno : mance.tipo === "percent" ? `${mance.valori[i]} %` : euro(mance.valori[i])}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {scontoCents > 0 || rigaConsegna || mancia > 0 ? (
               <>
                 <div className="order-cart-subtotal">
                   <span>{t.subtotal}</span>
                   <span>{euro(totale)}</span>
                 </div>
-                <div className="order-cart-discount">
-                  <span>{t.discount} ({couponApplicato?.code})</span>
-                  <span>−{euro(scontoCents)}</span>
-                </div>
+                {scontoCents > 0 && (
+                  <div className="order-cart-discount">
+                    <span>{t.discount} ({couponApplicato?.code})</span>
+                    <span>−{euro(scontoCents)}</span>
+                  </div>
+                )}
+                {/* ⚠️ La consegna come riga a parte, con la classe del
+                    subtotale (cosi' ogni sito la veste gia') piu' la sua,
+                    `order-cart-livraison`. «Offerte» quando la soglia e'
+                    raggiunta: il cliente deve VEDERE il regalo. */}
+                {rigaConsegna && (
+                  <div className="order-cart-subtotal order-cart-livraison">
+                    <span>{tc.costo}</span>
+                    <span>{costoCons > 0 ? euro(costoCons) : tc.offerta}</span>
+                  </div>
+                )}
+                {mancia > 0 && (
+                  <div className="order-cart-subtotal order-cart-mancia">
+                    <span>{tm.riga}</span>
+                    <span>{euro(mancia)}</span>
+                  </div>
+                )}
                 <div className="order-cart-total">
                   <span>{t.total} ({numArticoli} {t.items})</span>
-                  <strong>{euro(totaleFinale)}</strong>
+                  <strong>{euro(totaleDaPagare)}</strong>
                 </div>
               </>
             ) : (
@@ -1308,9 +1795,42 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 si paga niente, si ordina. Una parola che promette un
                 pagamento dove non ce n'e' uno lascia il cliente a chiedersi
                 se e' andato a buon fine. */}
-            <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={paga}>
-              {pagaInCassa ? (invio ? tp.ordinando : tp.ordina) : (invio ? t.paying : t.pay)}
-            </button>
+            {/* Sul conto il bottone e' uno solo («Ajouter à l'addition»); con
+                il conto da aprire, «Ouvrir un compte» sta SOTTO quello di
+                sempre, vuoto e non pieno: pagare subito resta la strada
+                principale. Le classi da vestire: `order-cart-conto`,
+                `order-conto-sotto`. */}
+            {/* ⚠️ Al tavolo senza carta il bottone di sempre non c'e': «sur
+                place» a ogni giro al tavolo non esiste (`pagamentoAlTavolo`),
+                si ordina solo sul conto, che allora e' il bottone pieno. */}
+            {mostraPaga && (
+              <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={() => void paga()}>
+                {pagaInCassa ? (invio ? tp.ordinando : tp.ordina) : (invio ? t.paying : t.pay)}
+              </button>
+            )}
+            {/* «PAYER AU COMPTOIR», sotto: vuoto se c'e' anche la carta, pieno
+                se e' l'unica strada. L'ordine parte e resta «à encaisser». */}
+            {mostraBanco && (
+              <button
+                type="button"
+                className={"order-cart-checkout" + (mostraPaga ? " order-cart-conto" : "")}
+                disabled={!formValido || invio}
+                onClick={() => void paga(true)}
+              >
+                {invio ? tp.ordinando : tp.sala}
+              </button>
+            )}
+            {contoTav && (
+              <button
+                type="button"
+                className={"order-cart-checkout" + (mostraPaga || mostraBanco ? " order-cart-conto" : "")}
+                disabled={!formValido || invio}
+                onClick={aggiungiAlConto}
+              >
+                {invio ? contoTav.invio : contoTav.etichetta}
+              </button>
+            )}
+            {contoTav?.sotto && !soloConto && <p className="order-cart-note order-conto-sotto">{contoTav.sotto}</p>}
             {erroreCheckout && <p className="order-cart-error">{erroreCheckout}</p>}
             {!formValido && !erroreCheckout && (
               <p className="order-cart-note">{t.fillAll}</p>
@@ -1322,6 +1842,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
             piatto con l'evento pubblico mentre il cliente sta compilando i
             dati deve poter chiedere il formato. Era montato solo di la'. */}
         {ModaleVarianti()}
+        {toastAggiunto}
       </div>
     );
   }
@@ -1363,7 +1884,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                       const testi = testoPiatto(item, lang);
                       const desc = testi.description;
                       return (
-                        <div key={item.id} className="order-item">
+                        <div key={item.id} className={"order-item" + (item.is_sold_out ? " order-item--esaurito" : "")}>
                           <div className="order-item-info">
                             <h3 className="order-item-name">
                               {testi.name}
@@ -1468,7 +1989,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           ) : (
             <>
               <h2 className="order-cart-title">{t.cartTitle}</h2>
-              <RigheCarrello />
+              {RigheCarrello()}
               <div className="order-cart-total">
                 <span>{t.total} ({numArticoli} {t.items})</span>
                 <strong>{euro(totale)}</strong>
@@ -1489,6 +2010,17 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           </svg>
           <span>{t.closedToday}</span>
         </div>
+      ) : linee.length === 0 && tavolo?.conto?.paga ? (
+        <button type="button" className="order-mobcart order-mobcart--paga" onClick={tavolo.conto.paga.apri}>
+          <span className="order-mobcart-label">{tavolo.conto.paga.etichetta}</span>
+          <span className="order-mobcart-total">{euro(tavolo.conto.paga.totale_cents)}</span>
+          <span className="order-mobcart-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
+          </span>
+        </button>
       ) : (
         linee.length > 0 && (
           <button type="button" className="order-mobcart" onClick={() => setVista("checkout")}>
@@ -1506,6 +2038,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
       )}
 
       {ModaleVarianti()}
+      {toastAggiunto}
     </div>
   );
 }

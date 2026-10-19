@@ -45,6 +45,7 @@
 import { accodaTicket } from "./stampaCoda";
 import { aggiorna, leggi, ambitoDiRiga, type Ambito } from "./admin/sede";
 import { alTavolo } from "./ordiniRegole";
+import { consegnaDellOrdine, manciaDellOrdine } from "./consegnaOrdine";
 import { opzioniTavolo } from "./ordiniOpzioni";
 import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
@@ -149,7 +150,11 @@ export async function annunciaOrdine(
   // puo' essere nullo su una riga vecchia, `items` e' JSON e non ha forma.
   // Si adatta QUI, in un posto solo, invece di allentare `OrdineNotifica` —
   // che e' il tipo che garantisce a chi scrive un'email di avere un nome.
-  const sala = await salaDellOrdine(String(ordine.id), ordine.location_id ?? null);
+  const [sala, consegna, mancia] = await Promise.all([
+    salaDellOrdine(String(ordine.id), ordine.location_id ?? null),
+    consegnaDellOrdine(String(ordine.id), ordine.location_id ?? null),
+    manciaDellOrdine(String(ordine.id), ordine.location_id ?? null),
+  ]);
 
   await inviaNotifiche({
     // La sede la dice la RIGA: e' lei che decide indirizzo, mittente e cucina
@@ -168,6 +173,8 @@ export async function annunciaOrdine(
     lang: ordine.lang ?? "fr",
     da_incassare: daIncassare,
     sala,
+    consegna,
+    mancia_cents: mancia,
   });
 
   // ⚠️ La sede la dice la RIGA, non la richiesta: senza, un ordine di Stockel

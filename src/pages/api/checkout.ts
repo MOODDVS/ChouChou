@@ -7,7 +7,8 @@ import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno } from "../../lib/slots";
 import { fusoDi } from "../../lib/fuso";
-import { configGiornoEffettiva } from "../../lib/schedule";
+import { configSala, configRitiro } from "../../lib/schedule";
+import { giornoAmmesso, preavvisoDelServizio, soloOrariLiberi } from "../../lib/slotsApi";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
@@ -16,10 +17,15 @@ import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
-import { modiDiPagamento, opzioniTavolo, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
-import { servizioDi, alTavolo, servizioInCorso } from "../../lib/ordiniRegole";
+import { modiDiPagamento, opzioniTavolo, soglieConsegna, manceDi, type OpzioniTavolo } from "../../lib/ordiniOpzioni";
+import { importoMancia } from "../../lib/manceRegole";
+import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordiniRegole";
+import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBaseZona, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
+import { contoPerId, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
+import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
+import { inviaPushConto } from "../../lib/push";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
@@ -49,10 +55,16 @@ const SUPPL_LABEL: Record<Supplemento, string> = {
 interface CheckoutRequest {
   items: { id: string; qty: number; supplement?: Supplemento; variant?: string }[];
   slot: string;
+  /** Il GIORNO del ritiro (YYYY-MM-DD), se il cliente ne ha scelto uno che
+   *  non e' oggi. Assente = oggi, come e' sempre stato. */
+  date?: string;
   note?: string;
   coupon?: string;
-  /** Come vuole pagare, quando il punto offre entrambe le strade. */
-  pay?: "online" | "onsite";
+  /** Come vuole pagare, quando il punto offre entrambe le strade. "tab" =
+   *  sul conto aperto del tavolo (conto-aperto.md): si paga alla fine. */
+  pay?: "online" | "onsite" | "tab";
+  /** Il codice del conto aperto, con `pay: "tab"`: e' l'autorizzazione. */
+  code?: string;
   customer: {
     name: string;
     /** ⚠️ Facoltativi perche' AL TAVOLO non si chiedono: cognome e telefono a
@@ -73,6 +85,11 @@ interface CheckoutRequest {
    *  tavolo di qualcun altro cambiando un id in una richiesta. */
   table_id?: string;
   reservation_id?: string;
+  /** L'indirizzo, quando `service` e' "delivery". Ripulito e ricontrollato
+   *  da `indirizzoDaRichiesta`: dal browser arriva com'e'. */
+  delivery?: unknown;
+  /** La mancia: QUALE bottone (0, 1, 2), mai un importo. Assente = nessuna. */
+  tip?: unknown;
 }
 
 function isPizza(categoryOrder: number): boolean {
@@ -96,6 +113,17 @@ export const POST: APIRoute = async ({ request }) => {
      non hanno la colonna e restano da asporto, come sono sempre state. */
   const servizio = servizioDi(body.service);
   const aTavolo = alTavolo(servizio);
+  /* LA CONSEGNA e' un ritiro con un indirizzo: stesso slot, stessi dati
+     obbligatori (il telefono serve ancora di piu' — il fattorino davanti al
+     portone), e in piu' dove portarla. ⚠️ Un indirizzo incompleto non
+     diventa un ritiro: il cliente aspetterebbe a casa un sacchetto rimasto
+     sul banco. Si rifiuta, e il modulo glielo fa completare. */
+  const consegna = aConsegna(servizio);
+  let indirizzo: IndirizzoConsegna | null = null;
+  if (consegna) {
+    indirizzo = indirizzoDaRichiesta(body.delivery);
+    if (!indirizzo) return err(400, "Dati mancanti");
+  }
 
   // Il form pubblico (OrderApp) esige nome, cognome, telefono ed email: qui si
   // ricontrolla, perche' l'API e' raggiungibile anche senza passare dal form e
@@ -190,6 +218,12 @@ export const POST: APIRoute = async ({ request }) => {
      asporto non lo guarderebbe nessuno. */
   /* ⚠️ Si legge SOLO per un ordine dal locale: un ordine da asporto non deve
      pagare una lettura in piu' per una sala che non lo riguarda. */
+  /* ⚠️ L'INTERRUTTORE DELLA CONSEGNA VALE ANCHE QUI, come quello della sala:
+     il modulo la propone solo dove e' accesa, ma questa rotta si raggiunge
+     anche senza passare dal modulo. */
+  if (consegna && !modi.consegna) {
+    return err(403, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
+  }
   let sala: OpzioniTavolo | null = null;
   if (aTavolo) {
     sala = await opzioniTavolo(ambitoPub);
@@ -213,6 +247,20 @@ export const POST: APIRoute = async ({ request }) => {
       return err(400, "Dati mancanti");
     }
   }
+  /* IL CONTO APERTO: si ordina dal tavolo e si paga alla fine. ⚠️ Solo dove
+     il ristoratore l'ha acceso e si sceglie il tavolo (`sala.conto`): questa
+     rotta si raggiunge anche senza passare dalla pagina. */
+  const sulConto = aTavolo && body.pay === "tab";
+  if (sulConto && !sala?.conto) {
+    return err(403, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
+  }
+  /* ⚠️ AL TAVOLO (`pagamentoAlTavolo`): la carta, il conto aperto, o il
+     banco se la sala lo vuole (`orders_table_counter`). Niente di questi,
+     fuori dal conto non si ordina. */
+  const alBanco = aTavolo && Boolean(sala?.banco);
+  if (aTavolo && !sulConto && !modi.online && !alBanco) {
+    return err(503, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
+  }
 
   const fuso = await fusoDi(ambitoPub);
   const ora = DateTime.now().setZone(fuso);
@@ -222,7 +270,24 @@ export const POST: APIRoute = async ({ request }) => {
   // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
   // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
   // (calcolato piu' sopra: serve gia' al controllo di chiusura)
-  const config = await configGiornoEffettiva(ora, ambitoPub);
+  /* IL GIORNO DEL RITIRO: oggi, oppure uno dei prossimi giorni se il
+     ristoratore ha aperto gli ordini in anticipo (`orders_future_days`).
+     ⚠️ La finestra si ricontrolla QUI: il sito propone solo i giorni
+     ammessi, ma questa rotta si raggiunge anche senza passare dal sito. */
+  const giornoChiesto = !aTavolo ? String(body.date ?? "").trim() : "";
+  if (giornoChiesto && !(await giornoAmmesso(giornoChiesto, ambitoPub))) {
+    return err(409, "Giorno di ritiro non disponibile");
+  }
+  const giornoRitiro = giornoChiesto
+    ? (() => { const d = DateTime.fromISO(giornoChiesto, { zone: fuso }); return d.hasSame(ora, "day") ? ora : d.startOf("day"); })()
+    : ora;
+
+  /* ⚠️ DUE CONFIG, NON UNA. Da asporto contano gli orari di RITIRO — che
+     possono seguire i service delle prenotazioni (`configRitiro`); al tavolo
+     gli orari della SALA (`configSala`: d'apertura, o i service scelti per la
+     sala) — la stessa della pagina del QR. Un «Soir» chiuso perche' complet
+     non ferma comunque chi e' gia' seduto. */
+  const config = aTavolo ? await configSala(ora, ambitoPub) : await configRitiro(giornoRitiro, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
   }
@@ -239,10 +304,32 @@ export const POST: APIRoute = async ({ request }) => {
       return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
     }
   } else {
-    const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
+    /* ⚠️ La consegna ha il SUO preavviso (preparazione + tragitto): lo
+       stesso calcolo che ha dato gli orari al sito (`preavvisoDelServizio`),
+       o il cliente sceglierebbe un orario che qui viene rifiutato. */
+    const { lunch, dinner } = calcolaSlotGiorno(
+      giornoRitiro,
+      config,
+      fuso,
+      await preavvisoDelServizio(consegna, config.prep_time_minutes, ambitoPub),
+    );
     const slotValidi = [...lunch, ...dinner];
     if (!slotValidi.includes(body.slot)) {
       return err(409, "Orario di ritiro non più disponibile");
+    }
+    /* ⚠️ I FATTORINI: l'orario esiste, ma e' ancora libero? Il sito non lo
+       proponeva gia' pieno, ma fra la scelta e il pagamento qualcun altro
+       puo' aver preso l'ultimo posto. Si dice al cliente di sceglierne un
+       altro, prima di prendergli i soldi. */
+    if (consegna && (await soloOrariLiberi([body.slot], true, ambitoPub, giornoRitiro)).length === 0) {
+      const TXT_PIENO: Record<string, string> = {
+        fr: "Ce créneau de livraison vient d’être complet : choisissez une autre heure.",
+        en: "This delivery time has just filled up: please choose another time.",
+        it: "Questo orario di consegna si è appena riempito: scegline un altro.",
+        nl: "Dit levertijdstip is net volzet: kies een ander uur.",
+        es: "Esta hora de entrega acaba de completarse: elige otra hora.",
+      };
+      return err(409, TXT_PIENO[lang] ?? TXT_PIENO.fr);
     }
   }
 
@@ -370,7 +457,9 @@ export const POST: APIRoute = async ({ request }) => {
   // (e il locale lo offre) si paga al ritiro; altrimenti vince la carta quando
   // e' possibile. Con un solo modo acceso non c'e' niente da scegliere e il
   // sito non deve chiedere nulla.
-  const inCassa = modi.locale && (!modi.online || body.pay === "onsite");
+  const inCassa = !sulConto && (aTavolo
+    ? alBanco && (!modi.online || body.pay === "onsite")
+    : modi.locale && (!modi.online || body.pay === "onsite"));
 
   // ---- Code promo: validazione + sconto REALE, ricalcolato lato server ----
   // Non ci si fida mai dell'importo mandato dal browser: si rilegge il coupon
@@ -383,7 +472,20 @@ export const POST: APIRoute = async ({ request }) => {
   // valgono per la strada scelta. Non basta nascondere il campo nel sito: chi
   // manda la richiesta a mano aggirerebbe l'interruttore, e uno sconto non
   // voluto e' denaro vero.
-  const couponAmmesso = modi.coupon && (!inCassa || modi.couponInCassa);
+  /* ⚠️ Sul conto il codice promo vale solo al PAGAMENTO FINALE (fase 4), non
+     giro per giro: un codice per ogni amico del tavolo sarebbe lo sconto
+     moltiplicato per quattro. */
+  if (sulConto && normalizzaCodice(body.coupon ?? "")) {
+    const TXT_COUPON_CONTO: Record<string, string> = {
+      fr: "Le code promo s’utilise au moment de payer l’addition.",
+      en: "The promo code is used when paying the bill.",
+      it: "Il codice sconto si usa al momento di pagare il conto.",
+      nl: "De kortingscode gebruikt u bij het betalen van de rekening.",
+      es: "El código promocional se usa al pagar la cuenta.",
+    };
+    return err(409, TXT_COUPON_CONTO[lang] ?? TXT_COUPON_CONTO.fr);
+  }
+  const couponAmmesso = !sulConto && modi.coupon && (!inCassa || modi.couponInCassa);
   const codeInput = couponAmmesso ? normalizzaCodice(body.coupon ?? "") : "";
 
   // ⚠️ E se un codice C'ERA, non lo si butta in silenzio: il cliente ha visto
@@ -415,6 +517,68 @@ export const POST: APIRoute = async ({ request }) => {
 
   const totaleIncassato = Math.max(0, totalCents - scontoCents);
 
+  /* ⚠️ LA SPESA MINIMA DELLA CONSEGNA si ricontrolla QUI, dopo il codice
+     promo: il modulo spegne il bottone, ma questa rotta si raggiunge anche
+     senza passarci. Sui piatti scontati, che e' quello che entra in cucina. */
+  /* IL COSTO DELLA CONSEGNA, deciso QUI dal server — dal browser non arriva
+     nessun prezzo, nemmeno questo. Gratis sopra la soglia, misurata come il
+     minimo: piatti dopo lo sconto. Si somma al totale e diventa una voce sua
+     su Stripe, cosi' la ricevuta del cliente la mostra separata. */
+  let costoCons = 0;
+  if (consegna) {
+    const { minimo, gratis, costo, zone } = await soglieConsegna(ambitoPub);
+    /* ⚠️ LA ZONA PRIMA DI TUTTO: fuori zona non si consegna, qualunque cosa ci
+       sia nel carrello. Il modulo lo dice gia' scrivendo il codice postale;
+       qui si ricontrolla, perche' questa rotta si raggiunge anche senza. */
+    const zona = zonaDelCap(zone, indirizzo?.cap);
+    if (!zona) {
+      const cap = String(indirizzo?.cap ?? "");
+      const TXT_FUORI: Record<string, string> = {
+        fr: `Nous ne livrons pas encore au ${cap}. Le retrait reste possible.`,
+        en: `We don't deliver to ${cap} yet. Pickup is still available.`,
+        it: `Non consegniamo ancora al ${cap}. Il ritiro resta possibile.`,
+        nl: `We leveren nog niet in ${cap}. Afhalen blijft mogelijk.`,
+        es: `Aún no entregamos en el ${cap}. La recogida sigue siendo posible.`,
+      };
+      return err(409, TXT_FUORI[lang] ?? TXT_FUORI.fr);
+    }
+    // Il costo della ZONA (o quello unico), poi la soglia «gratuite dès».
+    costoCons = costoConsegna(totaleIncassato, costoBaseZona(zona, costo), gratis);
+    const manca = mancaAlMinimo(totaleIncassato, minimo);
+    if (manca > 0) {
+      const eur = (c: number) => (c / 100).toFixed(2).replace(".", ",") + " €";
+      const TXT_MINIMO: Record<string, string> = {
+        fr: `Il manque ${eur(manca)} pour la livraison (minimum ${eur(minimo)}).`,
+        en: `${eur(manca)} more needed for delivery (minimum ${eur(minimo)}).`,
+        it: `Mancano ${eur(manca)} per la consegna (minimo ${eur(minimo)}).`,
+        nl: `Nog ${eur(manca)} nodig voor levering (minimum ${eur(minimo)}).`,
+        es: `Faltan ${eur(manca)} para la entrega (mínimo ${eur(minimo)}).`,
+      };
+      return err(409, TXT_MINIMO[lang] ?? TXT_MINIMO.fr);
+    }
+    if (costoCons > 0) {
+      const TXT_VOCE: Record<string, string> = { fr: "Livraison", en: "Delivery", it: "Consegna", nl: "Levering", es: "Entrega" };
+      voci.push({ name: TXT_VOCE[lang] ?? TXT_VOCE.fr, price_cents: costoCons, qty: 1 });
+    }
+  }
+
+  /* LA MANCIA. Dal browser arriva solo QUALE bottone: la cifra si ricalcola
+     qui, con i valori di questo punto, sui piatti dopo lo sconto (senza
+     consegna). ⚠️ Solo con la carta: chi paga sul posto la lascia di persona,
+     e una mancia dentro un «da incassare» e' una cifra che alla cassa nessuno
+     sa spiegare. Mance spente nel frattempo → nessuna, senza errore. */
+  let mancia = 0;
+  // Sul conto la mancia si lascia alla fine, pagando l'addizione (fase 4).
+  if (!inCassa && !sulConto && body.tip !== undefined && body.tip !== null) {
+    // Al tavolo decide l'interruttore della sala (`orders_table_tips`).
+    const m = await manceDi(ambitoPub, { sala: aTavolo });
+    if (m) mancia = importoMancia(body.tip, m.tipo, m.valori, totaleIncassato);
+    if (mancia > 0) {
+      const TXT_MANCIA: Record<string, string> = { fr: "Pourboire", en: "Tip", it: "Mancia", nl: "Fooi", es: "Propina" };
+      voci.push({ name: TXT_MANCIA[lang] ?? TXT_MANCIA.fr, price_cents: mancia, qty: 1 });
+    }
+  }
+
   /* ⚠️ AL TAVOLO `pickup_time` E' L'ISTANTE IN CUI L'ORDINE ENTRA, non `null`.
      Sembrerebbe piu' pulito lasciarla vuota — al tavolo non si ritira niente
      — e sarebbe il difetto peggiore di tutti: la lista Commandes filtra con
@@ -428,7 +592,7 @@ export const POST: APIRoute = async ({ request }) => {
   let pickup = ora;
   if (!aTavolo) {
     const [h, m] = body.slot.split(":").map((n) => parseInt(n, 10));
-    pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+    pickup = giornoRitiro.set({ hour: h, minute: m, second: 0, millisecond: 0 });
   }
 
   /* ⚠️ IL TAVOLO E LA PRENOTAZIONE SI RILEGGONO DAL DATABASE. Dal browser
@@ -439,6 +603,24 @@ export const POST: APIRoute = async ({ request }) => {
      dice di avere non conta. */
   let tavoloId: string | null = null;
   let tavoloNome = "";
+  let invioId: string | null = null;
+  let contoInAttesa = false;
+  if (sulConto) {
+    /* ⚠️ IL CONTO SI RILEGGE, E IL CODICE SI RICONTROLLA. Dal browser arrivano
+       un id e due cifre: il conto deve essere di oggi, seduto, aperto o da
+       validare, e il codice giusto — contando i tentativi sbagliati come in
+       `/api/table-tab`. Senza, chiunque con un id potrebbe aggiungere piatti
+       al conto di un altro tavolo. */
+    const conto = await contoPerId(ambitoPub, String(body.reservation_id), ora.toFormat("yyyy-MM-dd"));
+    if (!conto) return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+    const esitoCodice = await verificaCodice(ambitoPub, conto, body.code, ora.toJSDate());
+    if (esitoCodice !== "ok") return err(403, "code");
+    // Prima si fa partire l'invio scaduto, se c'e': questo ordine va nel prossimo.
+    await rilasciaInviiScaduti(ambitoPub, conto.id);
+    invioId = await invioPerOrdine(ambitoPub, conto, ora.toJSDate());
+    if (!invioId) return err(500, "Impossibile creare l'ordine");
+    contoInAttesa = conto.tab_status === "pending";
+  }
   if (aTavolo) {
     const { data: resaRaw } = await leggi("reservations", ambitoPub, "id, date, status, tables")
       .eq("id", String(body.reservation_id))
@@ -481,6 +663,10 @@ export const POST: APIRoute = async ({ request }) => {
     // pannello mostra i primi e ignora i secondi, e il recupero da Stripe
     // salta i primi perche' non hanno nessuna sessione da verificare.
     ...(inCassa ? { payment_method: "onsite" } : {}),
+    /* ⚠️ Sul conto: `tab`, MAI `onsite`. Un `onsite` in attesa esce subito in
+       cucina (`daStampare`); il primo invio di un conto aspetta la
+       validazione del personale, e i successivi la fine della finestra. */
+    ...(sulConto ? { payment_method: "tab", round_id: invioId } : {}),
     pickup_time: pickup.toISO(),
     /* ⚠️ Le quattro colonne della #82 si scrivono SOLO al tavolo. Un ordine da
        asporto non le porta affatto: `service` ha `default 'pickup'` in SQL, e
@@ -498,11 +684,25 @@ export const POST: APIRoute = async ({ request }) => {
           reservation_id: String(body.reservation_id),
         }
       : {}),
+    /* ⚠️ Come il tavolo: SOLO se e' una consegna, e SENZA ripiego. Se la #84
+       manca l'inserimento fallisce e il cliente non paga — meglio di un
+       ordine salvato come ritiro, cioe' un sacchetto sul banco e qualcuno
+       che lo aspetta a casa. (Réglages non lascia accendere la consegna
+       senza la #84: questo e' il secondo cancello.) */
+    ...(consegna && indirizzo ? { service: "delivery", delivery_address: indirizzo } : {}),
+    /* La #85, solo se la consegna COSTA: un ordine senza costo inserisce le
+       stesse colonne di prima, e funziona anche dove la #85 non e' passata.
+       Con un costo invece NESSUN ripiego — un totale con dentro 3,50 € che
+       nessuna colonna spiega diventerebbe un «rimborso» alla prima modifica. */
+    ...(costoCons > 0 ? { delivery_fee_cents: costoCons } : {}),
+    // La #86, solo se c'e' una mancia: stesso ragionamento del costo qui sopra.
+    ...(mancia > 0 ? { tip_cents: mancia } : {}),
     customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname ?? ""}`),
     customer_email: body.customer.email ?? "",
     customer_phone: body.customer.phone ?? "",
     items: itemsOrdine,
-    total_cents: totaleIncassato,
+    // Il totale INCASSATO: piatti scontati + consegna (0 se non c'e').
+    total_cents: totaleIncassato + costoCons + mancia,
     lang,
   };
   if (couponId) {
@@ -560,6 +760,22 @@ export const POST: APIRoute = async ({ request }) => {
     return u;
   };
   const token = String(ordine.cancel_token ?? "");
+
+  // ---- L'ORDINE SUL CONTO APERTO ----
+  /* ⚠️ Niente Stripe, niente ticket, niente annuncio QUI: il primo invio
+     aspetta la validazione del personale, i successivi la fine della finestra
+     di raggruppamento, e la cucina riceve UN ticket per invio (fase 3). Si
+     torna sulla pagina del tavolo, su «Votre addition». Il token torna al
+     telefono: e' quello che gli permette di togliere il suo piatto finche'
+     l'invio non e' partito. */
+  if (sulConto) {
+    if (contoInAttesa && tavoloNome) void inviaPushConto(tavoloNome, ambitoPub).catch(() => {});
+    const u = paginaTavolo({ [PARAM_ADDIZIONE]: "1" });
+    return new Response(
+      JSON.stringify({ url: `${u.pathname}${u.search}`, token }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
 
   // ---- L'ORDINE DA PAGARE IN CASSA ----
   // ⚠️ Niente Stripe, e quindi niente webhook: se l'ordine non lo annunciamo

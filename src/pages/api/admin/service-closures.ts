@@ -4,6 +4,7 @@ import {
   ambitoDiRichiesta, leggi, salva, cancella, leggiConfig, scriviConfig, type Ambito,
 } from "../../../lib/admin/sede";
 import { fusoDi } from "../../../lib/fuso";
+import { scadeOrariRitiro } from "../../../lib/schedule";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -105,6 +106,8 @@ export const POST: APIRoute = async ({ request }) => {
     const nuova = body.closed ? [...new Set([...lista, key])] : lista.filter((k) => k !== key);
     const err = await scriviConfig(ambitoPerm, { [K_PERM]: JSON.stringify(nuova) });
     if (err) return json({ error: await msg("err.save") }, 500);
+    // Un service chiuso chiude anche il ritiro, se gli ordini seguono i service.
+    scadeOrariRitiro();
     return json({ ok: true, permanent: nuova });
   }
 
@@ -123,6 +126,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (error) {
     return json({ error: await msg("err.migrServiceClosures") }, 500);
   }
+  scadeOrariRitiro();
   return json({ ok: true });
 };
 
@@ -139,5 +143,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     .eq("date", date)
     .eq("service_key", key);
   if (error) return json({ error: await msg("err.delete") }, 500);
+  scadeOrariRitiro();
   return json({ ok: true });
 };

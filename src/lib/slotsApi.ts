@@ -1,7 +1,10 @@
 import { DateTime } from "luxon";
 import { calcolaSlotGiorno } from "./slots";
 import { fusoDi } from "./fuso";
-import { configGiornoEffettiva } from "./schedule";
+import { configRitiro } from "./schedule";
+import { leggiConfig, leggi } from "./admin/sede";
+import { giorniAvanti } from "./ordiniGiorniRegole";
+import { ritardoConsegna, preavvisoConsegna, maxConsegne, contaPerOrario, orariLiberi, type RigaOccupazione } from "./consegnaRegole";
 import type { Ambito } from "./admin/sede";
 
 /**
@@ -35,7 +38,7 @@ export async function slotsDelMese(
     const nGiorni = primo.daysInMonth ?? 31;
     for (let d = 1; d <= nGiorni; d++) {
       const giorno = primo.set({ day: d });
-      const cfg = await configGiornoEffettiva(giorno, ambito);
+      const cfg = await configRitiro(giorno, ambito);
       const pranzo = !!(cfg && cfg.lunch_active && cfg.lunch_open && cfg.lunch_close);
       const cena = !!(cfg && cfg.dinner_active && cfg.dinner_open && cfg.dinner_close);
       if (!pranzo && !cena) closed.push(giorno.toFormat("yyyy-MM-dd"));
@@ -44,9 +47,81 @@ export async function slotsDelMese(
   return { closed };
 }
 
+/** I minuti di tragitto della consegna di questo punto (Réglages). Lettura
+ *  muta → il ripiego (45), mai 0. */
+export async function ritardoConsegnaDi(ambito: Ambito): Promise<number> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_delay"]);
+    return ritardoConsegna(valori.get("orders_delivery_delay"));
+  } catch {
+    return ritardoConsegna(undefined);
+  }
+}
+
+/**
+ * Il preavviso da passare a `calcolaSlotGiorno`: `undefined` per il ritiro
+ * (vale la sola preparazione, com'e' sempre stato), preparazione + tragitto
+ * per la consegna. ⚠️ UNA funzione per il sito e per il checkout: se
+ * calcolassero il preavviso in due modi, il cliente sceglierebbe un orario
+ * che il checkout rifiuta.
+ */
+export async function preavvisoDelServizio(
+  consegna: boolean,
+  prepMinuti: unknown,
+  ambito: Ambito,
+): Promise<number | undefined> {
+  if (!consegna) return undefined;
+  return preavvisoConsegna(prepMinuti, await ritardoConsegnaDi(ambito));
+}
+
+/** Quante consegne per orario si accettano in questo punto (0 = nessun limite). */
+export async function maxConsegneDi(ambito: Ambito): Promise<number> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_max"]);
+    return maxConsegne(valori.get("orders_delivery_max"));
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Le consegne gia' prese per QUEL giorno, contate per orario.
+ * ⚠️ Lettura muta (o colonna `service` assente, #82) → nessun conteggio, cioe'
+ * tutti gli orari liberi: meglio una consegna in piu' su un orario pieno che
+ * un sito che non propone piu' nessuna consegna per un database che tace.
+ */
+export async function consegnePerOrario(ambito: Ambito, giorno: DateTime): Promise<Map<string, number>> {
+  try {
+    const fuso = await fusoDi(ambito);
+    const g = giorno.setZone(fuso);
+    const { data, error } = await leggi("orders", ambito, "pickup_time, status, payment_method, created_at")
+      .eq("service", "delivery")
+      .gte("pickup_time", g.startOf("day").toISO())
+      .lte("pickup_time", g.endOf("day").toISO());
+    if (error || !data) return new Map();
+    return contaPerOrario(data as unknown as RigaOccupazione[], fuso, Date.now());
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Gli orari di una consegna, tolti quelli pieni. ⚠️ UNA funzione per il sito
+ * e per il checkout, come il preavviso: se contassero in due modi, il sito
+ * proporrebbe un orario che il checkout dice pieno.
+ */
+export async function soloOrariLiberi(orari: string[], consegna: boolean, ambito: Ambito, giorno: DateTime): Promise<string[]> {
+  if (!consegna || orari.length === 0) return orari;
+  const max = await maxConsegneDi(ambito);
+  if (max <= 0) return orari;
+  return orariLiberi(orari, await consegnePerOrario(ambito, giorno), max);
+}
+
 export async function slotsDelGiorno(
   data: string | null,
   ambito: Ambito,
+  /** Gli orari di una CONSEGNA: piu' tardi del ritiro di quanto serve a portarla. */
+  consegna = false,
 ): Promise<{ lunch: string[]; dinner: string[]; closed: boolean } | { errore: string }> {
   const fuso = await fusoDi(ambito);
   const adesso = DateTime.now().setZone(fuso);
@@ -61,11 +136,19 @@ export async function slotsDelGiorno(
     }
   }
 
-  const config = await configGiornoEffettiva(ora, ambito);
+  const config = await configRitiro(ora, ambito);
   // Niente ripiego: se il database non risponde o la riga manca, lo si dice.
   if (!config) return { errore: "err.hoursConfig" };
 
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
+  const grezzi = calcolaSlotGiorno(
+    ora,
+    config,
+    fuso,
+    await preavvisoDelServizio(consegna, config.prep_time_minutes, ambito),
+  );
+  // Consegna: via gli orari dove i fattorini sono gia' tutti fuori.
+  const lunch = await soloOrariLiberi(grezzi.lunch, consegna, ambito, ora);
+  const dinner = await soloOrariLiberi(grezzi.dinner, consegna, ambito, ora);
 
   // Giorno CHIUSO: ne' pranzo ne' cena attivi. Diverso da «aperto ma slot
   // gia' passati», dove `closed` e' falso e le liste possono essere vuote.
@@ -75,3 +158,64 @@ export async function slotsDelGiorno(
   );
   return { lunch, dinner, closed };
 }
+
+/** Fino a quanti giorni dopo oggi si puo' ordinare da asporto (0 = solo oggi).
+ *  Lettura muta → 0: meglio solo oggi che aprire un calendario per sbaglio. */
+export async function giorniAvantiDi(ambito: Ambito): Promise<number> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_future_days"]);
+    return giorniAvanti(valori.get("orders_future_days"));
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * I GIORNI IN CUI IL CLIENTE PUO' RITIRARE: oggi e i prossimi
+ * `orders_future_days`, solo quelli con almeno un orario libero.
+ *
+ * ⚠️ Con la finestra a 0 rende solo oggi, e il sito si comporta come prima:
+ * nessuna scelta del giorno. ⚠️ «Almeno un orario» e non «aperto»: oggi
+ * aperto ma con gli orari gia' passati non e' un giorno in cui si puo'
+ * ordinare, e proporlo farebbe scegliere un giorno vuoto.
+ */
+export async function giorniOrdinabili(
+  ambito: Ambito,
+  /** ⚠️ Anche i GIORNI dipendono dal servizio: alle 21:30 oggi si ritira
+   *  ancora, ma non si consegna piu'. */
+  consegna = false,
+): Promise<{ avanti: number; oggi: string; giorni: string[] }> {
+  const fuso = await fusoDi(ambito);
+  const adesso = DateTime.now().setZone(fuso);
+  const avanti = await giorniAvantiDi(ambito);
+  const giorni: string[] = [];
+  for (let d = 0; d <= avanti; d++) {
+    const ora = d === 0 ? adesso : adesso.plus({ days: d }).startOf("day");
+    const cfg = await configRitiro(ora, ambito);
+    if (!cfg) continue;
+    const { lunch, dinner } = calcolaSlotGiorno(ora, cfg, fuso, await preavvisoDelServizio(consegna, cfg.prep_time_minutes, ambito));
+    // Un giorno con tutti gli orari di consegna pieni non si propone.
+    const liberi = await soloOrariLiberi([...lunch, ...dinner], consegna, ambito, ora);
+    if (liberi.length) giorni.push(ora.toFormat("yyyy-MM-dd"));
+  }
+  // `oggi` nel fuso del RISTORANTE: il sito scrive «Oggi»/«Domani» da qui, non
+  // dall'orologio del telefono (un cliente all'estero vedrebbe il giorno sbagliato).
+  return { avanti, oggi: adesso.toFormat("yyyy-MM-dd"), giorni };
+}
+
+/**
+ * Il giorno chiesto dal SITO PUBBLICO e' dentro la finestra? (Oggi … oggi +
+ * `orders_future_days`.) ⚠️ L'admin non passa di qui: un ordine a mano per
+ * fra un mese lo puo' prendere chi sta al telefono, il sito no.
+ */
+export async function giornoAmmesso(data: string | null, ambito: Ambito): Promise<boolean> {
+  if (!data) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+  const fuso = await fusoDi(ambito);
+  const oggi = DateTime.now().setZone(fuso).startOf("day");
+  const d = DateTime.fromISO(data, { zone: fuso }).startOf("day");
+  if (!d.isValid) return false;
+  const diff = Math.round(d.diff(oggi, "days").days);
+  return diff >= 0 && diff <= (await giorniAvantiDi(ambito));
+}
+

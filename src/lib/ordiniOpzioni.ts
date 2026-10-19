@@ -8,11 +8,13 @@
  */
 import { leggi, leggiConfig, pagamentoOnlineAttivo, type Ambito } from "./admin/sede";
 import { DateTime } from "luxon";
-import { CHIAVI_ORDINI, acceso, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
-import { configGiornoEffettiva } from "./schedule";
+import { CHIAVI_ORDINI, acceso, manceInSala, avvisaIlCliente, servizioInCorso, prossimaApertura, type OpzioniOrdini } from "./ordiniRegole";
+import { configSala } from "./schedule";
 import { fusoDi } from "./fuso";
 import { tavoliDelPiano, tavoliApertiAlQr, durateDelServizio, type TavoloDiSala, type TavoloAperto } from "./pianoSalaRegole";
 import { attesaChiamata } from "./chiamateRegole";
+import { sogliaCents, zoneDaConfig, type ZonaConsegna } from "./consegnaRegole";
+import { tipoMance, valoriMance, type TipoMance } from "./manceRegole";
 
 export { CHIAVI_ORDINI, acceso, RIPIEGO_ORDINI, type OpzioniOrdini } from "./ordiniRegole";
 
@@ -28,6 +30,11 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       tavolo: acceso(valori.get("orders_table"), "orders_table"),
       chiamata: acceso(valori.get("orders_table_call"), "orders_table_call"),
       avvisoScelto: String(valori.get("orders_table_notify") ?? ""),
+      consegna: acceso(valori.get("orders_delivery"), "orders_delivery"),
+      mance: acceso(valori.get("orders_tips"), "orders_tips"),
+      sceltaTavolo: acceso(valori.get("orders_table_choose"), "orders_table_choose"),
+      conto: acceso(valori.get("orders_table_tab"), "orders_table_tab"),
+      banco: acceso(valori.get("orders_table_counter"), "orders_table_counter"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
@@ -36,7 +43,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
        muto non deve spegnere gli ordini — da sempre si continua a prenderli —
        ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
        porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
-    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "" };
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false, mance: false, sceltaTavolo: true, conto: false, banco: false };
   }
 }
 
@@ -64,6 +71,8 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
    *  `online`: ordinare dal tavolo non dipende da Stripe — se il locale
    *  incassa solo al banco, al tavolo paga il cameriere. */
   tavolo: boolean;
+  /** La consegna e' accesa (Réglages). Il ritiro resta sempre possibile. */
+  consegna: boolean;
 }> {
   const [volute, stripePronto] = await Promise.all([
     opzioniOrdini(ambito),
@@ -79,6 +88,7 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
     couponInCassa: volute.coupon && volute.couponInCassa,
     nessuno: !online && !volute.locale,
     tavolo: volute.tavolo,
+    consegna: volute.consegna,
   };
 }
 
@@ -89,13 +99,23 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
 export interface OpzioniTavolo {
   /** Il ristoratore ha acceso gli ordini dal locale. */
   attivo: boolean;
-  /** La sala ha almeno un tavolo disegnato. */
+  /** Il cliente SCEGLIE il tavolo: il piano ne ha almeno uno E il
+   *  ristoratore non ha spento la scelta (`orders_table_choose`). Falso = si
+   *  chiede solo il nome, come in una sala senza piano. */
   conTavoli: boolean;
+  /** Il piano della sala ha almeno un tavolo (che si scelga o no). */
+  tavoliNelPiano: boolean;
   /** Si manda l’email «c’e’ pronto» a chi ordina dal locale. */
   avvisa: boolean;
   /** La campanella «Appeler le serveur»: interruttore acceso E sala accesa.
    *  Col piano si sceglie il tavolo, senza si dice il nome. */
   chiamata: boolean;
+  /** Il conto aperto («Ouvrir un compte»): interruttore acceso, sala accesa
+   *  E si sceglie il tavolo. ⚠️ Senza tavolo niente conto: vivrebbe solo nel
+   *  telefono del cliente, e il codice non avrebbe un tavolo a cui valere. */
+  conto: boolean;
+  /** «Payer au comptoir»: al tavolo si ordina e si paga al banco. */
+  banco: boolean;
 }
 
 /**
@@ -117,12 +137,24 @@ export interface OpzioniTavolo {
  */
 export async function opzioniTavolo(ambito: Ambito): Promise<OpzioniTavolo> {
   const [opz, quanti] = await Promise.all([opzioniOrdini(ambito), contaTavoli(ambito)]);
-  const conTavoli = quanti > 0;
+  const tavoliNelPiano = quanti > 0;
+  /* ⚠️ UNA SOLA DOMANDA PER TUTTO IL RESTO: «si sceglie il tavolo?». Pagina,
+     sessione, campanella e checkout leggono `conTavoli`, quindi spegnere la
+     scelta fa comportare la sala esattamente come una senza piano — nessuna
+     regola da ripetere in quattro posti. */
+  const conTavoli = tavoliNelPiano && opz.sceltaTavolo;
   return {
     attivo: opz.tavolo,
     conTavoli,
-    avvisa: avvisaIlCliente(opz.avvisoScelto, conTavoli),
+    tavoliNelPiano,
+    /* ⚠️ L'avviso «c'e' pronto» di ripiego guarda il PIANO, non la scelta:
+       chi ha i tavoli ha di solito chi porta i piatti, anche se non vuole
+       che il cliente scelga il posto. Spegnere la scelta non deve far
+       partire email che nessuno ha chiesto. */
+    avvisa: avvisaIlCliente(opz.avvisoScelto, tavoliNelPiano),
     chiamata: opz.tavolo && opz.chiamata,
+    conto: opz.tavolo && conTavoli && opz.conto,
+    banco: opz.tavolo && opz.banco,
   };
 }
 
@@ -167,6 +199,48 @@ export async function tavoliDiSala(ambito: Ambito): Promise<TavoloDiSala[]> {
   }
 }
 
+/** Le soglie della consegna di questo punto, in centesimi (0 = nessuna).
+ *  Lettura muta → nessuna soglia: meglio una consegna sotto il minimo che
+ *  nessuna consegna per un database che non risponde. */
+export async function soglieConsegna(ambito: Ambito): Promise<{ minimo: number; gratis: number; costo: number; zone: ZonaConsegna[] }> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_delivery_min_cents", "orders_delivery_free_cents", "orders_delivery_fee_cents", "orders_delivery_zones"]);
+    return {
+      minimo: sogliaCents(valori.get("orders_delivery_min_cents")),
+      gratis: sogliaCents(valori.get("orders_delivery_free_cents")),
+      // ⚠️ Anche il costo: lettura muta → gratis. Meglio una consegna regalata
+      // una volta che un carrello che non sa quanto chiedere.
+      costo: sogliaCents(valori.get("orders_delivery_fee_cents")),
+      // Le zone (codici postali, costo per zona). Vuote = si consegna ovunque.
+      zone: zoneDaConfig(valori.get("orders_delivery_zones")),
+    };
+  } catch {
+    return { minimo: 0, gratis: 0, costo: 0, zone: [] };
+  }
+}
+
+/**
+ * LE MANCE di questo punto: tipo e tre valori, oppure `null` se spente.
+ * ⚠️ Lettura muta → `null`, cioe' nessuna mancia: meglio un checkout senza
+ * il bottone che uno che chiede una cifra che nessuno ha deciso.
+ */
+export async function manceDi(
+  ambito: Ambito,
+  /** `sala: true` = la domanda viene dal TAVOLO: decide `orders_table_tips`
+   *  (vuota = come il resto del punto). Tipo e valori sono gli stessi. */
+  { sala = false }: { sala?: boolean } = {},
+): Promise<{ tipo: TipoMance; valori: [number, number, number] } | null> {
+  try {
+    const { valori } = await leggiConfig(ambito, ["orders_tips", "orders_table_tips", "orders_tips_type", "orders_tips_values"]);
+    const globale = acceso(valori.get("orders_tips"), "orders_tips");
+    if (!(sala ? manceInSala(valori.get("orders_table_tips"), globale) : globale)) return null;
+    const tipo = tipoMance(valori.get("orders_tips_type"));
+    return { tipo, valori: valoriMance(tipo, valori.get("orders_tips_values")) };
+  } catch {
+    return null;
+  }
+}
+
 async function contaTavoli(ambito: Ambito): Promise<number> {
   return (await tavoliDiSala(ambito)).length;
 }
@@ -196,7 +270,7 @@ export interface StatoServizio {
 export async function statoServizioSala(ambito: Ambito): Promise<StatoServizio> {
   try {
     const ora = DateTime.now().setZone(await fusoDi(ambito));
-    const cfg = await configGiornoEffettiva(ora, ambito);
+    const cfg = await configSala(ora, ambito);
     const hhmm = ora.toFormat("HH:mm");
     if (servizioInCorso(cfg, hhmm)) return { aperto: true, riapre: null };
     return { aperto: false, riapre: prossimaApertura(cfg, hhmm) };

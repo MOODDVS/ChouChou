@@ -22,6 +22,7 @@ import type { Ambito } from "../lib/admin/sedeRegole";
 import { tavoliDellaZona, PARAM_ZONA } from "../lib/qrRegole";
 import { modiDiPagamento, tavoliDiSala, statoServizioSala, tavoliApertiAdesso, attesaChiamataDi } from "../lib/ordiniOpzioni";
 import type { OpzioniTavolo } from "../lib/ordiniOpzioni";
+import { pagamentoAlTavolo } from "../lib/ordiniRegole";
 import { getMenuSala } from "../lib/db";
 import { getLangFromUrl, useTranslations } from "../i18n/ui";
 import TableOrder from "./TableOrder";
@@ -37,6 +38,7 @@ import { CLIENT } from "../config/client";
 import EsitoTavolo from "./EsitoTavolo.astro";
 import { esitoTavolo, PARAM_ORDINE } from "../lib/esitoTavoloRegole";
 import { ordineDelRitorno } from "../lib/ritornoTavolo";
+import { TESTI_CONTO } from "../lib/contoTesti";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
@@ -91,7 +93,9 @@ const [menu, pagamento, brand, tavoli, servizio, aperti] = await Promise.all([
      server rifiuta i primi tre e accetta il quarto, che e’ il peggiore — i
      piatti partono per un tavolo dove siede qualcun altro. Da una tendina si
      puo’ scegliere solo un tavolo che esiste. */
-  tavoliDiSala(ambito),
+  /* ⚠️ Solo se si SCEGLIE il tavolo (`sala.conTavoli`): con la scelta spenta
+     l'elenco vuoto fa chiedere solo il nome, come in una sala senza piano. */
+  sala.conTavoli ? tavoliDiSala(ambito) : Promise.resolve([]),
   /* ⚠️ APERTO O CHIUSO SI DECIDE QUI, prima di mostrare il menu, con la
      stessa regola delle due rotte (`statoServizioSala`, nel motore). Prima
      lo si scopriva solo al momento di pagare: il cliente componeva la cena
@@ -102,6 +106,9 @@ const [menu, pagamento, brand, tavoli, servizio, aperti] = await Promise.all([
      si spengono. Mai quelli delle prenotazioni — vedi `tavoliApertiAlQr`. */
   tavoliApertiAdesso(ambito),
 ]);
+/* ⚠️ AL TAVOLO: carta, conto aperto, o «Payer au comptoir» se la sala lo
+   vuole (`pagamentoAlTavolo`). «Payer au retrait» di Paiements e' dell'asporto. */
+const pagamentoSala = pagamentoAlTavolo(pagamento, sala.conto, sala.banco);
 
 /* ⚠️ IL VESTITO VIENE DAI REGLAGES DEL CLIENTE, non dal motore. Logo,
    nome e colori sono quelli che il ristoratore ha gia’ messo: una pagina del
@@ -337,7 +344,7 @@ const testiOrdine = {
       tavoloDaUrl={tavoloDaUrl}
       aperti={aperti}
       ripresa={ripresa}
-      chiuso={pagamento.nessuno
+      chiuso={pagamentoSala.nessuno
         ? { riapre: null, motivo: "pagamento" }
         : servizio.aperto ? null : { riapre: servizio.riapre, motivo: "orario" }}
       immagine={brand.immagine}
@@ -346,7 +353,9 @@ const testiOrdine = {
       carrelloDettagliato={true}
       chiamata={sala.chiamata}
       attesaChiamata={attesaChiamataMin}
-      pagamento={pagamento}
+      pagamento={pagamentoSala}
+      conto={sala.conto}
+      testiConto={TESTI_CONTO[lang] ?? TESTI_CONTO.fr}
     />
   )}
 </div>
@@ -460,6 +469,14 @@ const testiOrdine = {
                       padding: 1.8rem .85rem .6rem; font-size: .78rem; font-weight: 600;
                       letter-spacing: .02em; color: #fff;
                       background: linear-gradient(to top, rgba(0, 0, 0, .7), transparent); }
+  /* Il «+» sulla foto: in basso a destra, come il «+» delle foto della carta,
+     piu' grande perche' la foto e' grande. L'alone allarga il bersaglio. */
+  .tbl-vetrina-piu { position: absolute; right: .7rem; bottom: .7rem; z-index: 1;
+                     width: 44px; height: 44px; border: 0; border-radius: 50%;
+                     background: var(--tbl-ink); color: var(--tbl-paper);
+                     font-size: 1.5rem; font-weight: 700; line-height: 1; cursor: pointer;
+                     box-shadow: 0 2px 10px rgba(0, 0, 0, .45); }
+  .tbl-vetrina-nome { padding-right: 4.2rem; }
   .tbl-vetrina-punti { display: flex; justify-content: center; gap: .35rem; margin-top: .55rem; }
   .tbl-vetrina-punti span { width: 6px; height: 6px; border-radius: 3px; background: var(--tbl-line);
                             transition: width .2s ease, background-color .2s ease; }
@@ -522,8 +539,27 @@ const testiOrdine = {
                     padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
                     border-radius: .9rem .9rem 0 0; background: var(--tbl-bg);
                     border-top: 1px solid var(--tbl-line); }
-  .tbl-modale-testa { display: flex; align-items: center; justify-content: space-between; margin-bottom: .9rem; }
+  /* ⚠️ LA TESTA (titolo e ×) RESTA FERMA IN ALTO mentre il riquadro scorre:
+     una lista lunga — l'addizione di un tavolo da otto, una sala da sessanta
+     tavoli — portava via la × e non si sapeva piu' come chiudere. I margini
+     negativi la incollano al bordo vero del riquadro (che ha 1rem di
+     padding), il fondo copre quello che le scorre sotto. */
+  .tbl-modale-testa { display: flex; align-items: center; justify-content: space-between;
+                      position: sticky; top: 0; z-index: 2; background: var(--tbl-bg);
+                      margin: -1rem -1rem .9rem; padding: 1rem 1rem .5rem; }
   .tbl-modale-tit { margin: 0; font-size: .9rem; color: var(--tbl-muted); }
+  /* «VOTRE COMMANDE» (il conto aperto): ALTEZZA FISSA, tre piani. Testa e
+     piede fermi, scorre solo il corpo (QR, codice, invii). ⚠️ Qui e non in
+     TableOrder.css: la regola `.tbl-modale-box` qui sopra (max-height e
+     overflow) vincerebbe su ogni `:where()`, e il riquadro scorrerebbe tutto
+     intero sopra il corpo — lo scroll dentro lo scroll. */
+  .tbl-modale-box.tbl-conto { display: flex; flex-direction: column; height: min(86dvh, 46rem);
+                              max-height: none; overflow: hidden; }
+  .tbl-conto > .tbl-modale-testa { position: static; flex: 0 0 auto; }
+  .tbl-conto-corpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+                     margin: 0 -1rem; padding: 0 1rem .6rem; }
+  .tbl-conto-piede { flex: 0 0 auto; margin: 0 -1rem; padding: .2rem 1rem 0;
+                     border-top: 1px solid var(--tbl-line); background: var(--tbl-bg); }
   .tbl-modale-x { width: 36px; height: 36px; border: 0; background: none; color: inherit;
                   font-size: 1.6rem; line-height: 1; cursor: pointer; }
   /* ⚠️ SEI COLONNE, come chiesto. I quadrati scendono sotto i 56px su un
@@ -565,6 +601,8 @@ const testiOrdine = {
                      border-color: var(--tbl-ink); }
   .tbl-tav-ico { position: absolute; right: 2px; bottom: 2px; width: 13px; height: 13px; opacity: .85; }
   .tbl-tav-ico svg { width: 100%; height: 100%; }
+  /* Nel conto il tavolo non si cambia: niente matita, niente manina. */
+  .tbl-tav--bloccato { cursor: default; }
   /* ⚠️ L'errore non e' una riga di testo in fondo al modulo: e' la
      risposta alla cosa che la persona ha appena fatto, e deve leggersi
      come un blocco. Centrato, con bordo e un velo del suo stesso rosso,
@@ -603,8 +641,15 @@ const testiOrdine = {
      La scritta gira piano: un bottone fermo in fondo allo schermo si
      confonde col resto, uno che si muove appena si trova. Con «riduci
      movimento» sta ferma. */
+  /* ⚠️ ATTACCATA ALLA COLONNA, NON ALLO SCHERMO. La pagina e' pensata per il
+     telefono: su un tablet o un computer resta una colonna di 34rem al
+     centro, e la campanella deve stare sul SUO bordo destro, accanto alla
+     pillola — non in fondo a destra dello schermo, a 60 cm dal resto.
+     `50% - 16rem` = il bordo interno della colonna (34rem meno 1rem di
+     margine per lato); sul telefono vince `1rem`. Le pillole in fondo
+     (TableOrder.css) usano la stessa misura. */
   .tbl-campanello { --tbl-chiama: #2563eb;
-                    position: fixed; z-index: 30; right: 1rem;
+                    position: fixed; z-index: 30; right: max(1rem, calc(50% - 16rem));
                     bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
                     width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%;
                     display: grid; place-items: center; cursor: pointer;
@@ -620,7 +665,7 @@ const testiOrdine = {
   @keyframes tbl-giro { to { transform: rotate(360deg); } }
   @media (prefers-reduced-motion: reduce) { .tbl-campanello-giro { animation: none; } }
   /* La conferma della chiamata: sopra la barra, dove si sta gia' guardando. */
-  .tbl-avviso-zona { position: fixed; z-index: 35; left: 1rem; right: 1rem;
+  .tbl-avviso-zona { position: fixed; z-index: 35; left: max(1rem, calc(50% - 16rem)); right: max(1rem, calc(50% - 16rem));
                      bottom: calc(1rem + 68px + env(safe-area-inset-bottom, 0px));
                      display: flex; justify-content: center; pointer-events: none; }
   .tbl-avviso { margin: 0; max-width: 28rem; padding: .8rem 1.1rem; border-radius: .8rem;

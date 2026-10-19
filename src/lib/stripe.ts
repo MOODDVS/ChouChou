@@ -228,3 +228,39 @@ export async function creaCheckoutSupplemento(opts: {
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return session.url;
 }
+
+/**
+ * Crea una Checkout Session per PAGARE (una parte del) CONTO APERTO al tavolo
+ * (fase 4, #88). `metadata.tab_payment_id` -> il webhook segna pagata la riga
+ * di `table_payments`, e se il conto e' saldato lo chiude.
+ *
+ * ⚠️ `expiresAt` e' la fine della PRENOTAZIONE dell'importo (`hold_until`):
+ * finche' la sessione si puo' pagare, nessun altro al tavolo ripaga la stessa
+ * parte. Stripe la vuole fra 30 minuti e 24 ore da adesso.
+ */
+export async function creaCheckoutConto(opts: {
+  /** ⚠️ Di CHI e' l'incasso: vedi la nota su `CreaSessioneInput.ambito`. */
+  ambito: Ambito;
+  pagamentoId: string;
+  voci: VoceCheckout[];
+  successUrl: string;
+  cancelUrl: string;
+  expiresAt: Date;
+  email?: string;
+}): Promise<{ url: string; id: string }> {
+  const session = await (await stripeDi(opts.ambito)).checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: opts.voci.map((v) => ({
+      price_data: { currency: valutaStripe(), product_data: { name: v.name }, unit_amount: v.price_cents },
+      quantity: v.qty,
+    })),
+    metadata: { tab_payment_id: opts.pagamentoId },
+    expires_at: Math.floor(opts.expiresAt.getTime() / 1000),
+    ...(opts.email ? { customer_email: opts.email } : {}),
+    success_url: opts.successUrl,
+    cancel_url: opts.cancelUrl,
+  });
+  if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
+  return { url: session.url, id: session.id };
+}

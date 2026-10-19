@@ -345,7 +345,10 @@ test("da asporto non cambia niente: slot, cognome e telefono restano obbligatori
      quando il cliente non si presenta. */
   assert.match(CK, /if \(!body\.slot \|\| !body\.customer\?\.email\)/);
   assert.match(CK, /body\.customer\.surname \?\? ""\)\.trim\(\) \|\| !String\(body\.customer\.phone/);
-  assert.match(CK, /calcolaSlotGiorno\(ora, config, fuso\)/);
+  // Il giorno del ritiro e' oggi oppure quello scelto (ordini per i giorni
+  // seguenti): gli orari si calcolano su quello, non sempre su adesso.
+  // (Con un quarto argomento, il preavviso: per la consegna e' preparazione + tragitto.)
+  assert.match(CK, /calcolaSlotGiorno\(\s*giornoRitiro,\s*config,\s*fuso[,)]/);
   assert.match(CK, /Orario di ritiro non pi/,
     "lo slot non si controlla piu': si ordinerebbe per un'ora che non esiste");
 });
@@ -374,7 +377,7 @@ const ORD = nudo("src/pages/admin/orders.astro");
 test("il semaforo dei ritardatari tace al tavolo", () => {
   // La regola e' una sola, condivisa col server: `alTavolo` sta in
   // ordiniRegole.ts, che non importa niente e quindi gira anche nel browser.
-  assert.match(ORD, /import \{ alTavolo \} from "\.\.\/\.\.\/lib\/ordiniRegole"/,
+  assert.match(ORD, /import \{ alTavolo(, aConsegna)? \} from "\.\.\/\.\.\/lib\/ordiniRegole"/,
     "la pagina decide il servizio da sola: due meta' della stessa regola si allontanano");
   assert.match(ORD, /function ncLivelloRitardo\(pickupIso: string, status: string, servizio\?: string \| null\)/);
   assert.match(ORD, /if \(alTavolo\(servizio\)\) return 0;/);
@@ -702,7 +705,7 @@ test("la pagina mostra l'avviso RISOLTO, non quello che direbbe `acceso()`", () 
   assert.match(SET_API, /const sala = await opzioniTavolo\(ambito\);/,
     "il valore non lo risolve piu' la stessa funzione che decide a ordine fatto: i due possono allontanarsi");
   // E la pagina deve poter DIRE che tavoli non ce ne sono.
-  assert.match(SET_API, /sala_con_tavoli: sala\.conTavoli/);
+  assert.match(SET_API, /sala_con_tavoli: sala\.(conTavoli|tavoliNelPiano)/);
 });
 
 test("i due interruttori esistono, si leggono e si salvano", () => {
@@ -790,7 +793,7 @@ test("al tavolo niente slot, niente cognome, niente telefono", () => {
   assert.match(OAPP, /\(inSala \|\| telefono\.trim\(\) !== ""\) &&/);
   // E al checkout si manda il servizio al posto dello slot.
   assert.match(OAPP, /\? \{\n\s*service: "table",\n\s*reservation_id: sessione\.reservationId,/);
-  assert.match(OAPP, /: \{ slot \}\),/,
+  assert.match(OAPP, /: \{\n\s*slot,\n\s*\.\.\.\(giorno \? \{ date: giorno \} : \{\}\),/,
     "lo slot si manda sempre: al tavolo diventerebbe un orario di ritiro inventato");
 });
 
@@ -1382,7 +1385,7 @@ test("senza link la riga del QR non compare", () => {
   // Un campo vuoto con «Copier» accanto copierebbe il niente.
   const pag = nudo("src/pages/admin/settings.astro");
   assert.match(pag, /const acceso = Boolean\(swTavolo\?\.checked && dati\.link_tavolo\);/);
-  assert.match(pag, /if \(rigaLink\) rigaLink\.style\.display = acceso && modoQrOra === "unico" \? "" : "none";/);
+  assert.match(pag, /if \(rigaLink\) rigaLink\.style\.display = acceso \? "" : "none";/);
 });
 
 test("le parole del link del QR esistono in tutte e cinque le lingue", () => {
@@ -1434,7 +1437,7 @@ test("a fine giornata non si promette niente", () => {
 
 test("la sessione al tavolo si apre al momento di pagare, non prima", () => {
   // In OrderApp: dentro `paga()`, prima della chiamata a /api/checkout.
-  const iPaga = OAPP.indexOf("async function paga()");
+  const iPaga = OAPP.indexOf("async function paga(");
   const iApri = OAPP.indexOf("await tavolo.apriSessione(", iPaga);
   const iCheckout = OAPP.indexOf('conSede("/api/checkout")', iPaga);
   assert.ok(iPaga > 0 && iApri > iPaga, "la sessione non si apre piu' dentro paga()");
@@ -1454,14 +1457,14 @@ test("nome ed email si chiedono una volta sola", () => {
   assert.notEqual(senzaCampanella, TORD, "il riquadro del nome della campanella non si trova piu'");
   assert.doesNotMatch(senzaCampanella, /autoComplete="given-name"/, "il nome si chiede due volte");
   assert.doesNotMatch(TORD, /type="email"/, "l'email si chiede due volte");
-  assert.match(TORD, /tavolo=\{\{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista \}\}/);
+  assert.match(TORD, /tavolo=\{\{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp \}\}/);
   // Il bottone di pagamento non si accende senza tavolo e coperti.
   assert.match(OAPP, /\(!inSala \|\| tavolo\.pronto\) &&/);
 });
 
 test("pronto vuol dire un tavolo che esiste", () => {
   // Un `?table=` storto nel QR lascerebbe un testo che nessun tavolo conferma.
-  assert.match(TORD, /const pronto = Number\(persone\) >= 1 && \(!conTavoli \|\| scelto !== null\);/);
+  assert.match(TORD, /const pronto = !conTavoli \|\| \(Number\(persone\) >= 1 && scelto !== null\);/);
   // E al server va l'ID del tavolo scelto, mai il nome.
   assert.match(TORD, /\.\.\.\(conTavoli && scelto \? \{ table: scelto\.id \} : \{\}\)/);
 });
@@ -1492,7 +1495,7 @@ test("la pagina chiede «aperto?» con la stessa regola delle rotte", () => {
   const corpo = opz.slice(i, i + 700);
   // Gli stessi tre passi di /api/table-session: fuso, orari di oggi, regola.
   assert.match(corpo, /setZone\(await fusoDi\(ambito\)\)/);
-  assert.match(corpo, /configGiornoEffettiva\(ora, ambito\)/);
+  assert.match(corpo, /configSala\(ora, ambito\)/);
   assert.match(corpo, /servizioInCorso\(cfg, hhmm\)/);
   // Illeggibile = chiuso, come le rotte: meglio il modale di un rifiuto alla cassa.
   assert.match(corpo, /catch \{\n\s*return \{ aperto: false, riapre: null \};/);
@@ -1593,7 +1596,7 @@ test("la vetrina si ferma al primo tocco, e non gira con «riduci movimento»", 
   assert.match(TORD, /<figcaption className="tbl-vetrina-nome">\{f\.nome\}<\/figcaption>/);
   assert.match(TPAG, /\.tbl-vetrina-nome \{[^}]*left: 0;[^}]*bottom: 0;[^}]*text-align: left;/);
   // Solo sul menu.
-  assert.match(TORD, /\{vista === "menu" && <Vetrina foto=\{vetrina\} nomi=\{testi\.titolo\} \/>\}/);
+  assert.match(TORD, /\{vista === "menu" && <Vetrina foto=\{vetrina\} nomi=\{testi\.titolo\} ariaAggiungi=\{testiOrdine\.ariaAdd\} \/>\}/);
 });
 
 test("il riquadro dei formati sale e scende, e aspetta solo se c'e' da aspettare", () => {
@@ -1617,7 +1620,8 @@ test("senza un modo di pagare il cliente lo sa PRIMA di comporre la cena", () =>
      allora «Les commandes en ligne ne sont pas disponibles». La sede non
      aveva ne' la carta pronta ne' il pagamento sul posto: la pagina lo
      sapeva gia' (`pagamento.nessuno`) e non lo diceva. */
-  assert.match(TPAG, /chiuso=\{pagamento\.nessuno\n\s*\? \{ riapre: null, motivo: "pagamento" \}/);
+  // Al tavolo «nessuno» tiene conto del conto aperto (`pagamentoAlTavolo`).
+  assert.match(TPAG, /chiuso=\{pagamentoSala\.nessuno\n\s*\? \{ riapre: null, motivo: "pagamento" \}/);
   assert.match(TORD, /const pagamentoAssente = chiuso\?\.motivo === "pagamento";/);
   assert.match(TORD, /\? pagamentoAssente\n\s*\? testi\.nonDisponibileTesto/);
   assert.match(TORD, /\{chiusoTitolo\}<\/p>/);
@@ -1751,7 +1755,9 @@ test("i tavoli aperti si ACCENDONO, non si spengono: ci si unisce agli amici", (
   // Il tavolo ricordato resta scelto anche se nel frattempo e' stato aperto.
   assert.match(TORD, /const scelto = sceltoGrezzo;/);
   // Unendosi, «quanti siete» non si chiede: lo dice la riga al suo posto.
-  assert.match(TORD, /\{siUnisce && <p className="tbl-unito">\{testi\.tavoloUnito\}<\/p>\}\s*\{!siUnisce && \(/);
+  // (col conto aperto, di altri o mio, la riga la dice il conto: conto-aperto.md)
+  assert.match(TORD, /\{siUnisce && !nelConto && !contoDiAltri && <p className="tbl-unito">\{testi\.tavoloUnito\}<\/p>\}/);
+  assert.match(TORD, /\{conTavoli && !siUnisce && !nelConto && !contoDiAltri && \(/);
   assert.equal((TPAG.match(/\btavoloUnito: "/g) ?? []).length, 5);
   // Nella barra, le iniziali di chi c'e'.
   assert.match(TORD, /<span key=\{i\} className="tbl-avatar">\{i\}<\/span>/);
@@ -1798,7 +1804,7 @@ test("il totale sotto le note: l'opzione resta nel motore, spenta sulla pagina d
   // Spento di default: i siti in produzione non se lo trovano nudo.
   assert.match(OAPP, /vistaIniziale = "menu", totaleSottoLeNote = false \}/);
   // Lo stesso numero del bottone, sconto compreso: mai due totali diversi.
-  assert.match(OAPP, /<strong>\{euro\(scontoCents > 0 \? totaleFinale : totale\)\}<\/strong>/);
+  assert.match(OAPP, /<strong>\{euro\(scontoCents > 0( \|\| rigaConsegna)?( \|\| mancia > 0)? \? (totaleFinale|totaleDaPagare) : totale\)\}<\/strong>/);
 });
 
 test("il codice promo e' una domanda: il campo appare solo a casella spuntata", () => {
@@ -1850,12 +1856,16 @@ test("la campanella si accende dai Réglages, spenta di ripiego", () => {
   assert.match(set, /id="o-table-call"/);
   assert.match(set, /met\("o-table-call", "orders_table_call"\)/);
   assert.match(set, /orders_table_call: \(document\.getElementById\("o-table-call"\)/);
-  assert.match(CHIAMATA, /if \(!opz\.attivo \|\| !opz\.chiamata\) return json\(\{ error: "appel non active" \}, 403\)/);
+  // «Demander l'addition» del conto aperto passa anche a campanella spenta.
+  assert.match(CHIAMATA, /if \(!opz\.attivo \|\| \(!opz\.chiamata && !addizione\)\) return json\(\{ error: "appel non active" \}, 403\)/);
 });
 
 test("la barra del carrello lascia il posto alla campanella", () => {
   const css = leggi("src/components/TableOrder.css");
-  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-mobcart\) \{ right: calc\(1rem \+ 56px \+ \.6rem\); \}/);
+  // ⚠️ Dal bordo della COLONNA, non dello schermo: su tablet e computer la
+  // pillola e la campanella restano dentro la carta, centrate con lei.
+  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-mobcart\) \{ right: calc\(max\(1rem, calc\(50% - 16rem\)\) \+ 56px \+ \.6rem\); \}/);
+  assert.match(TPAG, /\.tbl-campanello \{[\s\S]*?right: max\(1rem, calc\(50% - 16rem\)\);/);
   // Il cerchio e' alto quanto la barra (56px) e poggia sullo stesso fondo.
   assert.match(TPAG, /\.tbl-campanello \{[\s\S]*?bottom: calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\);[\s\S]*?width: 56px; height: 56px;/);
   assert.match(leggi("src/components/TableOrder.css"), /:where\(\.tbl-pagina \.order-mobcart\) \{[\s\S]*?min-height: 56px;/);
@@ -1955,7 +1965,7 @@ test("il timer della campanella: lo decide il server, sopravvive al ricaricament
 test("sui dati, «Retour au menu» e' una pillola in fondo, accanto alla campanella", () => {
   const css = leggi("src/components/TableOrder.css");
   assert.match(css, /:where\(\.tbl-pagina \.order-wrap:has\(\.order-cart--checkout\) > \.order-filterbar\) \{\s*position: fixed;/);
-  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-wrap:has\(\.order-cart--checkout\) > \.order-filterbar\) \{ right: calc\(1rem \+ 56px \+ \.6rem\); \}/);
+  assert.match(css, /:where\(\.tbl-pagina--campanello \.order-wrap:has\(\.order-cart--checkout\) > \.order-filterbar\) \{ right: calc\(max\(1rem, calc\(50% - 16rem\)\) \+ 56px \+ \.6rem\); \}/);
   // Lo spazio in fondo, perche' il bottone per pagare non finisca sotto la pillola.
   assert.match(css, /:where\(\.tbl-pagina \.order-wrap:has\(\.order-cart--checkout\)\) \{ padding-bottom: 6rem; \}/);
   // Nel colore d'accento, come la pillola del carrello.
@@ -2060,10 +2070,11 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   assert.match(n, /sala\?: \{ tavolo: string; alBanco: boolean \} \| null;/);
   // Cliente: oggetto, titolo, riquadro e messaggio dal tavolo, in 5 lingue.
   assert.equal((n.match(/\n    sala: \{\n      subjectTavolo:/g) ?? []).length, 5, "manca `sala` in qualche lingua");
-  assert.match(n, /const etichettaRiquadro = sala \? \(sala\.alBanco \? ts\.banco : ts\.tavolo\) : t\.pickup;/);
+  // (La consegna si aggiunge in coda: il tavolo resta il primo a decidere.)
+  assert.match(n, /const etichettaRiquadro = sala \? \(sala\.alBanco \? ts\.banco : ts\.tavolo\) : (consegna \? tcc\.etichetta : )?t\.pickup;/);
   assert.match(n, /subject: oggetto,/);
   // Cucina e Slack: in grande il tavolo, non l'ora.
-  assert.match(n, /const testaCucina = sala \? \(sala\.alBanco \? k\.counter : k\.table\) : k\.pickupAt;/);
+  assert.match(n, /const testaCucina = sala \? \(sala\.alBanco \? k\.counter : k\.table\) : (consegna \? kc\.at : )?k\.pickupAt;/);
   assert.match(n, /subject: oggettoCucina,/);
   assert.equal((n.match(/subjTable: \(num: string, tav: string\) =>/g) ?? []).length, 5);
   // «C'est prêt» al banco dice «au comptoir».
@@ -2071,7 +2082,8 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   // Chi annuncia legge il tavolo A PARTE: senza la #82 la select intera
   // fallirebbe, e l'ordine pagato non verrebbe confermato.
   const co = nudo("src/lib/confermaOrdine.ts");
-  assert.match(co, /const sala = await salaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\);/);
+  // (Insieme alla consegna, che si legge a parte per la stessa ragione — #84.)
+  assert.match(co, /salaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\)/);
   assert.match(co, /leggi\("orders", ambito, "service, table_label"\)\.eq\("id", id\)\.maybeSingle\(\);\n\s*if \(error \|\| !data\) return null;/);
   // ⚠️ La lingua com'e': «en o fr» mandava in francese chi ordinava in italiano.
   assert.doesNotMatch(co, /ordine\.lang === "en" \? "en" : "fr"/);
@@ -2080,3 +2092,36 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   assert.match(rit, /if \(!silenzio && String\(ord\.customer_email \?\? ""\)\.trim\(\)\)/);
 });
 
+
+/* ───────── Scegliere il tavolo: un interruttore, solo col piano ───────── */
+test("la scelta del tavolo si puo' spegnere, e spenta la sala si comporta come senza piano", () => {
+  const regole = leggi("src/lib/ordiniRegole.ts");
+  assert.match(regole, /orders_table_choose: "1",/, "acceso di ripiego: il comportamento di prima");
+  const opz = nudo("src/lib/ordiniOpzioni.ts");
+  // Una sola domanda per tutto il resto: `conTavoli`.
+  assert.match(opz, /const conTavoli = tavoliNelPiano && opz\.sceltaTavolo;/);
+  // L'avviso di ripiego guarda il piano, non la scelta.
+  assert.match(opz, /avvisa: avvisaIlCliente\(opz\.avvisoScelto, tavoliNelPiano\),/);
+  // La pagina del tavolo non riceve l'elenco se non si sceglie.
+  assert.match(nudo("src/components/PaginaTavolo.astro"), /sala\.conTavoli \? tavoliDiSala\(ambito\) : Promise\.resolve\(\[\]\),/);
+  // Senza scelta, un QR solo.
+  assert.match(nudo("src/pages/api/admin/qr.ts"), /cartonciniScelti\(base, tavoli, scelta, sala\.conTavoli\)/);
+  // In Réglages la riga c'e' solo se il piano ha dei tavoli.
+  assert.match(nudo("src/pages/admin/settings.astro"), /rigaScelta\.style\.display = swTavolo\?\.checked && dati\.sala_con_tavoli \? "" : "none";/);
+});
+
+
+test("al tavolo, «Article ajouté»: un toast verde a ogni piatto, solo in sala", () => {
+  const app = readFileSync("src/components/OrderApp.tsx", "utf8");
+  // Solo al tavolo: sulle /order dei clienti comparirebbe senza vestito.
+  assert.match(app, /function segnaAggiunto\(\) \{\s*if \(!inSala\) return;/);
+  assert.match(app, /if \(item\.is_sold_out \|\| v\?\.sold_out\) return;\s*segnaAggiunto\(\);/);
+  assert.match(app, /fr: "Article ajouté"/);
+  assert.match(readFileSync("src/components/TableOrder.css", "utf8"), /:where\(\.tbl-pagina \.order-aggiunto\) \{[\s\S]*?background: #2e9e5b;/);
+});
+
+test("le righe del carrello non si rimontano a ogni disegno (le foto lampeggiavano)", () => {
+  const app = readFileSync("src/components/OrderApp.tsx", "utf8");
+  assert.doesNotMatch(app, /<RigheCarrello\s*\/>/);
+  assert.match(app, /\{RigheCarrello\(\)\}/);
+});

@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import OrderApp from "./OrderApp";
+import OrderApp, { EVENTO_AGGIUNGI } from "./OrderApp";
 import { urlConSede } from "../lib/sedeUrl";
 import { piattiInVetrina } from "../lib/vetrinaRegole";
 import { testoPiatto } from "../lib/i18nMenu";
+import type { TestiConto } from "../lib/contoTesti";
+import { PARAM_PAGATO, PARAM_LASCIATO, type SceltaPagamento } from "../lib/contoRegole";
+import { importoMancia, type TipoMance } from "../lib/manceRegole";
 
 /* ⚠️ IL MENU LO TIPIZZA `OrderApp`, non `lib/db`. Importarlo da la' —
    anche solo come tipo — metterebbe in quest’isola un percorso verso
@@ -135,7 +138,48 @@ interface Props {
    *  server a ogni chiamata; questo e' solo il ripiego. */
   attesaChiamata?: number;
   pagamento?: React.ComponentProps<typeof OrderApp>["pagamento"];
+  /** Il conto aperto (Réglages, `opzioniTavolo().conto`): si ordina e si paga
+   *  alla fine. Solo col tavolo scelto. Vedi conto-aperto.md. */
+  conto?: boolean;
+  /** Le sue parole, dal motore (`lib/contoTesti.ts`). */
+  testiConto?: TestiConto;
 }
+
+/** Quello che il server dice del conto del tavolo a chi ne fa parte. */
+interface DatiConto {
+  stato: string;
+  code: string;
+  reservation_id: string;
+  tavolo_id: string;
+  invito_svg: string;
+  invito_url: string;
+  ordinato: number;
+  persone: number;
+  invii: {
+    numero: number;
+    inviato: boolean;
+    righe: { nome: string; piatti: { nome: string; qty: number; prezzo_cents: number }[]; totale_cents: number; mio: boolean; token?: string }[];
+  }[];
+  totale_cents: number;
+  /** I pagamenti (fase 4, #88). `null` = senza la migrazione: si paga al
+   *  cameriere. `online` = «Payer l'addition» c'e'. Le cifre delle scelte le
+   *  calcola il server. */
+  pagamento?: {
+    online: boolean;
+    pagato_cents: number;
+    in_corso_cents: number;
+    resto_cents: number;
+    scelte: Record<SceltaPagamento, number>;
+    mance: { tipo: TipoMance; valori: [number, number, number] } | null;
+  } | null;
+}
+/** Il conto del tavolo visto da questa pagina: nessuno, di altri, il mio. */
+type StatoContoPagina =
+  | { tipo: "nessuno" }
+  | { tipo: "altri"; iniziale: string }
+  | { tipo: "membro"; dati: DatiConto };
+/** Il telefono fa parte di un conto: quale, e col codice (l'autorizzazione). */
+interface Membro { reservationId: string; code: string; tableId: string }
 
 const CHIAVE = "restohub-tavolo";
 /** Tavolo e coperti scelti, per ritrovarli tornando da Stripe. */
@@ -146,6 +190,11 @@ const CHIAVE_NOME_CHIAMATA = "restohub-chiamata-nome";
 /** Fino a quando (ms) non si puo' richiamare: sopravvive a un ricaricamento,
  *  se no bastava ricaricare la pagina per far suonare di nuovo il tablet. */
 const CHIAVE_ATTESA_CHIAMATA = "restohub-chiamata-fino";
+/** Il conto aperto di cui questo telefono fa parte (id, codice, tavolo). */
+const CHIAVE_CONTO = "restohub-conto";
+/** I token degli ordini fatti da QUESTO telefono sul conto: solo quelli si
+ *  possono togliere, finche' il loro invio non e' partito. */
+const CHIAVE_CONTO_MIEI = "restohub-conto-miei";
 
 /** «4:32», «0:07». */
 function minSec(secondi: number): string {
@@ -214,6 +263,29 @@ function leggiScelta(): { tavolo?: string; persone?: string } {
  *  conto della sera, ogni volta. «6+» apre il campo e si scrive il numero. */
 const PERSONE_PASTIGLIE = 5;
 
+function leggiMembro(): Membro | null {
+  try {
+    const raw = richiama(CHIAVE_CONTO);
+    const m = raw ? (JSON.parse(raw) as Membro) : null;
+    return m && m.reservationId && m.code ? m : null;
+  } catch {
+    return null;
+  }
+}
+
+function leggiMiei(): string[] {
+  try {
+    const a = JSON.parse(richiama(CHIAVE_CONTO_MIEI) ?? "[]");
+    return Array.isArray(a) ? a.map(String).slice(-50) : [];
+  } catch {
+    return [];
+  }
+}
+
+function euroConto(c: number): string {
+  return (c / 100).toFixed(2).replace(".", ",") + " €";
+}
+
 function leggiSessione(): { id: string } | null {
   try {
     const raw = richiama(CHIAVE);
@@ -235,7 +307,7 @@ function leggiSessione(): { id: string } | null {
  * Il nome sta in basso a sinistra, piccolo, su una sfumatura scura: si legge
  * su qualunque piatto, chiaro o scuro, senza coprire il piatto.
  */
-function Vetrina({ foto, nomi }: { foto: { id: string; src: string; nome: string }[]; nomi: string }) {
+function Vetrina({ foto, nomi, ariaAggiungi }: { foto: { id: string; src: string; nome: string }[]; nomi: string; ariaAggiungi: string }) {
   const binario = useRef<HTMLDivElement | null>(null);
   const toccato = useRef(false);
   const [indice, setIndice] = useState(0);
@@ -274,6 +346,23 @@ function Vetrina({ foto, nomi }: { foto: { id: string; src: string; nome: string
             <img src={f.src} alt="" width={1200} height={675}
                  loading={i === 0 ? "eager" : "lazy"} decoding="async" />
             {f.nome && <figcaption className="tbl-vetrina-nome">{f.nome}</figcaption>}
+            {/* «+»: il piatto della foto va nel carrello (o apre i formati),
+                con l'evento pubblico di OrderApp — la stessa strada di
+                qualunque bottone fuori dal carrello. Non sulla foto del
+                locale, che non e' un piatto. */}
+            {f.id !== "locale" && (
+              <button
+                type="button"
+                className="tbl-vetrina-piu"
+                aria-label={`${ariaAggiungi} ${f.nome}`}
+                onClick={() => {
+                  toccato.current = true;
+                  window.dispatchEvent(new CustomEvent(EVENTO_AGGIUNGI, { detail: { id: f.id } }));
+                }}
+              >
+                +
+              </button>
+            )}
           </figure>
         ))}
       </div>
@@ -289,6 +378,7 @@ function Vetrina({ foto, nomi }: { foto: { id: string; src: string; nome: string
 export default function TableOrder({
   menu, testiOrdine, testi, lang, sede = "", tavoli, avvisa,
   tavoloDaUrl = "", aperti = [], chiuso = null, ripresa = false, immagine = "", sceltaFormato, foto, carrelloDettagliato, totaleSottoLeNote, chiamata = false, attesaChiamata = 5, pagamento,
+  conto = false, testiConto,
 }: Props) {
   /* ⚠️ LA STESSA CONVENZIONE DI `OrderApp`, non una variante: un `conSede`
      locale attorno a ogni URL. La rete che controlla che il browser dica
@@ -345,6 +435,8 @@ export default function TableOrder({
   }, [ripresa]);
   const conTavoli = tavoli.length > 0;
   const [sceltaAperta, setSceltaAperta] = useState(false);
+  /** Il telefono e' in un conto aperto: il tavolo resta quello (vedi `apriScelta`). */
+  const tavoloBloccato = useRef(false);
   /* ⚠️ LO STESSO MODALE DEI TAVOLI PER DUE DOMANDE: «dove ordini?» e «dove
      sei seduto?» (la campanella). Due modali uguali si separerebbero alla
      prima modifica; uno solo con due modi resta lo stesso gesto. */
@@ -378,6 +470,15 @@ export default function TableOrder({
     }, 0);
   }
   function apriScelta(modo: "ordine" | "chiamata") {
+    /* ⚠️ NEL CONTO IL TAVOLO NON SI CAMBIA DAL TELEFONO: gli ordini vanno
+       sull'addizione di QUEL tavolo, e il cameriere li porta li'. Spostarsi
+       e' una cosa da chiedere a lui. */
+    if (modo === "ordine" && tavoloBloccato.current) {
+      // Toccare il tavolo, nel conto, apre «Votre addition».
+      setPagaAperto(false);
+      setAdditionAperta(true);
+      return;
+    }
     /* Senza piano sala non c'e' una griglia da mostrare: si chiede il nome. */
     if (modo === "chiamata" && tavoli.length === 0) {
       setNomeAperto(true);
@@ -468,7 +569,7 @@ export default function TableOrder({
   const siUnisce = scelto !== null && scelto.id !== mioGiaAperto && aperti.some((a) => a.id === scelto.id);
   /* ⚠️ «Pronto» vuol dire un tavolo che ESISTE, non un campo pieno: un
      `?table=` storto nel QR lascerebbe un testo che nessun tavolo conferma. */
-  const pronto = Number(persone) >= 1 && (!conTavoli || scelto !== null);
+  const pronto = !conTavoli || (Number(persone) >= 1 && scelto !== null);
   /* Le foto della vetrina: i piatti ordinabili che ne hanno una, col nome
      nella lingua della pagina. Nessuno → la foto del locale, senza nome. */
   const vetrina = (() => {
@@ -478,6 +579,331 @@ export default function TableOrder({
     }
     return immagine ? [{ id: "locale", src: immagine, nome: "" }] : [];
   })();
+
+  /* ═════════ IL CONTO APERTO (conto-aperto.md) ═════════
+     Il telefono sa di quale conto fa parte (`CHIAVE_CONTO`: id e codice). Il
+     server, a ogni domanda, ricontrolla il codice: e' l'autorizzazione, e
+     senza non si vede ne' si aggiunge niente.
+     ⚠️ La memoria si legge DOPO il montaggio, come l'attesa della campanella:
+     il server disegna la pagina senza sapere niente del telefono. */
+  const tc = testiConto ?? null;
+  const contoAttivo = conto && conTavoli && tc !== null;
+  const [membro, setMembro] = useState<Membro | null>(null);
+  const [statoConto, setStatoConto] = useState<StatoContoPagina | null>(null);
+  const [additionAperta, setAdditionAperta] = useState(false);
+  const [codiceScritto, setCodiceScritto] = useState("");
+  const [erroreConto, setErroreConto] = useState<string | null>(null);
+  const [msgConto, setMsgConto] = useState<string | null>(null);
+  const [lavoroConto, setLavoroConto] = useState(false);
+  /* «Payer l'addition»: il pannello, la scelta, la mancia (-1 = Aucun). */
+  const [pagaAperto, setPagaAperto] = useState(false);
+  const [sceltaPaga, setSceltaPaga] = useState<SceltaPagamento | null>(null);
+  const [manciaPaga, setManciaPaga] = useState(-1);
+  /* ⚠️ Tornando da Stripe dopo aver pagato, il conto puo' essere gia'
+     CHIUSO (saldato: lo ha chiuso il webhook). Allora la pagina non deve
+     dire «fermée par le serveur», ma «réglée». */
+  const tornatoPagato = useRef(false);
+  useEffect(() => {
+    setMembro(leggiMembro());
+  }, []);
+  // Chiusa la modale, si riapre sempre dall'addizione, non da «Payer».
+  useEffect(() => {
+    if (!additionAperta) setPagaAperto(false);
+  }, [additionAperta]);
+  function salvaMembro(m: Membro | null) {
+    if (m) ricorda(CHIAVE_CONTO, JSON.stringify(m));
+    else {
+      try { window.localStorage.removeItem(CHIAVE_CONTO); } catch { /* pazienza */ }
+    }
+    setMembro(m);
+  }
+  async function chiediTab(corpo: Record<string, unknown>): Promise<{ ok: boolean; status: number; d: Record<string, unknown> }> {
+    const res = await fetch(conSede("/api/table-tab"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+    });
+    const d = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    return { ok: res.ok, status: res.status, d };
+  }
+  async function caricaConto(m: Membro | null = membro) {
+    if (!contoAttivo || !scelto) return;
+    try {
+      const { d } = await chiediTab({
+        azione: "stato",
+        table: scelto.id,
+        ...(m ? { reservation_id: m.reservationId, code: m.code } : {}),
+        miei: leggiMiei(),
+      });
+      const c = d.conto as (DatiConto & { membro?: boolean; iniziale?: string; errore?: string }) | null | undefined;
+      if (!c) {
+        /* Nessun conto qui: chiuso dal cameriere (incassato, o rifiutato), o
+           mai aperto. Il telefono lo dimentica, e se ne faceva parte lo dice:
+           un'addizione che sparisce senza una parola sembra un guasto. */
+        if (m && m.tableId === scelto.id) {
+          salvaMembro(null);
+          setAdditionAperta(false);
+          setPagaAperto(false);
+          if (tc) mostraAvviso(tornatoPagato.current ? tc.saldato : tc.chiuso, true);
+        }
+        setStatoConto({ tipo: "nessuno" });
+        return;
+      }
+      if (c.membro) {
+        setStatoConto({ tipo: "membro", dati: c });
+        return;
+      }
+      // Un conto c'e', ma non e' (piu') il mio: il codice e' cambiato o il
+      // conto e' un altro. ⚠️ Bloccato non vuol dire «non sei dei nostri».
+      if (m && c.errore && c.errore !== "bloccato") salvaMembro(null);
+      setStatoConto({ tipo: "altri", iniziale: String(c.iniziale ?? "") });
+    } catch {
+      /* rete assente: la pagina resta com'era */
+    }
+  }
+  useEffect(() => {
+    if (!contoAttivo) return;
+    void caricaConto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contoAttivo, scelto?.id, membro?.code, membro?.reservationId]);
+  /* ⚠️ IN ATTESA DEL CAMERIERE, O CON L'ADDIZIONE APERTA, SI RICONTROLLA
+     OGNI 15 SECONDI: la validazione arriva dal tablet, e il cliente deve
+     vederla senza ricaricare la pagina. Mai a scheda nascosta. */
+  const inAttesaConto = statoConto?.tipo === "membro" && statoConto.dati.stato === "pending";
+  useEffect(() => {
+    if (!contoAttivo || !(additionAperta || inAttesaConto)) return;
+    const id = window.setInterval(() => {
+      if (!document.hidden) void caricaConto();
+    }, 15000);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contoAttivo, additionAperta, inAttesaConto, membro?.code]);
+  /* Il QR «Inviter» porta `?code=07`: si entra nel conto senza scrivere
+     niente. `?addition=1` e' il ritorno dopo un ordine sul conto. Tutti e due
+     servono UNA volta: si tolgono dall'indirizzo appena letti. */
+  useEffect(() => {
+    if (!contoAttivo) return;
+    let cod = "";
+    let pagato = "";
+    let lasciato = "";
+    let sessione = "";
+    try {
+      const u = new URL(window.location.href);
+      cod = (u.searchParams.get("code") ?? "").trim();
+      const add = u.searchParams.get("addition") === "1";
+      pagato = (u.searchParams.get(PARAM_PAGATO) ?? "").trim();
+      lasciato = (u.searchParams.get(PARAM_LASCIATO) ?? "").trim();
+      sessione = (u.searchParams.get("session_id") ?? "").trim();
+      if (cod || add || pagato || lasciato) {
+        for (const k of ["code", "addition", PARAM_PAGATO, PARAM_LASCIATO, "session_id"]) u.searchParams.delete(k);
+        window.history.replaceState(window.history.state, "", u.toString());
+      }
+      if (add || lasciato) setAdditionAperta(true);
+    } catch { /* indirizzo non leggibile: pazienza */ }
+    if (cod && scelto) void unisciti(cod);
+    /* IL RITORNO DA STRIPE. Pagato: il server ricontrolla la sessione (Stripe
+       e' piu' lento del cliente) e, se il conto e' saldato, l'ha gia' chiuso.
+       Indietro: il pagamento si lascia, e l'importo torna libero per gli
+       altri — se no resterebbe prenotato mezz'ora. */
+    if (pagato) {
+      tornatoPagato.current = true;
+      void (async () => {
+        try {
+          const { d } = await chiediTab({ azione: "pagato", pagamento: pagato, session_id: sessione });
+          if (d.chiuso === true) {
+            salvaMembro(null);
+            if (tc) mostraAvviso(tc.saldato, true);
+          } else {
+            if (tc && d.pagato === true) mostraAvviso(tc.pagatoOk, true);
+            setAdditionAperta(true);
+            await caricaConto();
+          }
+        } catch { /* rete assente: ci pensa il webhook */ }
+      })();
+    }
+    if (lasciato) {
+      void chiediTab({ azione: "annulla", pagamento: lasciato }).then(() => caricaConto()).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contoAttivo]);
+
+  async function unisciti(cod: string): Promise<Membro | null> {
+    if (!tc || !scelto) return null;
+    setErroreConto(null);
+    setLavoroConto(true);
+    try {
+      const { ok, d } = await chiediTab({ azione: "unisciti", table: scelto.id, code: cod });
+      if (ok && d.reservation_id) {
+        const m = { reservationId: String(d.reservation_id), code: String(d.code), tableId: String(d.table_id) };
+        salvaMembro(m);
+        setCodiceScritto("");
+        await caricaConto(m);
+        return m;
+      }
+      const e = String(d.error ?? "");
+      setErroreConto(e === "bloque" ? tc.errBloccato : e === "code" ? tc.errCodice : e.includes("ferme") ? testi.errChiuso : tc.errGenerico);
+      return null;
+    } catch {
+      setErroreConto(tc.errGenerico);
+      return null;
+    } finally {
+      setLavoroConto(false);
+    }
+  }
+
+  /** «Ouvrir un compte»: apre il conto sul tavolo e rende il codice. */
+  async function inviaApri(chi: { nome: string; email: string }): Promise<
+    { ok: true; reservationId: string; tableId: string; code: string } | { ok: false; errore: string }
+  > {
+    if (!tc || !scelto) return { ok: false, errore: testi.errGenerico };
+    try {
+      const { ok, status, d } = await chiediTab({
+        azione: "apri", table: scelto.id, people: Number(persone), name: chi.nome,
+        ...(chi.email ? { email: chi.email } : {}), lang,
+      });
+      if (!ok) {
+        const e = String(d.error ?? "");
+        /* ⚠️ QUALCUNO HA APERTO UN SECONDO PRIMA: il carrello resta, e la
+           pagina mostra «Rejoindre» col campo del codice. */
+        if (status === 409 && e.includes("deja")) {
+          setStatoConto({ tipo: "altri", iniziale: String(d.iniziale ?? "") });
+          return { ok: false, errore: tc.giaAperto.replace("{i}", String(d.iniziale ?? "")) };
+        }
+        if (e.includes("ferme")) {
+          setChiusoTesto(testi.errChiuso);
+          return { ok: false, errore: testi.errChiuso };
+        }
+        return { ok: false, errore: e.includes("email") || e.includes("nom") || e.includes("personnes") ? testi.errCampi : tc.errGenerico };
+      }
+      const m = { reservationId: String(d.reservation_id), code: String(d.code), tableId: String(d.table_id) };
+      salvaMembro(m);
+      // La stessa sessione per un eventuale «Commander et payer» dopo.
+      ricorda(CHIAVE, JSON.stringify({ id: m.reservationId }));
+      return { ok: true, reservationId: m.reservationId, tableId: m.tableId, code: m.code };
+    } catch {
+      return { ok: false, errore: tc.errGenerico };
+    }
+  }
+
+  /** «Ajouter à l'addition»: il conto c'e' gia'. ⚠️ Se il telefono ordina da
+   *  un altro tavolo (unito a quello del conto), prima lo si aggiunge alla
+   *  sessione: il server accetta l'ordine solo da un tavolo del conto. */
+  async function inviaAggiungi(): Promise<
+    { ok: true; reservationId: string; tableId: string; code: string } | { ok: false; errore: string }
+  > {
+    if (!tc || !scelto || !membro) return { ok: false, errore: testi.errGenerico };
+    let m: Membro | null = membro;
+    if (scelto.id !== m.tableId) m = await unisciti(m.code);
+    if (!m) return { ok: false, errore: tc.errGenerico };
+    return { ok: true, reservationId: m.reservationId, tableId: scelto.id, code: m.code };
+  }
+
+  function contoFatto(r: { token: string }) {
+    if (!r.token) return;
+    ricorda(CHIAVE_CONTO_MIEI, JSON.stringify([...leggiMiei(), r.token].slice(-50)));
+  }
+
+  async function togliDalConto(token: string) {
+    if (!tc || !scelto || !membro) return;
+    setMsgConto(null);
+    try {
+      const { ok, d } = await chiediTab({ azione: "togli", table: scelto.id, code: membro.code, token });
+      if (!ok) setMsgConto(String(d.error ?? "").includes("envoye") ? tc.errTogli : tc.errGenerico);
+      await caricaConto();
+    } catch {
+      setMsgConto(tc.errGenerico);
+    }
+  }
+
+  /** «Demander l'addition»: la stessa campanella, con il motivo. */
+  async function chiediAddizione() {
+    if (!tc || !scelto) return;
+    setMsgConto(null);
+    setLavoroConto(true);
+    try {
+      const res = await fetch(conSede("/api/table-call"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table: scelto.id, reason: "bill" }),
+      });
+      const d = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) setMsgConto(tc.chiesto);
+      else if (String(d.error ?? "").includes("ferme")) setMsgConto(testi.errChiuso);
+      else setMsgConto(tc.errChiedi);
+    } catch {
+      setMsgConto(tc.errChiedi);
+    } finally {
+      setLavoroConto(false);
+    }
+  }
+
+  /** «Payer l'addition»: il server prenota la parte e apre Stripe. */
+  async function pagaAddizione() {
+    if (!tc || !scelto || !membro || !sceltaPaga) return;
+    setMsgConto(null);
+    setLavoroConto(true);
+    try {
+      const { ok, d } = await chiediTab({
+        azione: "paga", table: scelto.id, code: membro.code, scelta: sceltaPaga,
+        ...(manciaPaga >= 0 ? { tip: manciaPaga } : {}), miei: leggiMiei(), lang,
+      });
+      if (ok && typeof d.url === "string") {
+        window.location.href = d.url;
+        return;
+      }
+      const e = String(d.error ?? "");
+      setMsgConto(e.includes("cours") ? tc.errInCorso : e.includes("rien") ? tc.errNiente : tc.errPaga);
+      await caricaConto();
+    } catch {
+      setMsgConto(tc.errPaga);
+    } finally {
+      setLavoroConto(false);
+    }
+  }
+
+  /** «Payer»: la schermata delle due strade, partendo da «ce que j'ai
+   *  commandé» se c'e', se no dalla parte uguale. Dalla modale e dalla
+   *  pillola in fondo. */
+  function apriPaga() {
+    setMsgConto(null);
+    setManciaPaga(-1);
+    const pg = statoConto?.tipo === "membro" ? statoConto.dati.pagamento : null;
+    setSceltaPaga(pg ? (pg.scelte.mine > 0 ? "mine" : pg.scelte.share > 0 ? "share" : "rest") : null);
+    setPagaAperto(true);
+    setAdditionAperta(true);
+  }
+
+  /* Per OrderApp: «Ouvrir un compte» accanto al pagamento, o «Ajouter à
+     l'addition» al suo posto. Finche' non si sa com'e' il tavolo, niente. */
+  const contoPerOrderApp = !contoAttivo || !tc || !scelto || !statoConto
+    ? null
+    : statoConto.tipo === "membro"
+      ? {
+          modo: "aggiungi" as const, etichetta: tc.aggiungi, invio: tc.invio, invia: inviaAggiungi, fatto: contoFatto,
+          // Ha gia' ordinato su questo conto (quindi accettato le condizioni).
+          consensoDato: statoConto.dati.invii.some((i) => i.righe.some((r) => r.mio)),
+          /* «Payer» in fondo, al posto della pillola del carrello quando il
+             carrello e' vuoto: con un piatto dentro torna il carrello. */
+          paga: statoConto.dati.invii.length > 0
+            ? {
+                etichetta: tc.pagaTit,
+                totale_cents: statoConto.dati.pagamento ? statoConto.dati.pagamento.resto_cents : statoConto.dati.totale_cents,
+                apri: apriPaga,
+              }
+            : undefined,
+        }
+      : statoConto.tipo === "nessuno"
+        /* ⚠️ DA SOLI non si «apre un conto»: si paga sul posto, alla fine.
+           E' lo stesso conto (convalida, ticket, addizione), detto con le
+           parole di chi e' seduto da solo. */
+        ? Number(persone) === 1
+          ? { modo: "apri" as const, etichetta: tc.apriSolo, sotto: tc.apriSoloSotto, invio: tc.invio, invia: inviaApri, fatto: contoFatto }
+          : { modo: "apri" as const, etichetta: tc.apri, sotto: tc.apriSotto, invio: tc.invio, invia: inviaApri, fatto: contoFatto }
+        : null;
+  const nelConto = statoConto?.tipo === "membro";
+  // Letto da `apriScelta`, che sta piu' in alto: un ref, non la variabile.
+  tavoloBloccato.current = nelConto && scelto !== null;
+  const contoDiAltri = statoConto?.tipo === "altri" ? statoConto : null;
 
   async function apriSessione(chi: { nome: string; email: string }): Promise<
     { ok: true; reservationId: string; tableId: string | null } | { ok: false; errore: string }
@@ -491,7 +917,8 @@ export default function TableOrder({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: chi.nome,
-          people: Number(persone),
+          // Senza tavoli i coperti non si chiedono: uno, per la sessione.
+          people: conTavoli ? Number(persone) : 1,
           /* ⚠️ L’ID del tavolo, mai il nome: due zone possono avere tutte e
              due un «3», e un tavolo rinominato stasera manderebbe i piatti
              altrove. */
@@ -676,20 +1103,25 @@ export default function TableOrder({
       {scelto ? (
         <button
           type="button"
-          className={`tbl-tav tbl-tav--scelto${aperto(scelto.id) ? " tbl-tav--aperto" : ""}`}
+          className={`tbl-tav tbl-tav--scelto${aperto(scelto.id) ? " tbl-tav--aperto" : ""}${nelConto ? " tbl-tav--bloccato" : ""}`}
           onClick={() => apriScelta("ordine")}
-          aria-label={`${scelto.name} — ${testi.cambia}`}
+          aria-label={nelConto ? scelto.name : `${scelto.name} — ${testi.cambia}`}
         >
           <span className="tbl-tav-n">{scelto.name}</span>
-          <span className="tbl-tav-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z" /></svg>
-          </span>
+          {/* La matita dice «si puo' cambiare»: nel conto non si puo'. */}
+          {!nelConto && (
+            <span className="tbl-tav-ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z" /></svg>
+            </span>
+          )}
         </button>
       ) : (
         <button type="button" className="tbl-scegli" onClick={() => apriScelta("ordine")}>
           {testi.scegli}
         </button>
       )}
+      {/* ⚠️ Niente bottone «Addition» qui: nel conto l'addizione si apre
+          toccando il tavolo, e «Payer» sta in fondo accanto alla campanella. */}
       {aiutoAperto && <p className="tbl-aiuto-testo">{testi.tavoloAiuto}</p>}
     </div>
   );
@@ -708,8 +1140,51 @@ export default function TableOrder({
           {testi.scegliTavolo}
         </button>
       )}
-      {siUnisce && <p className="tbl-unito">{testi.tavoloUnito}</p>}
-      {!siUnisce && (
+      {siUnisce && !nelConto && !contoDiAltri && <p className="tbl-unito">{testi.tavoloUnito}</p>}
+      {/* IL CONTO APERTO. Gia' dentro: una riga che lo dice. Di altri: il
+          campo del codice per unirsi (il carrello resta), e l'uscita per chi
+          si e' seduto a un tavolo lasciato aperto. Le classi da vestire:
+          `tbl-conto-unisciti`, `tbl-conto-codice`, `tbl-conto-err`,
+          `tbl-conto-nonnostro`. */}
+      {nelConto && tc && <p className="tbl-unito">{tc.sulConto}</p>}
+      {contoDiAltri && tc && (
+        <div className="tbl-conto-unisciti">
+          <p className="tbl-unito">{tc.giaAperto.replace("{i}", contoDiAltri.iniziale)}</p>
+          <div className="tbl-conto-codice">
+            <input
+              className="tbl-input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={2}
+              aria-label={tc.codice}
+              placeholder={tc.codicePh}
+              value={codiceScritto}
+              onChange={(e) => setCodiceScritto(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+            />
+            <button
+              type="button"
+              className="tbl-btn"
+              disabled={codiceScritto.length === 0 || lavoroConto}
+              onClick={() => void unisciti(codiceScritto)}
+            >
+              {tc.unisciti}
+            </button>
+          </div>
+          {erroreConto && <p className="tbl-conto-err" role="alert">{erroreConto}</p>}
+          {chiamata && scelto ? (
+            <button type="button" className="tbl-conto-nonnostro" onClick={() => void chiama({ tavolo: scelto })}>
+              {tc.nonNostro}
+            </button>
+          ) : (
+            <p className="tbl-conto-nonnostro-t">{tc.nonNostro} — {tc.nonNostroTesto}</p>
+          )}
+        </div>
+      )}
+      {/* ⚠️ «Combien êtes-vous ?» SOLO quando si sceglie il tavolo: senza
+          tavolo non c'e' un posto a cui contare i coperti, e la domanda e' un
+          tocco in piu' che non serve a nessuno (19/10/2026). */}
+      {conTavoli && !siUnisce && !nelConto && !contoDiAltri && (
       <div className="tbl-campo">
         <span className="tbl-lab">{testi.persone}</span>
         {/* ⚠️ PASTIGLIE, non un campo numerico, ed e’ lo stesso modo del
@@ -779,7 +1254,7 @@ export default function TableOrder({
           riepilogo e il bottone di pagamento sotto la piega, proprio quando
           il cliente sta per pagare. Se nessun piatto ha una foto, gira la
           foto del locale da sola; se non c'e' nemmeno quella, niente. */}
-      {vista === "menu" && <Vetrina foto={vetrina} nomi={testi.titolo} />}
+      {vista === "menu" && <Vetrina foto={vetrina} nomi={testi.titolo} ariaAggiungi={testiOrdine.ariaAdd} />}
 
       {/* ⚠️ A servizio chiuso il menu NON si monta: niente da scegliere, e un
           carrello riempito per niente e’ peggio di un modale che dice subito
@@ -790,7 +1265,7 @@ export default function TableOrder({
           t={testiOrdine}
           lang={lang}
           sede={sede}
-          tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista }}
+          tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp }}
           vistaIniziale={ripresa ? "checkout" : "menu"}
           sceltaFormato={sceltaFormato}
           foto={foto}
@@ -947,6 +1422,195 @@ export default function TableOrder({
           </form>
         </div>
       )}
+
+      {/* «VOTRE ADDITION»: lo stato (in attesa del cameriere / aperta), il
+          codice e il QR «Inviter», gli invii con chi ha preso cosa, il totale,
+          «Demander l'addition». ⚠️ Nomi e piatti li scrive la gente: React li
+          mette come testo. Il QR lo disegna il server, da un link.
+          Le classi da vestire: `tbl-conto` e `tbl-conto-*`. */}
+      {additionAperta && statoConto?.tipo === "membro" && tc && (() => {
+        const d = statoConto.dati;
+        const inAttesa = d.stato === "pending";
+        const pag = d.pagamento ?? null;
+        /* ⚠️ «Payer l'addition» solo a conto validato, col pagamento online
+           acceso, e se c'e' qualcosa che si puo' prendere adesso (una parte
+           in pagamento da un altro non si ripaga). */
+        const puoPagare = Boolean(pag && pag.online && !inAttesa && pag.scelte.rest > 0);
+        const sceltaValida = sceltaPaga && pag ? pag.scelte[sceltaPaga] : 0;
+        const importoDaPagare = sceltaValida + (pag?.mance && sceltaValida > 0 ? importoMancia(manciaPaga, pag.mance.tipo, pag.mance.valori, sceltaValida) : 0);
+        return (
+          <div
+            className="tbl-modale"
+            role="dialog"
+            aria-modal="true"
+            aria-label={tc.titolo}
+            onClick={() => setAdditionAperta(false)}
+            onKeyDown={(e) => { if (e.key === "Escape") setAdditionAperta(false); }}
+          >
+            {/* ⚠️ TRE PIANI, e scorre SOLO quello di mezzo. In alto il titolo e
+                la × (si chiude sempre), in fondo il totale e i bottoni (si
+                paga sempre): tra i due il QR col codice e gli invii, che con
+                un tavolo da otto diventano lunghi. Il riquadro ha un'altezza
+                FISSA (PaginaTavolo.astro, `.tbl-modale-box.tbl-conto`): niente
+                scorrimento del riquadro intero sopra quello del corpo. */}
+            <div className="tbl-modale-box tbl-conto" onClick={(e) => e.stopPropagation()}>
+              <div className="tbl-modale-testa">
+                <p className="tbl-modale-tit">{pagaAperto ? tc.pagaTit : tc.titolo}</p>
+                <button type="button" className="tbl-modale-x" aria-label={testi.chiudi}
+                        onClick={() => setAdditionAperta(false)}>×</button>
+              </div>
+              {pagaAperto ? (
+                /* «PAYER»: la seconda schermata. Due strade — online (se c'e')
+                   o il cameriere. Le classi da vestire: `tbl-paga`,
+                   `tbl-paga-scelta` (+ `is-selected`), `tbl-paga-mancia`,
+                   `tbl-paga-o`. */
+                <>
+                  <div className="tbl-conto-corpo">
+                    {pag && pag.in_corso_cents > 0 && (
+                      <p className="tbl-conto-ordinato">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>
+                    )}
+                    {puoPagare && pag ? (
+                      <>
+                        <p className="tbl-conto-lab">{tc.pagaOnline}</p>
+                        <div className="tbl-paga" role="group" aria-label={tc.pagaOnline}>
+                          {(["mine", "share", "rest"] as const).filter((k) => pag.scelte[k] > 0).map((k) => (
+                            <button
+                              key={k}
+                              type="button"
+                              className={"tbl-paga-scelta" + (sceltaPaga === k ? " is-selected" : "")}
+                              aria-pressed={sceltaPaga === k}
+                              onClick={() => setSceltaPaga(k)}
+                            >
+                              <span>{k === "mine" ? tc.pagaMio : k === "share" ? tc.pagaParte : tc.pagaResto}</span>
+                              <strong>{euroConto(pag.scelte[k])}</strong>
+                            </button>
+                          ))}
+                          {pag.mance && (
+                            <div className="tbl-paga-mancia" role="group" aria-label={tc.pagaMancia}>
+                              <span className="tbl-conto-lab">{tc.pagaMancia}</span>
+                              <div className="tbl-paga-mance">
+                                {[-1, 0, 1, 2].map((i) => (
+                                  <button
+                                    key={i}
+                                    type="button"
+                                    className={"tbl-paga-mancia-btn" + (manciaPaga === i ? " is-selected" : "")}
+                                    aria-pressed={manciaPaga === i}
+                                    onClick={() => setManciaPaga(i)}
+                                  >
+                                    {i < 0 ? tc.pagaNessuna : pag.mance!.tipo === "percent" ? `${pag.mance!.valori[i]} %` : euroConto(pag.mance!.valori[i])}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      inAttesa && <p className="tbl-conto-stato is-attesa">{tc.attesa}</p>
+                    )}
+                  </div>
+                  <div className="tbl-conto-piede">
+                    <div className="tbl-conto-totale">
+                      <span>{pag && pag.pagato_cents > 0 ? tc.resta : tc.totale}</span>
+                      <strong>{euroConto(pag ? pag.resto_cents : d.totale_cents)}</strong>
+                    </div>
+                    {msgConto && <p className="tbl-conto-msg" role="status">{msgConto}</p>}
+                    {puoPagare && (
+                      <>
+                        <button type="button" className="tbl-btn" disabled={lavoroConto || !sceltaPaga || sceltaValida <= 0} onClick={() => void pagaAddizione()}>
+                          {tc.pagaBtn.replace("{x}", euroConto(importoDaPagare))}
+                        </button>
+                        <p className="tbl-paga-o"><span>{tc.oppure}</span></p>
+                      </>
+                    )}
+                    {/* Il cameriere c'e' SEMPRE: e' la strada di chi paga in
+                        contanti, e l'unica quando online non si puo'. */}
+                    <button
+                      type="button"
+                      className={puoPagare ? "tbl-btn tbl-btn--vuoto" : "tbl-btn"}
+                      disabled={lavoroConto || d.invii.length === 0}
+                      onClick={() => void chiediAddizione()}
+                    >
+                      {tc.chiedi}
+                    </button>
+                    <button type="button" className="tbl-conto-ancora" onClick={() => { setPagaAperto(false); setMsgConto(null); }}>
+                      {tc.pagaIndietro}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="tbl-conto-corpo">
+                    <p className={`tbl-conto-stato${inAttesa ? " is-attesa" : ""}`} role="status">{inAttesa ? tc.attesa : tc.aperta}</p>
+                    <p className="tbl-conto-ordinato">
+                      {tc.ordinato.replace("{n}", String(d.ordinato)).replace("{p}", String(d.persone))}
+                    </p>
+                    <div className="tbl-conto-invita">
+                      {d.invito_svg && <div className="tbl-conto-qr" aria-hidden="true" dangerouslySetInnerHTML={{ __html: d.invito_svg }} />}
+                      <div className="tbl-conto-invita-testo">
+                        <p className="tbl-conto-lab">{tc.invita}</p>
+                        <p className="tbl-conto-code">{d.code}</p>
+                        <p className="tbl-conto-aiuto">{tc.invitaTesto}</p>
+                      </div>
+                    </div>
+                    {d.invii.length === 0 ? (
+                      <p className="tbl-conto-vuoto">{tc.vuoto}</p>
+                    ) : (
+                      d.invii.map((inv) => (
+                        <section className="tbl-conto-invio" key={inv.numero}>
+                          <p className="tbl-conto-invio-tit">
+                            {tc.invioN.replace("{k}", String(inv.numero))}
+                            <span className={`tbl-conto-invio-stato${inv.inviato ? " is-cucina" : ""}`}>{inv.inviato ? tc.inCucina : tc.inAttesa}</span>
+                          </p>
+                          {inv.righe.map((r, i) => (
+                            <div className={`tbl-conto-riga${r.mio ? " is-mia" : ""}`} key={i}>
+                              <div className="tbl-conto-chi">
+                                <strong>{r.nome}</strong>
+                                <span>{euroConto(r.totale_cents)}</span>
+                              </div>
+                              <ul className="tbl-conto-piatti">
+                                {r.piatti.map((p, j) => <li key={j}>{p.qty} × {p.nome}</li>)}
+                              </ul>
+                              {r.token && (
+                                <button type="button" className="tbl-conto-togli" onClick={() => void togliDalConto(r.token as string)}>
+                                  {tc.togli}
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </section>
+                      ))
+                    )}
+                  </div>
+                  <div className="tbl-conto-piede">
+                    <div className="tbl-conto-totale">
+                      <span>{tc.totale}</span>
+                      <strong>{euroConto(d.totale_cents)}</strong>
+                    </div>
+                    {pag && (pag.pagato_cents > 0 || pag.in_corso_cents > 0) && (
+                      <div className="tbl-conto-pagati">
+                        {pag.pagato_cents > 0 && <p><span>{tc.giaPagato}</span><span>{euroConto(pag.pagato_cents)}</span></p>}
+                        {pag.in_corso_cents > 0 && <p className="is-in-corso">{tc.inCorso.replace("{x}", euroConto(pag.in_corso_cents))}</p>}
+                        <p className="tbl-conto-resta"><span>{tc.resta}</span><strong>{euroConto(pag.resto_cents)}</strong></p>
+                      </div>
+                    )}
+                    {msgConto && <p className="tbl-conto-msg" role="status">{msgConto}</p>}
+                    {/* UN bottone, «Payer»: porta alla schermata delle due strade. */}
+                    {d.invii.length > 0 && (
+                      <button type="button" className="tbl-btn" disabled={lavoroConto} onClick={apriPaga}>
+                        {tc.pagaTit}
+                      </button>
+                    )}
+                    <button type="button" className="tbl-conto-ancora" onClick={() => setAdditionAperta(false)}>
+                      {tc.ancora}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ⚠️ IL MODALE «CHIUSO» NON SI CHIUDE. Dietro non c’e’ niente da fare,
           e una X porterebbe su una pagina vuota — una

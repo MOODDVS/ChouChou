@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { aggiorna, tutteLeSedi, segretiDOgniSede } from "../../lib/admin/sede";
 import { supabaseAdmin } from "../../lib/db";
 import { confermaOrdinePagato } from "../../lib/confermaOrdine";
+import { segnaPagato } from "../../lib/contoServer";
 
 export const prerender = false;
 
@@ -87,6 +88,30 @@ export const POST: APIRoute = async ({ request }) => {
         .eq("paid", false);
       if (eGift) console.error("Errore aggiornamento bon cadeau:", eGift);
       else console.log(`Bon cadeau ${giftId} payé`);
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Una parte dell'ADDIZIONE di un conto aperto (fase 4, #88) ---
+    // ⚠️ Non e' un ordine: e' una riga di `table_payments`. Si segna pagata
+    // (solo con la SUA sessione, e una volta sola), e se il conto e' saldato
+    // si chiude da solo — `segnaPagato` passa all'ambito della riga.
+    const pagamentoConto = session.metadata?.tab_payment_id;
+    if (pagamentoConto) {
+      try {
+        if (session.payment_status === "paid") {
+          const fatto = await segnaPagato(ambito, pagamentoConto, {
+            sessionId: session.id,
+            email: session.customer_details?.email ?? session.customer_email ?? null,
+          });
+          console.log(fatto ? `Pagamento conto ${pagamentoConto} pagato` : `Pagamento conto ${pagamentoConto} gia' processato (idempotenza)`);
+        }
+      } catch (e) {
+        console.error("Errore pagamento del conto:", e);
+        return new Response("Errore DB", { status: 500 });
+      }
       return new Response(JSON.stringify({ received: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },

@@ -186,6 +186,27 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       .card-nastro svg { width: 15px; height: 15px; flex: 0 0 auto; display: block; }
       .card-nastro--sala { background: var(--c-accent); color: var(--c-bg); }
+      /* Il conto aperto (conto-aperto.md): gli invii, chi ha preso cosa. */
+      .grid-conti { margin-bottom: 1.5rem; }
+      .conto-meta { justify-content: space-between; }
+      .conto-codice { font-weight: 800; color: var(--c-text); letter-spacing: 0.08em; }
+      .conto-addizione { margin: 0 0 0.6rem; padding: 0.4rem 0.6rem; border-radius: 6px; text-align: center; font-weight: 800;
+        background: color-mix(in srgb, var(--c-accent) 22%, transparent); color: var(--c-accent); }
+      .conto-invio { border-top: 1px solid var(--c-line); margin-top: 0.8rem; padding-top: 0.7rem; }
+      .conto-invio-tit { display: flex; justify-content: space-between; margin: 0 0 0.4rem; font-size: 0.72rem; font-weight: 800;
+        text-transform: uppercase; letter-spacing: 0.07em; color: var(--c-muted); }
+      .conto-invio-stato.is-cucina { color: var(--c-accent); }
+      .conto-riga { margin-bottom: 0.6rem; }
+      .conto-riga .items { border-top: 0; margin-top: 0.2rem; padding-top: 0; gap: 0.25rem; }
+      .conto-riga .item { font-size: 1rem; }
+      .conto-chi { display: flex; justify-content: space-between; margin: 0; font-size: 0.9rem; }
+      .conto-pagati .conto-chi { margin-bottom: 0.25rem; }
+      .conto-pagati .conto-chi.is-in-corso { opacity: 0.6; }
+      .conto-pagati .conto-resto { margin-top: 0.4rem; font-weight: 800; }
+      /* La consegna: tinta d'accento, fra il pieno della sala e il grigio del
+         ritiro — e' un ritiro che esce dalla porta. */
+      .card-nastro--consegna { background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); }
+      .row-nota { color: var(--c-muted); }
       .card-nastro--ritiro { background: color-mix(in srgb, var(--c-text) 7%, transparent); color: var(--c-muted); }
       /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
          sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
@@ -990,6 +1011,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             cosa c'era da fare; ora l'ordine e' quello di sempre, e cosa e' un
             ritiro e cosa va portato al tavolo lo dice il NASTRO in testa a
             ogni card (`card-nastro`), pieno corallo per la sala. */}
+        {/* I CONTI APERTI DELLA SALA (conto-aperto.md): una scheda per tavolo,
+            in cima, sopra gli ordini. Vuota = non c'e' (nessun conto aperto,
+            o il conto aperto non e' acceso). */}
+        <div class="grid grid-conti" id="grid-conti" hidden></div>
         <div class="grid" id="grid"></div>
         <h2 class="done-title" id="done-title" style="display:none">{t("ord.doneCancelled")}</h2>
         <div class="grid" id="grid-done"></div>
@@ -1172,7 +1197,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ⚠️ `ordiniRegole` non importa NIENTE: per questo si puo' portare nel
          browser. Il servizio lo decide una regola sola, condivisa con il
          server — scritta due volte, le due meta' si allontanano. */
-      import { alTavolo } from "../../lib/ordiniRegole";
+      import { alTavolo, aConsegna } from "../../lib/ordiniRegole";
+      import { indirizzoDaRiga, rigaIndirizzo, linkMappa } from "../../lib/consegnaRegole";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       /* ⚠️ I conti dei soldi NON si riscrivono qui: la colonna della Accueil,
          le statistiche e la mail del mattino contano la stessa giornata, e
@@ -1235,6 +1261,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         /** Come si chiamava QUEL tavolo quel giorno: e’ cio’ che si dice a voce. */
         table_label?: string | null;
         reservation_id?: string | null;
+        /** #84 — dove portarla (jsonb), solo se `service = 'delivery'`. */
+        delivery_address?: unknown;
+        /** #85 — quanto e' costata la consegna (gia' dentro `total_cents`). */
+        delivery_fee_cents?: number | null;
+        /** #86 — la mancia lasciata pagando online (gia' dentro `total_cents`). */
+        tip_cents?: number | null;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1294,6 +1326,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ⚠️ Niente icona del tavolo (16/10–17/10/2026): piano e due gambe, a
          quella misura, si leggevano «TT» — due lettere davanti al numero del
          tavolo. Basta la parola «Sala» e il numero. */
+      const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
       const ICON_SACCHETTO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
       const ICON_RITARDO = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`;
       const ICON_REFUND = iconaValuta(valutaDelMotore());
@@ -1396,6 +1429,19 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           ? `<p class="row"><span class="row-ico">${ICON_PHONE}</span><a href="tel:${esc(o.customer_phone)}" aria-label="${tr("ord.telLabel")}">${esc(o.customer_phone)}</a></p>`
           : "";
         const langBadge = o.lang ? `<span class="badge">${esc(o.lang)}</span>` : "";
+        /* LA CONSEGNA: l'indirizzo sotto il telefono, con il link alla mappa
+           (sul telefono apre l'app). ⚠️ Riga storta o colonna assente → nessun
+           indirizzo, e la card resta quella del ritiro: senza la #84 una
+           consegna non puo' essere stata salvata. */
+        const consegna = aConsegna(o.service) ? indirizzoDaRiga(o.delivery_address) : null;
+        const indirizzoRiga = consegna
+          ? `<p class="row"><span class="row-ico">${ICON_PIN}</span><a href="${esc(linkMappa(consegna))}" target="_blank" rel="noopener">${esc(rigaIndirizzo(consegna))}</a>${consegna.note ? `<span class="row-nota"> · ${esc(consegna.note)}</span>` : ""}</p>` +
+            // Il costo: e' gia' nel totale in alto, qui si dice QUANTO di
+            // quel totale e' consegna (chi incassa al banco lo vuole sapere).
+            (Number(o.delivery_fee_cents ?? 0) > 0
+              ? `<p class="row row-nota">${esc(tr("ord.deliveryFee"))} · ${euro(Number(o.delivery_fee_cents))}</p>`
+              : "")
+          : "";
 
         const itemsHTML = piatti
           .map((i) => {
@@ -1637,6 +1683,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            a mano). `alTavolo` decide, come per il ticket e il semaforo. */
         const nastro = aTavolo
           ? `<div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.room"))}${o.table_label ? ` · ${esc(o.table_label)}` : ""}</span></div>`
+          : consegna
+          ? `<div class="card-nastro card-nastro--consegna">${ICON_PIN}<span>${esc(tr("ord.ribbonDelivery"))}</span></div>`
           : `<div class="card-nastro card-nastro--ritiro">${ICON_SACCHETTO}<span>${esc(tr(o.source === "manual" ? "ord.ribbonPickup" : "ord.ribbonWeb"))}</span></div>`;
         return `
           <div class="card${cardCls}" data-id="${o.id}">
@@ -1652,6 +1700,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <p class="name"><span class="name-ico">${ICON_USER}</span>${esc(o.customer_name)}${langBadge}</p>
               ${email}
               ${phone}
+              ${indirizzoRiga}
+              ${Number(o.tip_cents ?? 0) > 0 ? `<p class="row row-nota">${esc(tr("ord.tip"))} · ${euro(Number(o.tip_cents))}</p>` : ""}
               ${stampaBtn}
             </div>
             <div class="items">${itemsHTML}</div>
@@ -1856,6 +1906,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               .sort((a, b) => (a.pickup_time > b.pickup_time ? -1 : 1));
             labelEl.textContent = `${tr("ord.search")} — ${trovati.length} ${trovati.length === 1 ? tr("ord.result") : tr("ord.results")}`;
             countEl.textContent = "";
+            // In ricerca il messaggio e' suo: i conti non lo toccano.
+            delete stateEl.dataset.vuoto;
             if (trovati.length === 0) {
               stateEl.textContent = tr("ord.noneFound");
               stateEl.style.display = "block";
@@ -1898,15 +1950,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (pendenti) parti.push(`${pendenti} ${tr("ord.pending")}`);
           countEl.textContent = parti.join(" · ");
 
-          if (ordOggi.length === 0) {
-            stateEl.textContent = tr(giornoView ? "ord.noneThisDay" : "ord.nonePaidToday");
-            stateEl.style.display = "block";
-          } else if (attivi.length === 0) {
-            stateEl.textContent = tr("ord.noneInProgress");
-            stateEl.style.display = "block";
-          } else {
-            stateEl.style.display = "none";
-          }
+          /* «Aucune commande en cours» si dice solo se non c'e' NIENTE da
+             servire: un conto aperto al tavolo (la scheda qui sopra) e' una
+             commande en cours, anche se i suoi ordini non stanno nella lista.
+             Il testo si tiene da parte (`data-vuoto`): i conti arrivano dopo,
+             con la loro chiamata, e `mostraVuoto` ridecide anche allora. */
+          stateEl.dataset.vuoto = ordOggi.length === 0
+            ? tr(giornoView ? "ord.noneThisDay" : "ord.nonePaidToday")
+            : attivi.length === 0 ? tr("ord.noneInProgress") : "";
+          mostraVuoto();
 
           /* Una lista sola, nell'ordine di sempre: ritiro o sala lo dice il
              nastro di ogni card (`alTavolo`, la stessa regola del ticket). */
@@ -2589,6 +2641,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             storto, scriverci dentro senza RIACCENDERLO lascia la pagina muta —
             ed e' esattamente cosi' che un errore e' rimasto invisibile. */
         function mostraStato(testo: string) {
+          // Caricamento o errore: `mostraVuoto` (i conti) non deve spegnerlo.
+          delete stateEl.dataset.vuoto;
           stateEl.textContent = testo;
           stateEl.style.display = "block";
         }
@@ -2696,6 +2750,211 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         function ncToast(msg: string, err = false, ms = 3500) {
           mostraToast(ncToastEl, msg, { errore: err, durata: ms });
         }
+
+        /* ═════════ IL CONTO APERTO: una scheda per tavolo ═════════
+           (conto-aperto.md) I conti da validare e aperti, dal tablet. Un blocco
+           a se', con la sua lettura (`/api/admin/table-tabs`) e il suo giro:
+           gli ordini sul conto (`tab`) non passano dalla lista di sopra, e
+           questa scheda non tocca niente di quella.
+           ⚠️ Ogni lettura fa anche PARTIRE gli invii la cui finestra e'
+           scaduta (lo fa il server): e' il tablet acceso che manda in cucina
+           il secondo giro. */
+        const gridConti = document.getElementById("grid-conti") as HTMLDivElement | null;
+        type InvioConto = { numero: number; partito: boolean; partenza: string | null; righe: { nome: string; piatti: { qty: number; nome: string; variante: string | null }[]; totale_cents: number }[] };
+        type ContoSala = {
+          id: string; stato: string; tavolo: string; tavoli: string[]; codice: string; persone: number; ordinato: number;
+          dal: string | null; addizione: boolean; totale_cents: number; pagato_cents: number; resto_cents: number; invii: InvioConto[];
+          /* I pagamenti online (#88): pagati, o in corso (qualcuno e' su Stripe adesso). */
+          in_corso_cents?: number;
+          pagamenti?: { chi: string; importo_cents: number; mancia_cents: number; in_corso: boolean }[];
+        };
+        let conti: ContoSala[] = [];
+        let firmaConti = "";
+        /* Lo stato dei bottoni a due tocchi: quale conto chiede «contanti o
+           carta», quale «rifiutare?», quale «chiudere senza incassare?». */
+        let contoIncassa: string | null = null;
+        let contoRifiuta: string | null = null;
+        let contoChiudi: string | null = null;
+        /** Il semaforo dell'attesa, come per gli ordini dal sito: bianco a 5
+         *  minuti, arancio a 10, rosso a 15 — dal primo ordine del tavolo, e
+         *  solo finche' il primo invio aspetta la validazione. */
+        function livelloConto(c: ContoSala): number {
+          if (c.stato !== "pending" || !c.dal) return 0;
+          const min = (Date.now() - new Date(c.dal).getTime()) / 60000;
+          return min >= 15 ? 3 : min >= 10 ? 2 : min >= 5 ? 1 : 0;
+        }
+        function contoHTML(c: ContoSala): string {
+          const lr = livelloConto(c);
+          const daValidare = c.stato === "pending";
+          const tavolo = esc(c.tavoli.length > 1 ? c.tavoli.join(" + ") : c.tavolo || tr("ord.room"));
+          /* ⚠️ Nomi e piatti li scrive la gente: tutto passa da `esc`. */
+          const invii = c.invii.map((i) => `
+            <div class="conto-invio">
+              <p class="conto-invio-tit">${esc(tr("ord.tabRound").replace("{k}", String(i.numero)))}
+                <span class="conto-invio-stato${i.partito ? " is-cucina" : ""}">${esc(tr(i.partito ? "ord.tabRoundKitchen" : "ord.tabRoundWaiting"))}</span></p>
+              ${i.righe.map((r) => `
+                <div class="conto-riga">
+                  <p class="conto-chi"><b>${esc(r.nome || "—")}</b><span>${euro(r.totale_cents)}</span></p>
+                  <div class="items">${r.piatti.map((p) => `<div class="item"><span class="item-qty">${p.qty}×</span><span class="item-name">${esc(p.nome)}${p.variante ? ` <span class="item-sub">${esc(p.variante)}</span>` : ""}</span></div>`).join("")}</div>
+                </div>`).join("")}
+            </div>`).join("");
+          const azioni = daValidare
+            ? contoRifiuta === c.id
+              ? `<div class="actions">
+                   <button class="btn-cancel confirm" type="button" data-conto="${c.id}" data-act="c-rifiuta-ok">${ICON_BIN}<span class="b-lab">${esc(tr("ord.tabRefuseConfirm"))}</span></button>
+                   <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-annulla" aria-label="${esc(tr("common.cancel"))}">✕</button>
+                 </div>`
+              : `<div class="actions">
+                   <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-valida"><span class="b-lab">✓ ${esc(tr("ord.tabValidate"))}</span></button>
+                   <button class="btn-cancel" type="button" data-conto="${c.id}" data-act="c-rifiuta" title="${esc(tr("ord.tabRefuse"))}" aria-label="${esc(tr("ord.tabRefuse"))}">${ICON_BIN}</button>
+                 </div>`
+            : contoIncassa === c.id
+              ? `<div class="actions nc-scelte">
+                   <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-cash">${ICON_COINS}<span class="b-lab">${esc(tr("ord.payCash"))}</span></button>
+                   <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-card">${ICON_CARD}<span class="b-lab">${esc(tr("ord.payCard"))}</span></button>
+                 </div>`
+              : contoChiudi === c.id
+                ? `<div class="actions">
+                     <button class="btn-cancel confirm" type="button" data-conto="${c.id}" data-act="c-chiudi-ok"><span class="b-lab">${esc(tr("ord.tabCloseConfirm"))}</span></button>
+                     <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-annulla" aria-label="${esc(tr("common.cancel"))}">✕</button>
+                   </div>`
+                : `<div class="actions">
+                     <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-incassa"><span class="b-lab">${esc(tr("ord.tabCollect"))} · ${euro(c.resto_cents)}</span></button>
+                     <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-stampa" title="${esc(tr("ord.tabPrint"))}" aria-label="${esc(tr("ord.tabPrint"))}">${ICON_PRINT}</button>
+                     <button class="btn-cancel" type="button" data-conto="${c.id}" data-act="c-chiudi" title="${esc(tr("ord.tabClose"))}" aria-label="${esc(tr("ord.tabClose"))}">${ICON_BIN}</button>
+                   </div>`;
+          return `
+            <div class="card card-conto${lr ? ` nc-late nc-late-${lr}` : ""}" data-conto="${c.id}">
+              <div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.tabRibbon"))}</span></div>
+              <div class="card-stato"><span class="tag ${daValidare ? "tag-suppdue" : "tag-done"}">${esc(tr(daValidare ? "ord.tabPending" : "ord.tabOpen"))}</span></div>
+              ${c.addizione ? `<p class="conto-addizione">${esc(tr("ord.tabBill"))}</p>` : ""}
+              <div class="card-top">
+                <div class="ct-left"><span class="time time-tavolo">${tavolo}</span></div>
+                <span class="ct-right"><span class="total">${euro(c.totale_cents)}</span></span>
+              </div>
+              <p class="row conto-meta">
+                <span>${esc(tr("ord.tabOrdered").replace("{n}", String(c.ordinato)).replace("{p}", String(c.persone)))}</span>
+                <span class="conto-codice">${esc(tr("ord.tabCode").replace("{c}", c.codice))}</span>
+              </p>
+              ${invii}
+              ${pagatiConto(c)}
+              ${azioni}
+            </div>`;
+        }
+        /** Chi ha gia' pagato online (e chi sta pagando adesso), e il resto.
+         *  ⚠️ «Encaisser» incassa solo il RESTO: il pagato non si ripaga. */
+        function pagatiConto(c: ContoSala): string {
+          const pag = c.pagamenti ?? [];
+          if (pag.length === 0) return "";
+          return `
+            <div class="conto-invio conto-pagati">
+              <p class="conto-invio-tit">${esc(tr("ord.tabPaidOnline"))}</p>
+              ${pag.map((p) => `
+                <p class="conto-chi${p.in_corso ? " is-in-corso" : ""}"><b>${esc(p.chi || "—")}${p.in_corso ? ` · ${esc(tr("ord.tabPaying"))}` : ""}</b><span>${euro(p.importo_cents)}${p.mancia_cents > 0 ? ` <small>+ ${euro(p.mancia_cents)} ${esc(tr("ord.tabTip"))}</small>` : ""}</span></p>`).join("")}
+              <p class="conto-chi conto-resto"><b>${esc(tr("ord.tabRest"))}</b><span>${euro(c.resto_cents)}</span></p>
+            </div>`;
+        }
+        function renderConti() {
+          if (!gridConti) return;
+          // ⚠️ Solo su «oggi»: consultando un altro giorno i conti aperti
+          // adesso non c'entrano.
+          const visibili = giornoView ? [] : conti;
+          gridConti.hidden = visibili.length === 0;
+          gridConti.innerHTML = visibili.map(contoHTML).join("");
+          mostraVuoto();
+        }
+        /** Il messaggio «vuoto» della lista, tenendo conto dei conti aperti.
+         *  ⚠️ Legge la griglia dal DOM, non le variabili dei conti: `render()`
+         *  gira anche prima che quella parte dello script sia arrivata. */
+        function mostraVuoto() {
+          const g = document.getElementById("grid-conti");
+          const conConti = !!g && !g.hidden && g.childElementCount > 0;
+          // Nessuna decisione di `render()` (caricamento, errore, ricerca): si
+          // lascia com'e'.
+          if (stateEl.dataset.vuoto === undefined) return;
+          const testo = stateEl.dataset.vuoto;
+          if (testo && !conConti) {
+            stateEl.textContent = testo;
+            stateEl.style.display = "block";
+          } else {
+            stateEl.style.display = "none";
+          }
+        }
+        async function caricaConti() {
+          if (!gridConti) return;
+          try {
+            const res = await fetch("/api/admin/table-tabs", { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { conti?: ContoSala[] };
+            const nuovi = j.conti ?? [];
+            const firma = JSON.stringify(nuovi);
+            if (firma === firmaConti) {
+              // Uguali, ma si e' passati da «oggi» a un altro giorno (o ritorno).
+              if ((giornoView ? true : conti.length === 0) !== gridConti.hidden) renderConti();
+              return;
+            }
+            firmaConti = firma;
+            conti = nuovi;
+            renderConti();
+          } catch {
+            /* rete assente: la scheda resta com'era */
+          }
+        }
+        async function azioneConto(id: string, azione: string, extra: Record<string, unknown> = {}) {
+          try {
+            const res = await fetch("/api/admin/table-tabs", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ azione, id, ...extra }),
+            });
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            if (!res.ok) ncToast(j.error || tr("common.netErr"), true, 6000);
+            else if (azione === "stampa") ncToast(tr("ord.tabPrinted"));
+          } catch {
+            ncToast(tr("common.netErr"), true);
+          }
+          firmaConti = "";
+          await caricaConti();
+          // Incassato o chiuso: gli ordini passano nella lista di sotto.
+          if (azione === "incassa" || azione === "chiudi") void carica(true);
+        }
+        gridConti?.addEventListener("click", (e) => {
+          const btn = (e.target as HTMLElement).closest("button[data-conto]") as HTMLButtonElement | null;
+          if (!btn) return;
+          const id = String(btn.dataset.conto);
+          const act = btn.dataset.act;
+          if (act === "c-annulla") { contoRifiuta = contoChiudi = contoIncassa = null; renderConti(); return; }
+          if (act === "c-rifiuta") { contoRifiuta = id; renderConti(); return; }
+          if (act === "c-chiudi") { contoChiudi = id; renderConti(); return; }
+          if (act === "c-incassa") { contoIncassa = id; renderConti(); return; }
+          btn.disabled = true;
+          contoRifiuta = contoChiudi = contoIncassa = null;
+          if (act === "c-valida") void azioneConto(id, "valida");
+          else if (act === "c-rifiuta-ok") void azioneConto(id, "rifiuta");
+          else if (act === "c-chiudi-ok") void azioneConto(id, "chiudi");
+          else if (act === "c-cash") void azioneConto(id, "incassa", { metodo: "cash" });
+          else if (act === "c-card") void azioneConto(id, "incassa", { metodo: "card" });
+          else if (act === "c-stampa") void azioneConto(id, "stampa").then(() => { btn.disabled = false; });
+        });
+        void caricaConti();
+        /* Ogni 20 secondi a pagina visibile: abbastanza spesso perche' il secondo
+           giro parta pochi secondi dopo la sua finestra, e il semaforo salga. */
+        setInterval(() => {
+          if (document.visibilityState !== "visible") return;
+          if (contoRifiuta || contoChiudi || contoIncassa) return; // non interrompere una scelta
+          void caricaConti();
+        }, 20_000);
+        setInterval(() => {
+          document.querySelectorAll<HTMLElement>(".card-conto[data-conto]").forEach((el) => {
+            const c = conti.find((x) => x.id === el.dataset.conto);
+            if (!c) return;
+            const lr = livelloConto(c);
+            el.classList.toggle("nc-late", lr > 0);
+            el.classList.toggle("nc-late-1", lr === 1);
+            el.classList.toggle("nc-late-2", lr === 2);
+            el.classList.toggle("nc-late-3", lr === 3);
+          });
+        }, 30_000);
 
         // ---- GUARIGIONE: i pagamenti che il webhook non ha mai portato ----
         //

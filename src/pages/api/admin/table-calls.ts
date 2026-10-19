@@ -33,10 +33,15 @@ export const GET: APIRoute = async ({ request }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
   const adesso = DateTime.now();
   const da = adesso.minus({ minutes: FINESTRA_CHIAMATE_MIN }).toUTC().toISO() as string;
-  const { data, error } = await leggi("table_calls", ambito, "id, table_id, table_label, caller_name, created_at")
+  /* `reason` (#87): «Demander l'addition» passa dalla stessa campanella. Senza
+     la colonna si rilegge com'era: la campanella non deve smettere di
+     suonare per una migrazione che riguarda il conto aperto. */
+  const sel = (campi: string) => leggi("table_calls", ambito, campi)
     .eq("status", "open")
     .gte("created_at", da)
     .limit(100);
+  let { data, error } = await sel("id, table_id, table_label, caller_name, created_at, reason");
+  if (error) ({ data, error } = await sel("id, table_id, table_label, caller_name, created_at"));
   if (error) return json({ calls: [] });
   return json({ calls: aperteNellaFinestra((data ?? []) as unknown as ChiamataAperta[], adesso.toMillis()) });
 };

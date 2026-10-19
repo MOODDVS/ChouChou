@@ -684,6 +684,52 @@ const t = adminT(lang);
          Stretta in 220px la descrizione diventava una colonna di cinque
          righe accanto a un grande vuoto. Sul telefono i bottoni vanno sotto. */
       .field:has(> .prep-btns) { flex-wrap: nowrap; }
+      /* Un campo numerico come risposta: domanda a sinistra, numero sul bordo
+         destro, come gli interruttori e i bottoni. */
+      .field.field--numero > label:not(.switch) { flex: 1 1 auto; max-width: none; }
+      .field.field--numero > input { flex: 0 0 6.5rem; width: 6.5rem; margin-left: auto; text-align: right; }
+      /* ⚠️ Con una descrizione lunga sotto il titolo, il campo andava a capo
+         sotto tutto il testo: la riga va tenuta su una sola linea, e il campo
+         ALLINEATO AL TITOLO (in alto), come i due importi della consegna. */
+      .field.field--numero { flex-wrap: nowrap; align-items: flex-start; }
+      @media (max-width: 640px) {
+        .field.field--numero { flex-wrap: wrap; }
+      }
+      /* Due importi affiancati a destra, ALLINEATI AL TITOLO (in alto, non al
+         centro della descrizione), con la didascalia sotto ciascuno. */
+      .field.field--soglie { align-items: flex-start; flex-wrap: nowrap; }
+      .field.field--soglie > label:not(.switch) { flex: 1 1 auto; max-width: none; }
+      .soglie { display: flex; gap: 0.75rem; margin-left: auto; flex: 0 0 auto; }
+      /* Le zone di consegna: nome · codici postali · costo (€ dentro) · ×. */
+      .czones { display: flex; flex-direction: column; gap: 0.6rem; width: 100%; }
+      .cz-row { display: flex; gap: 0.5rem; align-items: center; }
+      .cz-row .cz-nome { flex: 0 0 10rem; width: 10rem; }
+      .cz-row .cz-cap { flex: 1 1 auto; min-width: 0; }
+      .cz-row .soglia { width: 6rem; flex: 0 0 6rem; }
+      @media (max-width: 640px) {
+        .cz-row { flex-wrap: wrap; }
+        .cz-row .cz-cap { flex-basis: 100%; order: 3; }
+      }
+      .mance-dx { display: flex; flex-direction: column; align-items: flex-end; gap: 0.6rem; margin-left: auto; }
+      .mance-dx .soglie { margin-left: 0; }
+      .soglia--unita { position: relative; }
+      .soglia--unita input { padding-right: 1.9rem; }
+      .soglia-unita {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--c-muted);
+        font-size: 0.9rem;
+        pointer-events: none;
+      }
+      .soglia { display: flex; flex-direction: column; align-items: stretch; width: 5.5rem; }
+      .soglia input { width: 100%; text-align: right; }
+      .soglia-lab { margin-top: 0.3rem; font-size: 0.72rem; line-height: 1.3; color: var(--c-muted); text-align: right; }
+      @media (max-width: 640px) {
+        .field.field--soglie { flex-wrap: wrap; }
+        .soglie { margin-left: 0; }
+      }
       .field:has(> .prep-btns) > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .field > .prep-btns { flex: 0 0 auto; flex-wrap: nowrap; margin-left: auto; }
       /* ⚠️ Dentro una scheda dei Réglages il bottone ha lo STESSO colore della
@@ -691,7 +737,8 @@ const t = adminT(lang);
          nera lo stacca, come le pastiglie spente di altre pagine: scurisce
          qualunque tema senza scegliere un colore. L'acceso resta quello di
          prep.css (`:not(.active)`). */
-      .field > .prep-btns .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
+      .field > .prep-btns .prep-btn:not(.active),
+      .mance-dx > .prep-btns .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
       @media (max-width: 640px) {
         .field:has(> .prep-btns) { flex-wrap: wrap; }
         .field > .prep-btns { margin-left: 0; flex-wrap: wrap; }
@@ -701,9 +748,31 @@ const t = adminT(lang);
          una spiegazione e dove comincia la successiva. Stesso tratto di
          `.rgroup-sep`, e non sotto l'ultimo: li' chiuderebbe la scheda due
          volte, insieme al bordo del riquadro. */
-      .field:has(> label.switch):not(:last-child) {
+      .field:has(> label.switch):not(:last-child),
+      .section[data-tab="cuisine"] .field.field--numero,
+      .section[data-tab="cuisine"] .field:has(> .prep-btns):not(:last-child) {
         border-bottom: 1px solid var(--c-line);
         padding-bottom: 0.9rem;
+      }
+      /* I gruppi di «Commandes en ligne». Il titolo e' una piccola etichetta,
+         non un secondo h2: la scheda resta una, divisa in tre. */
+      .ord-gruppo + .ord-gruppo { margin-top: 1.6rem; }
+      .ord-gruppo-titolo {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--c-accent);
+        margin: 0 0 0.4rem;
+      }
+      /* ⚠️ La riga sotto l'ultimo campo VISIBILE di un gruppo, no: se l'ultimo
+         e' una riga nascosta (i giorni a interruttore spento, i coupon in
+         cassa), quello prima diventa l'ultimo e la sua riga resterebbe a
+         penzolare sopra il titolo del gruppo dopo. */
+      .ord-gruppo > .field:last-child,
+      .ord-gruppo > .field:has(+ .field[style*="none"]:last-child) {
+        border-bottom: 0;
+        padding-bottom: 0;
       }
       .lab-hint {
         display: block;
@@ -733,6 +802,22 @@ const t = adminT(lang);
       .qr-lista .qr-riga input { flex: 1 1 auto; min-width: 0; font-family: ui-monospace, Menlo, monospace; font-size: .78rem; }
       .qr-lista .qr-vuoto { margin: 0; color: var(--c-muted); font-size: .85rem; }
       .qr-stampa-riga { justify-content: flex-end; }
+      /* I generatori di QR: caselle da spuntare, poi «Générer». */
+      .qr-azioni { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .5rem; }
+      .qr-azioni .kemail-add[aria-busy="true"] { opacity: .6; pointer-events: none; }
+      /* Le pillole dei service della sala sul BORDO DESTRO, come tutte le
+         altre risposte della scheda (minuti, fonte, margine): la domanda a
+         sinistra, la risposta allineata a destra. «Tout» sotto, a destra. */
+      .field--destra .dyn-col { align-items: flex-end; }
+      .field--destra .qr-scelte { align-items: flex-end; }
+      .field--destra .qr-pillole, .field--destra .qr-azioni { justify-content: flex-end; }
+      .qr-azioni .qr-gen-err { outline: 2px solid var(--c-error, #c0392b); }
+      .qr-scelte { display: flex; flex-direction: column; gap: .35rem; width: 100%; }
+      .qr-scelte .qr-sez { margin: .5rem 0 .1rem; display: flex; align-items: center; gap: .5rem; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--c-muted); }
+      .qr-scelte .qr-sez:first-child { margin-top: 0; }
+      .qr-scelte .qr-pillole { flex-wrap: wrap; }
+      .qr-scelte .qr-pillole .prep-btn:not(.active) { background: rgba(0, 0, 0, .22); }
+      .qr-scelte .qr-tutti { font-size: .72rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--c-accent); background: none; border: 0; padding: 0; cursor: pointer; }
       .dyn-col .kemails, .dyn-col .rzones { width: 100%; }
       /* Righe "sezione sala": nome + coperti + elimina */
       .rzones { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -1452,32 +1537,164 @@ const t = adminT(lang);
               ritiro disponibili fra un minuto. */}
           <div class="section" data-tab="cuisine" style="display:none">
             <h2>{t("set.ord.onlineTitle")}</h2>
-            <div class="field">
-              <label for="slot">{t("set.cui.slotDuration")}</label>
-              <input type="number" id="slot" min="5" max="120" step="5" />
+            {/* TRE GRUPPI, ognuno col suo titolo: quando e per che giorno, come
+                si paga, la consegna. ⚠️ Solo raggruppati, niente spostato di
+                significato: ogni interruttore resta la stessa chiave di prima. */}
+            <div class="ord-gruppo">
+              <h3 class="ord-gruppo-titolo">{t("set.ord.grpTime")}</h3>
+              {/* ⚠️ La durata a destra, come gli interruttori sotto: la
+                  domanda a sinistra, la risposta allineata sul bordo. */}
+              <div class="field field--numero">
+                <label for="slot">{t("set.cui.slotDuration")}</label>
+                <input type="number" id="slot" min="5" max="120" step="5" />
+              </div>
+              {/* Da dove vengono gli orari di ritiro: d'apertura o dai service
+                  delle prenotazioni (`orders_slot_source`). Due bottoni come i
+                  minuti della campanella: si sceglie con un tocco. */}
+              <div class="field">
+                <label>{t("set.ord.slotSource")}<span class="lab-hint">{t("set.ord.slotSourceHint")}</span></label>
+                <div class="prep-btns" id="o-slot-source" role="group" aria-label={t("set.ord.slotSource")}>
+                  <button type="button" class="prep-btn" data-fonte="hours" aria-pressed="false"><span class="m">{t("set.ord.slotSourceHours")}</span></button>
+                  <button type="button" class="prep-btn" data-fonte="services" aria-pressed="false"><span class="m">{t("set.ord.slotSourceServices")}</span></button>
+                </div>
+              </div>
+              {/* Ordini per i prossimi giorni (`orders_future_days`): spento =
+                  solo oggi, com'e' sempre stato. ⚠️ L'interruttore NON e' una
+                  chiave sua: acceso vuol dire «un numero di giorni», e la
+                  riga sotto dice quale. */}
+              <div class="field">
+                <label>{t("set.ord.futureDays")}<span class="lab-hint">{t("set.ord.futureDaysHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-future" /><span class="track"></span></label>
+              </div>
+              <div class="field" id="o-future-days-row" style="display:none">
+                <label>{t("set.ord.futureDaysMax")}<span class="lab-hint">{t("set.ord.futureDaysMaxHint")}</span></label>
+                <div class="prep-btns" id="o-future-days" role="group" aria-label={t("set.ord.futureDaysMax")}>
+                  {[2, 7, 14, 30].map((g) => (
+                    <button type="button" class="prep-btn" data-giorni={String(g)} aria-pressed="false"><span class="m">{g} {t("set.ord.daysShort")}</span></button>
+                  ))}
+                </div>
+              </div>
             </div>
-            {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
-                si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
-                niente, e il salvataggio lo rifiuta invece di lasciare un
-                ristorante muto senza che nessun errore lo dica. */}
-            <div class="field">
-              <label>{t("set.ord.payOnline")}<span class="lab-hint">{t("set.ord.payOnlineHint")}</span><span class="lab-hint" id="o-stripe-off" style="display:none">{t("set.ord.stripeOff")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-pay-online" /><span class="track"></span></label>
+            <div class="ord-gruppo">
+              <h3 class="ord-gruppo-titolo">{t("set.ord.grpPay")}</h3>
+              {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
+                  si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
+                  niente, e il salvataggio lo rifiuta invece di lasciare un
+                  ristorante muto senza che nessun errore lo dica. */}
+              <div class="field">
+                <label>{t("set.ord.payOnline")}<span class="lab-hint">{t("set.ord.payOnlineHint")}</span><span class="lab-hint" id="o-stripe-off" style="display:none">{t("set.ord.stripeOff")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-pay-online" /><span class="track"></span></label>
+              </div>
+              <div class="field">
+                <label>{t("set.ord.payOnsite")}<span class="lab-hint">{t("set.ord.payOnsiteHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-pay-onsite" /><span class="track"></span></label>
+              </div>
+              <div class="field">
+                <label>{t("set.ord.coupons")}<span class="lab-hint">{t("set.ord.couponsHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-coupons" /><span class="track"></span></label>
+              </div>
+              {/* ⚠️ Compare solo quando ha senso: se i coupon sono spenti, o se
+                  non si paga in cassa, questa domanda non vuol dire niente e
+                  sarebbe un interruttore che non fa mai niente. */}
+              <div class="field" id="o-coupons-onsite-row" style="display:none">
+                <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
+              </div>
+              {/* LE MANCE (`orders_tips`): in Paiements e non in Livraison,
+                  perche' valgono per gli ordini pagati con la carta — ritiro e
+                  consegna. Il TAVOLO ha un interruttore suo in «Commandes
+                  depuis la salle» (`orders_table_tips`), che mai scelto segue
+                  questo. Sotto, a interruttore acceso, il
+                  tipo (% o €) e i tre valori dei bottoni. ⚠️ Una riga sola per
+                  tipo e valori: due righe nascoste in coda lascerebbero la
+                  linea di separazione sotto l'interruttore. */}
+              <div class="field">
+                <label>{t("set.ord.tips")}<span class="lab-hint">{t("set.ord.tipsHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-tips" /><span class="track"></span></label>
+              </div>
+              <div class="field field--soglie" id="o-tips-row" style="display:none">
+                <label>{t("set.ord.tipsValues")}<span class="lab-hint">{t("set.ord.tipsValuesHint")}</span></label>
+                <div class="mance-dx">
+                  <div class="prep-btns" id="o-tips-type" role="group" aria-label={t("set.ord.tipsValues")}>
+                    <button type="button" class="prep-btn" data-tipo="percent" aria-pressed="false"><span class="m">%</span></button>
+                    <button type="button" class="prep-btn" data-tipo="fixed" aria-pressed="false"><span class="m">€</span></button>
+                  </div>
+                  {/* L'unita' DENTRO il campo, a destra del numero: «10 %» si
+                      legge come un valore solo, una didascalia sotto no. */}
+                  <div class="soglie">
+                    {[0, 1, 2].map((i) => (
+                      <div class="soglia soglia--unita">
+                        <input type="text" inputmode="decimal" class="o-tip-val" data-i={String(i)} aria-label={`${t("set.ord.tipsValues")} ${i + 1}`} />
+                        <span class="soglia-unita o-tip-unit" aria-hidden="true">%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label>{t("set.ord.payOnsite")}<span class="lab-hint">{t("set.ord.payOnsiteHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-pay-onsite" /><span class="track"></span></label>
-            </div>
-            <div class="field">
-              <label>{t("set.ord.coupons")}<span class="lab-hint">{t("set.ord.couponsHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-coupons" /><span class="track"></span></label>
-            </div>
-            {/* ⚠️ Compare solo quando ha senso: se i coupon sono spenti, o se
-                non si paga in cassa, questa domanda non vuol dire niente e
-                sarebbe un interruttore che non fa mai niente. */}
-            <div class="field" id="o-coupons-onsite-row" style="display:none">
-              <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
-              <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
+            <div class="ord-gruppo">
+              <h3 class="ord-gruppo-titolo">{t("set.ord.grpDelivery")}</h3>
+              {/* La consegna (`orders_delivery`): accesa, il cliente sceglie al
+                  checkout fra ritiro e consegna e lascia l'indirizzo. ⚠️ Il
+                  ritiro resta SEMPRE possibile: questo interruttore aggiunge una
+                  strada, non toglie quella di prima. */}
+              <div class="field">
+                <label>{t("set.ord.delivery")}<span class="lab-hint">{t("set.ord.deliveryHint")}</span></label>
+                <label class="switch"><input type="checkbox" id="o-delivery" /><span class="track"></span></label>
+              </div>
+              {/* Il tempo del tragitto (`orders_delivery_delay`), SOPRA la
+                  preparazione: il primo orario di consegna proposto e' adesso +
+                  preparazione + questo. Bottoni come la campanella. */}
+              <div class="field o-delivery-row" style="display:none">
+                <label>{t("set.ord.deliveryDelay")}<span class="lab-hint">{t("set.ord.deliveryDelayHint")}</span></label>
+                <div class="prep-btns" id="o-delivery-delay" role="group" aria-label={t("set.ord.deliveryDelay")}>
+                  {[30, 45, 60, 90].map((m) => (
+                    <button type="button" class="prep-btn" data-minuti={String(m)} aria-pressed="false"><span class="m">{m} min</span></button>
+                  ))}
+                </div>
+              </div>
+              {/* I fattorini (`orders_delivery_max`): quante consegne sullo
+                  STESSO orario. Vuoto = nessun limite, come oggi. */}
+              <div class="field field--numero o-delivery-row" style="display:none">
+                <label for="o-delivery-max">{t("set.ord.deliveryMax")}<span class="lab-hint">{t("set.ord.deliveryMaxHint")}</span></label>
+                <input type="text" inputmode="numeric" id="o-delivery-max" placeholder="—" />
+              </div>
+              {/* LE ZONE (`orders_delivery_zones`): codici postali serviti,
+                  raggruppati come vuole il ristoratore (un comune, un
+                  quartiere), con un costo per zona facoltativo. ⚠️ Nessuna
+                  zona = si consegna ovunque: una lista vuota non deve spegnere
+                  la consegna appena accesa. */}
+              <div class="field o-delivery-row" style="display:none">
+                <label>{t("set.ord.deliveryZones")}<span class="lab-hint">{t("set.ord.deliveryZonesHint")}</span></label>
+                <div class="dyn-col">
+                  <div class="czones" id="o-zones"></div>
+                  <button type="button" class="kemail-add" id="o-zone-add">{t("set.ord.deliveryZoneAdd")}</button>
+                </div>
+              </div>
+              {/* Le soglie: solo a consegna accesa (`o-delivery-row`). UNA riga,
+                  due campi affiancati: sono due facce della stessa domanda
+                  («quanto deve spendere»), e su due righe sembravano due
+                  impostazioni scollegate. In euro, come le pensa il
+                  ristoratore; il server le salva in centesimi e rifiuta un
+                  importo illeggibile. ⚠️ Le didascalie sono `span`, non
+                  `label`: `.field label` le incolonnerebbe a 220px. */}
+              <div class="field field--soglie o-delivery-row" style="display:none">
+                <label>{t("set.ord.deliveryAmounts")}<span class="lab-hint">{t("set.ord.deliveryAmountsHint")}</span></label>
+                <div class="soglie">
+                  <div class="soglia">
+                    <input type="text" inputmode="decimal" id="o-delivery-fee" placeholder="0" aria-label={t("set.ord.deliveryFee")} />
+                    <span class="soglia-lab">{t("set.ord.deliveryFee")}</span>
+                  </div>
+                  <div class="soglia">
+                    <input type="text" inputmode="decimal" id="o-delivery-min" placeholder="0" aria-label={t("set.ord.deliveryMin")} />
+                    <span class="soglia-lab">{t("set.ord.deliveryMin")}</span>
+                  </div>
+                  <div class="soglia">
+                    <input type="text" inputmode="decimal" id="o-delivery-free" placeholder="0" aria-label={t("set.ord.deliveryFree")} />
+                    <span class="soglia-lab">{t("set.ord.deliveryFree")}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1491,6 +1708,81 @@ const t = adminT(lang);
             <div class="field">
               <label>{t("set.ord.table")}<span class="lab-hint">{t("set.ord.tableHint")}</span><span class="lab-hint" id="o-table-notables" style="display:none">{t("set.ord.tableNoTables")}</span></label>
               <label class="switch"><input type="checkbox" id="o-table" /><span class="track"></span></label>
+            </div>
+            {/* SCEGLIERE IL TAVOLO (`orders_table_choose`): compare solo se il
+                piano ha dei tavoli — senza piano non c'e' niente da scegliere.
+                Spento, il cliente da' solo il nome, come in una sala senza
+                piano, e il QR e' uno solo. */}
+            <div class="field" id="o-table-choose-row" style="display:none">
+              <label>{t("set.ord.tableChoose")}<span class="lab-hint">{t("set.ord.tableChooseHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-choose" /><span class="track"></span></label>
+            </div>
+            {/* GLI ORARI DELLA SALA (`orders_table_hours`): quando si ordina dal
+                tavolo. Come per il ritiro: orari d'apertura o service delle
+                prenotazioni — ma una scelta SUA, perche' un punto puo' fare
+                asporto tutto il giorno e sala solo a pranzo (Educazione).
+                Compare a sala accesa e solo se ci sono dei service: senza,
+                l'unica risposta e' l'apertura. Con «Services»: quali (pillole,
+                piu' «Tout») e quanto dopo la fine (l'ultimo arrivo non e' l'ora
+                in cui ci si alza). Il calcolo e' UNO: `configSala`. */}
+            <div class="field" id="o-table-hours-row" style="display:none">
+              <label>{t("set.ord.tableHours")}<span class="lab-hint">{t("set.ord.tableHoursHint")}</span></label>
+              <div class="prep-btns" id="o-table-hours" role="group" aria-label={t("set.ord.tableHours")}>
+                <button type="button" class="prep-btn" data-fonte="hours" aria-pressed="false"><span class="m">{t("set.ord.slotSourceHours")}</span></button>
+                <button type="button" class="prep-btn" data-fonte="services" aria-pressed="false"><span class="m">{t("set.ord.slotSourceServices")}</span></button>
+              </div>
+            </div>
+            <div class="field field--destra" id="o-table-services-row" style="display:none">
+              <label>{t("set.ord.tableServices")}<span class="lab-hint">{t("set.ord.tableServicesHint")}</span><span class="lab-hint" id="o-table-services-orphan" style="display:none">{t("set.ord.tableServicesOrphan")}</span></label>
+              <div class="dyn-col">
+                <div class="qr-scelte" id="o-table-services"></div>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-table-services-all">{t("set.ord.qrAll")}</button>
+                </div>
+              </div>
+            </div>
+            <div class="field" id="o-table-extend-row" style="display:none">
+              <label>{t("set.ord.tableExtend")}<span class="lab-hint">{t("set.ord.tableExtendHint")}</span></label>
+              <div class="prep-btns" id="o-table-extend" role="group" aria-label={t("set.ord.tableExtend")}>
+                {[0, 30, 60, 90].map((m) => (
+                  <button type="button" class="prep-btn" data-minuti={String(m)} aria-pressed="false"><span class="m">{m === 0 ? t("set.ord.tableExtendNo") : `+${m} min`}</span></button>
+                ))}
+              </div>
+            </div>
+            {/* IL CONTO APERTO (`orders_table_tab`, conto-aperto.md): si ordina
+                dal tavolo e si paga alla fine. Compare solo a sala accesa E con
+                la scelta del tavolo: senza tavolo il conto vivrebbe solo nel
+                telefono del cliente. Sotto, a conto acceso, la finestra che
+                raggruppa gli invii in un ticket solo (`orders_table_batch`). */}
+            <div class="field" id="o-table-tab-row" style="display:none">
+              <label>{t("set.ord.tableTab")}<span class="lab-hint">{t("set.ord.tableTabHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-tab" /><span class="track"></span></label>
+            </div>
+            <div class="field" id="o-table-batch-row" style="display:none">
+              <label>{t("set.ord.tableBatch")}<span class="lab-hint">{t("set.ord.tableBatchHint")}</span></label>
+              <div class="prep-btns" id="o-table-batch" role="group" aria-label={t("set.ord.tableBatch")}>
+                {[0, 1, 2, 5].map((m) => (
+                  <button type="button" class="prep-btn" data-minuti={String(m)} aria-pressed="false"><span class="m">{m === 0 ? t("set.ord.tableExtendNo") : `${m} min`}</span></button>
+                ))}
+              </div>
+            </div>
+            {/* LE MANCE AL TAVOLO (`orders_table_tips`): un interruttore della
+                sala, perche' un punto puo' chiederle all'asporto e non a chi
+                e' servito (o il contrario). Mai scelto = come Paiements
+                (`manceInSala`): arriva gia' risolto dal server. Tipo e valori
+                sono quelli di Paiements, uno solo per tutto il punto. Col conto
+                aperto si lascia pagando l'addizione. Solo a sala accesa. */}
+            <div class="field" id="o-table-tips-row" style="display:none">
+              <label>{t("set.ord.tableTips")}<span class="lab-hint">{t("set.ord.tableTipsHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-tips" /><span class="track"></span></label>
+            </div>
+            {/* «PAYER AU COMPTOIR» (`orders_table_counter`): al tavolo, sotto
+                «Payer et commander», un secondo bottone per pagare al banco.
+                L'ordine parte in cucina subito, «à encaisser». ⚠️ Non e'
+                «Paiement sur place» di Paiements: quello e' dell'asporto. */}
+            <div class="field" id="o-table-counter-row" style="display:none">
+              <label>{t("set.ord.tableCounter")}<span class="lab-hint">{t("set.ord.tableCounterHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-counter" /><span class="track"></span></label>
             </div>
             {/* «Appeler le serveur». ⚠️ Anche questa solo a sala accesa: la
                 campanella vive sulla pagina del tavolo, e senza quella pagina
@@ -1527,30 +1819,43 @@ const t = adminT(lang);
                 stessi bottoni a scelta del resto della scheda. I link li
                 scrive il server (`qr_sezioni`, `qr_tavoli`): qui si mostrano,
                 si copiano e si stampano, mai si compongono. */}
-            <div class="field" id="o-table-qr-row" style="display:none">
-              <label>{t("set.ord.qrMode")}<span class="lab-hint">{t("set.ord.qrModeHint")}</span></label>
-              <div class="prep-btns" id="o-table-qr-mode" role="group" aria-label={t("set.ord.qrMode")}>
-                <button type="button" class="prep-btn" data-qr="unico" aria-pressed="false"><span class="m">{t("set.ord.qrUnico")}</span></button>
-                <button type="button" class="prep-btn" data-qr="sezione" aria-pressed="false"><span class="m">{t("set.ord.qrSezione")}</span></button>
-                <button type="button" class="prep-btn" data-qr="tavolo" aria-pressed="false"><span class="m">{t("set.ord.qrTavolo")}</span></button>
-              </div>
-            </div>
-            <div class="field" id="o-table-qr-list-row" style="display:none">
-              <label>{t("set.ord.qrList")}<span class="lab-hint">{t("set.ord.qrListHint")}</span></label>
-              <div class="dyn-col qr-lista" id="o-table-qr-list"></div>
-            </div>
+            {/* ⚠️ IL TIPO DI QR NON E' UN'IMPOSTAZIONE. Il link unico, quelli di
+                sezione e quelli di tavolo funzionano TUTTI, sempre e insieme
+                (bancone col QR unico, terrazza per sezione, sala per tavolo):
+                il «tipo» decideva solo quali cartoncini stampare, e come scelta
+                esclusiva faceva credere che gli altri smettessero di andare.
+                Adesso sono tre generatori: le pillole accese sono la SCELTA
+                salvata (`orders_table_qr_sel`), «Générer» la salva e apre
+                Assets › QR codes, che mostra l'unico + quelle. Togliere un QR
+                dalla scelta non lo spegne. Senza scelta del tavolo (sala senza
+                piano o scelta spenta) esiste solo il QR generico. */}
             <div class="field" id="o-table-link-row" style="display:none">
-              <label>{t("set.ord.tableLink")}<span class="lab-hint">{t("set.ord.tableLinkHint")}</span></label>
+              <label>{t("set.ord.qrUnicoTitle")}<span class="lab-hint">{t("set.ord.tableLinkHint")}</span></label>
               <div class="dyn-col qr-link">
                 <input type="text" id="o-table-link" readonly data-noauto="1" />
-                <button type="button" class="kemail-add" id="o-table-link-copy">{t("common.copy")}</button>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-table-link-copy">{t("common.copy")}</button>
+                  <a class="kemail-add" id="o-qr-gen-unico" href="/admin/assets?tab=qr">{t("set.ord.qrGenerate")}</a>
+                </div>
               </div>
             </div>
-            {/* I cartoncini si VEDONO e si stampano in Assets › QR codes: e' li'
-                che vivono le cose da mettere in mano a qualcuno (immagini,
-                documenti). Qui si sceglie il tipo; li' lo si guarda. */}
-            <div class="field qr-stampa-riga" id="o-table-qr-print-row" style="display:none">
-              <a class="kemail-add" id="o-table-qr-see" href="/admin/assets?tab=qr">{t("set.ord.qrSee")}</a>
+            <div class="field" id="o-qr-sez-row" style="display:none">
+              <label>{t("set.ord.qrSezTitle")}<span class="lab-hint">{t("set.ord.qrSezHint")}</span></label>
+              <div class="dyn-col">
+                <div class="qr-scelte" id="o-qr-sez-list"></div>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-qr-gen-sez">{t("set.ord.qrGenerate")}</button>
+                </div>
+              </div>
+            </div>
+            <div class="field" id="o-qr-tav-row" style="display:none">
+              <label>{t("set.ord.qrTavTitle")}<span class="lab-hint">{t("set.ord.qrTavHint")}</span></label>
+              <div class="dyn-col">
+                <div class="qr-scelte" id="o-qr-tav-list"></div>
+                <div class="qr-azioni">
+                  <button type="button" class="kemail-add" id="o-qr-gen-tav">{t("set.ord.qrGenerate")}</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -3927,7 +4232,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; qr_modo?: string; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { sezione: string; nome: string; link: string }[] };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; sala_con_tavoli?: boolean; stripe_pronto?: boolean; link_tavolo?: string; chiamata_attesa?: number; ritiro_fonte?: string; ritiro_giorni?: number; consegna_minimo_cents?: number; consegna_gratis_cents?: number; consegna_costo_cents?: number; mance_tipo?: string; mance_valori?: number[]; consegna_ritardo?: number; consegna_max?: number; consegna_zone?: { nome: string; cap: string[]; costo_cents: number | null }[]; qr_scelta?: { sezioni: string[]; tavoli: string[] }; sala_fonte?: string; sala_servizi?: string[] | null; sala_prolunga?: number; sala_servizi_elenco?: { key: string; orari: string[] }[]; sala_servizi_orfani?: boolean; conto_finestra?: number; qr_sezioni?: { nome: string; link: string }[]; qr_tavoli?: { id: string; sezione: string; nome: string; link: string }[] };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -4123,6 +4428,35 @@ const t = adminT(lang);
         met("o-coupons-onsite", "orders_coupons_onsite");
         met("o-table", "orders_table");
         met("o-table-call", "orders_table_call");
+        met("o-table-choose", "orders_table_choose");
+        met("o-table-tab", "orders_table_tab");
+        met("o-delivery", "orders_delivery");
+        met("o-tips", "orders_tips");
+        // Risolto dal server: mai scelto = come `orders_tips`.
+        met("o-table-tips", "orders_table_tips");
+        met("o-table-counter", "orders_table_counter");
+        // Le soglie in euro («50» e non «50,00»: si legge meglio, e si salva uguale).
+        const inEuro = (c: unknown) => {
+          const n = Number(c) || 0;
+          return n > 0 ? (n % 100 === 0 ? String(n / 100) : (n / 100).toFixed(2).replace(".", ",")) : "";
+        };
+        const campoMin = document.getElementById("o-delivery-min") as HTMLInputElement | null;
+        const campoGratis = document.getElementById("o-delivery-free") as HTMLInputElement | null;
+        const campoCosto = document.getElementById("o-delivery-fee") as HTMLInputElement | null;
+        if (campoCosto) campoCosto.value = inEuro(dati.consegna_costo_cents);
+        if (campoMin) campoMin.value = inEuro(dati.consegna_minimo_cents);
+        if (campoGratis) campoGratis.value = inEuro(dati.consegna_gratis_cents);
+        const swConsegna = document.getElementById("o-delivery") as HTMLInputElement | null;
+        const aggiornaRigheConsegna = () => {
+          document.querySelectorAll<HTMLElement>(".o-delivery-row").forEach((r) => {
+            r.style.display = swConsegna?.checked ? "" : "none";
+          });
+        };
+        aggiornaRigheConsegna();
+        swConsegna?.addEventListener("change", aggiornaRigheConsegna);
+        campoMin?.addEventListener("input", dirty);
+        campoCosto?.addEventListener("input", dirty);
+        campoGratis?.addEventListener("input", dirty);
         // L'attesa della campanella: un bottone acceso fra quattro.
         const bottoniAttesa = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn"));
         const accendiAttesa = (minuti: string) => {
@@ -4133,6 +4467,107 @@ const t = adminT(lang);
           }
         };
         accendiAttesa(String(dati.chiamata_attesa ?? 5));
+        // Gli orari di ritiro: la fonte (un bottone fra due) e i giorni in
+        // anticipo (interruttore + un bottone fra quattro). Arrivano gia'
+        // risolti dal server: 0 giorni = interruttore spento.
+        const accendiGruppo = (sel: string, attr: string, valore: string) => {
+          document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((b) => {
+            const si = b.dataset[attr] === valore;
+            b.classList.toggle("active", si);
+            b.setAttribute("aria-pressed", si ? "true" : "false");
+          });
+        };
+        accendiGruppo("#o-slot-source", "fonte", dati.ritiro_fonte ?? "hours");
+        const giorniRitiro = Number(dati.ritiro_giorni ?? 0);
+        const swFuturo = document.getElementById("o-future") as HTMLInputElement | null;
+        const rigaGiorni = document.getElementById("o-future-days-row") as HTMLElement | null;
+        if (swFuturo) swFuturo.checked = giorniRitiro > 0;
+        accendiGruppo("#o-future-days", "giorni", String(giorniRitiro > 0 ? giorniRitiro : 7));
+        const aggiornaRigaGiorni = () => {
+          if (rigaGiorni) rigaGiorni.style.display = swFuturo?.checked ? "" : "none";
+        };
+        aggiornaRigaGiorni();
+        swFuturo?.addEventListener("change", aggiornaRigaGiorni);
+        // Il tragitto della consegna: un bottone fra quattro, gia' risolto (45 di ripiego).
+        accendiGruppo("#o-delivery-delay", "minuti", String(dati.consegna_ritardo ?? 45));
+        // ---- Le zone di consegna: una riga per zona ----
+        const boxZone = document.getElementById("o-zones") as HTMLDivElement | null;
+        const aggiungiZona = (z?: { nome?: string; cap?: string[]; costo_cents?: number | null }) => {
+          if (!boxZone) return;
+          const riga = document.createElement("div");
+          riga.className = "cz-row";
+          riga.innerHTML =
+            `<input type="text" class="cz-nome" maxlength="40" placeholder="${tr("set.ord.deliveryZoneName")}" />` +
+            `<input type="text" class="cz-cap" inputmode="numeric" placeholder="1000, 1040, 1050" />` +
+            `<div class="soglia soglia--unita"><input type="text" class="cz-costo" inputmode="decimal" placeholder="—" title="${tr("set.ord.deliveryZoneFee")}" aria-label="${tr("set.ord.deliveryZoneFee")}" /><span class="soglia-unita" aria-hidden="true">€</span></div>` +
+            `<button type="button" class="kemail-del" aria-label="${tr("common.delete")}">×</button>`;
+          (riga.querySelector(".cz-nome") as HTMLInputElement).value = z?.nome ?? "";
+          (riga.querySelector(".cz-cap") as HTMLInputElement).value = (z?.cap ?? []).join(", ");
+          (riga.querySelector(".cz-costo") as HTMLInputElement).value =
+            z?.costo_cents !== null && z?.costo_cents !== undefined ? inEuro(z.costo_cents) || "0" : "";
+          riga.querySelectorAll("input").forEach((i) => i.addEventListener("input", dirty));
+          (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
+            riga.remove();
+            dirty();
+          });
+          boxZone.appendChild(riga);
+        };
+        if (boxZone) boxZone.innerHTML = "";
+        (dati.consegna_zone ?? []).forEach((z) => aggiungiZona(z));
+        document.getElementById("o-zone-add")?.addEventListener("click", () => {
+          aggiungiZona();
+          dirty();
+        });
+        const campoMaxCons = document.getElementById("o-delivery-max") as HTMLInputElement | null;
+        if (campoMaxCons) {
+          campoMaxCons.value = Number(dati.consegna_max ?? 0) > 0 ? String(dati.consegna_max) : "";
+          campoMaxCons.addEventListener("input", dirty);
+        }
+        // ---- Le mance: tipo (% / €) e tre valori, nelle unita' del tipo ----
+        // Arrivano risolti dal server: percentuali intere, oppure centesimi.
+        const swMance = document.getElementById("o-tips") as HTMLInputElement | null;
+        const rigaMance = document.getElementById("o-tips-row") as HTMLElement | null;
+        const campiMancia = Array.from(document.querySelectorAll<HTMLInputElement>(".o-tip-val"));
+        const tipoManceOra = () =>
+          document.querySelector<HTMLButtonElement>("#o-tips-type .prep-btn.active")?.dataset.tipo === "fixed" ? "fixed" : "percent";
+        const unitaMance = () => {
+          const u = tipoManceOra() === "fixed" ? "€" : "%";
+          document.querySelectorAll<HTMLElement>(".o-tip-unit").forEach((e) => (e.textContent = u));
+        };
+        const tipoSalvato = dati.mance_tipo === "fixed" ? "fixed" : "percent";
+        accendiGruppo("#o-tips-type", "tipo", tipoSalvato);
+        (dati.mance_valori ?? []).forEach((v, i) => {
+          if (!campiMancia[i]) return;
+          campiMancia[i].value = tipoSalvato === "fixed" ? inEuro(v) : String(v);
+        });
+        unitaMance();
+        // ⚠️ Cambiando tipo i numeri NON si convertono: «10» da 10 % a 10 €
+        // sarebbe un'altra cosa. Si mettono i valori di partenza del tipo
+        // nuovo, e il ristoratore li corregge guardandoli.
+        document.querySelectorAll<HTMLButtonElement>("#o-tips-type .prep-btn").forEach((b) =>
+          b.addEventListener("click", () => {
+            // Gia' acceso: nessun cambio di tipo, i valori scritti restano.
+            if (b.classList.contains("active")) return;
+            const nuovo = b.dataset.tipo === "fixed" ? "fixed" : "percent";
+            const base = nuovo === "fixed" ? ["1", "2", "3"] : ["5", "10", "15"];
+            campiMancia.forEach((c, i) => (c.value = base[i]));
+            // Il click accende il bottone nel giro generico qui sotto; l'unita'
+            // si aggiorna dopo, quando il bottone e' gia' acceso.
+            setTimeout(unitaMance, 0);
+          }),
+        );
+        // Tipo e valori servono se le mance ci sono da QUALCHE parte: in
+        // Paiements o solo al tavolo («Commandes depuis la salle»).
+        const swManceSala = document.getElementById("o-table-tips") as HTMLInputElement | null;
+        const aggiornaRigaMance = () => {
+          const servono = Boolean(swMance?.checked) || Boolean(swManceSala?.checked && (document.getElementById("o-table") as HTMLInputElement | null)?.checked);
+          if (rigaMance) rigaMance.style.display = servono ? "" : "none";
+        };
+        aggiornaRigaMance();
+        swMance?.addEventListener("change", aggiornaRigaMance);
+        swManceSala?.addEventListener("change", aggiornaRigaMance);
+        document.getElementById("o-table")?.addEventListener("change", aggiornaRigaMance);
+        campiMancia.forEach((c) => c.addEventListener("input", dirty));
         /* ⚠️ Questo interruttore arriva dal server GIA' RISOLTO: a chiave
            vuota il valore dipende dai tavoli, e il server e' l'unico che li
            puo' contare. La pagina non deve indovinare — ed e' il motivo per
@@ -4156,8 +4591,12 @@ const t = adminT(lang);
         const rigaChiamata = document.getElementById("o-table-call-row") as HTMLElement | null;
         const rigaAttesa = document.getElementById("o-table-call-wait-row") as HTMLElement | null;
         const swChiamata = document.getElementById("o-table-call") as HTMLInputElement | null;
+        const rigaManceSala = document.getElementById("o-table-tips-row") as HTMLElement | null;
         const aggiornaRigaAvviso = () => {
           if (rigaChiamata) rigaChiamata.style.display = swTavolo?.checked ? "" : "none";
+          if (rigaManceSala) rigaManceSala.style.display = swTavolo?.checked ? "" : "none";
+          const rigaBanco = document.getElementById("o-table-counter-row");
+          if (rigaBanco) rigaBanco.style.display = swTavolo?.checked ? "" : "none";
           // L'attesa ha senso solo se la campanella c'e'.
           if (rigaAttesa) rigaAttesa.style.display = swTavolo?.checked && swChiamata?.checked ? "" : "none";
           if (!rigaAvviso) return;
@@ -4166,100 +4605,220 @@ const t = adminT(lang);
         aggiornaRigaAvviso();
         swTavolo?.addEventListener("change", aggiornaRigaAvviso);
         swChiamata?.addEventListener("change", aggiornaRigaAvviso);
+        /* ---- GLI ORARI DELLA SALA ----
+           Le pillole dei service si disegnano dai service SALVATI
+           (`sala_servizi_elenco`), con `textContent`. `sala_servizi` null =
+           tutti accesi. Con la scelta orfana (i service scelti non esistono
+           piu') si accendono tutti — e' quello che la sala sta facendo — e la
+           riga lo dice. */
+        const elencoSala = dati.sala_servizi_elenco ?? [];
+        const rigaOrariSala = document.getElementById("o-table-hours-row") as HTMLElement | null;
+        const rigaServiziSala = document.getElementById("o-table-services-row") as HTMLElement | null;
+        const rigaMargineSala = document.getElementById("o-table-extend-row") as HTMLElement | null;
+        const boxServiziSala = document.getElementById("o-table-services") as HTMLElement | null;
+        const avvisoOrfani = document.getElementById("o-table-services-orphan") as HTMLElement | null;
+        accendiGruppo("#o-table-hours", "fonte", dati.sala_fonte ?? "hours");
+        accendiGruppo("#o-table-extend", "minuti", String(dati.sala_prolunga ?? 0));
+        if (avvisoOrfani) avvisoOrfani.style.display = dati.sala_servizi_orfani ? "" : "none";
+        const pillolaServizio = (key: string, orari: string[], accesa: boolean) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "prep-btn";
+          b.dataset.v = key;
+          b.classList.toggle("active", accesa);
+          b.setAttribute("aria-pressed", accesa ? "true" : "false");
+          const m = document.createElement("span");
+          m.className = "m";
+          m.textContent = `${nomeServizio(key, LANG)} · ${orari.join(", ")}`;
+          b.appendChild(m);
+          b.addEventListener("click", () => {
+            const si = !b.classList.contains("active");
+            b.classList.toggle("active", si);
+            b.setAttribute("aria-pressed", si ? "true" : "false");
+            dirty();
+          });
+          return b;
+        };
+        if (boxServiziSala) {
+          boxServiziSala.innerHTML = "";
+          const g = document.createElement("div");
+          g.className = "prep-btns qr-pillole";
+          const scelti = dati.sala_servizi_orfani ? null : dati.sala_servizi ?? null;
+          for (const sv of elencoSala) g.appendChild(pillolaServizio(sv.key, sv.orari, !scelti || scelti.includes(sv.key)));
+          boxServiziSala.appendChild(g);
+        }
+        // «Tout»: le accende tutte; se lo erano gia', le spegne tutte.
+        document.getElementById("o-table-services-all")?.addEventListener("click", () => {
+          const pillole = Array.from(boxServiziSala?.querySelectorAll<HTMLButtonElement>(".prep-btn") ?? []);
+          const accese = pillole.every((b) => b.classList.contains("active"));
+          for (const b of pillole) {
+            b.classList.toggle("active", !accese);
+            b.setAttribute("aria-pressed", !accese ? "true" : "false");
+          }
+          dirty();
+        });
+        const aggiornaOrariSala = () => {
+          const conServizi = Boolean(swTavolo?.checked) && elencoSala.length > 0;
+          const daiServizi = document.querySelector<HTMLButtonElement>("#o-table-hours .prep-btn.active")?.dataset.fonte === "services";
+          if (rigaOrariSala) rigaOrariSala.style.display = conServizi ? "" : "none";
+          if (rigaServiziSala) rigaServiziSala.style.display = conServizi && daiServizi ? "" : "none";
+          if (rigaMargineSala) rigaMargineSala.style.display = conServizi && daiServizi ? "" : "none";
+        };
+        aggiornaOrariSala();
+        swTavolo?.addEventListener("change", aggiornaOrariSala);
+        /* ---- IL CONTO APERTO ----
+           La riga c'e' solo se il cliente sceglie il tavolo: sala accesa, piano
+           con dei tavoli, scelta del tavolo accesa. La finestra, solo a conto
+           acceso. Seguono gli interruttori anche mentre li si tocca. */
+        const rigaConto = document.getElementById("o-table-tab-row") as HTMLElement | null;
+        const rigaFinestra = document.getElementById("o-table-batch-row") as HTMLElement | null;
+        const swConto = document.getElementById("o-table-tab") as HTMLInputElement | null;
+        const swSceltaConto = document.getElementById("o-table-choose") as HTMLInputElement | null;
+        accendiGruppo("#o-table-batch", "minuti", String(dati.conto_finestra ?? 1));
+        const aggiornaConto = () => {
+          const puo = Boolean(swTavolo?.checked && dati.sala_con_tavoli && (swSceltaConto?.checked ?? true));
+          if (rigaConto) rigaConto.style.display = puo ? "" : "none";
+          if (rigaFinestra) rigaFinestra.style.display = puo && swConto?.checked ? "" : "none";
+        };
+        aggiornaConto();
+        for (const el of [swTavolo, swSceltaConto, swConto]) el?.addEventListener("change", aggiornaConto);
+        document.querySelectorAll<HTMLButtonElement>("#o-table-hours .prep-btn").forEach((b) =>
+          b.addEventListener("click", () => setTimeout(aggiornaOrariSala)),
+        );
         // Il link del QR: arriva gia' fatto dal server, con la sede dentro.
         const rigaLink = document.getElementById("o-table-link-row") as HTMLElement | null;
         const campoLink = document.getElementById("o-table-link") as HTMLInputElement | null;
         const copiaLink = document.getElementById("o-table-link-copy") as HTMLButtonElement | null;
         if (campoLink) campoLink.value = dati.link_tavolo ?? "";
-        // --- I QR della sala: il tipo (unico / per sezione / per tavolo),
-        // l'elenco dei link e la stampa dei cartoncini ---
-        const rigaQr = document.getElementById("o-table-qr-row") as HTMLElement | null;
-        const rigaListaQr = document.getElementById("o-table-qr-list-row") as HTMLElement | null;
-        const boxListaQr = document.getElementById("o-table-qr-list") as HTMLElement | null;
-        const rigaStampaQr = document.getElementById("o-table-qr-print-row") as HTMLElement | null;
-        const bottoniQr = Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-qr-mode .prep-btn"));
-        let modoQrOra = String(dati.qr_modo ?? "unico");
-        function accendiModoQr() {
-          for (const b of bottoniQr) {
-            const si = b.dataset.qr === modoQrOra;
+        /* ---- I GENERATORI DI QR ----
+           Le caselle si DISEGNANO dai dati del server (`qr_sezioni`,
+           `qr_tavoli`), con `textContent` e `value`: i nomi di sezione e di
+           tavolo li scrive il ristoratore, e in `innerHTML` un «<» romperebbe
+           la pagina. Le pillole accese all'apertura sono la scelta SALVATA
+           (`qr_scelta`); «Générer» la salva e porta in Assets › QR codes, che
+           mostra l'unico + quelle. I link li compone sempre e solo il server. */
+        const rigaSez = document.getElementById("o-qr-sez-row") as HTMLElement | null;
+        const rigaTav = document.getElementById("o-qr-tav-row") as HTMLElement | null;
+        const boxSez = document.getElementById("o-qr-sez-list") as HTMLElement | null;
+        const boxTav = document.getElementById("o-qr-tav-list") as HTMLElement | null;
+        const genSez = document.getElementById("o-qr-gen-sez") as HTMLButtonElement | null;
+        const genTav = document.getElementById("o-qr-gen-tav") as HTMLButtonElement | null;
+        /* ⚠️ PILLOLE, NON CASELLE. Una `<label>` dentro `.field` prende
+           `flex: 0 0 220px` (la regola che incolonna i titoli dei campi), e in
+           una colonna quei 220px diventano l'ALTEZZA: ogni casella era alta
+           mezzo schermo. Le stesse pillole del resto della scheda (`.prep-btn`):
+           si tocca per accendere, si ritocca per spegnere. */
+        const pillola = (valore: string, testo: string, accesa: boolean) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "prep-btn";
+          b.dataset.v = valore;
+          b.classList.toggle("active", accesa);
+          b.setAttribute("aria-pressed", accesa ? "true" : "false");
+          const t = document.createElement("span");
+          t.className = "m";
+          t.textContent = testo;
+          b.appendChild(t);
+          b.addEventListener("click", () => {
+            const si = !b.classList.contains("active");
             b.classList.toggle("active", si);
             b.setAttribute("aria-pressed", si ? "true" : "false");
-          }
+          });
+          return b;
+        };
+        const gruppo = () => {
+          const g = document.createElement("div");
+          g.className = "prep-btns qr-pillole";
+          return g;
+        };
+        const spuntate = (box: HTMLElement | null) =>
+          Array.from(box?.querySelectorAll<HTMLButtonElement>(".prep-btn.active") ?? []).map((b) => b.dataset.v ?? "");
+        const sezSalvate = new Set(dati.qr_scelta?.sezioni ?? []);
+        const tavSalvati = new Set(dati.qr_scelta?.tavoli ?? []);
+        if (boxSez) {
+          boxSez.innerHTML = "";
+          const g = gruppo();
+          for (const z of dati.qr_sezioni ?? []) g.appendChild(pillola(z.nome, z.nome, sezSalvate.has(z.nome)));
+          boxSez.appendChild(g);
         }
-        /* L'elenco si DISEGNA dai link del server, con `textContent` e `value`:
-           i nomi di sezione e di tavolo li scrive il ristoratore, e messi in
-           `innerHTML` un nome con un «<» romperebbe la pagina. */
-        function disegnaListaQr() {
-          if (!boxListaQr) return;
-          boxListaQr.innerHTML = "";
-          const voci = modoQrOra === "sezione"
-            ? (dati.qr_sezioni ?? []).map((x) => ({ sez: "", nome: x.nome, link: x.link }))
-            : (dati.qr_tavoli ?? []).map((x) => ({ sez: x.sezione, nome: x.nome, link: x.link }));
-          if (voci.length === 0) {
-            const vuoto = document.createElement("p");
-            vuoto.className = "qr-vuoto";
-            vuoto.textContent = tr("set.ord.qrNone");
-            boxListaQr.appendChild(vuoto);
-            return;
+        if (boxTav) {
+          boxTav.innerHTML = "";
+          // Raggruppati per sezione, con «Tout» per spuntarne una intera.
+          const perSez = new Map<string, { id: string; nome: string }[]>();
+          for (const t of dati.qr_tavoli ?? []) {
+            const k = t.sezione ?? "";
+            if (!perSez.has(k)) perSez.set(k, []);
+            perSez.get(k)!.push({ id: t.id, nome: t.nome });
           }
-          let ultima: string | null = null;
-          for (const v of voci) {
-            if (modoQrOra === "tavolo" && v.sez !== ultima) {
-              const sez = document.createElement("div");
-              sez.className = "qr-sez";
-              sez.textContent = v.sez;
-              boxListaQr.appendChild(sez);
-              ultima = v.sez;
-            }
-            const riga = document.createElement("div");
-            riga.className = "qr-riga";
-            const nome = document.createElement("span");
-            nome.className = "qr-nome";
-            nome.textContent = v.nome;
-            const campo = document.createElement("input");
-            campo.type = "text";
-            campo.readOnly = true;
-            campo.value = v.link;
-            campo.addEventListener("focus", () => campo.select());
-            const copia = document.createElement("button");
-            copia.type = "button";
-            copia.className = "kemail-add";
-            copia.textContent = tr("common.copy");
-            copia.addEventListener("click", async () => {
-              try {
-                await navigator.clipboard.writeText(v.link);
-              } catch {
-                campo.focus();
-                return;
+          for (const [sez, tavoli] of perSez) {
+            const testa = document.createElement("div");
+            testa.className = "qr-sez";
+            const nomeSez = document.createElement("span");
+            nomeSez.textContent = sez || "—";
+            const tutti = document.createElement("button");
+            tutti.type = "button";
+            tutti.className = "qr-tutti";
+            tutti.textContent = tr("set.ord.qrAll");
+            const griglia = gruppo();
+            for (const t of tavoli) griglia.appendChild(pillola(t.id, t.nome, tavSalvati.has(t.id)));
+            // «Tout»: le accende tutte; se lo erano gia', le spegne tutte.
+            tutti.addEventListener("click", () => {
+              const pillole = Array.from(griglia.querySelectorAll<HTMLButtonElement>(".prep-btn"));
+              const accese = pillole.every((b) => b.classList.contains("active"));
+              for (const b of pillole) {
+                b.classList.toggle("active", !accese);
+                b.setAttribute("aria-pressed", !accese ? "true" : "false");
               }
-              copia.textContent = tr("set.ord.tableLinkCopied");
-              setTimeout(() => { copia.textContent = tr("common.copy"); }, 1600);
             });
-            riga.append(nome, campo, copia);
-            boxListaQr.appendChild(riga);
+            testa.append(nomeSez, tutti);
+            boxTav.append(testa, griglia);
           }
         }
+        /* «Générer» (tutti e tre): SALVA la scelta — sezioni e tavoli insieme,
+           com'e' adesso nella pagina — e apre Assets › QR codes. ⚠️ Prima si
+           salva, poi si va: aperta subito, la scheda leggerebbe la scelta
+           vecchia. Nessuna pillola accesa e' una scelta valida (solo l'unico).
+           Se il salvataggio non va, si resta qui e lo si dice. */
+        const vaiAiQr = async (b: HTMLElement, vedi: string) => {
+          b.setAttribute("aria-busy", "true");
+          try {
+            const res = await fetch("/api/admin/qr", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ sezioni: spuntate(boxSez), tavoli: spuntate(boxTav) }),
+            });
+            if (!res.ok) throw new Error();
+            // Si apre sul filtro del gruppo appena generato.
+            location.href = `/admin/assets?tab=qr&vedi=${vedi}`;
+          } catch {
+            b.removeAttribute("aria-busy");
+            b.title = tr("common.netErr");
+            b.classList.add("qr-gen-err");
+          }
+        };
+        for (const [b, vedi] of [[document.getElementById("o-qr-gen-unico"), "unico"], [genSez, "sezione"], [genTav, "tavolo"]] as const) {
+          b?.addEventListener("click", (e) => {
+            e.preventDefault();
+            void vaiAiQr(b, vedi);
+          });
+        }
+        // La scelta del tavolo: la riga c'e' solo se il piano ha dei tavoli.
+        const rigaScelta = document.getElementById("o-table-choose-row") as HTMLElement | null;
+        const swScelta = document.getElementById("o-table-choose") as HTMLInputElement | null;
         function aggiornaQr() {
           // ⚠️ Senza link (vista «tutte le sedi») nessuna di queste righe
           // compare: un campo vuoto con «Copier» accanto copierebbe il niente.
           const acceso = Boolean(swTavolo?.checked && dati.link_tavolo);
-          if (rigaQr) rigaQr.style.display = acceso ? "" : "none";
-          if (rigaLink) rigaLink.style.display = acceso && modoQrOra === "unico" ? "" : "none";
-          if (rigaListaQr) rigaListaQr.style.display = acceso && modoQrOra !== "unico" ? "" : "none";
-          if (rigaStampaQr) rigaStampaQr.style.display = acceso ? "" : "none";
+          if (rigaScelta) rigaScelta.style.display = swTavolo?.checked && dati.sala_con_tavoli ? "" : "none";
+          /* ⚠️ Se il cliente non sceglie il tavolo (sala senza piano, o scelta
+             spenta) esiste SOLO il QR generico: un cartoncino «Table 7»
+             porterebbe a una pagina che il tavolo non lo chiede. */
+          const sceltaTavolo = Boolean(dati.sala_con_tavoli && (swScelta?.checked ?? true));
+          if (rigaLink) rigaLink.style.display = acceso ? "" : "none";
+          if (rigaSez) rigaSez.style.display = acceso && sceltaTavolo && (dati.qr_sezioni ?? []).length > 0 ? "" : "none";
+          if (rigaTav) rigaTav.style.display = acceso && sceltaTavolo && (dati.qr_tavoli ?? []).length > 0 ? "" : "none";
         }
-        accendiModoQr();
-        disegnaListaQr();
-        for (const b of bottoniQr) {
-          b.addEventListener("click", () => {
-            if (b.dataset.qr === modoQrOra) return;
-            modoQrOra = b.dataset.qr ?? "unico";
-            accendiModoQr();
-            disegnaListaQr();
-            aggiornaQr();
-            dirty();
-          });
-        }
+        swScelta?.addEventListener("change", () => aggiornaQr());
         const aggiornaRigaLink = () => {
           aggiornaQr();
         };
@@ -4401,6 +4960,19 @@ const t = adminT(lang);
         document
           .querySelectorAll<HTMLInputElement>('.section[data-tab="cuisine"] input[type="checkbox"][id^="o-"]')
           .forEach((el) => el.addEventListener("change", dirty));
+        // Fonte degli orari e giorni in anticipo: un bottone acceso per gruppo.
+        for (const sel of ["#o-slot-source", "#o-future-days", "#o-tips-type", "#o-delivery-delay", "#o-table-hours", "#o-table-extend", "#o-table-batch"]) {
+          document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((b) =>
+            b.addEventListener("click", () => {
+              if (b.classList.contains("active")) return;
+              document.querySelectorAll<HTMLButtonElement>(`${sel} .prep-btn`).forEach((x) => {
+                x.classList.toggle("active", x === b);
+                x.setAttribute("aria-pressed", x === b ? "true" : "false");
+              });
+              dirty();
+            }),
+          );
+        }
         document.querySelectorAll<HTMLButtonElement>("#o-table-call-wait .prep-btn").forEach((b) =>
           b.addEventListener("click", () => {
             if (b.classList.contains("active")) return;
@@ -4650,8 +5222,32 @@ const t = adminT(lang);
                 days,
                 prep_time_minutes: prepCorrente,
                 chiamata_attesa: Number(document.querySelector<HTMLButtonElement>("#o-table-call-wait .prep-btn.active")?.dataset.attesa ?? 5),
-                qr_modo: document.querySelector<HTMLButtonElement>("#o-table-qr-mode .prep-btn.active")?.dataset.qr ?? "unico",
+                // Gli orari della sala: il server rifiuta «Services» senza service.
+                sala_fonte: document.querySelector<HTMLButtonElement>("#o-table-hours .prep-btn.active")?.dataset.fonte ?? "hours",
+                sala_servizi: Array.from(document.querySelectorAll<HTMLButtonElement>("#o-table-services .prep-btn.active")).map((b) => b.dataset.v ?? ""),
+                sala_prolunga: Number(document.querySelector<HTMLButtonElement>("#o-table-extend .prep-btn.active")?.dataset.minuti ?? 0),
+                conto_finestra: Number(document.querySelector<HTMLButtonElement>("#o-table-batch .prep-btn.active")?.dataset.minuti ?? 1),
+                ritiro_fonte: document.querySelector<HTMLButtonElement>("#o-slot-source .prep-btn.active")?.dataset.fonte ?? "hours",
+                // Interruttore spento = 0 (solo oggi), qualunque bottone sia acceso sotto.
+                ritiro_giorni: (document.getElementById("o-future") as HTMLInputElement | null)?.checked
+                  ? Number(document.querySelector<HTMLButtonElement>("#o-future-days .prep-btn.active")?.dataset.giorni ?? 7)
+                  : 0,
                 slot_duration_minutes: Number(slotEl.value),
+                // In euro come scritti: la conversione (e il rifiuto) la fa il server.
+                consegna_costo: (document.getElementById("o-delivery-fee") as HTMLInputElement | null)?.value ?? "",
+                consegna_ritardo: Number(document.querySelector<HTMLButtonElement>("#o-delivery-delay .prep-btn.active")?.dataset.minuti ?? 45),
+                consegna_max: (document.getElementById("o-delivery-max") as HTMLInputElement | null)?.value ?? "",
+                // Le zone COME SCRITTE: il server pulisce, controlla e rifiuta.
+                consegna_zone: Array.from(document.querySelectorAll<HTMLElement>("#o-zones .cz-row")).map((r) => ({
+                  nome: (r.querySelector(".cz-nome") as HTMLInputElement).value,
+                  cap: (r.querySelector(".cz-cap") as HTMLInputElement).value,
+                  costo: (r.querySelector(".cz-costo") as HTMLInputElement).value,
+                })),
+                // Le mance: tipo e i tre valori COME SCRITTI (il server converte e rifiuta).
+                mance_tipo: document.querySelector<HTMLButtonElement>("#o-tips-type .prep-btn.active")?.dataset.tipo === "fixed" ? "fixed" : "percent",
+                mance_valori: Array.from(document.querySelectorAll<HTMLInputElement>(".o-tip-val")).map((c) => c.value),
+                consegna_minimo: (document.getElementById("o-delivery-min") as HTMLInputElement | null)?.value ?? "",
+                consegna_gratis: (document.getElementById("o-delivery-free") as HTMLInputElement | null)?.value ?? "",
                 kitchen_email: emailsCucina(),
                 // ⚠️ Interruttori: si mandano come veri/falsi. Il server li
                 // traduce in "1"/"0" e rifiuta di spegnerli tutti e due.
@@ -4662,6 +5258,12 @@ const t = adminT(lang);
                   orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_call: (document.getElementById("o-table-call") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_choose: (document.getElementById("o-table-choose") as HTMLInputElement | null)?.checked ?? true,
+                  orders_table_tab: (document.getElementById("o-table-tab") as HTMLInputElement | null)?.checked ?? false,
+                  orders_delivery: (document.getElementById("o-delivery") as HTMLInputElement | null)?.checked ?? false,
+                  orders_tips: (document.getElementById("o-tips") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_tips: (document.getElementById("o-table-tips") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_counter: (document.getElementById("o-table-counter") as HTMLInputElement | null)?.checked ?? false,
                   /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un
                      no esplicito, e va bene cosi': il ristoratore ha visto la
                      casella col valore vero e l'ha confermata. Per questo la

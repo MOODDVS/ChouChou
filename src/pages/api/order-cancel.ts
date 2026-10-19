@@ -4,6 +4,7 @@ import { leggi, aggiorna, tutteLeSedi, cercaAmbito, ambitoDiRiga } from "../../l
 import { stripeDi } from "../../lib/stripe";
 import { PUBLIC_LANG_CODES } from "../../lib/admin/superAdmin";
 import { inviaAnnulloCucina, inviaAnnullaOrdine, type OrdineNotifica } from "../../lib/notifications";
+import { consegnaDellOrdine } from "../../lib/consegnaOrdine";
 import { inviaPushAnnulloOrdine } from "../../lib/push";
 
 // Annullamento PUBBLICO di un ordine manuale non ancora pagato.
@@ -110,6 +111,8 @@ export const POST: APIRoute = async ({ request }) => {
     items: ((ordine as { items?: unknown }).items ?? []) as OrdineNotifica["items"],
     total_cents: Number((ordine as { total_cents?: unknown }).total_cents ?? 0),
     lang: String((ordine as { lang?: unknown }).lang ?? "fr"),
+    // Una consegna annullata dice «livraison» al cliente e alla cucina.
+    consegna: await consegnaDellOrdine(String(ordine.id), (ordine as { location_id?: string | null }).location_id ?? null),
   } satisfies OrdineNotifica;
 
   // Non bloccanti: il cliente ha gia' il suo annullo, e un server di posta

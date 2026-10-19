@@ -124,6 +124,9 @@
 }
 :where(.tbl-pagina .order-item-add)::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
 :where(.tbl-pagina .order-item-add:disabled) { opacity: .3; cursor: default; }
+/* L'articolo ESAURITO: tutta la scheda velata, non solo il bottone — si
+   capisce da lontano che non si puo' prendere (OrderApp: `order-item--esaurito`). */
+:where(.tbl-pagina .order-item--esaurito) { opacity: .45; }
 
 /* I formati in linea: ogni bottone dice cosa e quanto. */
 :where(.tbl-pagina .order-item-vars) { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
@@ -159,8 +162,12 @@
    coprirebbe a meta'. */
 :where(.tbl-pagina .order-mobcart) {
   position: fixed; z-index: 30;
-  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  max-width: 32rem; margin: 0 auto;
+  /* ⚠️ I bordi della COLONNA, non dello schermo (vedi la campanella in
+     PaginaTavolo.astro): su un tablet o un computer la pillola resta larga
+     quanto la carta e centrata con lei, invece di spostarsi a sinistra per
+     far posto a una campanella lontana. Sul telefono vince `1rem`. */
+  left: max(1rem, calc(50% - 16rem)); right: max(1rem, calc(50% - 16rem));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   display: flex; align-items: center; gap: .7rem;
   min-height: 56px; padding: .5rem 1.1rem .5rem .6rem;
   border: 0; border-radius: 999px;
@@ -170,7 +177,7 @@
 }
 /* Con la campanella «Appeler le serveur» a destra (56px, vedi table.astro),
    la barra si accorcia e le lascia il posto: le due cose non si coprono mai. */
-:where(.tbl-pagina--campanello .order-mobcart) { right: calc(1rem + 56px + .6rem); }
+:where(.tbl-pagina--campanello .order-mobcart) { right: calc(max(1rem, calc(50% - 16rem)) + 56px + .6rem); }
 /* ⚠️ Accorciata dalla campanella, su un telefono la barra non ha posto per
    «Voir le panier»: a 375px diventava «Voir le pa…» e il totale andava a
    capo su due righe («23,00 / €»). Sotto i 420px resta il numero, il totale
@@ -179,6 +186,9 @@
 :where(.tbl-pagina .order-mobcart-total) { white-space: nowrap; }
 @media (max-width: 419px) {
   :where(.tbl-pagina--campanello .order-mobcart-label) { visibility: hidden; }
+  /* «Payer» invece si legge sempre: senza la parola la pillola sarebbe solo
+     una cifra, e non si capirebbe che serve a pagare. */
+  :where(.tbl-pagina--campanello .order-mobcart--paga .order-mobcart-label) { visibility: visible; }
 }
 /* ---------- «Retour au menu» sul pannello dei dati: in fondo, fluttuante ----------
    ⚠️ Era la barra fissa in CIMA (la stessa delle categorie, con un solo
@@ -189,11 +199,12 @@
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout)) { padding-bottom: 6rem; }
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout) > .order-filterbar) {
   position: fixed; z-index: 30; top: auto;
-  left: 1rem; right: 1rem; bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  max-width: 32rem; margin: 0 auto; padding: 0;
+  left: max(1rem, calc(50% - 16rem)); right: max(1rem, calc(50% - 16rem));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  margin: 0; padding: 0;
   background: none; border: 0; transition: none;
 }
-:where(.tbl-pagina--campanello .order-wrap:has(.order-cart--checkout) > .order-filterbar) { right: calc(1rem + 56px + .6rem); }
+:where(.tbl-pagina--campanello .order-wrap:has(.order-cart--checkout) > .order-filterbar) { right: calc(max(1rem, calc(50% - 16rem)) + 56px + .6rem); }
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-filterbar-inner) { overflow: visible; }
 :where(.tbl-pagina .order-wrap:has(.order-cart--checkout) .order-tab) {
   flex: 1 1 auto; min-height: 56px; padding: .5rem 1.2rem;
@@ -480,3 +491,152 @@
   border-radius: .6rem; background: color-mix(in srgb, #c0392b 12%, transparent);
 }
 :where(.tbl-pagina .order-cart-note) { margin: .7rem 0 0; font-size: .8rem; text-align: center; color: var(--tbl-muted); }
+
+/* ---------- il conto aperto (conto-aperto.md) ----------
+   «Ouvrir un compte» sotto il pagamento: VUOTO, non pieno — pagare subito
+   resta la strada principale, e due bottoni pieni uno sotto l'altro non
+   dicono quale sia. */
+:where(.tbl-pagina .order-cart-conto) {
+  background: transparent; color: var(--tbl-ink);
+  box-shadow: inset 0 0 0 2px var(--tbl-ink); margin-top: .6rem;
+}
+:where(.tbl-pagina .order-conto-sotto) { margin-top: .45rem; }
+
+/* Il campo del codice per unirsi: corto (due cifre) e grande, accanto al bottone. */
+:where(.tbl-pagina .tbl-conto-unisciti) { display: flex; flex-direction: column; gap: .6rem; margin: .4rem 0 .8rem; }
+:where(.tbl-pagina .tbl-conto-codice) { display: flex; gap: .6rem; align-items: stretch; }
+:where(.tbl-pagina .tbl-conto-codice .tbl-input) {
+  flex: 0 0 6.5rem; text-align: center; font-size: 1.4rem; font-weight: 700; letter-spacing: .3em;
+}
+:where(.tbl-pagina .tbl-conto-codice .tbl-btn) { flex: 1 1 auto; margin: 0; }
+:where(.tbl-pagina .tbl-conto-err) { margin: 0; color: #e0786c; font-weight: 600; font-size: .9rem; }
+:where(.tbl-pagina .tbl-conto-nonnostro) {
+  align-self: flex-start; padding: 0; border: 0; background: none;
+  color: var(--tbl-muted); text-decoration: underline; cursor: pointer; font-size: .88rem;
+}
+:where(.tbl-pagina .tbl-conto-nonnostro-t) { margin: 0; color: var(--tbl-muted); font-size: .85rem; }
+
+/* «Addition» nella barra del tavolo: una pillola vuota, accanto al numero. */
+:where(.tbl-pagina .tbl-conto-btn) {
+  margin-left: auto; min-height: 40px; padding: .35rem .95rem;
+  border: 1px solid var(--tbl-ink); border-radius: 999px;
+  background: transparent; color: var(--tbl-ink); font-weight: 700; cursor: pointer;
+}
+
+/* «Votre addition». */
+/* L'altezza fissa e i tre piani stanno in PaginaTavolo.astro (`.tbl-modale-box.tbl-conto`). */
+:where(.tbl-pagina .tbl-conto-stato) {
+  margin: 0 0 .5rem; padding: .65rem .8rem; border-radius: .6rem;
+  background: color-mix(in srgb, var(--tbl-ink) 14%, transparent); font-weight: 600; line-height: 1.35;
+}
+:where(.tbl-pagina .tbl-conto-stato.is-attesa) { background: color-mix(in srgb, #e6a23c 18%, transparent); }
+:where(.tbl-pagina .tbl-conto-ordinato) { margin: 0 0 .8rem; color: var(--tbl-muted); font-size: .9rem; }
+:where(.tbl-pagina .tbl-conto-invita) {
+  display: flex; gap: .9rem; align-items: center; margin: 0 0 1rem; padding: .8rem;
+  border: 1px solid var(--tbl-line); border-radius: .8rem;
+}
+/* Il QR su fondo BIANCO, sempre: su un tema scuro un QR nero non lo legge
+   nessun telefono (come i cartoncini di Assets). */
+:where(.tbl-pagina .tbl-conto-qr) { flex: 0 0 7.5rem; aspect-ratio: 1; padding: .45rem; background: #fff; border-radius: .4rem; }
+:where(.tbl-pagina .tbl-conto-qr svg) { display: block; width: 100%; height: 100%; }
+:where(.tbl-pagina .tbl-conto-lab) { margin: 0; font-size: .8rem; color: var(--tbl-muted); text-transform: uppercase; letter-spacing: .06em; }
+:where(.tbl-pagina .tbl-conto-code) { margin: .1rem 0 .2rem; font-size: 2.2rem; font-weight: 800; letter-spacing: .25em; line-height: 1.1; }
+:where(.tbl-pagina .tbl-conto-aiuto) { margin: 0; font-size: .82rem; color: var(--tbl-muted); line-height: 1.35; }
+:where(.tbl-pagina .tbl-conto-invio) { margin: 0 0 .9rem; }
+:where(.tbl-pagina .tbl-conto-invio-tit) {
+  display: flex; justify-content: space-between; gap: .6rem; margin: 0 0 .4rem;
+  font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--tbl-muted);
+}
+:where(.tbl-pagina .tbl-conto-invio-stato.is-cucina) { color: var(--tbl-ink); }
+:where(.tbl-pagina .tbl-conto-riga) { padding: .55rem 0; border-top: 1px solid var(--tbl-line); }
+:where(.tbl-pagina .tbl-conto-chi) { display: flex; justify-content: space-between; gap: .6rem; }
+:where(.tbl-pagina .tbl-conto-piatti) { margin: .25rem 0 0; padding: 0; list-style: none; font-size: .9rem; color: var(--tbl-muted); }
+:where(.tbl-pagina .tbl-conto-togli) {
+  margin-top: .35rem; padding: .2rem .7rem; border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: transparent; color: var(--tbl-text); font-size: .82rem; cursor: pointer;
+}
+:where(.tbl-pagina .tbl-conto-totale) {
+  display: flex; justify-content: space-between; margin: .4rem 0 .8rem; padding-top: .7rem;
+  border-top: 2px solid var(--tbl-line); font-size: 1.1rem; font-weight: 700;
+}
+:where(.tbl-pagina .tbl-conto-vuoto) { color: var(--tbl-muted); }
+:where(.tbl-pagina .tbl-conto-msg) { margin: 0 0 .6rem; font-weight: 600; text-align: center; }
+:where(.tbl-pagina .tbl-conto .tbl-btn) { width: 100%; }
+:where(.tbl-pagina .tbl-conto-ancora) {
+  display: block; width: 100%; margin-top: .5rem; padding: .7rem; border: 0; background: none;
+  color: var(--tbl-muted); text-decoration: underline; cursor: pointer;
+}
+
+/* «Payer l'addition» (fase 4): gia' pagato / in corso / resta, poi le tre
+   scelte come righe da toccare (nome a sinistra, cifra a destra) e la mancia
+   in pillole. Il secondo bottone («Demander l'addition») diventa vuoto: la
+   strada principale e' pagare. */
+:where(.tbl-pagina .tbl-conto-pagati) { margin: -.3rem 0 .8rem; font-size: .92rem; }
+:where(.tbl-pagina .tbl-conto-pagati p) { display: flex; justify-content: space-between; gap: .6rem; margin: .2rem 0; }
+:where(.tbl-pagina .tbl-conto-pagati .is-in-corso) { color: var(--tbl-muted); }
+:where(.tbl-pagina .tbl-conto-resta) { font-size: 1.05rem; }
+:where(.tbl-pagina .tbl-paga) { display: flex; flex-direction: column; gap: .5rem; margin: 0 0 .8rem; }
+:where(.tbl-pagina .tbl-paga-scelta) {
+  display: flex; justify-content: space-between; align-items: center; gap: .6rem; min-height: 52px; padding: .7rem .95rem;
+  border: 1px solid var(--tbl-line); border-radius: .7rem; background: transparent; color: var(--tbl-text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+:where(.tbl-pagina .tbl-paga-scelta.is-selected) { border-color: var(--tbl-ink); box-shadow: inset 0 0 0 1px var(--tbl-ink); }
+:where(.tbl-pagina .tbl-paga-mancia) { display: flex; flex-direction: column; gap: .4rem; margin-top: .3rem; }
+:where(.tbl-pagina .tbl-paga-mance) { display: flex; gap: .4rem; flex-wrap: wrap; }
+:where(.tbl-pagina .tbl-paga-mancia-btn) {
+  flex: 1 1 0; min-height: 44px; padding: .4rem .6rem; border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: transparent; color: var(--tbl-text); font: inherit; font-weight: 600; cursor: pointer;
+}
+:where(.tbl-pagina .tbl-paga-mancia-btn.is-selected) { background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); }
+:where(.tbl-pagina .tbl-conto .tbl-btn--vuoto) {
+  margin-top: .5rem; background: transparent; color: var(--tbl-ink); box-shadow: inset 0 0 0 2px var(--tbl-ink);
+}
+
+:where(.tbl-pagina .tbl-paga-o) {
+  display: flex; align-items: center; gap: .8rem; margin: .9rem 0 .4rem;
+  color: var(--tbl-muted); font-size: .85rem; text-transform: uppercase; letter-spacing: .08em;
+}
+:where(.tbl-pagina .tbl-paga-o)::before, :where(.tbl-pagina .tbl-paga-o)::after {
+  content: ""; flex: 1; border-top: 1px solid var(--tbl-line);
+}
+:where(.tbl-pagina .tbl-conto-piede .tbl-conto-totale) { margin-top: 0; border-top: 0; }
+:where(.tbl-pagina .tbl-conto-piede .tbl-conto-pagati) { margin-top: -.4rem; }
+/* «Payer · resto» in fondo: la pillola del carrello, a carrello vuoto. */
+:where(.tbl-pagina .order-mobcart--paga) { padding-left: 1.2rem; justify-content: space-between; }
+
+/* LA MANCIA nel pannello dell'ordine (OrderApp: `order-mancia`): le stesse
+   pillole di «Payer l'addition», quattro su una riga, la scelta piena.
+   ⚠️ Senza queste regole i bottoni restavano quelli grigi del browser. */
+:where(.tbl-pagina .order-mancia) { margin: .2rem 0 .6rem; }
+:where(.tbl-pagina .order-mancia-btns) { display: flex; gap: .4rem; }
+:where(.tbl-pagina .order-mancia-btn) {
+  flex: 1 1 0; min-width: 0; min-height: 44px; padding: .4rem .5rem;
+  border: 1px solid var(--tbl-line); border-radius: 999px;
+  background: transparent; color: var(--tbl-text);
+  font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer;
+}
+:where(.tbl-pagina .order-mancia-btn.is-selected) { background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); }
+
+/* ---------- «Article ajouté» ----------
+   Verde, breve, sopra la pillola in fondo (dove sta gia' il pollice), dentro
+   la colonna come lei. Entra, resta un attimo, esce: 1,4 s in tutto. Non si
+   tocca e non copre niente che serva (`pointer-events: none`). */
+:where(.tbl-pagina .order-aggiunto) {
+  position: fixed; z-index: 36;
+  left: 50%; bottom: calc(1rem + 56px + .7rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: .55rem 1.1rem; border-radius: 999px;
+  background: #2e9e5b; color: #fff; font-weight: 700; font-size: .95rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3); pointer-events: none; white-space: nowrap;
+  animation: tbl-aggiunto 1.4s ease forwards;
+}
+@keyframes tbl-aggiunto {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  12% { opacity: 1; transform: translate(-50%, 0); }
+  80% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.tbl-pagina .order-aggiunto) { animation: none; }
+}

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 import { cacheDel } from "../../../lib/cache";
+import { scadeOrariRitiro } from "../../../lib/schedule";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -15,11 +16,16 @@ import {
   type Ambito,
 } from "../../../lib/admin/sede";
 import { orfaniDelPiano, type SezioneOrfana } from "../../../lib/pianoSalaRegole";
-import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso } from "../../../lib/ordiniRegole";
+import { CHIAVI_ORDINI, RIPIEGO_ORDINI_SCELTA, acceso, manceInSala } from "../../../lib/ordiniRegole";
 import { opzioniTavolo, tavoliDiSala } from "../../../lib/ordiniOpzioni";
 import { attesaChiamata, ATTESE_CHIAMATA } from "../../../lib/chiamateRegole";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
-import { modoQr, MODI_QR, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
+import { sceltaQr, linkSezione, linkTavolo, sezioniConTavoli } from "../../../lib/qrRegole";
+import { fonteOrari, FONTI_ORARI, giorniAvanti, GIORNI_AVANTI, serviziDaConfig } from "../../../lib/ordiniGiorniRegole";
+import { finestraInvio, FINESTRE_INVIO } from "../../../lib/contoRegole";
+import { fonteSala, FONTI_SALA, prolungaSala, PROLUNGHE_SALA, serviziSalaDaConfig, serviziDellaSala } from "../../../lib/salaOrariRegole";
+import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
+import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
 
 export const prerender = false;
 
@@ -206,7 +212,21 @@ export const GET: APIRoute = async ({ request }) => {
     "kitchen_email",
     "orders_closed",
     "orders_table_call_wait",
-    "orders_table_qr_mode",
+    "orders_table_qr_sel",
+    "orders_table_hours",
+    "orders_table_services",
+    "orders_table_extend",
+    "orders_table_batch",
+    "orders_slot_source",
+    "orders_future_days",
+    "orders_delivery_min_cents",
+    "orders_delivery_free_cents",
+    "orders_delivery_fee_cents",
+    "orders_tips_type",
+    "orders_delivery_delay",
+    "orders_delivery_max",
+    "orders_delivery_zones",
+    "orders_tips_values",
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -251,6 +271,10 @@ export const GET: APIRoute = async ({ request }) => {
   const tavoliQr = linkTavoloBase ? await tavoliDiSala(ambito) : [];
   const sala = await opzioniTavolo(ambito);
   orders.orders_table_notify = sala.avvisa;
+  // Le mance al tavolo: vuota = come quelle del punto. Si rende il valore
+  // VERO (`manceInSala`), come sopra: un «spento» mostrato a chi le ha in sala
+  // diventerebbe la scelta al primo salvataggio.
+  orders.orders_table_tips = manceInSala(cfg.get("orders_table_tips"), orders.orders_tips);
 
   return json({
     days,
@@ -272,11 +296,58 @@ export const GET: APIRoute = async ({ request }) => {
     /* I minuti prima di poter richiamare il cameriere: gia' risolti col
        ripiego, come gli interruttori — la pagina non deve sapere che e' 5. */
     chiamata_attesa: attesaChiamata(cfg.get("orders_table_call_wait")),
+    /* Gli orari della SALA (`configSala`): la fonte, i service scelti (`null`
+       = tutti), il margine dopo la fine — gia' risolti. `sala_servizi_elenco`:
+       i service delle prenotazioni SALVATI, uno per chiave con i suoi orari,
+       per disegnare le pillole. `sala_servizi_orfani`: i scelti non esistono
+       piu' e la sala li sta seguendo tutti — la pagina lo dice. */
+    /* Il conto aperto: la finestra di raggruppamento degli invii, in minuti
+       (0, 1, 2, 5), gia' risolta col ripiego. L'interruttore sta in `orders`. */
+    conto_finestra: finestraInvio(cfg.get("orders_table_batch")),
+    sala_fonte: fonteSala(cfg.get("orders_table_hours")),
+    sala_servizi: serviziSalaDaConfig(cfg.get("orders_table_services")),
+    sala_prolunga: prolungaSala(cfg.get("orders_table_extend")),
+    sala_servizi_elenco: (() => {
+      const elenco: { key: string; orari: string[] }[] = [];
+      for (const sv of serviziDaConfig(cfg.get("reservation_services"))) {
+        const riga = elenco.find((x) => x.key === sv.key);
+        const orario = `${sv.from}–${sv.to}`;
+        if (riga) riga.orari.push(orario);
+        else elenco.push({ key: sv.key, orari: [orario] });
+      }
+      /* ⚠️ Nell'ordine della GIORNATA, non in quello in cui sono stati
+         scritti: «Soir» prima di «Midi» si legge come un errore. «HH:mm» si
+         ordina come testo. */
+      for (const x of elenco) x.orari.sort();
+      return elenco.sort((x, y) => x.orari[0].localeCompare(y.orari[0]));
+    })(),
+    sala_servizi_orfani: serviziDellaSala(
+      serviziDaConfig(cfg.get("reservation_services")),
+      serviziSalaDaConfig(cfg.get("orders_table_services")),
+    ).orfana,
+    /* Gli orari di ritiro: «hours» (apertura) o «services» (prenotazioni),
+       e fino a quanti giorni in anticipo (0 = solo oggi). Gia' risolti. */
+    ritiro_fonte: fonteOrari(cfg.get("orders_slot_source")),
+    ritiro_giorni: giorniAvanti(cfg.get("orders_future_days")),
+    /* Le soglie della consegna, in centesimi (0 = nessuna). La pagina le
+       scrive in euro: la conversione e' una sola, qui e nel PUT. */
+    consegna_minimo_cents: sogliaCents(cfg.get("orders_delivery_min_cents")),
+    consegna_gratis_cents: sogliaCents(cfg.get("orders_delivery_free_cents")),
+    consegna_costo_cents: sogliaCents(cfg.get("orders_delivery_fee_cents")),
+    consegna_ritardo: ritardoConsegna(cfg.get("orders_delivery_delay")),
+    consegna_max: maxConsegne(cfg.get("orders_delivery_max")),
+    consegna_zone: zoneDaConfig(cfg.get("orders_delivery_zones")),
+    /* Le mance: tipo e tre valori gia' risolti (percentuali intere o
+       centesimi), col ripiego dentro — la pagina non deve sapere che e' 5/10/15. */
+    mance_tipo: tipoMance(cfg.get("orders_tips_type")),
+    mance_valori: valoriMance(tipoMance(cfg.get("orders_tips_type")), cfg.get("orders_tips_values")),
     /* ⚠️ «Questa sala ha dei tavoli?» e' un DATO, e la pagina lo dice invece
        di lasciarlo capire: senza, il ristoratore accende «ordinare dal
        locale», non vede nessuna scelta del tavolo nel modulo e pensa che sia
        un guasto. */
-    sala_con_tavoli: sala.conTavoli,
+    // Il PIANO ha dei tavoli (che si scelgano o no): decide se mostrare la
+    // riga «le client choisit sa table» e la nota «cette salle n'a pas de tables».
+    sala_con_tavoli: sala.tavoliNelPiano,
     /* ⚠️ IL LINK DEL QR LO SCRIVE IL SERVER, CON LA SEDE DENTRO. Un QR
        stampato vive anni su un tavolo: se puntasse a `/table` e basta,
        varrebbe per «la prima sede attiva» — giusto finche' ne e' accesa una
@@ -293,15 +364,16 @@ export const GET: APIRoute = async ({ request }) => {
        Lo riconosce `riconosciSede`, nello stesso posto dove si riconosce
        l'id. Senza slug (non dovrebbe succedere: e' obbligatorio) resta l'id. */
     link_tavolo: linkTavoloBase,
-    /* I QR della sala: il modo scelto, e i link per sezione e per tavolo —
-       scritti QUI, a partire dal link della sede, mai composti dalla pagina.
-       Vuoti con «tutte le sedi», come il link qui sopra. */
-    qr_modo: modoQr(cfg.get("orders_table_qr_mode")),
+    /* I QR della sala: i link per sezione e per tavolo — scritti QUI, a
+       partire dal link della sede, mai composti dalla pagina. Vuoti con
+       «tutte le sedi», come il link qui sopra. `qr_scelta`: quelli che
+       «Générer» ha salvato, per riaccendere le pillole all'apertura. */
+    qr_scelta: sceltaQr(cfg.get("orders_table_qr_sel")),
     qr_sezioni: linkTavoloBase
       ? sezioniConTavoli(tavoliQr).map((z) => ({ nome: z, link: linkSezione(linkTavoloBase, z) }))
       : [],
     qr_tavoli: linkTavoloBase
-      ? tavoliQr.map((t) => ({ sezione: t.zone, nome: t.name, link: linkTavolo(linkTavoloBase, t.id) }))
+      ? tavoliQr.map((t) => ({ id: t.id, sezione: t.zone, nome: t.name, link: linkTavolo(linkTavoloBase, t.id) }))
       : [],
     // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
     // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
@@ -405,8 +477,30 @@ export const PUT: APIRoute = async ({ request }) => {
     orders?: Record<string, boolean>;
     /** Minuti prima di poter richiamare il cameriere (1, 3, 5, 10). */
     chiamata_attesa?: number;
-    /** Il tipo di QR della sala: unico, per sezione, per tavolo. */
-    qr_modo?: string;
+    /** Orari della sala: "hours" | "services", i service scelti (chiavi; vuoto
+     *  = rifiutato con «services»), il margine in minuti (0, 30, 60, 90). */
+    sala_fonte?: string;
+    sala_servizi?: unknown;
+    sala_prolunga?: number;
+    /** Il conto aperto: minuti di raggruppamento degli invii (0, 1, 2, 5). */
+    conto_finestra?: number;
+    /** Da dove vengono gli orari di ritiro: "hours" o "services". */
+    ritiro_fonte?: string;
+    /** Giorni in anticipo per gli ordini da asporto: 0, 2, 7, 14, 30. */
+    ritiro_giorni?: number;
+    /** Soglie della consegna, IN EURO come le scrive il ristoratore. */
+    consegna_minimo?: string;
+    consegna_gratis?: string;
+    consegna_costo?: string;
+    /** Minuti di tragitto della consegna: 30, 45, 60, 90. */
+    consegna_ritardo?: number;
+    /** Consegne per orario, come scritte («2», vuoto = nessun limite). */
+    consegna_max?: unknown;
+    /** Le zone come scritte nella pagina: nome, codici, costo in €. */
+    consegna_zone?: unknown;
+    /** Le mance: "percent" | "fixed", e i tre valori come scritti nella pagina. */
+    mance_tipo?: string;
+    mance_valori?: unknown;
   };
   try {
     body = await request.json();
@@ -725,6 +819,28 @@ export const PUT: APIRoute = async ({ request }) => {
     if (!vuole("orders_pay_online") && !vuole("orders_pay_onsite")) {
       return json({ error: await msg("err.noPayment") }, 400);
     }
+    /* ⚠️ LA CONSEGNA SI ACCENDE SOLO SE IL DATABASE LA SA SALVARE (#84).
+       Senza la colonna dell'indirizzo il checkout rifiuterebbe ogni ordine con
+       consegna: il ristoratore vedrebbe l'interruttore acceso e nessun ordine
+       arrivare. Accenderlo e' il momento in cui qualcuno legge — lo si dice
+       adesso, non al primo cliente. */
+    /* Le mance, stesso cancello: senza la colonna (#86) il checkout non
+       saprebbe dove scrivere la mancia, e non salverebbe l'ordine. */
+    if (mappa.get("orders_tips") === "1" || mappa.get("orders_table_tips") === "1") {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "tip_cents").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.tipsMigration") }, 409);
+    }
+    /* Il conto aperto, stesso cancello (#87): senza le colonne del conto e la
+       tabella degli invii, «Ouvrir un compte» porterebbe a un errore davanti
+       al cliente seduto, col carrello pieno. */
+    if (mappa.get("orders_table_tab") === "1") {
+      const { error: senzaColonna } = await leggi("reservations", ambitoPut, "tab_status").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.tabMigration") }, 409);
+    }
+    if (mappa.get("orders_delivery") === "1") {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_address").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
+    }
     if (ordPulito.length > 0) {
       const err = await scriviConfig(ambitoPut, Object.fromEntries(ordPulito));
       if (err) return json({ error: await msg("err.generalSave") }, 500);
@@ -742,11 +858,120 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
-  if (body.qr_modo !== undefined && (MODI_QR as readonly string[]).includes(String(body.qr_modo))) {
-    const err = await scriviConfig(ambitoPut, { orders_table_qr_mode: String(body.qr_modo) });
+  // La finestra degli invii: solo valori dell'elenco, fuori elenco non si tocca.
+  if (body.conto_finestra !== undefined && (FINESTRE_INVIO as readonly number[]).includes(Number(body.conto_finestra))) {
+    const err = await scriviConfig(ambitoPut, { orders_table_batch: String(Number(body.conto_finestra)) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* GLI ORARI DELLA SALA. ⚠️ «Services» senza nessun service scelto e' una
+     sala chiusa per sempre con l'interruttore acceso: si rifiuta, e si dice
+     perche' (per spegnerla c'e' l'interruttore). Tutti scelti → si salva
+     VUOTO = «tutti»: un service aggiunto domani vale anche per la sala. */
+  if (body.sala_fonte !== undefined && (FONTI_SALA as readonly string[]).includes(String(body.sala_fonte))) {
+    const coppie: Record<string, string> = { orders_table_hours: String(body.sala_fonte) };
+    if (body.sala_servizi !== undefined) {
+      const scelti = serviziSalaDaConfig(body.sala_servizi) ?? [];
+      // ⚠️ Riletti ADESSO: lo stesso salvataggio puo' aver appena cambiato i
+      // service delle prenotazioni (il blocco `reservations` qui sopra).
+      const servRes = (await leggiConfig(ambitoPut, ["reservation_services"])).valori.get("reservation_services");
+      const tutti = [...new Set(serviziDaConfig(servRes).map((s) => s.key))];
+      if (body.sala_fonte === "services" && tutti.length > 0 && !scelti.some((k) => tutti.includes(k))) {
+        return json({ error: await msg("err.tableServices") }, 400);
+      }
+      coppie.orders_table_services = tutti.every((k) => scelti.includes(k)) ? "" : JSON.stringify(scelti.filter((k) => tutti.includes(k)));
+    }
+    if (body.sala_prolunga !== undefined) {
+      const v = Number(body.sala_prolunga);
+      if ((PROLUNGHE_SALA as readonly number[]).includes(v)) coppie.orders_table_extend = String(v);
+    }
+    const err = await scriviConfig(ambitoPut, coppie);
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  // ⚠️ Solo valori dell'elenco, come la campanella: un numero qualunque
+  // aprirebbe gli ordini per l'anno prossimo. Fuori elenco → non si tocca.
+  if (body.ritiro_fonte !== undefined && (FONTI_ORARI as readonly string[]).includes(String(body.ritiro_fonte))) {
+    const err = await scriviConfig(ambitoPut, { orders_slot_source: String(body.ritiro_fonte) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+  if (body.ritiro_giorni !== undefined) {
+    const v = Number(body.ritiro_giorni);
+    if (v === 0 || (GIORNI_AVANTI as readonly number[]).includes(v)) {
+      const err = await scriviConfig(ambitoPut, { orders_future_days: String(v) });
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
+    }
+  }
+
+  /* LE SOGLIE DELLA CONSEGNA, in euro dalla pagina → centesimi nel database.
+     ⚠️ Un importo illeggibile si RIFIUTA, non si azzera: «50 euro» scritto
+     a lettere diventerebbe «nessun minimo», e il ristoratore lo scoprirebbe
+     al primo ordine da 8 € da portare dall'altra parte della citta'. */
+  for (const [campo, chiave] of [
+    ["consegna_costo", "orders_delivery_fee_cents"],
+    ["consegna_minimo", "orders_delivery_min_cents"],
+    ["consegna_gratis", "orders_delivery_free_cents"],
+  ] as const) {
+    if (body[campo] === undefined) continue;
+    const c = euroInCents(body[campo]);
+    if (c === null) return json({ error: await msg("err.deliveryAmount") }, 400);
+    /* ⚠️ UN COSTO SOLO SE IL DATABASE LO SA SCRIVERE (#85). Senza la colonna
+       il checkout non salverebbe nessuna consegna a pagamento: meglio dirlo
+       adesso, a chi sta scrivendo la cifra. */
+    if (campo === "consegna_costo" && c > 0) {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_fee_cents").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
+    }
+    const err = await scriviConfig(ambitoPut, { [chiave]: String(c) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  // Il tragitto della consegna: solo valori dell'elenco, fuori elenco non si tocca.
+  if (body.consegna_ritardo !== undefined && (RITARDI_CONSEGNA as readonly number[]).includes(Number(body.consegna_ritardo))) {
+    const err = await scriviConfig(ambitoPut, { orders_delivery_delay: String(Number(body.consegna_ritardo)) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* I FATTORINI: vuoto o 0 = nessun limite; un numero intero 1–50; tutto il
+     resto si RIFIUTA — «due» a lettere non deve diventare «nessun limite». */
+  if (body.consegna_max !== undefined) {
+    const t = String(body.consegna_max ?? "").trim();
+    const n = t === "" ? 0 : maxConsegne(t);
+    if (t !== "" && t !== "0" && n === 0) return json({ error: await msg("err.deliveryMax") }, 400);
+    const err = await scriviConfig(ambitoPut, { orders_delivery_max: String(n) });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* LE ZONE: pulite e controllate da `zoneDaPagina`. ⚠️ Un errore si dice con
+     il pezzo sbagliato («1o00», «1050 in due zone»): «zone non valide» e
+     basta lascerebbe il ristoratore a cercarlo fra trenta codici. */
+  if (body.consegna_zone !== undefined) {
+    const r = zoneDaPagina(body.consegna_zone);
+    if ("errore" in r) {
+      const chiave = { cap: "err.zoneCap", doppio: "err.zoneDouble", costo: "err.zoneFee", troppe: "err.zoneTooMany" }[r.errore];
+      return json({ error: `${await msg(chiave)}${r.dettaglio ? ` (${r.dettaglio})` : ""}` }, 400);
+    }
+    // Un costo di zona ha bisogno della stessa colonna del costo unico (#85).
+    if (r.zone.some((z) => (z.costo_cents ?? 0) > 0)) {
+      const { error: senzaColonna } = await leggi("orders", ambitoPut, "delivery_fee_cents").limit(1);
+      if (senzaColonna) return json({ error: await msg("err.deliveryMigration") }, 409);
+    }
+    const err = await scriviConfig(ambitoPut, { orders_delivery_zones: r.zone.length ? JSON.stringify(r.zone) : "" });
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
+  }
+
+  /* LE MANCE: tipo e tre valori, nelle unita' del tipo. ⚠️ Uno illeggibile
+     o fuori limite (oltre 50 %, oltre 100 €) → salvataggio rifiutato: un
+     bottone «100 %» scritto per sbaglio raddoppierebbe un conto. */
+  if (body.mance_tipo !== undefined && body.mance_valori !== undefined) {
+    const tipo = tipoMance(body.mance_tipo);
+    const valori = valoriDaPagina(tipo, body.mance_valori);
+    if (!valori) return json({ error: await msg("err.tipsAmount") }, 400);
+    const err = await scriviConfig(ambitoPut, { orders_tips_type: tipo, orders_tips_values: valori.join(",") });
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito
+  scadeOrariRitiro(); // fonte e giorni del ritiro: il sito li deve vedere subito
   return json({ ok: true, tavoli_orfani: orfani });
 };

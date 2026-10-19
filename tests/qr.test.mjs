@@ -1,25 +1,47 @@
 /**
- * I QR DELLA SALA — unico, per sezione, per tavolo (`src/lib/qrRegole.ts`,
+ * I QR DELLA SALA — unico, per sezione, per tavolo, e quali si stampano (`src/lib/qrRegole.ts`,
  * `src/lib/qrSvg.ts`, Réglages > Cuisine, pagina `/table`).
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import {
-  modoQr, linkSezione, linkTavolo, tavoliDellaZona, sezioniConTavoli, MODI_QR,
+  linkSezione, linkTavolo, tavoliDellaZona, sezioniConTavoli,
+  sceltaQr, sceltaQrDaSalvare, cartonciniScelti, MAX_SCELTA_QR,
 } from "../src/lib/qrRegole.ts";
 import { qrSvg } from "../src/lib/qrSvg.ts";
 
 const leggi = (f) => readFileSync(f, "utf8");
+const nudo = (f) => leggi(f).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const BASE = "https://resto.be/table?sede=schaerbeek";
 
-test("il modo: tre valori, e qualunque altra cosa e' il QR unico di prima", () => {
-  assert.deepEqual([...MODI_QR], ["unico", "sezione", "tavolo"]);
-  assert.equal(modoQr("sezione"), "sezione");
-  assert.equal(modoQr("tavolo"), "tavolo");
-  assert.equal(modoQr(""), "unico");
-  assert.equal(modoQr("boh"), "unico");
-  assert.equal(modoQr(undefined), "unico");
+test("la scelta: si legge da JSON o da oggetto, e una illeggibile e' vuota", () => {
+  assert.deepEqual(sceltaQr('{"sezioni":["Salle"],"tavoli":["a","b"]}'), { sezioni: ["Salle"], tavoli: ["a", "b"] });
+  assert.deepEqual(sceltaQr({ sezioni: [" Salle ", "Salle", "", 3], tavoli: "a" }), { sezioni: ["Salle"], tavoli: [] });
+  assert.deepEqual(sceltaQr("boh"), { sezioni: [], tavoli: [] });
+  assert.deepEqual(sceltaQr(undefined), { sezioni: [], tavoli: [] });
+  const tanti = Array.from({ length: MAX_SCELTA_QR + 50 }, (_, i) => `t${i}`);
+  assert.equal(sceltaQr({ tavoli: tanti }).tavoli.length, MAX_SCELTA_QR);
+  assert.equal(sceltaQrDaSalvare({ sezioni: ["Salle"], altro: 1 }), '{"sezioni":["Salle"],"tavoli":[]}');
+});
+
+test("i cartoncini: l'unico sempre, poi le sezioni e i tavoli scelti, solo se esistono", () => {
+  const tavoli = [
+    { id: "1", name: "T1", zone: "Salle" },
+    { id: "2", name: "T2", zone: "Salle" },
+    { id: "3", name: "E1", zone: "1er étage" },
+  ];
+  const scelta = { sezioni: ["1er étage", "Sparita"], tavoli: ["2", "zzz"] };
+  const c = cartonciniScelti(BASE, tavoli, scelta, true);
+  assert.deepEqual(c.map((x) => [x.genere, x.titolo]), [["unico", ""], ["sezione", "1er étage"], ["tavolo", "T2"]],
+    "una sezione rinominata o un tavolo cancellato non fanno un cartoncino verso il niente");
+  assert.equal(c[0].link, BASE);
+  assert.equal(c[2].link, linkTavolo(BASE, "2"));
+  assert.equal(c[2].sotto, "Salle");
+  // Scelta vuota: solo l'unico.
+  assert.deepEqual(cartonciniScelti(BASE, tavoli, { sezioni: [], tavoli: [] }, true).map((x) => x.genere), ["unico"]);
+  // ⚠️ Senza scelta del tavolo, solo l'unico, qualunque cosa sia salvata.
+  assert.deepEqual(cartonciniScelti(BASE, tavoli, scelta, false).map((x) => x.genere), ["unico"]);
 });
 
 test("i link partono da quello della sede e ci aggiungono il loro pezzo", () => {
@@ -55,14 +77,44 @@ test("la pagina del tavolo legge ?zone= e filtra con la regola", () => {
   assert.match(pag, /tavoli=\{tavoliDellaZona\(tavoli, zonaDaUrl\)\}/);
 });
 
-test("Réglages: il tipo si salva, i link li scrive il server, «Voir» porta in Assets", () => {
+test("Réglages: tre generatori, le pillole accese sono la scelta salvata, «Générer» la salva", () => {
   const api = leggi("src/pages/api/admin/settings.ts");
-  assert.match(api, /qr_modo: modoQr\(cfg\.get\("orders_table_qr_mode"\)\)/);
-  assert.match(api, /if \(body\.qr_modo !== undefined && \(MODI_QR as readonly string\[\]\)\.includes\(String\(body\.qr_modo\)\)\)/);
+  // I tavoli arrivano con l'id: e' quello che si salva.
+  assert.match(api, /tavoliQr\.map\(\(t\) => \(\{ id: t\.id, sezione: t\.zone, nome: t\.name, link: linkTavolo\(linkTavoloBase, t\.id\) \}\)\)/);
+  assert.match(api, /qr_scelta: sceltaQr\(cfg\.get\("orders_table_qr_sel"\)\),/);
+  // Il vecchio «tipo» non c'e' piu'.
+  assert.doesNotMatch(nudo("src/pages/api/admin/settings.ts"), /qr_modo|orders_table_qr_mode/);
   const set = leggi("src/pages/admin/settings.astro");
   // I nomi li scrive il ristoratore: mai in innerHTML.
-  assert.match(set, /nome\.textContent = v\.nome;/);
-  assert.match(set, /<a class="kemail-add" id="o-table-qr-see" href="\/admin\/assets\?tab=qr">/);
+  assert.match(set, /t\.textContent = testo;/);
+  // All'apertura, le pillole dalla scelta salvata.
+  assert.match(set, /pillola\(z\.nome, z\.nome, sezSalvate\.has\(z\.nome\)\)/);
+  assert.match(set, /pillola\(t\.id, t\.nome, tavSalvati\.has\(t\.id\)\)/);
+  // «Générer»: prima salva (sezioni e tavoli insieme), poi apre Assets.
+  const i = set.indexOf("const vaiAiQr = async");
+  assert.ok(i > 0);
+  const corpo = set.slice(i, set.indexOf("};", i));
+  assert.match(corpo, /fetch\("\/api\/admin\/qr", \{\s*method: "PUT"/);
+  assert.match(corpo, /body: JSON\.stringify\(\{ sezioni: spuntate\(boxSez\), tavoli: spuntate\(boxTav\) \}\)/);
+  assert.ok(corpo.indexOf("await fetch") < corpo.indexOf("location.href = `/admin/assets?tab=qr&vedi=${vedi}`"), "aperta prima del salvataggio, la scheda leggerebbe la scelta vecchia");
+  // ⚠️ Senza scelta del tavolo, solo il QR generico.
+  assert.match(nudo("src/pages/admin/settings.astro"), /rigaTav\.style\.display = acceso && sceltaTavolo &&/);
+});
+
+test("Assets: tre filtri, l'unico + la scelta salvata, filtrata sui tavoli veri", () => {
+  const qr = nudo("src/pages/api/admin/qr.ts");
+  assert.match(qr, /const scelta = sceltaQr\(cfg\.valori\.get\("orders_table_qr_sel"\)\);/);
+  assert.match(qr, /cartonciniScelti\(base, tavoli, scelta, sala\.conTavoli\)/);
+  assert.match(qr, /scriviConfig\(ambito, \{ orders_table_qr_sel: sceltaQrDaSalvare\(body\) \}\)/);
+  assert.doesNotMatch(qr, /searchParams\.get(All)?\("(modo|sel)"\)/, "la scelta si legge salvata, non dall'indirizzo");
+  assert.match(leggi("src/lib/admin/sedeRegole.ts"), /orders_table_qr_sel: "sede",/);
+  const as = nudo("src/pages/admin/assets.astro");
+  // Filtri, non tutto in uno: si vede un gruppo per volta, e si stampa quello.
+  assert.match(as, /<div class="tabs tabs-sub" id="qr-filtri">/);
+  assert.match(as, /qrGriglia\.innerHTML = carteDelFiltro\(\)\.map/);
+  assert.match(as, /let carte = carteDelFiltro\(\)\.map\(\(x\) => x\.c\);/);
+  // Un filtro senza QR non compare.
+  assert.match(as, /b\.hidden = !generi\.has\(b\.dataset\.qr as GenereQr\);/);
 });
 
 test("Assets › QR codes: si vedono, si copiano, si stampano", () => {

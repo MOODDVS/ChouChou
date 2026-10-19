@@ -2850,3 +2850,321 @@ create index if not exists table_calls_aperte
 
 grant select, insert, update, delete on public.table_calls to service_role;
 
+
+-- ------------------------------------------------------------
+-- #84 — 084_orders_delivery.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #84 — LA CONSEGNA: un terzo servizio, e l'indirizzo dove portarla.
+--
+--   service           text   'pickup' | 'table' | 'delivery'
+--   delivery_address  jsonb  { via, numero, box, cap, comune, note }
+--
+-- ⚠️ IL `check` SU `service` VA ALLARGATO, e non e' un dettaglio: la #82 lo
+-- ha scritto apposta per non far entrare un terzo valore «senza che nessuno
+-- decida cosa deve farne il ticket, il semaforo e le statistiche». Ora lo si
+-- decide: la consegna stampa «CONSEGNA» e l'indirizzo, non manda l'email «c'e'
+-- pronto, venite a prenderlo», e il semaforo dei ritardi resta quello del
+-- ritiro (l'ora c'e', ed e' una promessa).
+-- Senza questa migrazione un ordine con consegna NON entra: il checkout lo
+-- rifiuta invece di salvarlo come un ritiro — un sacchetto che resterebbe sul
+-- banco mentre il cliente lo aspetta a casa.
+--
+-- ⚠️ L'INDIRIZZO E' UN OGGETTO, NON UNA RIGA DI TESTO. Il fattorino legge la
+-- riga composta, ma le zone di consegna (i codici postali serviti) e il costo
+-- per zona dovranno leggere il CAP da solo: tagliarlo fuori da una stringa
+-- libera e' il modo in cui «1050» diventa il numero civico di qualcuno.
+-- La forma la fa rispettare l'API (`lib/consegnaRegole.ts`), che e' l'unica a
+-- scriverla: nessun `check` sul JSON, come per `repeat` delle note (#80).
+--
+-- ⚠️ NESSUN DEFAULT su `delivery_address`: NULL vuol dire «non e' una
+-- consegna», e tutte le righe gia' scritte lo sono.
+-- ============================================================
+alter table public.orders add column if not exists delivery_address jsonb;
+
+-- Il vincolo si rifa' per intero: un `check` non si allarga, si sostituisce.
+-- Idempotente — su un'installazione che ripassa le migrazioni lo ritrova gia'
+-- largo e lo riscrive uguale.
+alter table public.orders drop constraint if exists orders_service_check;
+alter table public.orders
+  add constraint orders_service_check check (service in ('pickup', 'table', 'delivery'));
+
+
+-- ------------------------------------------------------------
+-- #85 — 085_orders_delivery_fee.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #85 — IL COSTO DELLA CONSEGNA, scritto sull'ordine.
+--
+--   delivery_fee_cents  integer  quanto e' costata la consegna (0 = gratis,
+--                                o non e' una consegna)
+--
+-- ⚠️ UNA COLONNA E NON UNA RIGA FINTA IN `items`. Una riga «Livraison» fra i
+-- piatti finirebbe sul ticket della cucina, nei conteggi dei piatti venduti e
+-- — soprattutto — sparirebbe alla prima modifica dell'ordine dal pannello,
+-- che ricostruisce `items` dai piatti scelti: il totale scenderebbe del costo
+-- di consegna e il pannello proporrebbe di RIMBORSARLO.
+--
+-- ⚠️ `total_cents` RESTA IL TOTALE INCASSATO, consegna compresa: e' la cifra
+-- che Stripe ha preso o che la cassa deve chiedere. Questa colonna dice quanta
+-- parte di quel totale non e' cucina.
+--
+-- ⚠️ Il costo si salva com'era AL MOMENTO DELL'ORDINE: il ristoratore che
+-- domani lo alza non deve cambiare il conto di ieri.
+-- Default 0 e `not null`: tutte le righe gia' scritte non avevano consegna.
+-- ============================================================
+alter table public.orders add column if not exists delivery_fee_cents integer not null default 0;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'orders_delivery_fee_check' and conrelid = 'public.orders'::regclass
+  ) then
+    alter table public.orders
+      add constraint orders_delivery_fee_check check (delivery_fee_cents >= 0);
+  end if;
+end $$;
+
+
+-- ------------------------------------------------------------
+-- #86 — 086_orders_tip.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #86 — LA MANCIA, scritta sull'ordine.
+--
+--   tip_cents  integer  la mancia lasciata pagando online (0 = nessuna)
+--
+-- ⚠️ COME IL COSTO DELLA CONSEGNA (#85), UNA COLONNA E NON UNA RIGA IN
+-- `items`: fra i piatti finirebbe sul ticket e nei conteggi, e sparirebbe
+-- alla prima modifica dell'ordine dal pannello — che proporrebbe di
+-- rimborsarla.
+--
+-- ⚠️ `total_cents` RESTA IL TOTALE INCASSATO, mancia compresa: e' la cifra
+-- che Stripe ha preso. Questa colonna dice quanta parte di quel totale non e'
+-- cucina, e le statistiche la potranno togliere dal fatturato.
+-- Default 0 e `not null`: tutte le righe gia' scritte non avevano mance.
+-- ============================================================
+alter table public.orders add column if not exists tip_cents integer not null default 0;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'orders_tip_check' and conrelid = 'public.orders'::regclass
+  ) then
+    alter table public.orders
+      add constraint orders_tip_check check (tip_cents >= 0);
+  end if;
+end $$;
+
+
+-- ------------------------------------------------------------
+-- #87 — 087_conto_aperto.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #87 — IL CONTO APERTO AL TAVOLO (disegno: progetto, conto-aperto.md)
+--
+-- Si ordina dal tavolo senza pagare subito: il primo invio lo valida il
+-- personale, gli altri partono da soli, si paga alla fine.
+--
+-- ⚠️ IL CONTO E' LA SESSIONE DEL TAVOLO CHE ESISTE GIA': la prenotazione
+-- «seated» che `/api/table-session` apre al primo ordine dal QR. Non una
+-- tabella nuova: il piano sala, i coperti e `table_minutes` la conoscono gia',
+-- e un conto in un posto diverso sarebbe una seconda verita' sullo stesso
+-- tavolo. Qui le si aggiunge solo cio' che serve al conto:
+--
+--   reservations.tab_status        NULL = nessun conto (ordine «a ogni giro»,
+--                                  o prenotazione normale) |
+--                                  'pending' (aperto, primo invio da validare) |
+--                                  'open' (validato) | 'closed'
+--   reservations.tab_code          il codice a 2 cifre per unirsi («07»)
+--   reservations.tab_table_id      il tavolo su cui e' stato aperto
+--   reservations.tab_people        le persone dichiarate all'apertura
+--   reservations.tab_validated_at  quando il personale ha validato
+--   reservations.tab_closed_at     quando il conto e' stato chiuso
+--   reservations.tab_fails         tentativi di codice sbagliati di fila…
+--   reservations.tab_fails_at      …e l'ora dell'ultimo: oltre un tetto ci si
+--                                  blocca per qualche minuto (100 codici si
+--                                  proverebbero tutti in un attimo)
+--
+-- ⚠️ UN SOLO CONTO APERTO PER TAVOLO, GARANTITO QUI e non nella pagina: due
+-- amici che premono «Ouvrir un compte» nello stesso secondo devono trovare
+-- un vincitore, e solo il database lo sa decidere. Il secondo riceve
+-- «gia' aperto» e si unisce col codice. Indice unico PARZIALE: i conti
+-- chiusi non contano, il tavolo si riapre la sera dopo.
+--
+--   table_rounds   GLI INVII: un ticket per invio al tavolo, non per ordine.
+--                  Quattro amici che ordinano ognuno dal suo telefono fanno
+--                  quattro ordini (chi ha preso cosa, chi paga cosa) e UN
+--                  ticket. Il primo invio aspetta la validazione
+--                  (`release_at` NULL); gli altri partono alla fine della
+--                  finestra di raggruppamento (`orders_table_batch`).
+--   orders.round_id   l'invio a cui l'ordine appartiene
+--   orders.payment_method   accetta 'tab': non pagato, sul conto. ⚠️ Un
+--                  valore SUO e non 'onsite': un 'onsite' in attesa esce
+--                  subito in cucina (`daStampare`), e il primo invio di un
+--                  conto non deve uscire prima della validazione.
+--
+-- ⚠️ IL GRANT AL service_role E' OBBLIGATORIO (vedi #83): senza, il server
+-- non puo' scrivere gli invii.
+--
+--   table_calls.reason   perche' il tavolo chiama: 'call' (il cameriere,
+--                  com'era) | 'bill' («Demander l'addition»). Default 'call':
+--                  le righe gia' scritte erano tutte chiamate.
+--
+-- I pagamenti del conto (parti uguali, «tout le reste») arriveranno con la
+-- loro migrazione nella fase del pagamento online.
+--
+-- Idempotente: rilanciarla e' sicuro.
+-- ============================================================
+
+alter table public.reservations
+  add column if not exists tab_status       text,
+  add column if not exists tab_code         text,
+  add column if not exists tab_table_id     uuid,
+  add column if not exists tab_people       integer,
+  add column if not exists tab_validated_at timestamptz,
+  add column if not exists tab_closed_at    timestamptz,
+  add column if not exists tab_fails        integer not null default 0,
+  add column if not exists tab_fails_at     timestamptz;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint
+                 where conname = 'reservations_tab_status_check' and conrelid = 'public.reservations'::regclass) then
+    alter table public.reservations
+      add constraint reservations_tab_status_check
+      check (tab_status is null or tab_status in ('pending', 'open', 'closed'));
+  end if;
+  if not exists (select 1 from pg_constraint
+                 where conname = 'reservations_tab_code_check' and conrelid = 'public.reservations'::regclass) then
+    alter table public.reservations
+      add constraint reservations_tab_code_check
+      check (tab_code is null or tab_code ~ '^[0-9]{2}$');
+  end if;
+  if not exists (select 1 from pg_constraint
+                 where conname = 'reservations_tab_people_check' and conrelid = 'public.reservations'::regclass) then
+    alter table public.reservations
+      add constraint reservations_tab_people_check
+      check (tab_people is null or (tab_people >= 1 and tab_people <= 100));
+  end if;
+end $$;
+
+-- Un solo conto aperto (o da validare) per tavolo.
+create unique index if not exists reservations_un_conto_per_tavolo
+  on public.reservations (tab_table_id) where tab_status in ('pending', 'open');
+
+create table if not exists public.table_rounds (
+  id             uuid primary key default gen_random_uuid(),
+  location_id    uuid null references public.locations(id) on delete restrict,
+  reservation_id uuid not null references public.reservations(id) on delete cascade,
+  number         integer not null check (number >= 1),
+  status         text not null default 'waiting' check (status in ('waiting', 'released')),
+  -- Quando parte: NULL = aspetta la validazione (primo invio); altrimenti la
+  -- fine della finestra di raggruppamento.
+  release_at     timestamptz,
+  released_at    timestamptz,
+  created_at     timestamptz not null default now(),
+  unique (reservation_id, number)
+);
+
+-- «Quali invii devono partire adesso?»: solo quelli in attesa.
+create index if not exists table_rounds_in_attesa
+  on public.table_rounds (release_at) where status = 'waiting';
+
+grant select, insert, update, delete on public.table_rounds to service_role;
+
+alter table public.orders
+  add column if not exists round_id uuid references public.table_rounds(id) on delete set null;
+
+create index if not exists orders_round on public.orders (round_id) where round_id is not null;
+
+-- Il vincolo si rifa' (drop + add): PostgreSQL non lo sa allargare sul posto.
+alter table public.orders drop constraint if exists orders_payment_method_check;
+
+alter table public.orders add constraint orders_payment_method_check
+  check (payment_method in ('cash', 'card', 'link', 'onsite', 'tab'));
+
+-- «Demander l'addition» passa dalla campanella: la stessa coda, un motivo in piu'.
+alter table public.table_calls add column if not exists reason text not null default 'call';
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint
+                 where conname = 'table_calls_reason_check' and conrelid = 'public.table_calls'::regclass) then
+    alter table public.table_calls
+      add constraint table_calls_reason_check check (reason in ('call', 'bill'));
+  end if;
+end $$;
+
+
+-- ------------------------------------------------------------
+-- #88 — 088_conto_pagamenti.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #88 — I PAGAMENTI DEL CONTO APERTO (fase 4, conto-aperto.md)
+--
+-- Si paga l'addizione dal telefono: «Ce que j'ai commandé», «Une part
+-- égale», «Tout le reste». ⚠️ Le parti uguali e il resto NON corrispondono a
+-- ordini precisi: un pagamento non e' un ordine, ed e' una riga sua.
+--
+--   table_payments   un pagamento sul conto (la prenotazione «seated»)
+--     kind           'mine' (i propri ordini) | 'share' (una parte uguale) |
+--                    'rest' (tutto il resto) | 'staff' (incassato dal
+--                    personale, contanti o carta, alla chiusura)
+--     method         'online' | 'cash' | 'card'
+--     status         'pending' (pagamento online in corso: l'importo e'
+--                    PRENOTATO fino a `hold_until`) | 'paid' | 'cancelled'
+--     amount_cents   quanto copre del conto, mancia ESCLUSA
+--     tip_cents      la mancia, a parte: non paga piatti
+--     order_ids      per 'mine': gli ordini che copre (cosi' «ce que j'ai
+--                    commandé» non si paga due volte)
+--     token          lo conosce solo il telefono che paga: serve ad annullare
+--                    tornando indietro da Stripe
+--     hold_until     = la scadenza della sessione Stripe. Dopo, la sessione
+--                    non si puo' piu' pagare, e l'importo torna libero.
+--
+-- ⚠️ DUE PERSONE CHE PAGANO NELLO STESSO ISTANTE: la parte che una sta
+-- pagando e' prenotata, e l'altra paga solo cio' che resta. Chi decide e'
+-- `reservations.tab_pay_lock`, un contatore che ogni prenotazione fa
+-- avanzare SOLO se nessuno l'ha mosso nel frattempo (`… where tab_pay_lock
+-- = v`). Chi perde annulla la sua riga e ricalcola.
+--
+--   reservations.tab_pay_lock    il contatore qui sopra
+--   reservations.tab_receipt_at  la ricevuta unica e' partita (una volta sola)
+--
+-- ⚠️ IL GRANT AL service_role E' OBBLIGATORIO (vedi #83).
+-- Idempotente: rilanciarla e' sicuro.
+-- ============================================================
+
+create table if not exists public.table_payments (
+  id                uuid primary key default gen_random_uuid(),
+  location_id       uuid null references public.locations(id) on delete restrict,
+  reservation_id    uuid not null references public.reservations(id) on delete cascade,
+  kind              text not null check (kind in ('mine', 'share', 'rest', 'staff')),
+  method            text not null check (method in ('online', 'cash', 'card')),
+  status            text not null default 'pending' check (status in ('pending', 'paid', 'cancelled')),
+  amount_cents      integer not null check (amount_cents > 0),
+  tip_cents         integer not null default 0 check (tip_cents >= 0),
+  payer_name        text,
+  payer_email       text,
+  order_ids         uuid[] not null default '{}',
+  stripe_session_id text,
+  token             uuid not null default gen_random_uuid(),
+  hold_until        timestamptz,
+  created_at        timestamptz not null default now(),
+  paid_at           timestamptz
+);
+
+create index if not exists table_payments_conto on public.table_payments (reservation_id);
+create unique index if not exists table_payments_sessione
+  on public.table_payments (stripe_session_id) where stripe_session_id is not null;
+create unique index if not exists table_payments_token on public.table_payments (token);
+
+grant select, insert, update, delete on public.table_payments to service_role;
+
+alter table public.reservations
+  add column if not exists tab_pay_lock   integer not null default 0,
+  add column if not exists tab_receipt_at timestamptz;
+

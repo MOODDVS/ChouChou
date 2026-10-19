@@ -66,6 +66,17 @@ export interface OpzioniOrdini {
   tavolo: boolean;
   /** La campanella «Appeler le serveur» sulla pagina del tavolo. */
   chiamata: boolean;
+  /** Si puo' scegliere la consegna a domicilio (accanto al ritiro, che resta). */
+  consegna: boolean;
+  /** Le mance al momento di pagare online (tutti gli ordini). */
+  mance: boolean;
+  /** Col piano della sala, il cliente sceglie il suo tavolo. Spento: da' solo
+   *  il nome, come in una sala senza piano. */
+  sceltaTavolo: boolean;
+  /** «Ouvrir un compte»: si ordina dal tavolo e si paga alla fine. */
+  conto: boolean;
+  /** «Payer au comptoir»: al tavolo si ordina e si paga al banco. */
+  banco: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -94,6 +105,27 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      — un cliente che aspetta e non vede arrivare nessuno. Serve anche la
      migrazione #83: accenderlo e' il momento in cui la si controlla. */
   orders_table_call: "0",
+  /* ⚠️ SPENTA di ripiego: la consegna vuol dire qualcuno che esce col
+     sacchetto. Accesa da sola, un ristorante senza fattorino si troverebbe
+     ordini da portare a casa di gente che aspetta. Serve anche la #84. */
+  orders_delivery: "0",
+  /* ⚠️ SPENTE di ripiego: chiedere una mancia e' una scelta di tono del
+     ristorante, e comparire da sola nel checkout di nove siti sarebbe
+     l'ultima cosa che un ristoratore si aspetta. Serve anche la #86. */
+  orders_tips: "0",
+  /* ⚠️ ACCESO di ripiego: e' il comportamento di oggi — dove il piano ha dei
+     tavoli, il cliente sceglie il suo. Il ristoratore che non lo vuole (i
+     tavoli li assegna lui, o il cliente si sposta) lo spegne. */
+  orders_table_choose: "1",
+  /* ⚠️ SPENTO di ripiego: il conto aperto vuol dire la cucina che cucina
+     PRIMA di essere pagata, e un cameriere che valida il primo invio di ogni
+     tavolo. E' una scelta di servizio, non si accende da sola. Serve anche la
+     #87 (conto-aperto.md). */
+  orders_table_tab: "0",
+  /* ⚠️ SPENTO di ripiego: «Payer au comptoir» al tavolo vuol dire la cucina
+     che parte prima che qualcuno abbia pagato (come il ritiro pagato in
+     cassa). E' una scelta del locale, accesa da chi ha una cassa al banco. */
+  orders_table_counter: "0",
 };
 
 /**
@@ -109,12 +141,48 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
  */
 export const RIPIEGO_ORDINI_SCELTA: Record<string, ""> = {
   orders_table_notify: "",
+  /* LE MANCE AL TAVOLO: vuota = come le mance di tutto il punto
+     (`orders_tips`, Réglages › Paiements). E' il comportamento di prima: un
+     ristorante che le aveva accese le aveva anche in sala, e nessun merge
+     deve spegnergliele. "1"/"0" = una scelta della sala, che vince. Vedi
+     `manceInSala`. */
+  orders_table_tips: "",
 };
+
+/**
+ * Si chiede la mancia AL TAVOLO? La chiave della sala, se il ristoratore l'ha
+ * scelta; altrimenti quella di tutto il punto.
+ *
+ * ⚠️ Non `acceso(valore, "orders_table_tips")`: renderebbe `false` su una
+ * chiave mai scritta, e le mance sparirebbero dalla sala di chi le aveva.
+ */
+export function manceInSala(valore: unknown, globale: boolean): boolean {
+  const v = String(valore ?? "").trim();
+  if (v === "1") return true;
+  if (v === "0") return false;
+  return globale;
+}
 
 export const CHIAVI_ORDINI = [
   ...Object.keys(RIPIEGO_ORDINI),
   ...Object.keys(RIPIEGO_ORDINI_SCELTA),
 ];
+
+/**
+ * COME SI PAGA AL TAVOLO (deciso con Enzo il 18–19/10/2026). «Payer au
+ * retrait» di Paiements vale solo per l'asporto: al tavolo si paga con la
+ * carta ordinando, col conto aperto (anche da soli: «Payer sur place» e' il
+ * conto), oppure AL BANCO se la sala lo vuole («Payer au comptoir»,
+ * `orders_table_counter`): allora `locale` dice proprio quello.
+ * ⚠️ Senza nessuna delle tre, al tavolo non si puo' ordinare: `nessuno`.
+ */
+export function pagamentoAlTavolo<T extends { online: boolean; locale: boolean; nessuno: boolean }>(
+  m: T,
+  conto: boolean,
+  banco = false,
+): T {
+  return { ...m, locale: banco, nessuno: !m.online && !conto && !banco };
+}
 
 /** Un valore di `app_config` letto come interruttore, col suo ripiego. */
 export function acceso(valore: unknown, chiave: string): boolean {
@@ -229,6 +297,10 @@ export function avvisaChePronto(
      cliente che fissa il bancone. Chi invece ha i camerieri resta col
      silenzio di prima. */
   if (alTavolo(servizio) && !avvisaInSala) return false;
+  /* ⚠️ ALLA CONSEGNA NIENTE «VENEZ LA CHERCHER». Il cliente aspetta a casa:
+     dirgli che il piatto e' pronto al banco lo farebbe uscire per niente, e
+     incrociare il fattorino per strada. */
+  if (aConsegna(servizio)) return false;
   const t = new Date(String(pickupIso ?? "")).getTime();
   // ⚠️ Una data illeggibile non e' «adesso»: senza questa riga `NaN` farebbe
   // fallire il confronto e l'email partirebbe sempre, anche a mezzanotte.
@@ -255,7 +327,7 @@ export function ritardoAmmesso(min: unknown): boolean {
    ritardo mentre la gente mangia.
    ========================================================================== */
 
-export type Servizio = "pickup" | "table";
+export type Servizio = "pickup" | "table" | "delivery";
 
 /**
  * Di che servizio e' questo ordine.
@@ -265,7 +337,13 @@ export type Servizio = "pickup" | "table";
  * prima — ticket con l'ora, semaforo dei ritardi, email di ritiro.
  */
 export function servizioDi(valore: unknown): Servizio {
-  return String(valore ?? "") === "table" ? "table" : "pickup";
+  const v = String(valore ?? "");
+  return v === "table" || v === "delivery" ? v : "pickup";
+}
+
+/** Scorciatoia per chi deve solo sapere «va portato a casa?». */
+export function aConsegna(valore: unknown): boolean {
+  return servizioDi(valore) === "delivery";
 }
 
 /** Scorciatoia per chi deve solo sapere «e' uno in sala?». */

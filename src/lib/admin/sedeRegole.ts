@@ -80,6 +80,10 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   // «Appeler le serveur». ⚠️ Della SEDE: il tavolo 4 di Jourdan che suona sul
   // tablet di Stockel e' un cameriere che cerca un tavolo nel locale sbagliato.
   table_calls: "sede",
+  // Gli invii del conto aperto (#87): della SEDE, come gli ordini che raccolgono.
+  table_rounds: "sede",
+  // I pagamenti del conto aperto (#88): della SEDE, come il conto che pagano.
+  table_payments: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
@@ -540,6 +544,22 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // salvando, perche' il PUT manda tutto il modulo insieme.
   orders_pay_online: "sede",
   orders_pay_onsite: "sede",
+  orders_delivery: "sede",
+  orders_delivery_min_cents: "sede",  // spesa minima per la consegna
+  orders_delivery_free_cents: "sede", // consegna gratis da questa cifra
+  orders_delivery_fee_cents: "sede",  // quanto costa la consegna
+  orders_delivery_delay: "sede",      // minuti di tragitto, sopra la preparazione
+  orders_delivery_max: "sede",        // consegne per orario (fattorini), 0 = senza limite
+  orders_delivery_zones: "sede",      // codici postali serviti, con costo per zona
+  // Le mance: chiederle e' una scelta del PUNTO (lo snack si', il ristorante
+  // col servizio forse no).
+  orders_tips: "sede",
+  orders_tips_type: "sede",
+  orders_tips_values: "sede",
+  // Le mance AL TAVOLO: vuota = come `orders_tips` (`manceInSala`).
+  orders_table_tips: "sede",
+  // «Payer au comptoir» al tavolo: una scelta della sala del PUNTO.
+  orders_table_counter: "sede",
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
   /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo
@@ -550,7 +570,21 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // La campanella: chi ha qualcuno che guarda il tablet e' un PUNTO, non il gruppo.
   orders_table_call: "sede",
   orders_table_call_wait: "sede", // minuti prima di poter richiamare
-  orders_table_qr_mode: "sede",   // QR unico, per sezione o per tavolo
+  orders_table_choose: "sede",    // col piano, il cliente sceglie il tavolo (o da' solo il nome)
+  // Quando si ordina dal tavolo: orari d'apertura o service scelti, + margine.
+  // Della SEDE: Educazione ordina dal tavolo solo a pranzo, un altro punto no.
+  orders_table_hours: "sede",
+  // Il conto aperto (#87) e la finestra di raggruppamento degli invii: un
+  // punto lo usa, un altro col banco no.
+  orders_table_tab: "sede",
+  orders_table_batch: "sede",
+  orders_table_services: "sede",
+  orders_table_extend: "sede",
+  orders_table_qr_sel: "sede",    // quali QR di sezione e di tavolo si stampano (JSON)
+  // Orari di ritiro (d'apertura o dai service) e giorni in anticipo: sono
+  // della CUCINA che prepara, cioe' del punto.
+  orders_slot_source: "sede",
+  orders_future_days: "sede",
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",

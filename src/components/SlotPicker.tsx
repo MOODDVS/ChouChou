@@ -1,12 +1,26 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "../i18n/ui";
 import { urlConSede } from "../lib/sedeUrl";
+/* La fila dei giorni e' nuova: nessun sito la veste ancora. Specificita'
+   zero (`:where`), quindi qualunque regola del sito vince. */
+import "./SlotPicker.css";
 
 interface SlotPickerProps {
   onSelect?: (slot: string | null) => void;
+  /** Il giorno del ritiro (YYYY-MM-DD), quando il ristoratore ha aperto gli
+   *  ordini per i prossimi giorni (Réglages → Commandes). `null` = oggi, come
+   *  sempre. */
+  onGiorno?: (giorno: string | null) => void;
   lang?: "fr" | "en";
+  /** La lingua VERA della pagina, per i nomi dei giorni: il dizionario
+   *  pubblico ne ha due, i giorni si scrivono in tutte. */
+  lingua?: string;
   /** Il punto da cui si ritira. Vuoto = punto unico (vedi lib/sedeUrl). */
   sede?: string;
+  /** Ritiro o consegna: la consegna ha orari piu' tardi (preparazione +
+   *  tragitto, Réglages → «Délai de livraison»). Cambiando, orari e giorni si
+   *  richiedono e l'orario scelto si spegne. */
+  servizio?: "ritiro" | "consegna";
 }
 
 type Stato = "loading" | "ok" | "chiuso" | "errore";
@@ -16,46 +30,132 @@ type Stato = "loading" | "ok" | "chiuso" | "errore";
 // bottone per mostrarli/nasconderli tutti.
 const SLOT_VISIBILI = 12;
 
-export default function SlotPicker({ onSelect, lang = "fr", sede = "" }: SlotPickerProps) {
+/* «Oggi» e «Domani» si dicono a parole: «ven. 17 oct.» per oggi fa pensare. */
+const PAROLE_GIORNO: Record<string, [string, string]> = {
+  fr: ["Aujourd’hui", "Demain"],
+  en: ["Today", "Tomorrow"],
+  it: ["Oggi", "Domani"],
+  nl: ["Vandaag", "Morgen"],
+  es: ["Hoy", "Mañana"],
+  de: ["Heute", "Morgen"],
+};
+
+/* ⚠️ NESSUN ORARIO DI CONSEGNA non vuol dire «commandes fermées»: il ritiro
+   puo' essere ancora aperto (la consegna parte piu' tardi, o i fattorini sono
+   tutti fuori). Il messaggio di sempre farebbe andar via chi potrebbe ancora
+   passare a prenderla. */
+const CONSEGNA_CHIUSA: Record<string, string> = {
+  fr: "Plus de livraison possible pour ce jour — le retrait reste possible.",
+  en: "No more deliveries for this day — pickup is still available.",
+  it: "Nessuna consegna possibile per questo giorno — il ritiro resta possibile.",
+  nl: "Geen levering meer mogelijk voor deze dag — afhalen blijft mogelijk.",
+  es: "No quedan entregas para este día — la recogida sigue siendo posible.",
+};
+
+function etichettaGiorno(iso: string, oggi: string, lingua: string): string {
+  const parole = PAROLE_GIORNO[lingua] ?? PAROLE_GIORNO.fr;
+  const diff = Math.round((Date.parse(iso) - Date.parse(oggi)) / 86_400_000);
+  if (diff === 0) return parole[0];
+  if (diff === 1) return parole[1];
+  try {
+    // ⚠️ Mezzogiorno UTC letto in UTC: e' un giorno, non un istante, e un fuso
+    // a ovest lo farebbe scivolare al giorno prima.
+    return new Intl.DateTimeFormat(lingua, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    }).format(new Date(`${iso}T12:00:00Z`));
+  } catch {
+    return iso;
+  }
+}
+
+export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, sede = "", servizio = "ritiro" }: SlotPickerProps) {
   const conSede = (u: string) => urlConSede(u, sede);
+  // Il servizio viaggia con ogni richiesta: senza, una consegna vedrebbe gli
+  // orari del ritiro e il checkout ne rifiuterebbe i primi.
+  const conServizio = (u: string) => (servizio === "consegna" ? `${u}${u.includes("?") ? "&" : "?"}service=delivery` : u);
   const t = useTranslations(lang);
 
   const [stato, setStato] = useState<Stato>("loading");
   const [lunch, setLunch] = useState<string[]>([]);
   const [dinner, setDinner] = useState<string[]>([]);
   const [selezionato, setSelezionato] = useState<string | null>(null);
+  /* I giorni fra cui scegliere. Vuoto = finestra chiusa (solo oggi): il
+     selettore e' identico a prima, senza fila di giorni. */
+  const [giorni, setGiorni] = useState<string[]>([]);
+  const [oggi, setOggi] = useState("");
+  const [giorno, setGiorno] = useState<string | null>(null);
 
+  async function caricaSlots(data: string | null, vivo: () => boolean) {
+    setStato("loading");
+    try {
+      // ⚠️ Gli orari di ritiro sono di UN punto: senza sede erano quelli del primo.
+      const res = await fetch(data ? conSede(conServizio(`/api/slots?date=${data}`)) : conSede(conServizio("/api/slots")));
+      if (!res.ok) {
+        if (vivo()) setStato("errore");
+        return;
+      }
+      const d: { lunch: string[]; dinner: string[] } = await res.json();
+      if (!vivo()) return;
+      if (d.lunch.length === 0 && d.dinner.length === 0) {
+        setStato("chiuso");
+      } else {
+        setLunch(d.lunch);
+        setDinner(d.dinner);
+        setStato("ok");
+      }
+    } catch {
+      if (vivo()) setStato("errore");
+    }
+  }
+
+  // 1. Quali giorni? (all'apertura, e di nuovo se cambia il punto)
   useEffect(() => {
     let attivo = true;
-
-    async function caricaSlots() {
+    const vivo = () => attivo;
+    (async () => {
+      let lista: string[] = [];
+      let finestra = 0;
       try {
-        // ⚠️ Gli orari di ritiro sono di UN punto: senza sede erano quelli del primo.
-        const res = await fetch(conSede("/api/slots"));
-        if (!res.ok) {
-          if (attivo) setStato("errore");
-          return;
-        }
-        const data: { lunch: string[]; dinner: string[] } = await res.json();
-        if (!attivo) return;
-
-        if (data.lunch.length === 0 && data.dinner.length === 0) {
-          setStato("chiuso");
-        } else {
-          setLunch(data.lunch);
-          setDinner(data.dinner);
-          setStato("ok");
+        const res = await fetch(conSede(conServizio("/api/slots?days=1")));
+        if (res.ok) {
+          const d: { avanti?: number; oggi?: string; giorni?: string[] } = await res.json();
+          finestra = d.avanti ?? 0;
+          lista = d.giorni ?? [];
+          if (attivo) setOggi(d.oggi ?? "");
         }
       } catch {
-        if (attivo) setStato("errore");
+        // Senza la lista dei giorni si ripiega su oggi: come prima.
       }
-    }
-
-    caricaSlots();
+      if (!attivo) return;
+      // Cambiando servizio l'orario scelto non vale piu': le 19:00 del ritiro
+      // possono non esistere per la consegna.
+      setSelezionato(null);
+      onSelect?.(null);
+      if (finestra > 0) {
+        setGiorni(lista);
+        if (lista.length === 0) {
+          setGiorno(null);
+          onGiorno?.(null);
+          setStato("chiuso");
+          return;
+        }
+        setGiorno(lista[0]);
+        onGiorno?.(lista[0]);
+        await caricaSlots(lista[0], vivo);
+      } else {
+        setGiorni([]);
+        setGiorno(null);
+        onGiorno?.(null);
+        await caricaSlots(null, vivo);
+      }
+    })();
     return () => {
       attivo = false;
     };
-  }, [sede]); // ⚠️ `sede`: se la pagina cambia punto, gli orari vanno richiesti di nuovo.
+  }, [sede, servizio]); // ⚠️ `sede` e `servizio`: cambiando punto o fra ritiro e consegna, giorni e orari si richiedono.
 
   function scegli(slot: string) {
     const nuovo = slot === selezionato ? null : slot;
@@ -63,43 +163,85 @@ export default function SlotPicker({ onSelect, lang = "fr", sede = "" }: SlotPic
     onSelect?.(nuovo);
   }
 
+  /* Cambiando giorno l'orario scelto non vale piu': le 19:30 di domani non
+     sono quelle di oggi, e un orario rimasto acceso finirebbe al checkout
+     col giorno sbagliato. */
+  function scegliGiorno(iso: string) {
+    if (iso === giorno) return;
+    setGiorno(iso);
+    onGiorno?.(iso);
+    setSelezionato(null);
+    onSelect?.(null);
+    caricaSlots(iso, () => true);
+  }
+
+  const filaGiorni =
+    giorni.length > 1 || (giorni.length === 1 && giorni[0] !== oggi) ? (
+      <div className="slotpicker-giorni" role="group">
+        {giorni.map((g) => (
+          <button
+            key={g}
+            type="button"
+            className={"slotpicker-giorno" + (g === giorno ? " is-selected" : "")}
+            aria-pressed={g === giorno}
+            onClick={() => scegliGiorno(g)}
+          >
+            {etichettaGiorno(g, oggi || giorni[0], lingua ?? lang)}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  let corpo;
   if (stato === "loading") {
-    return <p className="slotpicker-msg">{t("slot.loading")}</p>;
-  }
-  if (stato === "errore") {
-    return <p className="slotpicker-msg">{t("slot.error")}</p>;
-  }
-  if (stato === "chiuso") {
-    return <p className="slotpicker-msg">{t("slot.closed")}</p>;
+    corpo = <p className="slotpicker-msg">{t("slot.loading")}</p>;
+  } else if (stato === "errore") {
+    corpo = <p className="slotpicker-msg">{t("slot.error")}</p>;
+  } else if (stato === "chiuso") {
+    corpo = (
+      <p className="slotpicker-msg">
+        {servizio === "consegna" ? (CONSEGNA_CHIUSA[lingua ?? lang] ?? CONSEGNA_CHIUSA.fr) : t("slot.closed")}
+      </p>
+    );
+  } else {
+    // I label "Midi"/"Soir" servono solo con orario spezzato: se il servizio
+    // è continuato (una sola fascia con slot) si mostrano solo gli orari.
+    const spezzato = lunch.length > 0 && dinner.length > 0;
+    corpo = (
+      <div className="slotpicker">
+        {lunch.length > 0 && (
+          <FasciaSlot
+            key={`l-${giorno ?? ""}`}
+            titolo={spezzato ? t("slot.lunch") : null}
+            slots={lunch}
+            selezionato={selezionato}
+            onScegli={scegli}
+            labelPiu={t("slot.showAll")}
+            labelMeno={t("slot.showLess")}
+          />
+        )}
+
+        {dinner.length > 0 && (
+          <FasciaSlot
+            key={`d-${giorno ?? ""}`}
+            titolo={spezzato ? t("slot.dinner") : null}
+            slots={dinner}
+            selezionato={selezionato}
+            onScegli={scegli}
+            labelPiu={t("slot.showAll")}
+            labelMeno={t("slot.showLess")}
+          />
+        )}
+      </div>
+    );
   }
 
-  // I label "Midi"/"Soir" servono solo con orario spezzato: se il servizio
-  // è continuato (una sola fascia con slot) si mostrano solo gli orari.
-  const spezzato = lunch.length > 0 && dinner.length > 0;
-
+  // Senza scelta del giorno (finestra chiusa, o solo oggi) niente fila: come prima.
+  if (!filaGiorni) return corpo;
   return (
-    <div className="slotpicker">
-      {lunch.length > 0 && (
-        <FasciaSlot
-          titolo={spezzato ? t("slot.lunch") : null}
-          slots={lunch}
-          selezionato={selezionato}
-          onScegli={scegli}
-          labelPiu={t("slot.showAll")}
-          labelMeno={t("slot.showLess")}
-        />
-      )}
-
-      {dinner.length > 0 && (
-        <FasciaSlot
-          titolo={spezzato ? t("slot.dinner") : null}
-          slots={dinner}
-          selezionato={selezionato}
-          onScegli={scegli}
-          labelPiu={t("slot.showAll")}
-          labelMeno={t("slot.showLess")}
-        />
-      )}
+    <div className="slotpicker-col-giorni">
+      {filaGiorni}
+      {corpo}
     </div>
   );
 }

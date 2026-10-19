@@ -129,7 +129,8 @@ test("il coupon in cassa e' una scelta del ristoratore, non un automatismo", () 
   // silenzio: il cliente ha visto un totale scontato sullo schermo.
   assert.equal(acceso(undefined, "orders_coupons_onsite"), false);
   const chk = leggi("src/pages/api/checkout.ts");
-  assert.match(chk, /const couponAmmesso = modi\.coupon && \(!inCassa \|\| modi\.couponInCassa\);/);
+  // (sul conto aperto il codice si usa alla fine: `!sulConto`)
+  assert.match(chk, /const couponAmmesso = !sulConto && modi\.coupon && \(!inCassa \|\| modi\.couponInCassa\);/);
   assert.match(chk, /TXT_COUPON_SOLO_ONLINE/);
   // Vale solo se ENTRAMBI gli interruttori sono accesi.
   assert.match(leggi("src/lib/ordiniOpzioni.ts"), /couponInCassa: volute\.coupon && volute\.couponInCassa/);
@@ -145,7 +146,7 @@ test("la comanda non dice «pagato» su un ordine da incassare", () => {
   assert.match(n, /\$\{k\.toCollect\} · \$\{euro\(o\.total_cents\)\}/);
   // E il cliente deve sapere di uscire con i contanti.
   // Dal tavolo «à régler sur place», non «au retrait».
-  assert.match(n, /o\.da_incassare \? \(sala \? ts\.payOnSite : t\.payAtPickup\) : t\.total/);
+  assert.match(n, /o\.da_incassare \? \(sala \? ts\.payOnSite : (consegna \? tcc\.paga : )?t\.payAtPickup\) : t\.total/);
   // L'ordine in cassa lo dichiara: senza, la riga direbbe solo `pending`.
   assert.match(leggi("src/pages/api/checkout.ts"), /annunciaOrdine\(ordine, true\)/);
 });
@@ -156,7 +157,11 @@ test("con due strade aperte, la carta e' quella preselezionata", () => {
   const app = leggi("src/components/OrderApp.tsx");
   assert.match(app, /useState<"online" \| "onsite">\(\s*pagamento\.online \? "online" : "onsite",?\s*\)/);
   // La scelta compare solo dove c'e' da scegliere...
-  assert.match(app, /const scegliePagamento = pagamento\.online && pagamento\.locale;/);
+  // (sul conto aperto non si sceglie: si paga alla fine)
+  // (col conto aperto al tavolo «sur place» non si sceglie: e' il conto)
+  assert.match(app, /const scegliePagamento = !inSala && pagamento\.online && pagamento\.locale && !contoTav;/);
+  // (al tavolo niente pallini: il banco e' un secondo bottone, `paga(true)`)
+  assert.match(app, /const pagaInCassa = inSala\s*\? !pagamento\.online\s*: !pagamento\.online \|\| \(pagamento\.locale && modoPagamento === "onsite" && !contoTav\);/);
   // ...e il ripiego e' il comportamento di sempre, per i siti che non la
   // passano: niente elementi nuovi e nudi il giorno del merge.
   assert.match(app, /pagamento = \{ online: true, locale: false, coupon: true, couponInCassa: false \}/);
@@ -202,10 +207,11 @@ test("ogni payment_method scritto dal codice e' ammesso dal database", () => {
   // giorni — con gli switch e con il viewport — quindi vale come regola: un
   // test che cerca una stringa deve guardare il codice, non i commenti.
   const vincolo = readFileSync(
-    new URL("../supabase/075_orders_onsite_payment.sql", import.meta.url), "utf8")
+    // ⚠️ Il file dell'ULTIMO vincolo: la #87 l'ha allargato a 'tab' (conto aperto).
+    new URL("../supabase/087_conto_aperto.sql", import.meta.url), "utf8")
     .split("\n").filter((r) => !r.trim().startsWith("--")).join("\n");
   const m = vincolo.match(/check\s*\(\s*payment_method\s+in\s*\(([^)]+)\)/i);
-  assert.ok(m, "il check su `payment_method` non e' piu' riconoscibile in 075_orders_onsite_payment.sql");
+  assert.ok(m, "il check su `payment_method` non e' piu' riconoscibile in 087_conto_aperto.sql");
   const ammessi = new Set(m[1].split(",").map((x) => x.trim().replace(/^'|'$/g, "")));
 
   // Quello che il codice scrive davvero: `payment_method: "..."` negli insert.

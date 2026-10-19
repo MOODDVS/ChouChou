@@ -4,6 +4,7 @@ import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/ad
 import { ritardoAmmesso, RITARDI_MIN, alTavolo } from "../../../lib/ordiniRegole";
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { emailOrdineRitardato } from "../../../lib/notifications";
+import { consegnaDellOrdine } from "../../../lib/consegnaOrdine";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
 
@@ -117,6 +118,8 @@ export const POST: APIRoute = async ({ request }) => {
       lang: String(ord.lang ?? "fr"),
       ora_prima: primaIso,
       sala,
+      // Una consegna in ritardo dice «livraison décalée», non «retrait».
+      consegna: await consegnaDellOrdine(String(ord.id), conto.modo === "sede" ? conto.id : null),
     }).catch(() => {
       /* il ritardo resta valido anche se l'email non parte */
     });
