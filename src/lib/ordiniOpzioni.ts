@@ -34,6 +34,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       mance: acceso(valori.get("orders_tips"), "orders_tips"),
       sceltaTavolo: acceso(valori.get("orders_table_choose"), "orders_table_choose"),
       conto: acceso(valori.get("orders_table_tab"), "orders_table_tab"),
+      banco: acceso(valori.get("orders_table_counter"), "orders_table_counter"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
@@ -42,7 +43,7 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
        muto non deve spegnere gli ordini — da sempre si continua a prenderli —
        ma non puo' nemmeno ACCENDERE una sala a chi non ce l'ha: un QR che
        porta a un modulo senza tavoli e' peggio di una pagina che non c'e'. */
-    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false, mance: false, sceltaTavolo: true, conto: false };
+    return { online: true, locale: false, coupon: true, couponInCassa: false, tavolo: false, chiamata: false, avvisoScelto: "", consegna: false, mance: false, sceltaTavolo: true, conto: false, banco: false };
   }
 }
 
@@ -113,6 +114,8 @@ export interface OpzioniTavolo {
    *  E si sceglie il tavolo. ⚠️ Senza tavolo niente conto: vivrebbe solo nel
    *  telefono del cliente, e il codice non avrebbe un tavolo a cui valere. */
   conto: boolean;
+  /** «Payer au comptoir»: al tavolo si ordina e si paga al banco. */
+  banco: boolean;
 }
 
 /**
@@ -151,6 +154,7 @@ export async function opzioniTavolo(ambito: Ambito): Promise<OpzioniTavolo> {
     avvisa: avvisaIlCliente(opz.avvisoScelto, tavoliNelPiano),
     chiamata: opz.tavolo && opz.chiamata,
     conto: opz.tavolo && conTavoli && opz.conto,
+    banco: opz.tavolo && opz.banco,
   };
 }
 

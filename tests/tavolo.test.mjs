@@ -1437,7 +1437,7 @@ test("a fine giornata non si promette niente", () => {
 
 test("la sessione al tavolo si apre al momento di pagare, non prima", () => {
   // In OrderApp: dentro `paga()`, prima della chiamata a /api/checkout.
-  const iPaga = OAPP.indexOf("async function paga()");
+  const iPaga = OAPP.indexOf("async function paga(");
   const iApri = OAPP.indexOf("await tavolo.apriSessione(", iPaga);
   const iCheckout = OAPP.indexOf('conSede("/api/checkout")', iPaga);
   assert.ok(iPaga > 0 && iApri > iPaga, "la sessione non si apre piu' dentro paga()");
@@ -1464,7 +1464,7 @@ test("nome ed email si chiedono una volta sola", () => {
 
 test("pronto vuol dire un tavolo che esiste", () => {
   // Un `?table=` storto nel QR lascerebbe un testo che nessun tavolo conferma.
-  assert.match(TORD, /const pronto = Number\(persone\) >= 1 && \(!conTavoli \|\| scelto !== null\);/);
+  assert.match(TORD, /const pronto = !conTavoli \|\| \(Number\(persone\) >= 1 && scelto !== null\);/);
   // E al server va l'ID del tavolo scelto, mai il nome.
   assert.match(TORD, /\.\.\.\(conTavoli && scelto \? \{ table: scelto\.id \} : \{\}\)/);
 });
@@ -1596,7 +1596,7 @@ test("la vetrina si ferma al primo tocco, e non gira con «riduci movimento»", 
   assert.match(TORD, /<figcaption className="tbl-vetrina-nome">\{f\.nome\}<\/figcaption>/);
   assert.match(TPAG, /\.tbl-vetrina-nome \{[^}]*left: 0;[^}]*bottom: 0;[^}]*text-align: left;/);
   // Solo sul menu.
-  assert.match(TORD, /\{vista === "menu" && <Vetrina foto=\{vetrina\} nomi=\{testi\.titolo\} \/>\}/);
+  assert.match(TORD, /\{vista === "menu" && <Vetrina foto=\{vetrina\} nomi=\{testi\.titolo\} ariaAggiungi=\{testiOrdine\.ariaAdd\} \/>\}/);
 });
 
 test("il riquadro dei formati sale e scende, e aspetta solo se c'e' da aspettare", () => {
@@ -1757,7 +1757,7 @@ test("i tavoli aperti si ACCENDONO, non si spengono: ci si unisce agli amici", (
   // Unendosi, «quanti siete» non si chiede: lo dice la riga al suo posto.
   // (col conto aperto, di altri o mio, la riga la dice il conto: conto-aperto.md)
   assert.match(TORD, /\{siUnisce && !nelConto && !contoDiAltri && <p className="tbl-unito">\{testi\.tavoloUnito\}<\/p>\}/);
-  assert.match(TORD, /\{!siUnisce && !nelConto && !contoDiAltri && \(/);
+  assert.match(TORD, /\{conTavoli && !siUnisce && !nelConto && !contoDiAltri && \(/);
   assert.equal((TPAG.match(/\btavoloUnito: "/g) ?? []).length, 5);
   // Nella barra, le iniziali di chi c'e'.
   assert.match(TORD, /<span key=\{i\} className="tbl-avatar">\{i\}<\/span>/);

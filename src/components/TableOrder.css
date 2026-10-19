@@ -124,6 +124,9 @@
 }
 :where(.tbl-pagina .order-item-add)::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; }
 :where(.tbl-pagina .order-item-add:disabled) { opacity: .3; cursor: default; }
+/* L'articolo ESAURITO: tutta la scheda velata, non solo il bottone — si
+   capisce da lontano che non si puo' prendere (OrderApp: `order-item--esaurito`). */
+:where(.tbl-pagina .order-item--esaurito) { opacity: .45; }
 
 /* I formati in linea: ogni bottone dice cosa e quanto. */
 :where(.tbl-pagina .order-item-vars) { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }

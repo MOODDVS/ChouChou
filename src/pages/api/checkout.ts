@@ -254,9 +254,11 @@ export const POST: APIRoute = async ({ request }) => {
   if (sulConto && !sala?.conto) {
     return err(403, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
   }
-  /* ⚠️ AL TAVOLO MAI «SUR PLACE» A OGNI GIRO (`pagamentoAlTavolo`): o la
-     carta, o il conto aperto. Senza carta, fuori dal conto non si ordina. */
-  if (aTavolo && !sulConto && !modi.online) {
+  /* ⚠️ AL TAVOLO (`pagamentoAlTavolo`): la carta, il conto aperto, o il
+     banco se la sala lo vuole (`orders_table_counter`). Niente di questi,
+     fuori dal conto non si ordina. */
+  const alBanco = aTavolo && Boolean(sala?.banco);
+  if (aTavolo && !sulConto && !modi.online && !alBanco) {
     return err(503, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
   }
 
@@ -455,7 +457,9 @@ export const POST: APIRoute = async ({ request }) => {
   // (e il locale lo offre) si paga al ritiro; altrimenti vince la carta quando
   // e' possibile. Con un solo modo acceso non c'e' niente da scegliere e il
   // sito non deve chiedere nulla.
-  const inCassa = !sulConto && !aTavolo && modi.locale && (!modi.online || body.pay === "onsite");
+  const inCassa = !sulConto && (aTavolo
+    ? alBanco && (!modi.online || body.pay === "onsite")
+    : modi.locale && (!modi.online || body.pay === "onsite"));
 
   // ---- Code promo: validazione + sconto REALE, ricalcolato lato server ----
   // Non ci si fida mai dell'importo mandato dal browser: si rilegge il coupon

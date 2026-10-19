@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import OrderApp from "./OrderApp";
+import OrderApp, { EVENTO_AGGIUNGI } from "./OrderApp";
 import { urlConSede } from "../lib/sedeUrl";
 import { piattiInVetrina } from "../lib/vetrinaRegole";
 import { testoPiatto } from "../lib/i18nMenu";
@@ -307,7 +307,7 @@ function leggiSessione(): { id: string } | null {
  * Il nome sta in basso a sinistra, piccolo, su una sfumatura scura: si legge
  * su qualunque piatto, chiaro o scuro, senza coprire il piatto.
  */
-function Vetrina({ foto, nomi }: { foto: { id: string; src: string; nome: string }[]; nomi: string }) {
+function Vetrina({ foto, nomi, ariaAggiungi }: { foto: { id: string; src: string; nome: string }[]; nomi: string; ariaAggiungi: string }) {
   const binario = useRef<HTMLDivElement | null>(null);
   const toccato = useRef(false);
   const [indice, setIndice] = useState(0);
@@ -346,6 +346,23 @@ function Vetrina({ foto, nomi }: { foto: { id: string; src: string; nome: string
             <img src={f.src} alt="" width={1200} height={675}
                  loading={i === 0 ? "eager" : "lazy"} decoding="async" />
             {f.nome && <figcaption className="tbl-vetrina-nome">{f.nome}</figcaption>}
+            {/* «+»: il piatto della foto va nel carrello (o apre i formati),
+                con l'evento pubblico di OrderApp — la stessa strada di
+                qualunque bottone fuori dal carrello. Non sulla foto del
+                locale, che non e' un piatto. */}
+            {f.id !== "locale" && (
+              <button
+                type="button"
+                className="tbl-vetrina-piu"
+                aria-label={`${ariaAggiungi} ${f.nome}`}
+                onClick={() => {
+                  toccato.current = true;
+                  window.dispatchEvent(new CustomEvent(EVENTO_AGGIUNGI, { detail: { id: f.id } }));
+                }}
+              >
+                +
+              </button>
+            )}
           </figure>
         ))}
       </div>
@@ -552,7 +569,7 @@ export default function TableOrder({
   const siUnisce = scelto !== null && scelto.id !== mioGiaAperto && aperti.some((a) => a.id === scelto.id);
   /* ⚠️ «Pronto» vuol dire un tavolo che ESISTE, non un campo pieno: un
      `?table=` storto nel QR lascerebbe un testo che nessun tavolo conferma. */
-  const pronto = Number(persone) >= 1 && (!conTavoli || scelto !== null);
+  const pronto = !conTavoli || (Number(persone) >= 1 && scelto !== null);
   /* Le foto della vetrina: i piatti ordinabili che ne hanno una, col nome
      nella lingua della pagina. Nessuno → la foto del locale, senza nome. */
   const vetrina = (() => {
@@ -900,7 +917,8 @@ export default function TableOrder({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: chi.nome,
-          people: Number(persone),
+          // Senza tavoli i coperti non si chiedono: uno, per la sessione.
+          people: conTavoli ? Number(persone) : 1,
           /* ⚠️ L’ID del tavolo, mai il nome: due zone possono avere tutte e
              due un «3», e un tavolo rinominato stasera manderebbe i piatti
              altrove. */
@@ -1163,7 +1181,10 @@ export default function TableOrder({
           )}
         </div>
       )}
-      {!siUnisce && !nelConto && !contoDiAltri && (
+      {/* ⚠️ «Combien êtes-vous ?» SOLO quando si sceglie il tavolo: senza
+          tavolo non c'e' un posto a cui contare i coperti, e la domanda e' un
+          tocco in piu' che non serve a nessuno (19/10/2026). */}
+      {conTavoli && !siUnisce && !nelConto && !contoDiAltri && (
       <div className="tbl-campo">
         <span className="tbl-lab">{testi.persone}</span>
         {/* ⚠️ PASTIGLIE, non un campo numerico, ed e’ lo stesso modo del
@@ -1233,7 +1254,7 @@ export default function TableOrder({
           riepilogo e il bottone di pagamento sotto la piega, proprio quando
           il cliente sta per pagare. Se nessun piatto ha una foto, gira la
           foto del locale da sola; se non c'e' nemmeno quella, niente. */}
-      {vista === "menu" && <Vetrina foto={vetrina} nomi={testi.titolo} />}
+      {vista === "menu" && <Vetrina foto={vetrina} nomi={testi.titolo} ariaAggiungi={testiOrdine.ariaAdd} />}
 
       {/* ⚠️ A servizio chiuso il menu NON si monta: niente da scegliere, e un
           carrello riempito per niente e’ peggio di un modale che dice subito

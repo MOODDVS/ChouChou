@@ -1776,6 +1776,14 @@ const t = adminT(lang);
               <label>{t("set.ord.tableTips")}<span class="lab-hint">{t("set.ord.tableTipsHint")}</span></label>
               <label class="switch"><input type="checkbox" id="o-table-tips" /><span class="track"></span></label>
             </div>
+            {/* «PAYER AU COMPTOIR» (`orders_table_counter`): al tavolo, sotto
+                «Payer et commander», un secondo bottone per pagare al banco.
+                L'ordine parte in cucina subito, «à encaisser». ⚠️ Non e'
+                «Paiement sur place» di Paiements: quello e' dell'asporto. */}
+            <div class="field" id="o-table-counter-row" style="display:none">
+              <label>{t("set.ord.tableCounter")}<span class="lab-hint">{t("set.ord.tableCounterHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-counter" /><span class="track"></span></label>
+            </div>
             {/* «Appeler le serveur». ⚠️ Anche questa solo a sala accesa: la
                 campanella vive sulla pagina del tavolo, e senza quella pagina
                 non c'e' niente da toccare. */}
@@ -4426,6 +4434,7 @@ const t = adminT(lang);
         met("o-tips", "orders_tips");
         // Risolto dal server: mai scelto = come `orders_tips`.
         met("o-table-tips", "orders_table_tips");
+        met("o-table-counter", "orders_table_counter");
         // Le soglie in euro («50» e non «50,00»: si legge meglio, e si salva uguale).
         const inEuro = (c: unknown) => {
           const n = Number(c) || 0;
@@ -4586,6 +4595,8 @@ const t = adminT(lang);
         const aggiornaRigaAvviso = () => {
           if (rigaChiamata) rigaChiamata.style.display = swTavolo?.checked ? "" : "none";
           if (rigaManceSala) rigaManceSala.style.display = swTavolo?.checked ? "" : "none";
+          const rigaBanco = document.getElementById("o-table-counter-row");
+          if (rigaBanco) rigaBanco.style.display = swTavolo?.checked ? "" : "none";
           // L'attesa ha senso solo se la campanella c'e'.
           if (rigaAttesa) rigaAttesa.style.display = swTavolo?.checked && swChiamata?.checked ? "" : "none";
           if (!rigaAvviso) return;
@@ -5252,6 +5263,7 @@ const t = adminT(lang);
                   orders_delivery: (document.getElementById("o-delivery") as HTMLInputElement | null)?.checked ?? false,
                   orders_tips: (document.getElementById("o-tips") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_tips: (document.getElementById("o-table-tips") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_counter: (document.getElementById("o-table-counter") as HTMLInputElement | null)?.checked ?? false,
                   /* ⚠️ Salvare TRASFORMA la scelta da «non deciso» a un sì o un
                      no esplicito, e va bene cosi': il ristoratore ha visto la
                      casella col valore vero e l'ha confermata. Per questo la

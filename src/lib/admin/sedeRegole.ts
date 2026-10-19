@@ -558,6 +558,8 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   orders_tips_values: "sede",
   // Le mance AL TAVOLO: vuota = come `orders_tips` (`manceInSala`).
   orders_table_tips: "sede",
+  // «Payer au comptoir» al tavolo: una scelta della sala del PUNTO.
+  orders_table_counter: "sede",
   orders_coupons: "sede",
   orders_coupons_onsite: "sede",
   /* ⚠️ Anche la sala e' della SEDE, e qui il caso non e' teorico: un gruppo

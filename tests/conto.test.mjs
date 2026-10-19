@@ -486,7 +486,25 @@ test("al tavolo mai «sur place» a ogni giro: carta, oppure il conto", async ()
   assert.equal(pagamentoAlTavolo({ online: false, locale: true, nessuno: false }, true).nessuno, false);
   assert.equal(pagamentoAlTavolo({ online: false, locale: true, nessuno: false }, false).nessuno, true);
   const co = nudo("src/pages/api/checkout.ts");
-  assert.match(co, /if \(aTavolo && !sulConto && !modi\.online\) \{/);
-  assert.match(co, /const inCassa = !sulConto && !aTavolo && modi\.locale/);
-  assert.match(leggi("src/components/PaginaTavolo.astro"), /const pagamentoSala = pagamentoAlTavolo\(pagamento, sala\.conto\);/);
+  assert.match(co, /if \(aTavolo && !sulConto && !modi\.online && !alBanco\) \{/);
+  assert.match(co, /const inCassa = !sulConto && \(aTavolo\s*\? alBanco && \(!modi\.online \|\| body\.pay === "onsite"\)/);
+  assert.match(leggi("src/components/PaginaTavolo.astro"), /const pagamentoSala = pagamentoAlTavolo\(pagamento, sala\.conto, sala\.banco\);/);
+  // «Payer au comptoir»: la sala lo accende, e allora `locale` e' il banco.
+  assert.deepEqual(pagamentoAlTavolo({ online: false, locale: false, nessuno: true }, false, true), { online: false, locale: true, nessuno: false });
+});
+
+test("tavolo 19/10: banco, telefono col prefisso, esaurito velato, «+» sulla vetrina, coperti solo coi tavoli", async () => {
+  const { RIPIEGO_ORDINI } = await import("../src/lib/ordiniRegole.ts");
+  assert.equal(RIPIEGO_ORDINI.orders_table_counter, "0");
+  assert.match(leggi("src/lib/admin/sedeRegole.ts"), /orders_table_counter: "sede",/);
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /const mostraBanco = inSala && !soloConto && pagamento\.locale;/);
+  assert.match(app, /onClick=\{\(\) => void paga\(true\)\}/);
+  assert.match(app, /const telefonoIntero = telefonoCompleto\(prefisso, telefono\) \?\? "";/);
+  assert.match(app, /className=\{"order-item" \+ \(item\.is_sold_out \? " order-item--esaurito" : ""\)\}/);
+  assert.match(leggi("src/components/TableOrder.css"), /:where\(\.tbl-pagina \.order-item--esaurito\) \{ opacity: \.45; \}/);
+  const to = nudo("src/components/TableOrder.tsx");
+  assert.match(to, /window\.dispatchEvent\(new CustomEvent\(EVENTO_AGGIUNGI, \{ detail: \{ id: f\.id \} \}\)\)/);
+  assert.match(to, /people: conTavoli \? Number\(persone\) : 1,/);
+  assert.match(leggi("src/pages/admin/settings.astro"), /id="o-table-counter"/);
 });

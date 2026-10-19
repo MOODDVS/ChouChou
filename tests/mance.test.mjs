@@ -52,7 +52,7 @@ test("il server ricalcola, solo con la carta, e la salva a parte", () => {
   assert.match(co, /\.\.\.\(mancia > 0 \? \{ tip_cents: mancia \} : \{\}\),/);
   // Dal carrello parte solo l'indice del bottone.
   const app = nudo("src/components/OrderApp.tsx");
-  assert.match(app, /\.\.\.\(manceAttive && manciaScelta >= 0 \? \{ tip: manciaScelta \} : \{\}\),/);
+  assert.match(app, /\.\.\.\(manceAttive && !inCassaOra && manciaScelta >= 0 \? \{ tip: manciaScelta \} : \{\}\),/);
   assert.match(app, /useState\(-1\)/, "Aucun scelto all'apertura");
   assert.match(app, /const manceAttive = mance !== null && !pagaInCassa && !soloConto;/);
 });

@@ -75,6 +75,8 @@ export interface OpzioniOrdini {
   sceltaTavolo: boolean;
   /** «Ouvrir un compte»: si ordina dal tavolo e si paga alla fine. */
   conto: boolean;
+  /** «Payer au comptoir»: al tavolo si ordina e si paga al banco. */
+  banco: boolean;
   /**
    * Cosa ha scelto il ristoratore sull’avviso «c’e’ pronto», GREZZO: "1",
    * "0", o vuoto = non ha scelto.
@@ -120,6 +122,10 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      tavolo. E' una scelta di servizio, non si accende da sola. Serve anche la
      #87 (conto-aperto.md). */
   orders_table_tab: "0",
+  /* ⚠️ SPENTO di ripiego: «Payer au comptoir» al tavolo vuol dire la cucina
+     che parte prima che qualcuno abbia pagato (come il ritiro pagato in
+     cassa). E' una scelta del locale, accesa da chi ha una cassa al banco. */
+  orders_table_counter: "0",
 };
 
 /**
@@ -163,14 +169,19 @@ export const CHIAVI_ORDINI = [
 ];
 
 /**
- * COME SI PAGA AL TAVOLO (deciso con Enzo il 18/10/2026): MAI «sur place» a
- * ogni giro. Al tavolo si paga con la carta ordinando, oppure col conto
- * aperto (anche da soli: «Payer sur place» e' il conto). «Payer au retrait»
- * di Paiements vale solo per l'asporto.
- * ⚠️ Senza carta e senza conto, al tavolo non si puo' ordinare: `nessuno`.
+ * COME SI PAGA AL TAVOLO (deciso con Enzo il 18–19/10/2026). «Payer au
+ * retrait» di Paiements vale solo per l'asporto: al tavolo si paga con la
+ * carta ordinando, col conto aperto (anche da soli: «Payer sur place» e' il
+ * conto), oppure AL BANCO se la sala lo vuole («Payer au comptoir»,
+ * `orders_table_counter`): allora `locale` dice proprio quello.
+ * ⚠️ Senza nessuna delle tre, al tavolo non si puo' ordinare: `nessuno`.
  */
-export function pagamentoAlTavolo<T extends { online: boolean; locale: boolean; nessuno: boolean }>(m: T, conto: boolean): T {
-  return { ...m, locale: false, nessuno: !m.online && !conto };
+export function pagamentoAlTavolo<T extends { online: boolean; locale: boolean; nessuno: boolean }>(
+  m: T,
+  conto: boolean,
+  banco = false,
+): T {
+  return { ...m, locale: banco, nessuno: !m.online && !conto && !banco };
 }
 
 /** Un valore di `app_config` letto come interruttore, col suo ripiego. */
