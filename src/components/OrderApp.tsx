@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
@@ -155,6 +155,30 @@ interface OrderStrings {
  * dire cinque siti che non compilano piu' il giorno del merge. Un cliente che
  * vuole parole sue le mette in `t`, e vincono le sue.
  */
+/**
+ * IL MENU DEL PREFISSO (bandierina + indicativo), stretto e con la sua
+ * freccia. ⚠️ Inline e non in un CSS: il componente e' del motore ma le
+ * pagine /order sono dei clienti, che vestono `.order-input` (largo 100%,
+ * padding 1rem) e lasciano la freccia nativa del browser incollata al bordo.
+ * Cosi' e' uguale su tutti i siti, senza toccare il CSS di nessuno: il fondo
+ * e il bordo restano quelli del cliente. Grigio medio: si legge sul fondo
+ * chiaro come su quello scuro.
+ */
+const STILE_PREFISSO: CSSProperties = {
+  flex: "0 0 auto",
+  width: "auto",
+  paddingLeft: ".7rem",
+  paddingRight: "2.1rem",
+  appearance: "none",
+  WebkitAppearance: "none",
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right .75rem center",
+  backgroundSize: "12px",
+  cursor: "pointer",
+};
+
 /** «(facultatif)» accanto al telefono, dove non e’ obbligatorio. */
 const TXT_FACOLTATIVO: Record<string, string> = {
   fr: "facultatif", en: "optional", it: "facoltativo", nl: "optioneel", es: "opcional",
@@ -1602,7 +1626,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
               <div className="order-tel" style={{ display: "flex", gap: ".5rem" }}>
                 <select
                   className="order-input order-tel-prefisso"
-                  style={{ flex: "0 0 auto", width: "auto" }}
+                  style={STILE_PREFISSO}
                   aria-label={t.phone}
                   value={prefisso}
                   onChange={(e) => setPrefisso(e.target.value)}
