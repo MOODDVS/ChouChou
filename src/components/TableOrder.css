@@ -126,7 +126,14 @@
 :where(.tbl-pagina .order-item-add:disabled) { opacity: .3; cursor: default; }
 /* L'articolo ESAURITO: tutta la scheda velata, non solo il bottone — si
    capisce da lontano che non si puo' prendere (OrderApp: `order-item--esaurito`). */
-:where(.tbl-pagina .order-item--esaurito) { position: relative; }
+:where(.tbl-pagina .order-item--esaurito) {
+  position: relative;
+  /* Anche il fondo e il bordo piu' leggeri: la scheda si ritira dalla carta. */
+  background: color-mix(in srgb, var(--tbl-card) 45%, transparent);
+  border-color: color-mix(in srgb, var(--tbl-line) 55%, transparent);
+}
+/* Il «+» non c'e' proprio: non si puo' prendere, e l'«Épuisé» sta li'. */
+:where(.tbl-pagina .order-item--esaurito .order-item-add) { display: none; }
 :where(.tbl-pagina .order-item--esaurito > :not(.order-esaurito-tag)) { opacity: .45; }
 /* L'«Épuisé» in basso a destra della scheda, PIENO (fondo rosso, scritta
    bianca), e non velato: e' l'unica cosa della scheda che deve leggersi.
