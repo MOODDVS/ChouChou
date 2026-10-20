@@ -101,7 +101,8 @@ test("solo un ordine nato per la cassa puo' diventare pagato dal pannello", () =
   const src = leggi("src/pages/api/admin/orders.ts");
   assert.match(src, /const daIncassare\s*=/);
   assert.match(src, /String\(prima\?\.payment_method \?\? ""\) === "onsite"/);
-  assert.match(src, /status !== "cancelled" && !\(status === "paid" && daIncassare\)/);
+  assert.match(src, /const incassoBanco = \(status === "paid" \|\| \(status === "done" && giaPronto\)\) && daIncassare;/);
+  assert.match(src, /status !== "cancelled" && !incassoBanco/);
 });
 
 test("spegnere tutti i pagamenti non si puo'", () => {
@@ -614,7 +615,7 @@ test("incassare chiede COME, e lo scrive davvero", () => {
   // La regola vera sta sul server: il bottone e' solo un suggerimento.
   assert.match(api, /METODI_CASSA_SCELTA\.includes\(metodoIncasso\)/,
     "l'API accetta un metodo qualsiasi insieme all'incasso");
-  assert.match(api, /status === "paid" && daIncassare && METODI/,
+  assert.match(api, /metodoIncasso && !\(incassoBanco && METODI_CASSA_SCELTA/,
     "il metodo si puo' scrivere anche fuori dall'incasso di un ordine nato per la cassa: si riscriverebbe il metodo di un incasso Stripe");
   assert.match(api, /payment_method: metodoIncasso/, "l'API non scrive piu' il metodo scelto");
 });
@@ -763,4 +764,43 @@ test("lo stato che disegna le card e' dichiarato una volta, prima di cardHTML", 
   for (const nome of ["let incassaId", "let incDiffId", "const labelDiffRefund"]) {
     assert.ok(pag.indexOf(nome) < iCard, `${nome} e' finita dopo cardHTML, che la usa`);
   }
+});
+
+test("il tablet suona anche per gli ordini da pagare al banco, non solo per i pagati", () => {
+  // Fast-food: si ordina, si paga quando chiamano. L'ordine e' vero subito.
+  const api = readFileSync("src/pages/api/admin/orders.ts", "utf8");
+  assert.match(api, /\.or\("status\.eq\.paid,and\(status\.eq\.pending,payment_method\.eq\.onsite\)"\)/);
+  // E il ticket esce subito anche lui (pending + onsite si stampa).
+  assert.match(readFileSync("src/pages/api/checkout.ts", "utf8"), /void accodaTicket\(\{\s*id: ordine\.id,\s*status: "pending",\s*payment_method: "onsite",/);
+});
+
+test("«Pronto» e «Incassato» sono due gesti, su due righe, per ogni ordine (#89)", () => {
+  /* ⚠️ Al banco «fast-food» si chiama il cliente quando e' pronto e lo si
+     incassa quando arriva. «Pronto» su un ordine da incassare avvisa e lo
+     lascia da incassare; l'incasso dopo lo chiude, senza richiamarlo. */
+  const pag = leggi("src/pages/admin/orders.astro");
+  const api = leggi("src/pages/api/admin/orders.ts");
+  assert.match(pag, /const rigaTop = /);
+  assert.match(pag, /<div class="actions actions-2">\$\{rigaTop\}\$\{rigaMain\}<\/div>/);
+  assert.match(pag, /data-act="pronto"/);
+  assert.match(pag, /JSON\.stringify\(\{ id, pronto: true \}\)/);
+  assert.match(pag, /status === "paid" && ord\.ready_at \? "done" : status/,
+    "incassare un ordine gia' pronto lo chiude sul server: la copia locale deve dire lo stesso");
+  // Il server: la colonna, il ripiego e l'avviso una volta sola.
+  assert.match(leggi("supabase/089_orders_ready.sql"), /add column if not exists ready_at timestamptz/);
+  assert.match(api, /const EXTRA_89 = ", ready_at";/);
+  assert.match(api, /if \(status === "paid" && daIncassare && giaPronto\) status = "done";/);
+  assert.match(api, /status === "done" && prima && prima\.status !== "done" && !giaPronto/,
+    "l'incasso che chiude un ordine gia' pronto richiamerebbe il cliente una seconda volta");
+  assert.match(api, /\.eq\("status", "pending"\)\s*\.is\("ready_at", null\)/,
+    "«Pronto» toccato due volte (o da due tablet) manderebbe due email");
+});
+
+test("sul tablet orizzontale gli ordini stanno su una fila che si scorre", () => {
+  const pag = leggi("src/pages/admin/orders.astro");
+  const i = pag.lastIndexOf("@media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse)");
+  assert.ok(i > 0);
+  const blocco = pag.slice(i, pag.indexOf("</style>", i));
+  assert.match(blocco, /\.grid \{[^}]*grid-auto-flow: column;[^}]*overflow-x: auto;/);
+  assert.match(blocco, /\.grid > \* \{ scroll-snap-align: start; \}/);
 });
