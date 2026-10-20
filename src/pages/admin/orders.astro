@@ -431,6 +431,26 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Quando le due scelte sostituiscono la barra «Incassare», non sono il
          piede della card: niente linea sopra, e lo stesso stacco della barra. */
       .actions.nc-scelte { border-top: 0; margin-top: 0.9rem; padding-top: 0; }
+      /* Le due righe delle azioni (vedi `rigaTop` / `rigaMain`). */
+      .actions.actions-2 { flex-direction: column; gap: 0.6rem; }
+      .act-row { display: flex; gap: 0.6rem; min-width: 0; }
+      .act-top { justify-content: flex-end; }
+      .act-main > * { flex: 1 1 0; }
+      /* «Encaissé»: stesso peso di «Prête» ma vuoto, perche' i due pieni
+         uno accanto all'altro si confondevano a colpo d'occhio. */
+      .actions .btn-incassa { gap: 0.4rem; border: 1px solid var(--c-accent); color: var(--c-accent); font-weight: 700; }
+      .actions .btn-incassa:hover { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      /* Il gesto gia' fatto: non un bottone spento (che sembrerebbe «in
+         attesa»), ma uno stato scritto, con l'icona del metodo di pagamento. */
+      .act-stato {
+        display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; min-width: 0;
+        padding: 0.5rem 0.6rem; border-radius: 8px; border: 1px dashed var(--c-line);
+        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em; color: var(--c-muted);
+      }
+      .act-stato .b-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .act-stato .pay-ico { display: inline-flex; }
+      .act-stato svg { width: 15px; height: 15px; flex: none; }
+      .act-stato-ok { color: #2e9e6b; border-color: color-mix(in srgb, #2e9e6b 55%, transparent); }
       /* Le due scelte dell'incasso (contanti / carta) portano la stessa
          icona che poi comparira' accanto al prezzo: si sceglie guardando
          il simbolo che si rivedra' sulla card. */
@@ -955,6 +975,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         .prep::-webkit-scrollbar { display: none; }
         .prep > * { flex: 0 0 auto; }
         .prep .o-search-wrap { flex: 0 1 170px; min-width: 90px; margin-right: 0.4rem; }
+        /* ⚠️ GLI ORDINI SU UNA FILA SOLA, che si tira col dito — come le
+           colonne della Accueil. Andando a capo, il quarto ordine finiva
+           sotto la piega e per vederlo si perdeva di vista il primo: sul
+           bancone gli scontrini stanno appesi in fila, non impilati.
+           Larghezza FISSA (non `1fr`): ogni scontrino ha la stessa faccia,
+           che gli ordini siano due o venti. `align-items: start` resta: ogni
+           card e' alta quanto il suo contenuto. Il piede di 1rem e' per il
+           filo di scorrimento, che se no passa sopra i bottoni. */
+        .grid {
+          grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 330px;
+          overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x proximity; padding-bottom: 1rem;
+        }
+        .grid > * { scroll-snap-align: start; }
       }
     </style>
     <AdminHead />
@@ -1267,6 +1301,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         delivery_fee_cents?: number | null;
         /** #86 — la mancia lasciata pagando online (gia' dentro `total_cents`). */
         tip_cents?: number | null;
+        /** #89 — «pronto» segnato prima dell'incasso (cliente gia' chiamato). */
+        ready_at?: string | null;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1511,49 +1547,64 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // (vedi diffBar più sotto), non più come tag in alto vicino al totale.
 
 
-        // Ordini attivi: Terminée + Annuler.
-        // Ordini terminati: ✓ vert rond à côté du prix + bouton rollback doré
-        // (position absolue, en bas à droite) pour remettre « en cours ».
-        const actions =
-          o.status === "paid"
-            ? `<div class="actions">
-                 <button class="btn-done" type="button" data-id="${o.id}" data-act="done" title="${tr("ord.terminee")}"><span class="b-lab">✓ ${tr("ord.terminee")}</span></button>
+        /* ⚠️ LE AZIONI SONO DUE RIGHE, PER OGNI ORDINE IN CORSO.
+           Sopra, a destra, quello che si tocca di rado: ritarda, modifica,
+           elimina. Sotto, grandi, i due gesti del servizio — PRONTO e
+           INCASSATO — sempre nello stesso posto, qualunque sia l'ordine.
+           Prima erano una riga sola il cui primo bottone cambiava mestiere
+           secondo lo stato («Terminée» qui, «Encaissé» la'): il dito andava
+           a memoria e sbagliava card.
+           ⚠️ Sono due gesti indipendenti. Al banco «fast-food» si chiama il
+           cliente quando e' pronto e lo si incassa quando arriva: «Pronto»
+           su un ordine da incassare avvisa e lo lascia da incassare (#89
+           `ready_at`), e l'incasso dopo lo chiude. Su un ordine gia' pagato
+           «Pronto» lo chiude subito, come faceva «Terminée». */
+        const rigaTop = `<div class="act-row act-top">
                  ${ritardoBtn}
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
+               </div>`;
+        const daIncassareBanco = o.status === "pending" && o.payment_method === "onsite";
+        const giaPronto = Boolean(o.ready_at);
+        const btnPronto =
+          o.status === "paid"
+            ? `<button class="btn-done" type="button" data-id="${o.id}" data-act="done" title="${tr("ord.terminee")}"><span class="b-lab">✓ ${tr("ord.ready")}</span></button>`
+            : giaPronto
+              ? `<span class="act-stato act-stato-ok" title="${tr("ord.readyHint")}"><span class="b-lab">${tr("ord.readyDone")}</span></span>`
+              : `<button class="btn-done" type="button" data-id="${o.id}" data-act="pronto" title="${tr("ord.readyHint")}"><span class="b-lab">${tr("ord.ready")}</span></button>`;
+        const btnIncassa =
+          o.status === "paid"
+            ? `<span class="act-stato" title="${tr("ord.paid")}">${payIco || ""}<span class="b-lab">${tr("ord.paidOk")}</span></span>`
+            : `<button class="btn-incassa" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>`;
+        const rigaMain =
+          /* ⚠️ INCASSARE CHIEDE **COME**, in due tocchi.
+             Prima bastava un tocco e scriveva solo lo stato: il metodo
+             restava `onsite`, quindi la card mostrava il marchio Stripe
+             su soldi finiti nel cassetto, e a fine serata non si poteva
+             piu' distinguere contanti e carta. Quel tocco e' l'unico
+             momento in cui qualcuno SA come ha pagato il cliente: dopo,
+             nessuno se lo ricorda.
+             Il secondo tocco fa anche da conferma: un tocco storto
+             sull'iPad marcava pagato un ordine mai pagato, e per
+             «incassato» non esiste il ripristino. Le due scelte prendono
+             il posto della riga intera. */
+          daIncassareBanco && incassaId === o.id
+            ? `<div class="act-row act-main">
+                 <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-cash">${ICON_COINS}<span class="b-lab">${tr("ord.payCash")}</span></button>
+                 <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-card">${ICON_CARD}<span class="b-lab">${tr("ord.payCard")}</span></button>
                </div>`
-            : o.status === "pending" && o.payment_method === "onsite"
-              ? // Da incassare: niente «rimanda il link di pagamento» — non ce
-                // n'e' nessuno. Il bottone che serve e' quello del cassiere.
-                /* ⚠️ INCASSARE CHIEDE **COME**, in due tocchi.
-                   Prima bastava un tocco e scriveva solo lo stato: il metodo
-                   restava `onsite`, quindi la card mostrava il marchio Stripe
-                   su soldi finiti nel cassetto, e a fine serata non si poteva
-                   piu' distinguere contanti e carta. Quel tocco e' l'unico
-                   momento in cui qualcuno SA come ha pagato il cliente: dopo,
-                   nessuno se lo ricorda.
-                   Il secondo tocco fa anche da conferma, che non c'era: un
-                   tocco storto sull'iPad marcava pagato un ordine mai pagato,
-                   e per «incassato» non esiste il ripristino. */
-                incassaId === o.id
-                  ? `<div class="actions">
-                       <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-cash">${ICON_COINS}<span class="b-lab">${tr("ord.payCash")}</span></button>
-                       <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-card">${ICON_CARD}<span class="b-lab">${tr("ord.payCard")}</span></button>
-                     </div>`
-                  : `<div class="actions">
-                   <button class="btn-done" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>
-                   ${ritardoBtn}
-                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
-                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
-                 </div>`
-            : o.status === "pending"
-              ? `<div class="actions">
+            : o.status === "paid" || daIncassareBanco
+              ? `<div class="act-row act-main">${btnPronto}${btnIncassa}</div>`
+              /* In attesa di un link di pagamento: non si prepara (potrebbe
+                 essere un carrello abbandonato) e non si incassa (i soldi
+                 arrivano da Stripe). Il gesto utile e' rimandare il link. */
+              : `<div class="act-row act-main">
                    <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}"><span class="b-lab">${tr("ord.resendShort")}</span></button>
-                   ${ritardoBtn}
-                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
-                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
-                 </div>`
-              : "";
+                 </div>`;
+        const actions =
+          o.status === "paid" || o.status === "pending"
+            ? `<div class="actions actions-2">${rigaTop}${rigaMain}</div>`
+            : "";
 
         const badgeOk = o.status === "done" ? `<span class="badge-ok" title="${tr("ord.terminee")}">✓</span>` : "";
         const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="${tr("ord.annulee")}">✕</span>` : "";
@@ -2214,7 +2265,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             for (const lista of [ordini, ordiniGiorno]) {
               const ord = lista.find((o) => o.id === id);
               if (!ord) continue;
-              ord.status = status;
+              /* ⚠️ Incassare un ordine gia' segnato pronto lo CHIUDE: il
+                 server lo scrive `done` (il cliente e' gia' stato chiamato,
+                 e ora ha pagato). La copia locale dice lo stesso, se no la
+                 card resterebbe tra quelle in corso fino al prossimo giro. */
+              ord.status = status === "paid" && ord.ready_at ? "done" : status;
               // Anche il metodo, altrimenti la card ridisegnata subito mostra
               // ancora l'icona di prima finche' non risponde il server.
               if (payment) ord.payment_method = payment;
@@ -2234,6 +2289,38 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               resetConfirm();
               render();
             }, 1500);
+          }
+        }
+
+        /* PRONTO PRIMA DELL'INCASSO (#89). Il server segna `ready_at` e
+           manda l'avviso «pronto» (se c'e' l'email e l'avviso e' attivo);
+           lo stato resta `pending`. Senza la #89 risponde con l'errore che
+           lo dice, e lo si mostra. */
+        async function segnaPronto(id: string, btn: HTMLButtonElement) {
+          const card = btn.closest(".card");
+          card?.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          try {
+            const r = await fetch("/api/admin/orders", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, pronto: true }),
+            });
+            const j = (await r.json().catch(() => ({}))) as { error?: string };
+            if (!r.ok) throw new Error(j.error || tr("ord.errShort"));
+            const ora = new Date().toISOString();
+            for (const lista of [ordini, ordiniGiorno]) {
+              const ord = lista.find((o) => o.id === id);
+              if (ord && !ord.ready_at) ord.ready_at = ora;
+            }
+            resetConfirm();
+            render();
+            firmaOrdini = "";
+            void carica(true);
+            if (giornoView) void caricaGiorno(giornoView);
+          } catch (e2) {
+            resetConfirm();
+            render();
+            ncToast(e2 instanceof Error ? e2.message : tr("ord.errShort"), true);
           }
         }
 
@@ -2391,6 +2478,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
           if (btn.dataset.act === "ritardo") {
             apriRitardo(id);
+            return;
+          }
+          // «Pronto» su un ordine ancora da incassare: avvisa il cliente e
+          // l'ordine resta li', da incassare (#89).
+          if (btn.dataset.act === "pronto") {
+            void segnaPronto(id, btn);
             return;
           }
           if (btn.dataset.act === "done") {

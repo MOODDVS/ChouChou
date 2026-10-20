@@ -64,8 +64,16 @@ export const GET: APIRoute = async ({ request, url }) => {
     // ne "risaliva" uno più vecchio mai visto, scambiato per nuovo ordine
     // (toast/beep fantasma). Con la finestra ampia gli ordini pagati ATTIVI
     // (non 'done'/'cancelled') ci stanno tutti: nessuna risalita, nessun falso.
+    /* ⚠️ ANCHE GLI ORDINI DA PAGARE AL BANCO (`pending` + `onsite`), non solo
+       i pagati. Un fast-food ordina al tavolo (o al ritiro), paga quando lo
+       chiamano: l'ordine e' vero dal momento in cui arriva — il ticket esce
+       subito — e il tablet deve suonare SUBITO, non quando qualcuno incassa
+       (19/10/2026). Prima suonavano solo i `paid`: chi paga in cassa non
+       faceva nessun rumore. Incassato diventa `done` ed esce da qui da solo.
+       (Gli ordini del conto aperto, `tab`, non ci sono: per loro suona la
+       scheda del conto.) */
     const { data, error } = await leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
-      .eq("status", "paid")
+      .or("status.eq.paid,and(status.eq.pending,payment_method.eq.onsite)")
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) return json({ orders: [], now });
@@ -266,7 +274,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   const EXTRA_85 = ", delivery_fee_cents";
   // #86 (la mancia): un passo in piu', stesso ripiego.
   const EXTRA_86 = ", tip_cents";
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86);
+  // #89 (ordine «pronto» prima dell'incasso): il passo piu' avanti.
+  const EXTRA_89 = ", ready_at";
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86 + EXTRA_89);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82);
@@ -589,7 +600,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
 
-  let body: { id?: string; status?: string; payment?: string; supplement?: string };
+  let body: { id?: string; status?: string; payment?: string; supplement?: string; pronto?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -638,8 +649,9 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ ok: true });
   }
 
-  const status = String(body.status ?? "");
-  if (!["paid", "done", "cancelled"].includes(status)) {
+  const prontoChiesto = body.pronto === true;
+  let status = String(body.status ?? "");
+  if (!prontoChiesto && !["paid", "done", "cancelled"].includes(status)) {
     return json({ error: await msg("err.status") }, 400);
   }
 
@@ -658,7 +670,9 @@ export const PATCH: APIRoute = async ({ request }) => {
   const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method, service, table_label";
   let prima: Record<string, unknown> | null = null;
   {
-    const r = await leggi("orders", ambito, SEL_ANN).eq("id", id).maybeSingle();
+    // #89 (`ready_at`) davanti, poi come prima.
+    let r = await leggi("orders", ambito, SEL_ANN + ", ready_at").eq("id", id).maybeSingle();
+    if (r.error) r = await leggi("orders", ambito, SEL_ANN).eq("id", id).maybeSingle();
     if (!r.error) prima = r.data as Record<string, unknown> | null;
     else {
       const r2 = await leggi("orders", ambito, "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang")
@@ -675,6 +689,38 @@ export const PATCH: APIRoute = async ({ request }) => {
   // incasso. Se la lettura di `prima` non e' riuscita, non si concede niente.
   const daIncassare =
     prima?.status === "pending" && String(prima?.payment_method ?? "") === "onsite";
+  /** Gia' segnato pronto (#89): il cliente e' gia' stato chiamato. */
+  const giaPronto = Boolean(prima?.ready_at);
+
+  /* ───────── «PRÊT» su un ordine ANCORA DA INCASSARE (#89) ─────────
+     Il fast-food: la cucina ha finito, si chiama il cliente, e lui paga al
+     banco. L'ordine resta `pending` + `onsite` — nessuno l'ha pagato — ma si
+     ricorda di essere pronto (`ready_at`): l'email parte una volta sola, e
+     all'incasso si chiude subito. Su un ordine gia' pagato «Prêt» e'
+     «Terminée» (`status: "done"`), e lo manda la pagina. */
+  if (prontoChiesto) {
+    if (!daIncassare) return json({ error: await msg("err.status") }, 400);
+    if (giaPronto) return json({ ok: true });
+    const { data: dPr, error: ePr } = await aggiornaRighe("orders", ambito, { ready_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("status", "pending")
+      .is("ready_at", null)
+      .select("id")
+      .maybeSingle();
+    if (ePr) {
+      if (String(ePr.message ?? "").includes("ready_at")) return json({ error: await msg("err.migr89") }, 500);
+      return json({ error: await msg("err.update") }, 500);
+    }
+    // Un altro tablet l'ha segnato un istante prima: nessuna seconda email.
+    if (!dPr) return json({ ok: true });
+    await mandaPronto(prima, contoAnn);
+    return json({ ok: true });
+  }
+  /* L'INCASSO di un ordine gia' pronto (il cliente e' venuto a prenderlo e
+     paga adesso) lo CHIUDE: non c'e' piu' niente da preparare. */
+  if (status === "paid" && daIncassare && giaPronto) status = "done";
+  /** E' l'incasso al banco: `paid`, oppure `done` se era gia' pronto. */
+  const incassoBanco = (status === "paid" || (status === "done" && giaPronto)) && daIncassare;
 
   /* ⚠️ INCASSARE SCRIVE ANCHE **COME**. Il pannello lo chiede con due
      bottoni, ma il bottone e' un suggerimento: la regola sta qui. Il metodo si
@@ -685,7 +731,7 @@ export const PATCH: APIRoute = async ({ request }) => {
      marchio Stripe su contanti finiti nel cassetto, e a fine serata non si
      distingueva piu' chi aveva pagato in contanti e chi con la carta. */
   const metodoIncasso = String(body.payment ?? "").trim();
-  if (metodoIncasso && !(status === "paid" && daIncassare && METODI_CASSA_SCELTA.includes(metodoIncasso))) {
+  if (metodoIncasso && !(incassoBanco && METODI_CASSA_SCELTA.includes(metodoIncasso))) {
     return json({ error: await msg("err.payMethod") }, 400);
   }
   const campi: Record<string, unknown> = metodoIncasso
@@ -694,7 +740,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   let q = aggiornaRighe("orders", ambito, campi).eq("id", id);
   // Annuler è permesso anche su un pending (link di pagamento non pagato);
   // per gli altri passaggi i pending non si toccano (li gestisce il webhook).
-  if (status !== "cancelled" && !(status === "paid" && daIncassare)) {
+  if (status !== "cancelled" && !incassoBanco) {
     q = q.neq("status", "pending");
   }
   const { data, error } = await q.select("id").maybeSingle();
@@ -759,34 +805,10 @@ export const PATCH: APIRoute = async ({ request }) => {
      dell’ORDINE (`contoAnn`), non da quella selezionata nell’header: in un
      gruppo, lo snack e il ristorante col cameriere stanno nello stesso
      account e vogliono il contrario l’uno dell’altro. */
-  let avvisaInSala = false;
-  if (status === "done" && alTavolo(prima?.service)) {
-    avvisaInSala = (await opzioniTavolo(contoAnn)).avvisa;
-  }
-  if (
-    status === "done" &&
-    prima &&
-    prima.status !== "done" &&
-    String(prima.customer_email ?? "").trim() &&
-    avvisaChePronto(prima.pickup_time, Date.now(), prima.service, avvisaInSala)
-  ) {
-    void emailOrdinePronto({
-      location_id: contoAnn.modo === "sede" ? contoAnn.id : null,
-      numero: String(prima.id).slice(0, 8),
-      customer_name: String(prima.customer_name ?? ""),
-      customer_email: String(prima.customer_email ?? ""),
-      customer_phone: (prima.customer_phone as string | null) ?? null,
-      pickup_time: String(prima.pickup_time ?? new Date().toISOString()),
-      items: [],
-      total_cents: Number(prima.total_cents ?? 0),
-      lang: String(prima.lang ?? "fr"),
-      // Dal tavolo e al banco: «venez la chercher AU COMPTOIR».
-      sala: alTavolo(prima.service)
-        ? { tavolo: String(prima.table_label ?? ""), alBanco: avvisaInSala }
-        : null,
-    }).catch(() => {
-      /* l'ordine e' chiuso lo stesso: l'email e' un di piu' */
-    });
+  /* ⚠️ Gia' pronto (#89): il cliente e' stato chiamato da «Prêt», e
+     l'incasso che chiude l'ordine non lo richiama. */
+  if (status === "done" && prima && prima.status !== "done" && !giaPronto) {
+    await mandaPronto(prima, contoAnn);
   }
 
   return json({ ok: true });
@@ -1117,3 +1139,36 @@ export const PUT: APIRoute = async ({ request }) => {
   void inviaModificaOrdine(notif, { changes });
   return json({ ok: true, id });
 };
+
+/**
+ * «VOTRE COMMANDE EST PRÊTE» — l'email, con le sue regole: l'indirizzo c'e',
+ * la finestra di mezz'ora (`avvisaChePronto`), e in sala l'interruttore
+ * dell'avviso letto dalla sede dell'ORDINE. La chiamano «Terminée» (pagato →
+ * fatto) e «Prêt» su un ordine ancora da incassare (#89). Mai bloccante.
+ */
+async function mandaPronto(
+  prima: Record<string, unknown> | null,
+  contoAnn: Awaited<ReturnType<typeof cercaAmbito>>,
+): Promise<void> {
+  if (!prima || !String(prima.customer_email ?? "").trim()) return;
+  let avvisaInSala = false;
+  if (alTavolo(prima.service)) avvisaInSala = (await opzioniTavolo(contoAnn)).avvisa;
+  if (!avvisaChePronto(prima.pickup_time, Date.now(), prima.service, avvisaInSala)) return;
+  void emailOrdinePronto({
+    location_id: contoAnn.modo === "sede" ? contoAnn.id : null,
+    numero: String(prima.id).slice(0, 8),
+    customer_name: String(prima.customer_name ?? ""),
+    customer_email: String(prima.customer_email ?? ""),
+    customer_phone: (prima.customer_phone as string | null) ?? null,
+    pickup_time: String(prima.pickup_time ?? new Date().toISOString()),
+    items: [],
+    total_cents: Number(prima.total_cents ?? 0),
+    lang: String(prima.lang ?? "fr"),
+    // Dal tavolo e al banco: «venez la chercher AU COMPTOIR».
+    sala: alTavolo(prima.service)
+      ? { tavolo: String(prima.table_label ?? ""), alBanco: avvisaInSala }
+      : null,
+  }).catch(() => {
+    /* l'ordine e' chiuso lo stesso: l'email e' un di piu' */
+  });
+}

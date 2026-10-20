@@ -412,8 +412,11 @@ test("al tavolo non si puo' «ritardare» niente", () => {
      scritto a mano tre volte, il quarto stato aggiunto domani se lo
      dimentica. */
   assert.match(ORD, /const ritardoBtn = aTavolo\n\s*\? ""/);
+  // Dal 20/10 le azioni sono due righe, e quella in alto e' la stessa per
+  // tutti gli stati: il bottone ci compare una volta sola.
   const usi = ORD.match(/\$\{ritardoBtn\}/g) ?? [];
-  assert.equal(usi.length, 3, `il bottone compare ${usi.length} volte invece di 3 (pagato, da incassare, in attesa)`);
+  assert.equal(usi.length, 1, `il bottone compare ${usi.length} volte invece di 1 (la riga in alto, uguale per tutti)`);
+  assert.match(ORD, /const rigaTop = `<div class="act-row act-top">\s*\$\{ritardoBtn\}/);
   // ⚠️ `const` ha una zona morta: dichiarato sotto ai bottoni, sarebbe
   // «used before its declaration» — ed e' esattamente l'inciampo che il file
   // documenta per `incassaId`.
@@ -674,7 +677,7 @@ test("l'email «c'e' pronto» legge l'interruttore della sede dell'ORDINE", () =
   assert.match(ORDINI_API, /avvisaChePronto\(prima\.pickup_time, Date\.now\(\), prima\.service, avvisaInSala\)/);
   // ⚠️ E si legge SOLO per un ordine in sala: un ritiro non deve pagare una
   // lettura in piu' per una sala che non lo riguarda.
-  assert.match(ORDINI_API, /if \(status === "done" && alTavolo\(prima\?\.service\)\)/);
+  assert.match(ORDINI_API, /if \(alTavolo\(prima\.service\)\) avvisaInSala = /);
   // La colonna deve arrivare fin qui, col ripiego per chi non ha la #82.
   assert.match(ORDINI_API, /payment_method, service, table_label";/);
 });
