@@ -46,6 +46,8 @@ const breve = (chiave: string): string => {
   pers: t("nav.toastPers"),
   chiamata: t("nav.toastCall"), chiamataNome: t("nav.toastCallName"), chiamataMulti: t("nav.toastCallMulti"),
   chiamataHint: t("nav.toastCallHint"), addizione: t("nav.toastBill"),
+  incasso: t("nav.toastCollect"), incassoMulti: t("nav.toastCollectMulti"),
+  incassoResto: t("nav.toastCollectRest"), incassoHint: t("nav.toastCollectHint"),
 })} />
 <nav class="admin-nav" aria-label="Navigation admin" data-current={current ?? ""}>
   <!-- SUPER ADMIN (solo admin@moodd.online): primo item a sinistra + separatore -->
@@ -969,6 +971,67 @@ const breve = (chiave: string): string => {
     }
     pollChiamate();
 
+    // --- «Pas encore encaissé»: il promemoria ogni mezz'ora ---
+    /* ⚠️ Soldi che nessuno ha preso: un ordine «à encaisser» da piu' di 30
+       minuti, o un conto aperto col resto a tavolo finito (la regola e' in
+       `lib/admin/daIncassare.ts`, la stessa del riepilogo del mattino).
+       Come la chiamata, resta finche' qualcuno non lo tocca: un toast di 8
+       secondi su un tablet appoggiato al bancone non lo vede nessuno.
+       ⚠️ OGNI MEZZ'ORA, e l'ora dell'ultimo avviso sta in `localStorage`:
+       AdminNav rinasce a ogni cambio di pagina, e con un timer in memoria
+       ogni clic nel menu lo farebbe risuonare. Quando non resta niente la
+       chiave si toglie, e la prossima dimenticanza si dice subito.
+       ⚠️ Non scavalca un altro toast: se ce n'e' uno aperto (una chiamata,
+       un ordine nuovo) aspetta il giro dopo. */
+    const CHIAVE_INCASSI = "mdd_incassi_avviso";
+    const OGNI_MS = 30 * 60 * 1000;
+    function leggiUltimo(): number {
+      try { return Number(localStorage.getItem(CHIAVE_INCASSI)) || 0; } catch { return 0; }
+    }
+    function scriviUltimo(v: number | null) {
+      try {
+        if (v === null) localStorage.removeItem(CHIAVE_INCASSI);
+        else localStorage.setItem(CHIAVE_INCASSI, String(v));
+      } catch { /* privato */ }
+    }
+    type OrdineInc = { id: string; nome: string; totale_cents: number; tavolo: string | null };
+    type ContoInc = { id: string; tavolo: string; resto_cents: number };
+    function mostraIncassi(ordini: OrdineInc[], conti: ContoInc[]) {
+      const righe = [
+        ...conti.map((c) => String(T.incassoResto ?? "").replace("{t}", esc(c.tavolo || "—")).replace("{v}", euro(c.resto_cents))),
+        ...ordini.map((o) => [o.tavolo, o.nome].filter(Boolean).map((x) => esc(String(x))).join(" · ") + ` · ${euro(o.totale_cents)}`),
+      ];
+      const n = righe.length;
+      const titolo = n === 1 ? esc(T.incasso ?? "") : conN(T.incassoMulti, n);
+      const elenco = righe.slice(0, 3).join(" — ") + (n > 3 ? " …" : "");
+      lastHref = "/admin/orders";
+      toastDiChiamata = false;
+      tEl.classList.remove("is-cancel");
+      const icoCassa = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>`;
+      tBox.innerHTML = `<span class="mn-ico">${icoCassa}</span><span class="mn-txt"><strong>${titolo}</strong><span class="det">${elenco}</span><span class="det">${esc(T.incassoHint ?? "")}</span></span><span class="mn-toast-x">›</span>`;
+      apriToast(0);
+    }
+    async function pollIncassi() {
+      try {
+        const res = await fetch("/api/admin/orders?da_incassare=1", { headers });
+        if (!res.ok) return;
+        const j = (await res.json()) as { ordini?: OrdineInc[]; conti?: ContoInc[] };
+        const ordini = j.ordini ?? [];
+        const conti = j.conti ?? [];
+        if (!ordini.length && !conti.length) { scriviUltimo(null); return; }
+        if (Date.now() - leggiUltimo() < OGNI_MS) return;
+        if (tEl.classList.contains("show")) return; // c'e' gia' qualcosa da leggere
+        scriviUltimo(Date.now());
+        mostraIncassi(ordini, conti);
+        suona(bell);
+      } catch {
+        // rete assente: nessun blocco
+      }
+    }
+    // Non al caricamento: lascia passare prima il giro degli ordini nuovi e
+    // delle chiamate, che sono piu' urgenti.
+    window.setTimeout(pollIncassi, 15000);
+
     // Se l'isola scorre davvero (le voci non ci stanno), la pagina ATTIVA va
     // portata in vista. Si guarda il contenuto, non la larghezza: dipende da
     // quante voci quel cliente ha attive.
@@ -985,6 +1048,8 @@ const breve = (chiave: string): string => {
     // persona col braccio alzato no. La query e' su un indice parziale delle
     // sole aperte: costa quasi niente.
     window.setInterval(pollChiamate, 8000);
+    // Il promemoria si ricontrolla ogni minuto; parla al massimo ogni mezz'ora.
+    window.setInterval(pollIncassi, 60000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") { poll(); pollOrdini(); pollChiamate(); }
     });

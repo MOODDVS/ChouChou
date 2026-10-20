@@ -1052,6 +1052,10 @@ const DIZIONARIO: Dizionario = {
   "nav.toastCallName":  { fr: "{nome} appelle le serveur", en: "{nome} is calling the waiter", it: "{nome} chiama il cameriere", nl: "{nome} roept de ober", es: "{nome} llama al camarero" },
   "nav.toastCallMulti": { fr: "{n} tables appellent le serveur", en: "{n} tables are calling the waiter", it: "{n} tavoli chiamano il cameriere", nl: "{n} tafels roepen de ober", es: "{n} mesas llaman al camarero" },
   "nav.toastCallHint":  { fr: "Touchez quand quelqu'un y va", en: "Tap when someone is on the way", it: "Tocca quando qualcuno ci va", nl: "Tik zodra iemand gaat", es: "Toque cuando alguien vaya" },
+  "nav.toastCollect":      { fr: "Pas encore encaissé", en: "Not collected yet", it: "Non ancora incassato", nl: "Nog niet geïnd", es: "Aún sin cobrar" },
+  "nav.toastCollectMulti": { fr: "{n} pas encore encaissés", en: "{n} not collected yet", it: "{n} non ancora incassati", nl: "{n} nog niet geïnd", es: "{n} aún sin cobrar" },
+  "nav.toastCollectRest":  { fr: "Table {t} · reste {v}", en: "Table {t} · {v} left", it: "Tavolo {t} · resto {v}", nl: "Tafel {t} · rest {v}", es: "Mesa {t} · resta {v}" },
+  "nav.toastCollectHint":  { fr: "Encaissez ou annulez dans Commandes", en: "Collect or cancel in Orders", it: "Incassa o annulla in Ordini", nl: "Innen of annuleren in Bestellingen", es: "Cobre o anule en Pedidos" },
 
   // ===== Guarigione: pagamenti che il webhook non ha mai portato =====
   // ⚠️ Il messaggio dice due cose, e la seconda conta piu' della prima: che

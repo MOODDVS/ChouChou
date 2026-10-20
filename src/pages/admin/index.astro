@@ -887,10 +887,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          perche' le scatole piene di questa fascia contengono qualcosa.
          `flex: 1` dentro `.j-lista`, che e' gia' una colonna alta quanto
          serve: il riquadro arriva fin dove sarebbe arrivato l'elenco. */
-      .j-vuoto { flex: 1; display: flex; align-items: center; justify-content: center;
+      /* ⚠️ E IL FONDO E' QUELLO DELLE SCATOLE, AL 33%: tutto vuoto sembrava
+         un buco nella colonna, pieno sembrerebbe una scatola che contiene
+         qualcosa. Sopra, l'icona della colonna (`vuotoHTML`), smorzata: si
+         capisce di che vuoto si tratta senza leggere il titolo. */
+      .j-vuoto { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.8rem;
         padding: 1.5rem 1rem; text-align: center; font-size: 1.05rem;
+        background: color-mix(in srgb, var(--c-card) 33%, transparent);
         border: 1px dashed var(--c-line); border-radius: 12px;
         font-family: var(--font-title); color: var(--c-muted); }
+      .j-vuoto-ico { display: inline-flex; align-items: center; justify-content: center;
+        width: 64px; height: 64px; border-radius: 50%;
+        background: color-mix(in srgb, var(--c-card) 80%, transparent); }
+      .j-vuoto-ico .j-ico { width: 28px; height: 28px; stroke: var(--c-muted); stroke-width: 1.6; opacity: 0.85; }
 
       /* ⚠️ Le pastiglie di stato sono QUELLE delle loro pagine (reservations,
          orders): stessi colori, stesse parole. Due nomi per lo stesso stato
@@ -898,7 +907,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-badge { font-size: 0.64rem; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px;
         font-family: var(--font-body); cursor: default;
         white-space: nowrap; height: 26px; padding: 0 0.7rem; display: inline-flex; align-items: center;
-        justify-content: center; flex: none; font-weight: 700; }
+        justify-content: center; flex: none; font-weight: 700;
+        /* ⚠️ `border: 0`: quella delle prenotazioni e' un <button>, e senza
+           si teneva il bordo «outset» grigio del browser intorno alla
+           pastiglia. `.fin` rimette il suo filo qui sotto. */
+        border: 0; }
       /* ⚠️ FONDO PIENO E SCRITTA BIANCA (09/10/2026). Erano tinte tenui con
          il bordo colorato e la scritta nel colore dello stato: un disegno
          fatto per il fondo SCURO, dove una velatura al 15% si stacca. Sul
@@ -1948,6 +1961,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
 
+      /** IL VUOTO DI UNA COLONNA: il testo (gia' sicuro) sotto l'icona della
+       *  colonna stessa. ⚠️ L'icona si PRENDE dal titolo, non si ridisegna:
+       *  e' il segno che il ristoratore ha gia' imparato per quella colonna,
+       *  e una copia scritta qui divergerebbe il giorno che il titolo cambia.
+       *  `dentro` e' l'elenco che riceve il vuoto: da li' si risale alla
+       *  colonna. Senza colonna (non dovrebbe capitare) resta il testo. */
+      function vuotoHTML(testo: string, dentro: Element | null, extra = ""): string {
+        const ico = dentro?.closest(".j-col")?.querySelector(".j-t .j-ico")?.outerHTML ?? "";
+        return `<p class="j-vuoto${extra ? ` ${extra}` : ""}">` +
+          (ico ? `<span class="j-vuoto-ico" aria-hidden="true">${ico}</span>` : "") +
+          `<span class="j-vuoto-t">${testo}</span></p>`;
+      }
+
       // ============================================================
       // LE RIGHE DELLA GIORNATA
       // ------------------------------------------------------------
@@ -2280,7 +2306,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               `<div class="j-li j-vq"><span class="q">${escHtml(q.key)}</span>` +
               `<span class="imp">${escHtml(nVis(q.impressions))}</span>` +
               `<span class="n">${escHtml(nVis(q.clicks))}</span></div>`).join("")
-          : `<p class="j-vuoto">${tr("home.visNoData")}</p>`;
+          : vuotoHTML(tr("home.visNoData"), lista);
       }
 
       /** «11 sett.» — la data corta, nella lingua del pannello. */
@@ -2456,7 +2482,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               `<span class="q">${escHtml(x.name)}</span>` +
               `<span class="qty">×${escHtml(nVis(x.qty))}</span>` +
               `<span class="eur">${escHtml(euro(x.cents))}</span></div>`).join("")
-          : `<p class="j-vuoto">${escHtml(tr("home.recNone"))}</p>`;
+          : vuotoHTML(escHtml(tr("home.recNone")), lista);
 
         // ---- I tre numeri in fondo ----
         // ⚠️ Lo scontrino medio arriva gia' fatto: dividere qui `revenue` per
@@ -2620,8 +2646,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         // Due vuoti diversi: «non ce n'e' nessuna» e «nessuna di queste».
         lista.innerHTML = viste.length
           ? `<div class="ph-grid">${viste.map((f) => cellaFoto(f)).join("")}</div>`
-          : `<div class="ph-grid"><div class="ph-empty">${
-              fotoFiltro ? tr("home.nothingToShow") : tr("home.noImages")}</div></div>`;
+          : vuotoHTML(fotoFiltro ? tr("home.nothingToShow") : tr("home.noImages"), lista);
       }
 
       document.getElementById("j-foto-filtri")?.addEventListener("click", (ev) => {
@@ -2746,7 +2771,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         // Due vuoti diversi: «e' tutto online» e «nessuno di questi».
         lista.innerHTML = viste.length
           ? viste.map((r) => rigaMenu(r)).join("")
-          : `<p class="j-vuoto">${menuFiltro ? tr("home.nothingToShow") : tr("home.menuOnline")}</p>`;
+          : vuotoHTML(menuFiltro ? tr("home.nothingToShow") : tr("home.menuOnline"), lista);
       }
 
       document.getElementById("j-menu-filtri")?.addEventListener("click", (ev) => {
@@ -2884,7 +2909,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // l'altezza fissa. Tagliate, la settima prenotazione della serata
             // non esisteva — e non c'era niente che lo dicesse.
             ? attese.map((r) => rigaResa(r)).join("")
-            : `<p class="j-vuoto">${tr("home.nothingToShow")}</p>`;
+            : vuotoHTML(tr("home.nothingToShow"), lista);
         }
         // ⚠️ I tre numeri vengono da `resaConti.ts`, lo stesso modulo della
         // pagina Réservations e dei coperti della risposta: «coperti» voleva
@@ -3408,7 +3433,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // etichetta». Il primo dice di premere +, il secondo sarebbe un
             // consiglio sbagliato — la nota c'e', e' il filtro che la nasconde.
             const testo = notes.length ? tr("home.nothingToShow") : tr("home.noNotesShort");
-            preview.innerHTML = `<p class="np-empty j-vuoto">${escHtml(testo)}</p>`;
+            preview.innerHTML = vuotoHTML(escHtml(testo), preview, "np-empty");
             return;
           }
           // ⚠️ TUTTE, e non le prime tre con un «+7 altre». Le tre erano il
@@ -4438,7 +4463,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // sarebbe falso — i giorni ci sono, e' il filtro che li nasconde.
           lista.innerHTML = viste.length
             ? viste.map((r) => rigaSpx(r, chiusi, noto)).join("")
-            : `<p class="j-vuoto">${spxFiltro ? tr("home.nothingToShow") : tr("home.noSpecialDays")}</p>`;
+            : vuotoHTML(spxFiltro ? tr("home.nothingToShow") : tr("home.noSpecialDays"), lista);
           disegnaSpxFiltri();
           const c = conti(spxRighe);
           // ⚠️ La pastiglia conta le DECISIONI, non le righe: le feste sono
@@ -4884,7 +4909,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 // Come per le prenotazioni: l'elenco e' intero, e scorre dentro
                 // il suo riquadro.
                 ? restano.map((o) => rigaOrdine(o)).join("")
-                : `<p class="j-vuoto">${tr("home.nothingToShow")}</p>`;
+                : vuotoHTML(tr("home.nothingToShow"), lista);
             }
 
             // ⚠️ I tre numeri vengono da `ordiniConti.ts`, lo stesso modulo

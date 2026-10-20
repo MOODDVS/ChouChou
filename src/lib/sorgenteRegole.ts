@@ -52,5 +52,21 @@ export function iconaDiSorgente(s: string): string {
   return s === "qr" ? "web" : s;
 }
 
+/**
+ * L'icona di UNA prenotazione: come `iconaDiSorgente`, salvo la sessione del
+ * tavolo, che porta il disegno del tavolo.
+ *
+ * ⚠️ `qr` vuol dire DUE cose: il volantino col QR che porta al sito
+ * (`?ref=qr`, una prenotazione vera) e il QR sul tavolo (`/api/table-session`,
+ * gente gia' seduta che ordina). Il globo diceva «dal sito» a chi era seduto
+ * davanti al cameriere. Le distingue il telefono: il sito lo chiede sempre
+ * (`/api/reservation` rifiuta senza), il tavolo mai — scrive `""`.
+ */
+export function iconaDiResa(r: { source?: unknown; phone?: unknown }): string {
+  const s = String(r.source ?? "");
+  if (s === "qr" && !String(r.phone ?? "").trim()) return "tavolo";
+  return iconaDiSorgente(s);
+}
+
 /** Chiave di sessionStorage: il `ref` va ricordato per tutta la visita. */
 export const CHIAVE_REF = "mdd_ref";

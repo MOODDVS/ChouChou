@@ -16,6 +16,7 @@ import {
   SORGENTE_DEFAULT,
   sorgenteDaRef,
   iconaDiSorgente,
+  iconaDiResa,
 } from "../src/lib/sorgenteRegole.ts";
 
 test("l'elenco del codice combacia con il check del database", () => {
@@ -67,4 +68,17 @@ test("le icone restano cinque: il QR porta quella del sito", () => {
   // Nessuna sorgente deve chiedere un'icona che non esiste.
   const ICONE = new Set(["web", "walkin", "phone", "google", "instagram"]);
   for (const s of SORGENTI) assert.ok(ICONE.has(iconaDiSorgente(s)), `${s} chiede un'icona che non c'e'`);
+});
+
+test("la sessione del QR sul tavolo porta il tavolo, il volantino QR il sito", () => {
+  // ⚠️ `qr` vuol dire due cose: il volantino (prenotazione dal sito, col
+  // telefono che il sito chiede sempre) e il QR sul tavolo (telefono "").
+  assert.equal(iconaDiResa({ source: "qr", phone: "" }), "tavolo");
+  assert.equal(iconaDiResa({ source: "qr", phone: null }), "tavolo");
+  assert.equal(iconaDiResa({ source: "qr", phone: "+32 470 00 00 00" }), "web");
+  assert.equal(iconaDiResa({ source: "web", phone: "" }), "web");
+  assert.equal(iconaDiResa({ source: "walkin", phone: "" }), "walkin");
+  const pag = readFileSync(new URL("../src/pages/admin/reservations.astro", import.meta.url), "utf8");
+  assert.match(pag, /\btavolo: '<svg/, "manca il disegno del tavolo in ICO_SRC");
+  assert.doesNotMatch(pag, /ICO_SRC\[iconaDiSorgente\(/, "una riga sceglie ancora l'icona dalla sola sorgente");
 });

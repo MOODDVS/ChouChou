@@ -24,6 +24,7 @@ import { consegnaDellOrdine, manciaDellOrdine } from "../../../lib/consegnaOrdin
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { cosaDaIncassare } from "../../../lib/admin/daIncassare";
 export const prerender = false;
 
 
@@ -52,6 +53,14 @@ export const GET: APIRoute = async ({ request, url }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
   const fuso = await fusoDi(ambito);
 
+  // ?da_incassare=1 → l'avviso «non incassato» del tablet (AdminNav, ogni
+  // mezz'ora): ordini da incassare da piu' di 30 minuti e conti aperti col
+  // resto, a tavolo finito. La regola sta in `lib/admin/daIncassare.ts`,
+  // la stessa del riepilogo del mattino.
+  if (url.searchParams.get("da_incassare")) {
+    return json(await cosaDaIncassare(ambito));
+  }
+
   // Polling toast "Nouvelle commande": gli ultimi ordini PAGATI (per created_at).
   // Il client tiene gli ID già visti e avvisa sui NUOVI. Non si usa più un
   // segnalibro temporale: un ordine nasce 'pending' e diventa 'paid' dopo
@@ -69,7 +78,7 @@ export const GET: APIRoute = async ({ request, url }) => {
        chiamano: l'ordine e' vero dal momento in cui arriva — il ticket esce
        subito — e il tablet deve suonare SUBITO, non quando qualcuno incassa
        (19/10/2026). Prima suonavano solo i `paid`: chi paga in cassa non
-       faceva nessun rumore. Incassato diventa `done` ed esce da qui da solo.
+       faceva nessun rumore. Incassato diventa `paid`: stesso id, nessun secondo avviso.
        (Gli ordini del conto aperto, `tab`, non ci sono: per loro suona la
        scheda del conto.) */
     const { data, error } = await leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
