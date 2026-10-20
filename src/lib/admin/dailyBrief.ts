@@ -12,6 +12,7 @@ import { perLaMail, inRitardo } from "./noteRegole";
 import { elencoSedi, leggi, leggiConfig, scriviConfig, sede, SEDE_UNICA, type Ambito } from "./sede";
 import { fusoDi } from "../fuso";
 import { temaEmail, type TemaEmail } from "../temaBrand";
+import { cosaDaIncassare } from "./daIncassare";
 import { datiRistorante } from "../ristorante";
 
 // Email quotidiana "Votre journée" (récap di ieri + programma di oggi).
@@ -106,6 +107,7 @@ type BTxt = {
   notesEquipe: string; tags: Record<string, string>; enRetard: string;
   aVenir: string; evento: (nome: string, quando: string) => string;
   ouvrirAdmin: string; footer: (ora: string) => string; subject: (d: string) => string;
+  nonEncaisse: string; resteTable: (t: string, v: string) => string;
 };
 const B_TXT: Record<AdminLang, BTxt> = {
   fr: {
@@ -123,6 +125,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     aVenir: "📅 À VENIR", evento: (n, q) => `${n} ${q} — pensez au menu spécial et à l'équipe en salle.`,
     ouvrirAdmin: "Ouvrir l'admin", footer: (o) => `Récap automatique quotidien (${o}) — désactivable dans Admin → Notifications.`,
     subject: (d) => `Votre journée — ${d}`,
+    nonEncaisse: "Pas encaissé", resteTable: (t, v) => `Table ${t} · reste ${v}`,
   },
   en: {
     titre: "Your day", lead: "Hello! Here is yesterday's recap and today's programme.",
@@ -139,6 +142,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     aVenir: "📅 COMING UP", evento: (n, q) => `${n} ${q} — think about the special menu and the floor team.`,
     ouvrirAdmin: "Open the admin", footer: (o) => `Automatic daily recap (${o}) — can be turned off in Admin → Notifications.`,
     subject: (d) => `Your day — ${d}`,
+    nonEncaisse: "Not collected", resteTable: (t, v) => `Table ${t} · ${v} left`,
   },
   it: {
     titre: "La tua giornata", lead: "Buongiorno! Ecco il riepilogo di ieri e il programma di oggi.",
@@ -155,6 +159,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     aVenir: "📅 IN ARRIVO", evento: (n, q) => `${n} ${q} — pensa al menu speciale e alla squadra in sala.`,
     ouvrirAdmin: "Apri l'admin", footer: (o) => `Riepilogo automatico quotidiano (${o}) — disattivabile in Admin → Notifiche.`,
     subject: (d) => `La tua giornata — ${d}`,
+    nonEncaisse: "Non incassato", resteTable: (t, v) => `Tavolo ${t} · resto ${v}`,
   },
   nl: {
     titre: "Jouw dag", lead: "Goedemorgen! Dit is het overzicht van gisteren en het programma van vandaag.",
@@ -171,6 +176,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     aVenir: "📅 BINNENKORT", evento: (n, q) => `${n} ${q} — denk aan het speciale menu en aan het zaalteam.`,
     ouvrirAdmin: "Open de admin", footer: (o) => `Automatisch dagoverzicht (${o}) — uit te schakelen in Admin → Meldingen.`,
     subject: (d) => `Jouw dag — ${d}`,
+    nonEncaisse: "Niet geïnd", resteTable: (t, v) => `Tafel ${t} · rest ${v}`,
   },
   es: {
     titre: "Tu jornada", lead: "¡Buenos días! Aquí tienes el resumen de ayer y el programa de hoy.",
@@ -187,6 +193,7 @@ const B_TXT: Record<AdminLang, BTxt> = {
     aVenir: "📅 PRÓXIMAMENTE", evento: (n, q) => `${n} ${q} — piensa en el menú especial y en el equipo de sala.`,
     ouvrirAdmin: "Abrir el admin", footer: (o) => `Resumen automático diario (${o}) — se puede desactivar en Admin → Notificaciones.`,
     subject: (d) => `Tu jornada — ${d}`,
+    nonEncaisse: "Sin cobrar", resteTable: (t, v) => `Mesa ${t} · resta ${v}`,
   },
 };
 const LOC_BRIEF: Record<AdminLang, string> = { fr: "fr-BE", en: "en-GB", it: "it-IT", nl: "nl-BE", es: "es-ES" };
@@ -389,6 +396,22 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
 
   const top3Mostrato = ordiniAttivi && top3.length > 0;
   const righeIeri: string[] = [];
+  /* ⚠️ NON INCASSATO: un ordine «à encaisser» mai incassato, o un conto
+     aperto col resto da pagare. Il tablet lo ripete ogni mezz'ora finche'
+     il servizio dura; la mattina dopo nessuno guarda il tablet, e quei
+     soldi vanno detti qui — in rosso, in cima. Stessa regola del tablet
+     (`lib/admin/daIncassare.ts`), ultimi 7 giorni. */
+  if (ordiniAttivi) {
+    const resta = await cosaDaIncassare(ambito, new Date(), 0).catch(() => ({ ordini: [], conti: [] }));
+    const voci = [
+      ...resta.conti.map((c) => esc(B.resteTable(c.tavolo || "—", euro(c.resto_cents)))),
+      ...resta.ordini.map((o) => [o.tavolo, o.nome].filter(Boolean).map((x) => esc(String(x))).join(" · ") + ` · ${euro(o.totale_cents)}`),
+    ];
+    if (voci.length) {
+      const elenco = voci.slice(0, 6).join("<br/>") + (voci.length > 6 ? `<br/>+${voci.length - 6}` : "");
+      righeIeri.push(rigaTab(tema, B.nonEncaisse, elenco, false, true));
+    }
+  }
   if (noshowIeri.length) {
     const nomi = noshowIeri
       .slice(0, 3)

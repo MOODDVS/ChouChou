@@ -17,7 +17,7 @@ import { adminT } from "../../../i18n/admin";
 /**
  * I CONTI APERTI DELLA SALA, per il tablet (Commandes) — conto-aperto.md.
  *
- * GET  → { conti: [...] }   i conti di oggi da validare o aperti, con gli
+ * GET  → { conti: [...] }   i conti da validare o aperti (fino a 7 giorni), con gli
  *                           invii, chi ha preso cosa, il totale, il codice e
  *                           se il tavolo ha chiesto l'addizione.
  * POST { azione, id, metodo? }
@@ -81,11 +81,19 @@ export const GET: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
   await rilasciaInviiScaduti(ambito);
-  const oggi = DateTime.now().setZone(await fusoDi(ambito)).toFormat("yyyy-MM-dd");
+  /* ⚠️ NON SOLO OGGI. Un conto rimasto aperto (il tavolo se n'e' andato
+     senza saldare, o nessuno ha premuto «Encaisser») a mezzanotte spariva
+     dallo schermo con il suo resto: nel database aperto, in nessuna pagina.
+     Resta in Commandes finche' qualcuno non lo incassa o lo chiude — al
+     massimo 7 giorni, come la lista degli ordini.
+     ⚠️ E non solo `seated`: una prenotazione segnata «Fini» a mano non
+     salda il conto. Fuori solo le annullate (un conto rifiutato). */
+  const ora = DateTime.now().setZone(await fusoDi(ambito));
+  const daData = ora.minus({ days: 7 }).toFormat("yyyy-MM-dd");
 
   const { data: contiRaw, error } = await leggi("reservations", ambito, CAMPI)
-    .eq("date", oggi)
-    .eq("status", "seated")
+    .gte("date", daData)
+    .neq("status", "cancelled")
     .in("tab_status", ["pending", "open"]);
   // Senza la #87 non c'e' nessun conto: la pagina mostra quello di sempre.
   if (error) return json({ conti: [] });
@@ -133,6 +141,8 @@ export const GET: APIRoute = async ({ request }) => {
     const tavoli = [c.tab_table_id, ...(c.tables ?? [])].filter((x, i, a) => x && a.indexOf(x) === i) as string[];
     return {
       id: c.id,
+      /** Il giorno del conto: la scheda lo scrive se non e' oggi. */
+      data: c.date,
       stato: c.tab_status,
       tavolo: nomeTavolo.get(String(c.tab_table_id)) ?? "",
       tavoli: tavoli.map((t) => nomeTavolo.get(t) ?? "").filter(Boolean),

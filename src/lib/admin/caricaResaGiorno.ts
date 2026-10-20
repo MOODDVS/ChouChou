@@ -146,6 +146,14 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
       };
       const daChiudere = (data ?? []).filter((r) => {
         if (r.status !== "confirmed" && r.status !== "seated") return false;
+        /* ⚠️ UN CONTO APERTO NON SI CHIUDE DA SOLO. Il conto al tavolo vive
+           sulla prenotazione `seated` (conto-aperto.md): chiudendola qui, a
+           tavolo «finito», la scheda del conto spariva da Commandes con il
+           suo «reste à payer», e i telefoni del tavolo perdevano il conto.
+           Lo chiude chi incassa (`chiudiSessioneConto`). Senza la #87 il
+           campo non c'e', e vale la regola di sempre. */
+        const tab = (r as { tab_status?: string | null }).tab_status;
+        if (tab === "pending" || tab === "open") return false;
         if (date < oggiTz) return true; // giorni passati: si chiudono comunque
         const inizio = minutiHH(String(r.heure ?? ""));
         if (inizio < 0) return false;

@@ -2856,6 +2856,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         type InvioConto = { numero: number; partito: boolean; partenza: string | null; righe: { nome: string; piatti: { qty: number; nome: string; variante: string | null }[]; totale_cents: number }[] };
         type ContoSala = {
           id: string; stato: string; tavolo: string; tavoli: string[]; codice: string; persone: number; ordinato: number;
+          /** Il giorno del conto (YYYY-MM-DD): un conto di ieri rimasto aperto resta qui finche' non si incassa. */
+          data?: string;
           dal: string | null; addizione: boolean; totale_cents: number; pagato_cents: number; resto_cents: number; invii: InvioConto[];
           /* I pagamenti online (#88): pagati, o in corso (qualcuno e' su Stripe adesso). */
           in_corso_cents?: number;
@@ -2863,6 +2865,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         };
         let conti: ContoSala[] = [];
         let firmaConti = "";
+        /* ⚠️ Un conto di un giorno passato DICE il giorno, sul nastro: in
+           mezzo a quelli di stasera, «Table 03 · reste 42 €» sembrerebbe un
+           tavolo seduto adesso. */
+        function giornoDiConto(c: ContoSala): string {
+          if (!c.data || c.data === dayKeyBrussels(new Date().toISOString())) return "";
+          const d = new Date(`${c.data}T12:00:00`);
+          if (Number.isNaN(d.getTime())) return "";
+          return ` · ${esc(d.toLocaleDateString(LOC, { weekday: "short", day: "numeric", month: "short" }))}`;
+        }
         /* Lo stato dei bottoni a due tocchi: quale conto chiede «contanti o
            carta», quale «rifiutare?», quale «chiudere senza incassare?». */
         let contoIncassa: string | null = null;
@@ -2918,7 +2929,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                    </div>`;
           return `
             <div class="card card-conto${lr ? ` nc-late nc-late-${lr}` : ""}" data-conto="${c.id}">
-              <div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.tabRibbon"))}</span></div>
+              <div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.tabRibbon"))}${giornoDiConto(c)}</span></div>
               <div class="card-stato"><span class="tag ${daValidare ? "tag-suppdue" : "tag-done"}">${esc(tr(daValidare ? "ord.tabPending" : "ord.tabOpen"))}</span></div>
               ${c.addizione ? `<p class="conto-addizione">${esc(tr("ord.tabBill"))}</p>` : ""}
               <div class="card-top">
