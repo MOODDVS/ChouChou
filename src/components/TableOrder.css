@@ -126,7 +126,19 @@
 :where(.tbl-pagina .order-item-add:disabled) { opacity: .3; cursor: default; }
 /* L'articolo ESAURITO: tutta la scheda velata, non solo il bottone — si
    capisce da lontano che non si puo' prendere (OrderApp: `order-item--esaurito`). */
-:where(.tbl-pagina .order-item--esaurito) { opacity: .45; }
+:where(.tbl-pagina .order-item--esaurito) { position: relative; }
+:where(.tbl-pagina .order-item--esaurito > :not(.order-esaurito-tag)) { opacity: .45; }
+/* L'«Épuisé» in basso a destra della scheda, PIENO (fondo rosso, scritta
+   bianca), e non velato: e' l'unica cosa della scheda che deve leggersi.
+   Quello accanto al nome, al tavolo, non serve piu'. */
+:where(.tbl-pagina .order-item-name .order-out) { display: none; }
+:where(.tbl-pagina .order-esaurito-tag) {
+  position: absolute; right: .9rem; bottom: .85rem; z-index: 1;
+  padding: .3rem .65rem; border-radius: 999px;
+  background: #c0392b; color: #fff;
+  font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
 
 /* I formati in linea: ogni bottone dice cosa e quanto. */
 :where(.tbl-pagina .order-item-vars) { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
@@ -189,6 +201,7 @@
   /* «Payer» invece si legge sempre: senza la parola la pillola sarebbe solo
      una cifra, e non si capirebbe che serve a pagare. */
   :where(.tbl-pagina--campanello .order-mobcart--paga .order-mobcart-label) { visibility: visible; }
+  :where(.tbl-pagina--campanello .tbl-chiuso-pill .order-mobcart-label) { visibility: visible; }
 }
 /* ---------- «Retour au menu» sul pannello dei dati: in fondo, fluttuante ----------
    ⚠️ Era la barra fissa in CIMA (la stessa delle categorie, con un solo
@@ -617,6 +630,15 @@
   font: inherit; font-weight: 600; white-space: nowrap; cursor: pointer;
 }
 :where(.tbl-pagina .order-mancia-btn.is-selected) { background: var(--tbl-ink); border-color: var(--tbl-ink); color: var(--tbl-paper); }
+
+/* Il modale «chiuso»: il secondo bottone vuoto, sotto il primo. */
+:where(.tbl-pagina .tbl-chiuso .tbl-btn--vuoto) {
+  margin-top: .6rem; background: transparent; color: var(--tbl-ink); box-shadow: inset 0 0 0 2px var(--tbl-ink);
+}
+/* La pillola che lo riapre: la parola al centro. */
+:where(.tbl-pagina .tbl-chiuso-pill) { justify-content: center; padding-left: 1.2rem; }
+/* «Réserver»: il widget del sito in un riquadro, tutta l'altezza che c'e'. */
+:where(.tbl-pagina .tbl-prenota-frame) { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; border-radius: .6rem; background: #fff; }
 
 /* ---------- «Article ajouté» ----------
    Verde, breve, sopra la pillola in fondo (dove sta gia' il pollice), dentro

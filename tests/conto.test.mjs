@@ -502,7 +502,9 @@ test("tavolo 19/10: banco, telefono col prefisso, esaurito velato, «+» sulla v
   assert.match(app, /onClick=\{\(\) => void paga\(true\)\}/);
   assert.match(app, /const telefonoIntero = telefonoCompleto\(prefisso, telefono\) \?\? "";/);
   assert.match(app, /className=\{"order-item" \+ \(item\.is_sold_out \? " order-item--esaurito" : ""\)\}/);
-  assert.match(leggi("src/components/TableOrder.css"), /:where\(\.tbl-pagina \.order-item--esaurito\) \{ opacity: \.45; \}/);
+  // La scheda velata, l'«Épuisé» pieno in basso a destra (solo al tavolo).
+  assert.match(leggi("src/components/TableOrder.css"), /:where\(\.tbl-pagina \.order-item--esaurito > :not\(\.order-esaurito-tag\)\) \{ opacity: \.45; \}/);
+  assert.match(app, /\{inSala && item\.is_sold_out && \(\s*<span className="order-esaurito-tag">/);
   const to = nudo("src/components/TableOrder.tsx");
   assert.match(to, /window\.dispatchEvent\(new CustomEvent\(EVENTO_AGGIUNGI, \{ detail: \{ id: f\.id \} \}\)\)/);
   assert.match(to, /people: conTavoli \? Number\(persone\) : 1,/);

@@ -1472,14 +1472,18 @@ test("pronto vuol dire un tavolo che esiste", () => {
 test("a servizio chiuso: niente menu, niente barra, modale che dice quando", () => {
   assert.match(TPAG, /statoServizioSala\(ambito\)/);
   assert.match(TPAG, /: servizio\.aperto \? null : \{ riapre: servizio\.riapre, motivo: "orario" \}\}/);
-  // Il menu non si monta.
-  assert.match(TORD, /\{!chiusoTesto && \(\n\s*<OrderApp/);
+  // Il menu c'e', ma solo da guardare (19/10/2026): niente «+», niente carrello.
+  assert.match(TORD, /consulta=\{Boolean\(chiusoTesto\)\}/);
   // Nemmeno la barra del tavolo: non c'e' niente da ordinare.
   assert.match(TORD, /const conBarra = conTavoli && !chiusoTesto;/);
-  // Il modale dice l'ora, e non si chiude: dietro non c'e' niente da fare.
+  // Il modale dice l'ora; «Voir le menu» lo mette da parte (una pillola lo
+  // riapre), «Réserver» apre il widget delle prenotazioni.
   assert.match(TORD, /testi\.chiusoRiapre\.replace\("\{ora\}", chiuso\.riapre\)/);
   assert.match(TORD, /role="alertdialog"/);
-  assert.match(TORD, /window\.location\.reload\(\)/);
+  assert.match(TORD, /onClick=\{\(\) => setModaleChiuso\(false\)\}/);
+  assert.match(TORD, /src=\{conSede\("\/reservation-embed"\)\}/);
+  // Indisponible col tavolo del QR: «Appeler le serveur», se la campanella c'e'.
+  assert.match(TORD, /chiamata && scelto && tavoloDaUrl && \(/);
 });
 
 test("se chiude mentre si ordina, si apre lo stesso modale", () => {
@@ -1596,7 +1600,7 @@ test("la vetrina si ferma al primo tocco, e non gira con «riduci movimento»", 
   assert.match(TORD, /<figcaption className="tbl-vetrina-nome">\{f\.nome\}<\/figcaption>/);
   assert.match(TPAG, /\.tbl-vetrina-nome \{[^}]*left: 0;[^}]*bottom: 0;[^}]*text-align: left;/);
   // Solo sul menu.
-  assert.match(TORD, /\{vista === "menu" && <Vetrina foto=\{vetrina\} nomi=\{testi\.titolo\} ariaAggiungi=\{testiOrdine\.ariaAdd\} \/>\}/);
+  assert.match(TORD, /\{vista === "menu" && <Vetrina foto=\{vetrina\} nomi=\{testi\.titolo\} ariaAggiungi=\{testiOrdine\.ariaAdd\} aggiungibile=\{!chiusoTesto\} \/>\}/);
 });
 
 test("il riquadro dei formati sale e scende, e aspetta solo se c'e' da aspettare", () => {
@@ -1686,7 +1690,7 @@ test("indietro da Stripe, al tavolo, riporta al carrello e non annulla", () => {
 
 test("tornando si riapre sui dati, col carrello e la sala di prima", () => {
   assert.match(TPAG, /const ripresa = Astro\.url\.searchParams\.get\("ripresa"\) === "1";/);
-  assert.match(TORD, /vistaIniziale=\{ripresa \? "checkout" : "menu"\}/);
+  assert.match(TORD, /vistaIniziale=\{ripresa && !chiusoTesto \? "checkout" : "menu"\}/);
   // Solo col carrello pieno: un carrello vuoto non apre un modulo vuoto.
   assert.match(OAPP, /vistaIniziale === "checkout" && \(salvato\.linee \?\? \[\]\)\.length > 0 \? "checkout" : "menu"/);
   // Tavolo e coperti ricordati; il tavolo del QR vince.
@@ -1802,7 +1806,7 @@ test("il totale sotto le note: l'opzione resta nel motore, spenta sulla pagina d
   assert.doesNotMatch(TPAG, /totaleSottoLeNote=\{true\}/);
   assert.match(TORD, /totaleSottoLeNote=\{totaleSottoLeNote\}/);
   // Spento di default: i siti in produzione non se lo trovano nudo.
-  assert.match(OAPP, /vistaIniziale = "menu", totaleSottoLeNote = false \}/);
+  assert.match(OAPP, /vistaIniziale = "menu", totaleSottoLeNote = false, consulta = false \}/);
   // Lo stesso numero del bottone, sconto compreso: mai due totali diversi.
   assert.match(OAPP, /<strong>\{euro\(scontoCents > 0( \|\| rigaConsegna)?( \|\| mancia > 0)? \? (totaleFinale|totaleDaPagare) : totale\)\}<\/strong>/);
 });
@@ -1832,7 +1836,7 @@ test("la campanella chiede il tavolo e chiama la rotta col punto", () => {
   // L'interruttore dei Réglages, non un `true` scritto nella pagina.
   assert.match(TPAG, /chiamata=\{sala\.chiamata\}/);
   // Sul menu e sui dati, mai a servizio chiuso.
-  assert.match(TORD, /const campanello = chiamata && !chiusoTesto;/);
+  assert.match(TORD, /const campanello = chiamata && \(!chiusoTesto \|\| pagamentoAssente\);/);
 });
 
 test("la campanella non cambia di nascosto il tavolo dell'ordine", () => {
@@ -2115,7 +2119,7 @@ test("al tavolo, «Article ajouté»: un toast verde a ogni piatto, solo in sala
   const app = readFileSync("src/components/OrderApp.tsx", "utf8");
   // Solo al tavolo: sulle /order dei clienti comparirebbe senza vestito.
   assert.match(app, /function segnaAggiunto\(\) \{\s*if \(!inSala\) return;/);
-  assert.match(app, /if \(item\.is_sold_out \|\| v\?\.sold_out\) return;\s*segnaAggiunto\(\);/);
+  assert.match(app, /if \(item\.is_sold_out \|\| v\?\.sold_out \|\| consulta\) return;\s*segnaAggiunto\(\);/);
   assert.match(app, /fr: "Article ajouté"/);
   assert.match(readFileSync("src/components/TableOrder.css", "utf8"), /:where\(\.tbl-pagina \.order-aggiunto\) \{[\s\S]*?background: #2e9e5b;/);
 });
