@@ -167,7 +167,8 @@ const TESTI: Record<string, TestiSessione> = {
     errGenerico: "Impossible d’enregistrer la table. Réessayez.",
     chiusoTitolo: "Nous sommes fermés", chiusoRiapre: "Nous rouvrons aujourd’hui à {ora}.",
     chiusoOggi: "Le service est terminé pour aujourd’hui.", aggiorna: "Actualiser",
-    nonDisponibileTitolo: "Commande indisponible", nonDisponibileTesto: "La commande depuis la table n’est pas disponible pour le moment. Un membre de l’équipe peut prendre votre commande.",
+    nonDisponibileTitolo: "Commande indisponible", nonDisponibileTesto: "Ce service est indisponible en ce moment.",
+    vediMenu: "Voir le menu", prenota: "Réserver",
     chiama: "Appeler le serveur", chiamaTitolo: "À quelle table êtes-vous ?", chiamaFatto: "C’est noté : un serveur arrive à la table {t}.", chiamaErr: "L’appel n’est pas passé. Faites signe à un serveur.", chiamaNomeTitolo: "Pour que le serveur vous trouve", chiamaNome: "Votre prénom", chiamaInvia: "Appeler le serveur", chiamaFattoNome: "C’est noté : un serveur arrive.", chiamaAttendi: "Le serveur est prévenu. Vous pourrez rappeler dans {tempo}.",
   },
   en: {
@@ -180,7 +181,8 @@ const TESTI: Record<string, TestiSessione> = {
     errGenerico: "Could not register the table. Please try again.",
     chiusoTitolo: "We’re closed", chiusoRiapre: "We reopen today at {ora}.",
     chiusoOggi: "Service is over for today.", aggiorna: "Refresh",
-    nonDisponibileTitolo: "Ordering unavailable", nonDisponibileTesto: "Ordering from the table isn’t available right now. A member of staff can take your order.",
+    nonDisponibileTitolo: "Ordering unavailable", nonDisponibileTesto: "This service is unavailable right now.",
+    vediMenu: "See the menu", prenota: "Book a table",
     chiama: "Call the waiter", chiamaTitolo: "Which table are you at?", chiamaFatto: "Got it: a waiter is on the way to table {t}.", chiamaErr: "The call didn’t go through. Please wave to a member of staff.", chiamaNomeTitolo: "So the waiter can find you", chiamaNome: "Your first name", chiamaInvia: "Call the waiter", chiamaFattoNome: "Got it: a waiter is on the way.", chiamaAttendi: "The waiter has been told. You can call again in {tempo}.",
   },
   it: {
@@ -193,7 +195,8 @@ const TESTI: Record<string, TestiSessione> = {
     errGenerico: "Non riesco a registrare il tavolo. Riprova.",
     chiusoTitolo: "Siamo chiusi", chiusoRiapre: "Riapriamo oggi alle {ora}.",
     chiusoOggi: "Il servizio di oggi è terminato.", aggiorna: "Aggiorna",
-    nonDisponibileTitolo: "Ordine non disponibile", nonDisponibileTesto: "L’ordine dal tavolo non è disponibile al momento. Il personale può prendere la tua ordinazione.",
+    nonDisponibileTitolo: "Ordine non disponibile", nonDisponibileTesto: "Questo servizio non è disponibile al momento.",
+    vediMenu: "Vedi il menu", prenota: "Prenota",
     chiama: "Chiama il cameriere", chiamaTitolo: "A quale tavolo siete?", chiamaFatto: "Fatto: un cameriere arriva al tavolo {t}.", chiamaErr: "La chiamata non è partita. Fate un cenno a un cameriere.", chiamaNomeTitolo: "Perché il cameriere vi trovi", chiamaNome: "Il tuo nome", chiamaInvia: "Chiama il cameriere", chiamaFattoNome: "Fatto: arriva un cameriere.", chiamaAttendi: "Il cameriere è avvisato. Potrai richiamare tra {tempo}.",
   },
   nl: {
@@ -206,7 +209,8 @@ const TESTI: Record<string, TestiSessione> = {
     errGenerico: "Kan de tafel niet registreren. Probeer opnieuw.",
     chiusoTitolo: "We zijn gesloten", chiusoRiapre: "We gaan vandaag weer open om {ora}.",
     chiusoOggi: "De service is voor vandaag afgelopen.", aggiorna: "Vernieuwen",
-    nonDisponibileTitolo: "Bestellen niet beschikbaar", nonDisponibileTesto: "Bestellen vanaf de tafel is momenteel niet beschikbaar. Een medewerker kan uw bestelling opnemen.",
+    nonDisponibileTitolo: "Bestellen niet beschikbaar", nonDisponibileTesto: "Deze dienst is momenteel niet beschikbaar.",
+    vediMenu: "Bekijk het menu", prenota: "Reserveren",
     chiama: "Ober roepen", chiamaTitolo: "Aan welke tafel zit u?", chiamaFatto: "Genoteerd: er komt een ober naar tafel {t}.", chiamaErr: "De oproep is niet verstuurd. Wenk even een ober.", chiamaNomeTitolo: "Zodat de ober u vindt", chiamaNome: "Uw voornaam", chiamaInvia: "Ober roepen", chiamaFattoNome: "Genoteerd: er komt een ober.", chiamaAttendi: "De ober is verwittigd. U kunt opnieuw roepen over {tempo}.",
   },
   es: {
@@ -219,7 +223,8 @@ const TESTI: Record<string, TestiSessione> = {
     errGenerico: "No se puede registrar la mesa. Inténtelo de nuevo.",
     chiusoTitolo: "Estamos cerrados", chiusoRiapre: "Volvemos a abrir hoy a las {ora}.",
     chiusoOggi: "El servicio de hoy ha terminado.", aggiorna: "Actualizar",
-    nonDisponibileTitolo: "Pedido no disponible", nonDisponibileTesto: "Pedir desde la mesa no está disponible en este momento. El personal puede tomar su pedido.",
+    nonDisponibileTitolo: "Pedido no disponible", nonDisponibileTesto: "Este servicio no está disponible en este momento.",
+    vediMenu: "Ver la carta", prenota: "Reservar",
     chiama: "Llamar al camarero", chiamaTitolo: "¿En qué mesa está?", chiamaFatto: "Hecho: un camarero va a la mesa {t}.", chiamaErr: "La llamada no se envió. Haga una seña a un camarero.", chiamaNomeTitolo: "Para que el camarero le encuentre", chiamaNome: "Su nombre", chiamaInvia: "Llamar al camarero", chiamaFattoNome: "Hecho: va un camarero.", chiamaAttendi: "El camarero está avisado. Podrá volver a llamar en {tempo}.",
   },
 };
@@ -556,6 +561,10 @@ const testiOrdine = {
   .tbl-modale-box.tbl-conto { display: flex; flex-direction: column; height: min(86dvh, 46rem);
                               max-height: none; overflow: hidden; }
   .tbl-conto > .tbl-modale-testa { position: static; flex: 0 0 auto; }
+  /* «Réserver»: il widget delle prenotazioni in un iframe, alto quanto si puo'. */
+  .tbl-modale-box.tbl-prenota { display: flex; flex-direction: column; height: min(90dvh, 48rem);
+                                max-height: none; overflow: hidden; }
+  .tbl-prenota > .tbl-modale-testa { position: static; flex: 0 0 auto; }
   .tbl-conto-corpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
                      margin: 0 -1rem; padding: 0 1rem .6rem; }
   .tbl-conto-piede { flex: 0 0 auto; margin: 0 -1rem; padding: .2rem 1rem 0;

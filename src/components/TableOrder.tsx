@@ -86,6 +86,11 @@ export interface TestiSessione {
   chiamaFattoNome: string;
   /** Si e' gia' chiamato: «potrai richiamare tra {tempo}» (es. «4:32»). */
   chiamaAttendi: string;
+  /** Il modale «chiuso» / «indisponible»: «Voir le menu» (lo chiude e
+   *  lascia guardare la carta) e «Réserver» (il widget delle prenotazioni).
+   *  Facoltativi: senza, le parole francesi. */
+  vediMenu?: string;
+  prenota?: string;
 }
 
 interface Props {
@@ -307,7 +312,7 @@ function leggiSessione(): { id: string } | null {
  * Il nome sta in basso a sinistra, piccolo, su una sfumatura scura: si legge
  * su qualunque piatto, chiaro o scuro, senza coprire il piatto.
  */
-function Vetrina({ foto, nomi, ariaAggiungi }: { foto: { id: string; src: string; nome: string }[]; nomi: string; ariaAggiungi: string }) {
+function Vetrina({ foto, nomi, ariaAggiungi, aggiungibile = true }: { foto: { id: string; src: string; nome: string }[]; nomi: string; ariaAggiungi: string; aggiungibile?: boolean }) {
   const binario = useRef<HTMLDivElement | null>(null);
   const toccato = useRef(false);
   const [indice, setIndice] = useState(0);
@@ -350,7 +355,7 @@ function Vetrina({ foto, nomi, ariaAggiungi }: { foto: { id: string; src: string
                 con l'evento pubblico di OrderApp — la stessa strada di
                 qualunque bottone fuori dal carrello. Non sulla foto del
                 locale, che non e' un piatto. */}
-            {f.id !== "locale" && (
+            {f.id !== "locale" && aggiungibile && (
               <button
                 type="button"
                 className="tbl-vetrina-piu"
@@ -410,6 +415,17 @@ export default function TableOrder({
       : null,
   );
   const chiusoTitolo = pagamentoAssente ? testi.nonDisponibileTitolo : testi.chiusoTitolo;
+  /* ⚠️ IL MODALE «CHIUSO» SI PUO' METTERE DA PARTE (19/10/2026): «Voir le
+     menu» lo chiude e la carta resta da GUARDARE (`consulta`: niente «+»,
+     niente carrello). Una pillola in fondo lo riapre. Se il server chiude
+     dopo (`setChiusoTesto`), il modale torna. */
+  const [modaleChiuso, setModaleChiuso] = useState(true);
+  useEffect(() => {
+    if (chiusoTesto) setModaleChiuso(true);
+  }, [chiusoTesto]);
+  /* «Réserver»: il widget delle prenotazioni in un riquadro, la stessa
+     pagina nuda che i siti aprono dal loro bottone (`/reservation-embed`). */
+  const [prenotaAperta, setPrenotaAperta] = useState(false);
   /* ⚠️ Tavolo e coperti si RICORDANO per la scheda: chi torna indietro da
      Stripe non deve rifare la sala. Il tavolo del QR (`?table=`) vince sempre
      su quello ricordato — e' scritto sul cartoncino davanti a lui. */
@@ -1008,7 +1024,9 @@ export default function TableOrder({
      fondo: sul menu quella del carrello, sui dati «Retour au menu». Il
      pannello dei dati lascia in fondo lo spazio (TableOrder.css), cosi' il
      bottone per pagare non le finisce mai sotto. */
-  const campanello = chiamata && !chiusoTesto;
+  /* A servizio chiuso no (il server rifiuta); con l'ordine solo
+     «indisponible» si', il locale e' aperto e il cameriere c'e'. */
+  const campanello = chiamata && (!chiusoTesto || pagamentoAssente);
   /** Il tocco sulla campanella: aspetta → dice quanto manca; tavolo (o nome)
    *  gia' noto → chiama subito; se no → chiede. */
   function toccaCampanella() {
@@ -1254,26 +1272,25 @@ export default function TableOrder({
           riepilogo e il bottone di pagamento sotto la piega, proprio quando
           il cliente sta per pagare. Se nessun piatto ha una foto, gira la
           foto del locale da sola; se non c'e' nemmeno quella, niente. */}
-      {vista === "menu" && <Vetrina foto={vetrina} nomi={testi.titolo} ariaAggiungi={testiOrdine.ariaAdd} />}
+      {vista === "menu" && <Vetrina foto={vetrina} nomi={testi.titolo} ariaAggiungi={testiOrdine.ariaAdd} aggiungibile={!chiusoTesto} />}
 
-      {/* ⚠️ A servizio chiuso il menu NON si monta: niente da scegliere, e un
-          carrello riempito per niente e’ peggio di un modale che dice subito
-          come stanno le cose. */}
-      {!chiusoTesto && (
-        <OrderApp
-          menu={menu}
-          t={testiOrdine}
-          lang={lang}
-          sede={sede}
-          tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp }}
-          vistaIniziale={ripresa ? "checkout" : "menu"}
-          sceltaFormato={sceltaFormato}
-          foto={foto}
-          carrelloDettagliato={carrelloDettagliato}
-          totaleSottoLeNote={totaleSottoLeNote}
-          pagamento={pagamento}
-        />
-      )}
+      {/* A servizio chiuso (o con l'ordine indisponibile) il menu c'e' lo
+          stesso, SOLO DA GUARDARE (`consulta`): niente «+» e niente carrello,
+          quindi nessun carrello riempito per niente. */}
+      <OrderApp
+        menu={menu}
+        t={testiOrdine}
+        lang={lang}
+        sede={sede}
+        consulta={Boolean(chiusoTesto)}
+        tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp }}
+        vistaIniziale={ripresa && !chiusoTesto ? "checkout" : "menu"}
+        sceltaFormato={sceltaFormato}
+        foto={foto}
+        carrelloDettagliato={carrelloDettagliato}
+        totaleSottoLeNote={totaleSottoLeNote}
+        pagamento={pagamento}
+      />
 
       {/* ⚠️ LA CAMPANELLA, a destra della barra del carrello. La scritta
           gira attorno al disegno: dice cosa fa il bottone senza bisogno di
@@ -1617,14 +1634,54 @@ export default function TableOrder({
           pagina rotta, agli occhi di chi e’ seduto. L’unica azione e’
           riprovare: dice QUANDO, cosi’ chi legge «17:00» sa che deve solo
           aspettare, non che il QR e’ guasto. */}
-      {chiusoTesto && (
+      {/* IL MODALE «CHIUSO» / «INDISPONIBLE». Dice QUANDO si riapre (o che
+          adesso l'ordine dal tavolo non c'e') e offre cosa fare:
+          - «Voir le menu»: lo chiude, la carta resta da guardare;
+          - a servizio chiuso, «Réserver» (il widget delle prenotazioni);
+          - con l'ordine indisponibile e il tavolo noto dal QR, «Appeler le
+            serveur» (se la campanella e' accesa): il locale e' aperto.
+          Le classi da vestire: `tbl-chiuso`, `tbl-chiuso-*`. */}
+      {chiusoTesto && modaleChiuso && (
         <div className="tbl-modale tbl-modale--chiuso" role="alertdialog" aria-modal="true" aria-labelledby="tbl-chiuso-tit">
           <div className="tbl-modale-box tbl-chiuso">
             <p className="tbl-chiuso-tit" id="tbl-chiuso-tit">{chiusoTitolo}</p>
             <p className="tbl-chiuso-testo">{chiusoTesto}</p>
-            <button type="button" className="tbl-btn" onClick={() => window.location.reload()}>
-              {testi.aggiorna}
+            <button type="button" className="tbl-btn" onClick={() => setModaleChiuso(false)}>
+              {testi.vediMenu ?? "Voir le menu"}
             </button>
+            {pagamentoAssente
+              ? chiamata && scelto && tavoloDaUrl && (
+                  <button type="button" className="tbl-btn tbl-btn--vuoto" disabled={chiamando}
+                          onClick={() => { setModaleChiuso(false); void chiama({ tavolo: scelto }); }}>
+                    {testi.chiama}
+                  </button>
+                )
+              : (
+                  <button type="button" className="tbl-btn tbl-btn--vuoto" onClick={() => setPrenotaAperta(true)}>
+                    {testi.prenota ?? "Réserver"}
+                  </button>
+                )}
+          </div>
+        </div>
+      )}
+      {/* Messo da parte il modale: una pillola in fondo lo riapre — senza,
+          chi guarda la carta non saprebbe piu' perche' non c'e' il «+». */}
+      {chiusoTesto && !modaleChiuso && (
+        <button type="button" className="order-mobcart tbl-chiuso-pill" onClick={() => setModaleChiuso(true)}>
+          <span className="order-mobcart-label">{chiusoTitolo}</span>
+        </button>
+      )}
+      {/* «RÉSERVER»: il widget delle prenotazioni del sito, nel suo riquadro. */}
+      {prenotaAperta && (
+        <div className="tbl-modale tbl-modale--prenota" role="dialog" aria-modal="true" aria-label={testi.prenota ?? "Réserver"}
+             onClick={() => setPrenotaAperta(false)}>
+          <div className="tbl-modale-box tbl-prenota" onClick={(e) => e.stopPropagation()}>
+            <div className="tbl-modale-testa">
+              <p className="tbl-modale-tit">{testi.prenota ?? "Réserver"}</p>
+              <button type="button" className="tbl-modale-x" aria-label={testi.chiudi}
+                      onClick={() => setPrenotaAperta(false)}>×</button>
+            </div>
+            <iframe className="tbl-prenota-frame" src={conSede("/reservation-embed")} title={testi.prenota ?? "Réserver"} />
           </div>
         </div>
       )}

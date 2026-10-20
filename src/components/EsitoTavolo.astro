@@ -269,7 +269,10 @@ const ancoraAttesa = esito.tipo === "inVerifica" && tentativo < TENTATIVI_VERIFI
   .tbl-esito-tavolo-lab { font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--tbl-muted); }
   .tbl-esito-tavolo-num { font-size: 2.2rem; font-weight: 800; line-height: 1.05; }
   .tbl-esito-msg { margin: 0 0 1.4rem; max-width: 26rem; line-height: 1.45; font-size: 1.02rem; }
-  .tbl-esito-recap { width: 100%; text-align: left; border: 1px solid var(--tbl-line); border-radius: .9rem;
+  /* ⚠️ `box-sizing`: largo 100% PIU' padding e bordo usciva dalla colonna di
+     2rem e qualcosa — il riquadro toccava il bordo a destra e non era piu'
+     allineato al bottone sotto (20/10/2026). */
+  .tbl-esito-recap { box-sizing: border-box; width: 100%; text-align: left; border: 1px solid var(--tbl-line); border-radius: .9rem;
                      background: var(--tbl-card); padding: .4rem 1rem; margin-bottom: 1.4rem; }
   .tbl-esito-voci { list-style: none; margin: 0; padding: 0; }
   .tbl-esito-riga { display: flex; justify-content: space-between; gap: 1rem; padding: .55rem 0;

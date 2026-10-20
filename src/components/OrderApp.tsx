@@ -243,6 +243,10 @@ interface OrderAppProps {
    *  le etichette passano da `etichettaMenu`, che sa ripiegare. */
   lang: string;
   closedToday?: boolean;
+  /** SOLO DA LEGGERE: il menu si guarda ma non si ordina (al tavolo, a
+   *  servizio chiuso o con l'ordine indisponibile, dopo «Voir le menu»).
+   *  Niente «+», niente formati da toccare, niente carrello. */
+  consulta?: boolean;
   /** Come il cliente sceglie il formato di un piatto con varianti.
    *  "pulsanti" (default): un bottone per formato dentro la scheda, adatto
    *  alle liste asciutte. "modale": scheda con foto grande e radio, per i
@@ -455,7 +459,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false, consulta = false }: OrderAppProps) {
   /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
      cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
      non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
@@ -795,7 +799,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   }
 
   function clicPiu(item: MenuItem) {
-    if (item.is_sold_out) return;
+    if (item.is_sold_out || consulta) return;
     const ordinabili = variantiOrdinabili(item);
     if (ordinabili.length === 0) {
       // Nessun formato: il piatto ha un prezzo unico e va dritto nel carrello.
@@ -914,7 +918,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
 
   /** Differenza rispetto al formato base, col segno. */
   function aggiungi(item: MenuItem, v?: Variante) {
-    if (item.is_sold_out || v?.sold_out) return;
+    if (item.is_sold_out || v?.sold_out || consulta) return;
     segnaAggiunto();
     // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
     // il server ricostruisce le righe d'ordine da lì, non da qui.
@@ -1909,6 +1913,14 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                       const desc = testi.description;
                       return (
                         <div key={item.id} className={"order-item" + (item.is_sold_out ? " order-item--esaurito" : "")}>
+                          {/* AL TAVOLO l'«Épuisé» sta in basso a destra della
+                              scheda, pieno: la scheda e' velata, l'etichetta
+                              no (TableOrder.css). ⚠️ Solo `inSala`: sulle
+                              pagine /order dei clienti sarebbe un elemento
+                              nuovo e nudo — li' resta quello accanto al nome. */}
+                          {inSala && item.is_sold_out && (
+                            <span className="order-esaurito-tag">{et("soldOut")}</span>
+                          )}
                           <div className="order-item-info">
                             <h3 className="order-item-name">
                               {testi.name}
@@ -1923,7 +1935,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                                     key={v.key}
                                     type="button"
                                     className="order-item-var"
-                                    disabled={v.sold_out || item.is_sold_out}
+                                    disabled={v.sold_out || item.is_sold_out || consulta}
                                     aria-label={`${t.ariaAdd} ${item.name} — ${etichettaVariante(v, lang)}`}
                                     onClick={() => aggiungi(item, v)}
                                   >
@@ -1958,7 +1970,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                           {conFoto(item) ? (
                             <div className="order-item-photo">
                               <img src={item.image_url!} alt={item.name} loading="lazy" decoding="async" />
-                              {!formatiInLinea(item) && (
+                              {!formatiInLinea(item) && !consulta && (
                                 <button
                                   type="button"
                                   className="order-item-add"
@@ -1971,7 +1983,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                               )}
                             </div>
                           ) : (
-                            !formatiInLinea(item) && (
+                            !formatiInLinea(item) && !consulta && (
                               <button
                                 type="button"
                                 className="order-item-add"
@@ -2034,7 +2046,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           </svg>
           <span>{t.closedToday}</span>
         </div>
-      ) : linee.length === 0 && tavolo?.conto?.paga ? (
+      ) : consulta ? null : linee.length === 0 && tavolo?.conto?.paga ? (
         <button type="button" className="order-mobcart order-mobcart--paga" onClick={tavolo.conto.paga.apri}>
           <span className="order-mobcart-label">{tavolo.conto.paga.etichetta}</span>
           <span className="order-mobcart-total">{euro(tavolo.conto.paga.totale_cents)}</span>
