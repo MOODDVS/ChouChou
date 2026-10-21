@@ -47,3 +47,38 @@
   border-color: var(--accent, currentColor);
   color: var(--accent-fg, Canvas);
 }
+
+/* «Oggi», «Domani» e il campo che apre il calendario (vedi `Calendario` in
+   SlotPicker.tsx). Stesso principio: base neutra, il sito la veste. */
+:where(.slotpicker-scelta-giorno) { display: flex; flex-direction: column; gap: 0.6rem; }
+:where(.slotpicker-giorno:disabled) { opacity: 0.4; cursor: not-allowed; }
+:where(.slotpicker-data) {
+  width: 100%; padding: 0.6rem 0.9rem; border-radius: 999px; cursor: pointer;
+  background: transparent; color: inherit; font: inherit; font-size: 0.9rem; text-align: center;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+:where(.slotpicker-data.is-selected) { background: var(--accent, currentColor); border-color: var(--accent, currentColor); color: var(--accent-fg, Canvas); }
+:where(.slotpicker-cal) { border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: 12px; padding: 0.8rem; }
+:where(.slotpicker-cal-testa) { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+:where(.slotpicker-cal-titolo) { text-transform: capitalize; font-weight: 600; }
+:where(.slotpicker-cal-nav) {
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer; background: transparent; color: inherit; font: inherit;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+:where(.slotpicker-cal-nav:disabled) { opacity: 0.3; cursor: not-allowed; }
+:where(.slotpicker-cal-dow), :where(.slotpicker-cal-griglia) { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+:where(.slotpicker-cal-dow span) { text-align: center; font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; padding: 0.2rem 0; }
+:where(.slotpicker-cal-cella) {
+  min-height: 38px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+:where(.slotpicker-cal-cella:disabled) { opacity: 0.3; cursor: not-allowed; }
+:where(.slotpicker-cal-cella.is-oggi) { box-shadow: inset 0 0 0 1px currentColor; }
+:where(.slotpicker-cal-cella.is-selected) { background: var(--accent, currentColor); color: var(--accent-fg, Canvas); font-weight: 700; }
+
+/* Le schede Midi / Soir: due bottoni a meta', la scheda aperta piena. */
+:where(.slotpicker-tabs) { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+:where(.slotpicker-tab) {
+  padding: 0.55rem 0.9rem; border-radius: 999px; cursor: pointer; background: transparent; color: inherit; font: inherit; font-size: 0.9rem;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+}
+:where(.slotpicker-tab.is-active) { background: var(--accent, currentColor); border-color: var(--accent, currentColor); color: var(--accent-fg, Canvas); }

@@ -804,3 +804,39 @@ test("sul tablet orizzontale gli ordini stanno su una fila che si scorre", () =>
   assert.match(blocco, /\.grid \{[^}]*grid-auto-flow: column;[^}]*overflow-x: auto;/);
   assert.match(blocco, /\.grid > \* \{ scroll-snap-align: start; \}/);
 });
+
+test("senza sotto-categorie le bevande le riconoscono i dati, non i numeri di La Molisana", () => {
+  /* ⚠️ Il ramo storico metteva «Pizza» sulle sezioni da 4 a 7 e «Boissons»
+     su quelle da 9 in su: su L'Aperitivo le Pinse diventavano «Pizza» e i
+     Dolci finivano fra le bevande (21/10/2026). */
+  const app = leggi("src/components/OrderApp.tsx");
+  const db = leggi("src/lib/db.ts");
+  assert.match(db, /select\("id, name, parent_id, depth, name_i18n, kind"\)/);
+  assert.match(db, /g\.kind = info\?\.kind \?\? null;/);
+  assert.match(app, /const conTipo = menu\.some\(\(c\) => c\.kind === "food" \|\| c\.kind === "drink"\);/);
+  // Il ramo coi dati viene PRIMA di quello storico.
+  assert.ok(app.indexOf("} else if (conTipo) {") < app.indexOf("Legacy (senza sotto-categorie e senza `kind`)"));
+  // Ogni sezione un filtro, bevande comprese (softs, birre, vino).
+  assert.match(app, /gruppiVisibili\.push\(\{ slug: "cat-" \+ gruppiVisibili\.length, label: nomeSezione\(cat\), subcats: \[cat\] \}\);/);
+});
+
+test("il giorno del ritiro: oggi, domani e un calendario coi soli giorni del server", () => {
+  /* Con la finestra aperta a molti giorni, una fila di bottoni «ven. 23 oct.»
+     non si leggeva (21/10/2026). */
+  const sp = leggi("src/components/SlotPicker.tsx");
+  assert.match(sp, /const conCalendario = giorni\.length > 2;/);
+  assert.match(sp, /const bottoni = conCalendario \? \[base, domani\] : giorni;/);
+  // Oggi e domani spenti se quel giorno non si puo'.
+  assert.match(sp, /disabled=\{!possibile\}/);
+  // Il calendario accende solo i giorni della lista.
+  assert.match(sp, /const ok = possibili\.has\(iso\);/);
+  assert.match(sp, /disabled=\{!ok\}/);
+});
+
+test("gli orari: Midi e Soir sono due schede, e una fascia sola non ne ha", () => {
+  const sp = leggi("src/components/SlotPicker.tsx");
+  assert.match(sp, /const spezzato = lunch\.length > 0 && dinner\.length > 0;/);
+  assert.match(sp, /\{spezzato && \(\s*<div className="slotpicker-tabs" role="tablist">/);
+  // Si apre sulla prima fascia che ha orari.
+  assert.match(sp, /setFascia\(d\.lunch\.length > 0 \? "lunch" : "dinner"\);/);
+});
