@@ -24,6 +24,7 @@ import { consegnaDellOrdine, manciaDellOrdine } from "../../../lib/consegnaOrdin
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { rimborsabile } from "../../../lib/admin/ordiniConti";
 import { cosaDaIncassare } from "../../../lib/admin/daIncassare";
 export const prerender = false;
 
@@ -768,8 +769,19 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
     const inPersona = inCassa(prima.payment_method);
     const totale = Number(prima.total_cents ?? 0);
-    const gia = Number(prima.refunded_cents ?? 0);
-    const residuo = Math.max(0, totale - gia);
+    /* ⚠️ L'importo che l'email promette di rendere e' quello che il
+       ristorante tiene ancora (`rimborsabile`), con la differenza di una
+       modifica non ancora resa: era `totale − rimborsato`, e a chi aveva
+       tolto un piatto l'email annunciava il rimborso solo di quello che
+       restava. Le colonne #50 si leggono a parte: senza, valgono zero. */
+    const { data: d50 } = await leggi("orders", ambito, "refund_due_cents, supplement_due_cents").eq("id", id).maybeSingle()
+      .then((r) => r, () => ({ data: null }));
+    const residuo = rimborsabile({
+      total_cents: totale,
+      refunded_cents: Number(prima.refunded_cents ?? 0),
+      refund_due_cents: Number((d50 as { refund_due_cents?: number } | null)?.refund_due_cents ?? 0),
+      supplement_due_cents: Number((d50 as { supplement_due_cents?: number } | null)?.supplement_due_cents ?? 0),
+    });
     let refundMode: "online" | "in_person" | "unpaid";
     if (prima.status === "pending") refundMode = "unpaid";
     else if (inPersona || residuo <= 0) refundMode = "in_person";
