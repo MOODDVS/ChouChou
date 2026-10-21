@@ -527,3 +527,14 @@ test("l'interruttore ha DUE taglie, e nessuna pagina se ne inventa altre", () =>
     `misure dell'interruttore scritte a mano fuori da styles/switch.css: ${colpevoli.join(" · ")}. Chi ne vuole uno piu' piccolo usa la classe sw-sm.`,
   );
 });
+
+test("le section della sala si riordinano con le frecce, e l'ordine e' quello salvato", () => {
+  const pag = readFileSync(new URL("../src/pages/admin/settings.astro", import.meta.url), "utf8");
+  assert.match(pag, /class="rz-sposta" data-dir="-1"/);
+  assert.match(pag, /class="rz-sposta" data-dir="1"/);
+  // La prima non sale, l'ultima non scende.
+  assert.match(pag, /if \(su\) su\.disabled = i === 0;/);
+  assert.match(pag, /if \(giu\) giu\.disabled = i === righe\.length - 1;/);
+  // Il JSON legge le righe nell'ordine della pagina.
+  assert.match(pag, /function zonesJSON\(\): string \{\s*const zone = Array\.from\(rZonesBox\.querySelectorAll<HTMLElement>\("\.rz-row"\)\)/);
+});

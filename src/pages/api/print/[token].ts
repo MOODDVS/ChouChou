@@ -14,7 +14,9 @@ import { defaultLang } from "../../../i18n/ui";
 import { disegnaTicket } from "../../../config/ticket";
 import { dividiPerStampante } from "../../../lib/stampaCoda";
 import { componiTesto } from "../../../lib/escpos";
-import { leggiProva, sembraProva } from "../../../lib/printToken";
+import { leggiProva, sembraProva, leggiChiamata } from "../../../lib/printToken";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 // ⚠️ TEMPORANEO: le bande della prova del logo. Si cancella con l'esperimento.
 import { BANDE as PROVA } from "../../../lib/provaLogo";
 
@@ -32,7 +34,9 @@ import { BANDE as PROVA } from "../../../lib/provaLogo";
  */
 export const prerender = false;
 
-const RE_TOKEN = /^[A-Za-z0-9~._-]{16,200}$/;
+/* ⚠️ 400 e non 200: il biglietto di una chiamata porta dentro tavolo e nome
+   (vedi `firmaChiamata`), ed e' piu' lungo di quello di una prova. */
+const RE_TOKEN = /^[A-Za-z0-9~._-]{16,400}$/;
 
 /** Il segreto che firma i biglietti di prova. `CRON_SECRET` c'e' gia' su ogni
  *  cliente; la chiave di servizio e' la rete di sicurezza per chi non l'ha
@@ -90,6 +94,31 @@ function giornoDi(iso: string | null | undefined, fuso: string): string | null {
 export const GET: APIRoute = async ({ params }) => {
   const token = String(params.token ?? "");
   if (!RE_TOKEN.test(token)) return vuoto();
+
+  // ---- 0. La chiamata dal tavolo (`orders_table_call_print`): come la
+  // prova, un biglietto firmato che porta dentro quello che deve dire.
+  if (sembraProva(token)) {
+    const c = leggiChiamata(token, segretoProva());
+    if (c) {
+      const ambito = c.sede ? ambitoDiRiga(c.sede) : tutteLeSedi();
+      const [cfg, lingua] = await Promise.all([leggiConfig(ambito, ["timezone"]), adminLang().catch(() => "fr" as const)]);
+      const tr = adminT(lingua);
+      const fuso = String(cfg.valori.get("timezone") || "Europe/Brussels");
+      const ora = oraDi(new Date(c.ora * 1000).toISOString(), fuso);
+      const chi = c.tavolo || c.nome || "—";
+      const frase = c.tavolo
+        ? tr(c.conto ? "nav.toastBill" : "nav.toastCall").replace("{t}", c.tavolo)
+        : tr("nav.toastCallName").replace("{nome}", c.nome);
+      return ticket(
+        componiTesto([
+          { testo: tr(c.conto ? "tk.billTitle" : "tk.callTitle"), taglia: "grande", grassetto: true, centrato: true, inverso: true },
+          { testo: chi, taglia: "gigante", grassetto: true, centrato: true },
+          { testo: ora, taglia: "grande", grassetto: true, centrato: true, linea: true },
+          { testo: frase, taglia: "normale", centrato: true },
+        ]),
+      );
+    }
+  }
 
   // ---- 1. Il biglietto di prova: non ha un ordine, e scade da solo.
   if (sembraProva(token)) {

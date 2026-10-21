@@ -570,6 +570,7 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // La campanella: chi ha qualcuno che guarda il tablet e' un PUNTO, non il gruppo.
   orders_table_call: "sede",
   orders_table_call_wait: "sede", // minuti prima di poter richiamare
+  orders_table_call_print: "sede", // un ticket a ogni chiamata: la stampante e' del PUNTO
   orders_table_choose: "sede",    // col piano, il cliente sceglie il tavolo (o da' solo il nome)
   // Quando si ordina dal tavolo: orari d'apertura o service scelti, + margine.
   // Della SEDE: Educazione ordina dal tavolo solo a pranzo, un altro punto no.

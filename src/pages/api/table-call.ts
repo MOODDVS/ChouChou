@@ -8,6 +8,7 @@ import { fusoDi } from "../../lib/fuso";
 import { decidiChiamata, chiaveChiamata, FINESTRA_CHIAMATE_MIN, type ChiamataAperta } from "../../lib/chiamateRegole";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { inviaPushChiamata } from "../../lib/push";
+import { stampaChiamata } from "../../lib/stampaCoda";
 
 /**
  * «APPELER LE SERVEUR» — il tavolo chiama.
@@ -132,6 +133,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Mai bloccante: il tablet la trova comunque al prossimo giro.
   void inviaPushChiamata(tavolo ? { tavolo: tavolo.name, addizione } : { nome }, ambito).catch(() => {});
+  /* E il ticket, se il ristoratore lo vuole (`orders_table_call_print`): la
+     decisione la legge `stampaChiamata`, che non fa mai fallire la chiamata. */
+  void stampaChiamata(ambito, { tavolo: tavolo?.name ?? "", nome: tavolo ? "" : nome, conto: addizione }).catch(() => {});
 
   return json({ ok: true, gia: false, riprova_tra: attesaMin * 60 });
 };

@@ -57,7 +57,10 @@ export function leggiProva(token: string, segreto: string, adessoMs = Date.now()
   const attesa = Buffer.from(firma(dati, segreto), "utf8");
   const avuta = Buffer.from(dato, "utf8");
   if (attesa.length !== avuta.length || !timingSafeEqual(attesa, avuta)) return null;
-  const [sede, scadenza] = deB64(dati).split("|");
+  const chiaro = deB64(dati);
+  // ⚠️ Un biglietto di CHIAMATA (JSON, vedi sotto) non e' una prova.
+  if (chiaro.startsWith("{")) return null;
+  const [sede, scadenza] = chiaro.split("|");
   if (!Number.isFinite(Number(scadenza)) || Number(scadenza) * 1000 < adessoMs) return null;
   return { sede: sede ?? "" };
 }
@@ -65,3 +68,69 @@ export function leggiProva(token: string, segreto: string, adessoMs = Date.now()
 /** `true` se il token e' un biglietto di prova (nostro o no): serve alla rotta
  *  per sapere da che parte guardare, prima ancora di verificarlo. */
 export const sembraProva = (token: string) => String(token ?? "").startsWith(PREFISSO);
+
+/* ==========================================================================
+   IL BIGLIETTO DI UNA CHIAMATA DAL TAVOLO (22/10/2026).
+
+   Stessa serratura della prova, per la stessa ragione: una chiamata non e'
+   un ordine, e `print_tickets.order_id` non puo' essere vuoto. Il biglietto
+   porta DENTRO quello che il ticket deve dire — tavolo o nome, se e' una
+   richiesta d'addizione, l'ora — firmato, quindi nessuno puo' cambiarlo, e
+   la rotta non deve leggere niente dal database.
+   ⚠️ JSON e non `|`: il nome lo scrive il cliente, e una barra dentro
+   «Marc|Anna» spezzerebbe i campi.
+   ========================================================================== */
+
+export interface DatiChiamata {
+  /** La sede (stringa vuota = sede unica). */
+  sede: string;
+  /** Il nome del tavolo, o "" in una sala senza piano. */
+  tavolo: string;
+  /** Il nome di chi chiama, quando non c'e' il tavolo. */
+  nome: string;
+  /** «Demander l'addition» invece di «Appeler le serveur». */
+  conto: boolean;
+  /** L'istante della chiamata, in secondi. */
+  ora: number;
+}
+
+export function firmaChiamata(d: Omit<DatiChiamata, "ora">, segreto: string, adessoMs = Date.now()): string {
+  const ora = Math.floor(adessoMs / 1000);
+  const dati = b64(JSON.stringify({
+    k: "c",
+    s: String(d.sede ?? ""),
+    t: String(d.tavolo ?? "").slice(0, 40),
+    n: String(d.nome ?? "").slice(0, 40),
+    b: d.conto ? 1 : 0,
+    o: ora,
+    x: ora + VALIDITA_PROVA_S,
+  }));
+  return `${PREFISSO}${dati}${SEP}${firma(dati, segreto)}`;
+}
+
+/** I dati della chiamata, o `null` se il biglietto non e' una chiamata, e'
+ *  stato ritoccato o e' scaduto. */
+export function leggiChiamata(token: string, segreto: string, adessoMs = Date.now()): DatiChiamata | null {
+  const t = String(token ?? "");
+  if (!t.startsWith(PREFISSO) || !segreto) return null;
+  const [dati, dato] = t.slice(PREFISSO.length).split(SEP);
+  if (!dati || !dato) return null;
+  const attesa = Buffer.from(firma(dati, segreto), "utf8");
+  const avuta = Buffer.from(dato, "utf8");
+  if (attesa.length !== avuta.length || !timingSafeEqual(attesa, avuta)) return null;
+  let j: { k?: unknown; s?: unknown; t?: unknown; n?: unknown; b?: unknown; o?: unknown; x?: unknown };
+  try {
+    j = JSON.parse(deB64(dati));
+  } catch {
+    return null;
+  }
+  if (!j || j.k !== "c") return null;
+  if (!Number.isFinite(Number(j.x)) || Number(j.x) * 1000 < adessoMs) return null;
+  return {
+    sede: String(j.s ?? ""),
+    tavolo: String(j.t ?? ""),
+    nome: String(j.n ?? ""),
+    conto: j.b === 1,
+    ora: Number(j.o) || 0,
+  };
+}
