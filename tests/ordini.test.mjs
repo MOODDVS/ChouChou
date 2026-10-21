@@ -840,3 +840,9 @@ test("gli orari: Midi e Soir sono due schede, e una fascia sola non ne ha", () =
   // Si apre sulla prima fascia che ha orari.
   assert.match(sp, /setFascia\(d\.lunch\.length > 0 \? "lunch" : "dinner"\);/);
 });
+
+test("un ordine gia' pagato non ripete «Payée» accanto a «Prête»", () => {
+  // Lo dicono gia' la fascia in cima e l'icona del metodo accanto al prezzo.
+  const pag = leggi("src/pages/admin/orders.astro");
+  assert.match(pag, /const btnIncassa =\s*o\.status === "paid"\s*\? ""/);
+});

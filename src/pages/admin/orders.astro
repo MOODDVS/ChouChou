@@ -1572,9 +1572,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             : giaPronto
               ? `<span class="act-stato act-stato-ok" title="${tr("ord.readyHint")}"><span class="b-lab">${tr("ord.readyDone")}</span></span>`
               : `<button class="btn-done" type="button" data-id="${o.id}" data-act="pronto" title="${tr("ord.readyHint")}"><span class="b-lab">${tr("ord.ready")}</span></button>`;
+        /* ⚠️ SU UN ORDINE GIA' PAGATO NON C'E' NIENTE DA INCASSARE, e non si
+           ripete: lo dicono gia' la fascia «Payé» in cima e l'icona del metodo
+           accanto al prezzo. Una seconda «Payée» qui sotto era la stessa
+           notizia tre volte (22/10/2026). «Prête» prende tutta la riga. */
         const btnIncassa =
           o.status === "paid"
-            ? `<span class="act-stato" title="${tr("ord.paid")}">${payIco || ""}<span class="b-lab">${tr("ord.paidOk")}</span></span>`
+            ? ""
             : `<button class="btn-incassa" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>`;
         const rigaMain =
           /* ⚠️ INCASSARE CHIEDE **COME**, in due tocchi.
