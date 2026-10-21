@@ -823,6 +823,15 @@ const t = adminT(lang);
       .rzones { display: flex; flex-direction: column; gap: 0.6rem; }
       .rz-row { display: flex; gap: 0.5rem; align-items: center; }
       .rz-row .rz-name { flex: 1; min-width: 0; }
+      /* Su / giu': stessa misura del cestino accanto, ma neutri. */
+      .rz-sposta {
+        width: 32px; height: 36px; flex-shrink: 0; padding: 0; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); border-radius: 8px; color: var(--c-text);
+      }
+      .rz-sposta svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+      .rz-sposta:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+      .rz-sposta:disabled { opacity: 0.3; cursor: default; }
       .section[data-tab="reservations"] .field .rz-row .rz-seats { flex: 0 0 110px; width: 110px; }
       .rgroup-sep { border: none; border-top: 1px solid var(--c-line); margin: 1.6rem 0; }
       .rcorners { display: flex; gap: 0.4rem; }
@@ -1796,6 +1805,12 @@ const t = adminT(lang);
                 ⚠️ GLI STESSI BOTTONI DEL TEMPO DI PREPARAZIONE (`.prep-btn`,
                 styles/prep.css): «quanti minuti» si sceglie con un tocco in
                 tutto l'admin, non con una tendina qui e dei bottoni la'. */}
+            {/* Il ticket a ogni chiamata (`orders_table_call_print`): come
+                l'attesa, compare solo con la campanella accesa. */}
+            <div class="field" id="o-table-call-print-row" style="display:none">
+              <label>{t("set.ord.tableCallPrint")}<span class="lab-hint">{t("set.ord.tableCallPrintHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-table-call-print" /><span class="track"></span></label>
+            </div>
             <div class="field" id="o-table-call-wait-row" style="display:none">
               <label>{t("set.ord.tableCallWait")}<span class="lab-hint">{t("set.ord.tableCallWaitHint")}</span></label>
               <div class="prep-btns" id="o-table-call-wait" role="group" aria-label={t("set.ord.tableCallWait")}>
@@ -3348,6 +3363,10 @@ const t = adminT(lang);
           riga.innerHTML =
             '<input type="text" class="rz-name" placeholder="' + tr("set.res.zoneNamePh") + '" />' +
             '<input type="number" class="rz-seats" min="1" max="500" step="1" placeholder="40" />' +
+            '<button type="button" class="rz-sposta" data-dir="-1" aria-label="' + tr("set.res.zoneUp") + '" title="' + tr("set.res.zoneUp") + '">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>' +
+            '<button type="button" class="rz-sposta" data-dir="1" aria-label="' + tr("set.res.zoneDown") + '" title="' + tr("set.res.zoneDown") + '">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>' +
             '<button type="button" class="kemail-del" aria-label="' + tr("common.delete") + '">×</button>';
           const iNome = riga.querySelector(".rz-name") as HTMLInputElement;
           const iPosti = riga.querySelector(".rz-seats") as HTMLInputElement;
@@ -3358,9 +3377,37 @@ const t = adminT(lang);
           (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
             riga.remove();
             if (!rZonesBox.querySelector(".rz-row")) aggiungiRigaZona();
+            frecceZone();
             dirty();
           });
+          /* ⚠️ L'ORDINE DELLE SECTION E' QUELLO DEL JSON (`zonesJSON` legge le
+             righe nell'ordine in cui stanno): e' l'ordine delle pillole nel
+             widget di prenotazione e nel piano sala. Spostare una riga e'
+             spostarla nella pagina, e il salvataggio fa il resto (22/10/2026). */
+          riga.querySelectorAll<HTMLButtonElement>(".rz-sposta").forEach((b) => {
+            b.addEventListener("click", () => {
+              const su = b.dataset.dir === "-1";
+              const vicina = su ? riga.previousElementSibling : riga.nextElementSibling;
+              if (!vicina) return;
+              if (su) rZonesBox.insertBefore(riga, vicina);
+              else rZonesBox.insertBefore(vicina, riga);
+              frecceZone();
+              dirty();
+              renderAnteprima();
+              b.focus();
+            });
+          });
           rZonesBox.appendChild(riga);
+          frecceZone();
+        }
+        /** La prima riga non sale, l'ultima non scende. */
+        function frecceZone() {
+          const righe = Array.from(rZonesBox.querySelectorAll<HTMLElement>(".rz-row"));
+          righe.forEach((r, i) => {
+            const [su, giu] = Array.from(r.querySelectorAll<HTMLButtonElement>(".rz-sposta"));
+            if (su) su.disabled = i === 0;
+            if (giu) giu.disabled = i === righe.length - 1;
+          });
         }
         function zonesJSON(): string {
           const zone = Array.from(rZonesBox.querySelectorAll<HTMLElement>(".rz-row"))
@@ -4428,6 +4475,7 @@ const t = adminT(lang);
         met("o-coupons-onsite", "orders_coupons_onsite");
         met("o-table", "orders_table");
         met("o-table-call", "orders_table_call");
+        met("o-table-call-print", "orders_table_call_print");
         met("o-table-choose", "orders_table_choose");
         met("o-table-tab", "orders_table_tab");
         met("o-delivery", "orders_delivery");
@@ -4599,6 +4647,8 @@ const t = adminT(lang);
           if (rigaBanco) rigaBanco.style.display = swTavolo?.checked ? "" : "none";
           // L'attesa ha senso solo se la campanella c'e'.
           if (rigaAttesa) rigaAttesa.style.display = swTavolo?.checked && swChiamata?.checked ? "" : "none";
+          const rigaTicketChiamata = document.getElementById("o-table-call-print-row");
+          if (rigaTicketChiamata) rigaTicketChiamata.style.display = swTavolo?.checked && swChiamata?.checked ? "" : "none";
           if (!rigaAvviso) return;
           rigaAvviso.style.display = swTavolo?.checked ? "" : "none";
         };
@@ -5258,6 +5308,7 @@ const t = adminT(lang);
                   orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_table: (document.getElementById("o-table") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_call: (document.getElementById("o-table-call") as HTMLInputElement | null)?.checked ?? false,
+                  orders_table_call_print: (document.getElementById("o-table-call-print") as HTMLInputElement | null)?.checked ?? false,
                   orders_table_choose: (document.getElementById("o-table-choose") as HTMLInputElement | null)?.checked ?? true,
                   orders_table_tab: (document.getElementById("o-table-tab") as HTMLInputElement | null)?.checked ?? false,
                   orders_delivery: (document.getElementById("o-delivery") as HTMLInputElement | null)?.checked ?? false,

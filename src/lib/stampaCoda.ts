@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { leggi, inserisci, aggiorna, leggiConfig, ambitoDiRiga } from "./admin/sede";
+import { leggi, inserisci, aggiorna, leggiConfig, ambitoDiRiga, type Ambito } from "./admin/sede";
 import {
   CHIAVE_DESTINAZIONI, CHIAVI_STAMPA, daStampare, stampaAttiva,
   dividiTicket, idStampante, leggiDestinazioni, ordineDaRiga,
@@ -8,6 +8,8 @@ import {
 import { mandaStampa, stampaConfigurata } from "./bizprint";
 import { piattiVeri } from "./admin/ordiniConti";
 import { indirizzoPubblico } from "./indirizzoPubblico";
+import { firmaChiamata } from "./printToken";
+import { acceso } from "./ordiniRegole";
 
 /**
  * METTERE UN ORDINE IN CODA DI STAMPA.
@@ -271,6 +273,45 @@ export async function accodaAddizione(capo: { id: string; location_id?: string |
     return { accodati: 1 };
   } catch (e) {
     console.error("[stampa] accodaAddizione:", String((e as Error)?.message ?? e));
+    return { accodati: 0, motivo: "errore" };
+  }
+}
+
+/**
+ * IL TICKET DI UNA CHIAMATA DAL TAVOLO («Appeler le serveur», «Demander
+ * l'addition»), se il ristoratore l'ha acceso (`orders_table_call_print`,
+ * Réglages › Ordini dal locale). 22/10/2026.
+ *
+ * ⚠️ NON PASSA DALLA CODA (`print_tickets`): la coda e' per ordini, e
+ * `order_id` non puo' essere vuoto. Una chiamata vive un minuto — un ticket
+ * che esce mezz'ora dopo perche' la stampante era spenta non serve a
+ * nessuno, quindi niente nuovi tentativi: si manda una volta, come la prova.
+ * Il biglietto e' firmato e porta dentro tavolo, nome e ora (`firmaChiamata`).
+ *
+ * ⚠️ Non fa mai fallire la chiamata: il tablet e le push la dicono comunque.
+ * Si chiama con `void`.
+ */
+export async function stampaChiamata(
+  ambito: Ambito,
+  d: { tavolo: string; nome: string; conto: boolean },
+): Promise<EsitoCoda> {
+  try {
+    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    const cfg = await leggiConfig(ambito, ["print_printer_id", "orders_table_call_print"]);
+    if (!acceso(cfg.valori.get("orders_table_call_print"), "orders_table_call_print")) return { accodati: 0, motivo: "spenta" };
+    const principale = idStampante(cfg.valori.get("print_printer_id"));
+    if (!principale) return { accodati: 0, motivo: "stampante" };
+    const base = indirizzoPubblico();
+    if (!base) return { accodati: 0, motivo: "indirizzo" };
+    const segreto = String(import.meta.env.CRON_SECRET || import.meta.env.SUPABASE_SERVICE_KEY || "");
+    if (!segreto) return { accodati: 0, motivo: "segreto" };
+    const sede = ambito.modo === "sede" ? ambito.id : "";
+    const token = firmaChiamata({ sede, tavolo: d.tavolo, nome: d.nome, conto: d.conto }, segreto);
+    const r = await mandaStampa(Number(principale), `${base}/api/print/${token}`, `${d.conto ? "Addition" : "Serveur"} ${d.tavolo || d.nome}`);
+    if (!r.ok) console.error("[stampa] chiamata:", r.errore);
+    return r.ok ? { accodati: 1 } : { accodati: 0, motivo: "coda" };
+  } catch (e) {
+    console.error("[stampa] stampaChiamata:", String((e as Error)?.message ?? e));
     return { accodati: 0, motivo: "errore" };
   }
 }

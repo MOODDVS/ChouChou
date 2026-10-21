@@ -105,6 +105,10 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
      — un cliente che aspetta e non vede arrivare nessuno. Serve anche la
      migrazione #83: accenderlo e' il momento in cui la si controlla. */
   orders_table_call: "0",
+  /* ⚠️ SPENTO di ripiego: un ticket a ogni chiamata e' carta, e serve solo a
+     chi ha una stampante dove il cameriere passa (il pass, il bar). Lo
+     accende chi lo vuole, accanto alla campanella (22/10/2026). */
+  orders_table_call_print: "0",
   /* ⚠️ SPENTA di ripiego: la consegna vuol dire qualcuno che esce col
      sacchetto. Accesa da sola, un ristorante senza fattorino si troverebbe
      ordini da portare a casa di gente che aspetta. Serve anche la #84. */

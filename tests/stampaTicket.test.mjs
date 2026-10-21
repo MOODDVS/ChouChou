@@ -236,7 +236,7 @@ test("lo stato «stampato» lo decide la stampante, non noi", () => {
 // DALL'ORDINE AL TICKET, E LA SERRATURA DELLA PAGINA PUBBLICA
 // ============================================================
 import { ordineDaRiga } from "../src/lib/stampaRegole.ts";
-import { firmaProva, leggiProva, sembraProva, VALIDITA_PROVA_S } from "../src/lib/printToken.ts";
+import { firmaProva, leggiProva, sembraProva, VALIDITA_PROVA_S, firmaChiamata, leggiChiamata } from "../src/lib/printToken.ts";
 
 const RIGA = {
   id: "9a1b2c3d-0000-4000-8000-00000000"+"4f2a",
@@ -671,3 +671,40 @@ test("al tavolo il ticket non dice mai RITIRO: il tavolo, o il nome", () => {
   assert.ok(asporto.includes("#A1B2 · RITIRO 19:45") && asporto.includes("19:45"));
 });
 
+
+// ============================================================
+// IL TICKET DELLA CHIAMATA DAL TAVOLO (22/10/2026)
+// ============================================================
+test("il biglietto della chiamata porta tavolo, nome e conto, e scade", () => {
+  const S = "segreto-di-prova";
+  const t0 = Date.UTC(2026, 9, 22, 19, 5);
+  const tk = firmaChiamata({ sede: "", tavolo: "T7", nome: "", conto: false }, S, t0);
+  assert.ok(sembraProva(tk));
+  assert.ok(/^[A-Za-z0-9~._-]{16,400}$/.test(tk), "la rotta lo rifiuterebbe");
+  assert.deepEqual(leggiChiamata(tk, S, t0 + 1000), { sede: "", tavolo: "T7", nome: "", conto: false, ora: Math.floor(t0 / 1000) });
+  // Scaduto, firmato con un altro segreto, ritoccato: niente.
+  assert.equal(leggiChiamata(tk, S, t0 + (VALIDITA_PROVA_S + 1) * 1000), null);
+  assert.equal(leggiChiamata(tk, "altro", t0), null);
+  assert.equal(leggiChiamata(tk.slice(0, -2) + "xx", S, t0), null);
+  // Un nome con la barra non spezza i campi.
+  const tn = firmaChiamata({ sede: "s1", tavolo: "", nome: "Marc|Anna", conto: true }, S, t0);
+  assert.equal(leggiChiamata(tn, S, t0)?.nome, "Marc|Anna");
+  assert.equal(leggiChiamata(tn, S, t0)?.conto, true);
+  // Una chiamata non e' una prova, e una prova non e' una chiamata.
+  assert.equal(leggiProva(tk, S, t0), null);
+  assert.equal(leggiChiamata(firmaProva("", S, t0), S, t0), null);
+});
+
+test("il ticket della chiamata: interruttore spento di ripiego, della sede, e acceso solo con la campanella", () => {
+  assert.match(leggi("src/lib/ordiniRegole.ts"), /orders_table_call_print: "0",/);
+  assert.match(leggi("src/lib/admin/sedeRegole.ts"), /orders_table_call_print: "sede",/);
+  const coda = leggi("src/lib/stampaCoda.ts");
+  assert.match(coda, /if \(!acceso\(cfg\.valori\.get\("orders_table_call_print"\), "orders_table_call_print"\)\) return/);
+  assert.match(leggi("src/pages/api/table-call.ts"), /void stampaChiamata\(ambito, /);
+  const rotta = leggi("src/pages/api/print/[token].ts");
+  // La chiamata si guarda PRIMA della prova.
+  assert.ok(rotta.indexOf("leggiChiamata(token") < rotta.indexOf("leggiProva(token"));
+  const pag = leggi("src/pages/admin/settings.astro");
+  assert.match(pag, /id="o-table-call-print"/);
+  assert.match(pag, /orders_table_call_print: \(document\.getElementById\("o-table-call-print"\)/);
+});
