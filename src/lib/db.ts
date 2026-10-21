@@ -84,6 +84,7 @@ export interface MenuCategoria {
   root?: string; // nome della categoria di PRIMO livello (antenato radice)
   name_i18n?: Record<string, string> | null; // traduzioni del nome sezione
   root_i18n?: Record<string, string> | null; // traduzioni del nome della radice
+  kind?: string | null; // "food" | "drink" (menu_categories.kind, #5)
 }
 
 const MENU_SELECT =
@@ -212,28 +213,30 @@ function raggruppa(data: any[], online: boolean, ambito: Ambito): MenuCategoria[
 
 /** Mappa nome-categoria -> { parent(nome) , depth } dalla tabella menu_categories.
  *  Tollerante: se parent_id/depth non sono migrate, ritorna tutto depth 0. */
-async function mappaCategorie(): Promise<Map<string, { parent: string | null; depth: number; name_i18n: Record<string, string> | null }>> {
-  const out = new Map<string, { parent: string | null; depth: number; name_i18n: Record<string, string> | null }>();
+async function mappaCategorie(): Promise<Map<string, { parent: string | null; depth: number; name_i18n: Record<string, string> | null; kind: string | null }>> {
+  const out = new Map<string, { parent: string | null; depth: number; name_i18n: Record<string, string> | null; kind: string | null }>();
   try {
-    let res = await supabaseAdmin.from("menu_categories").select("id, name, parent_id, depth, name_i18n");
+    /* `kind` (#5, food | drink) serve a `OrderApp` per mettere le bevande
+       insieme senza indovinarle dai numeri di `category_order`. */
+    let res = await supabaseAdmin.from("menu_categories").select("id, name, parent_id, depth, name_i18n, kind");
     if (res.error && String(res.error.message ?? "").includes("name_i18n")) {
-      res = await supabaseAdmin.from("menu_categories").select("id, name, parent_id, depth");
+      res = await supabaseAdmin.from("menu_categories").select("id, name, parent_id, depth, kind");
     }
     if (res.error && (String(res.error.message ?? "").includes("parent_id") || String(res.error.message ?? "").includes("depth"))) {
       res = await supabaseAdmin.from("menu_categories").select("id, name");
     }
-    const righe = (res.data ?? []) as { id: string; name: string; parent_id?: string | null; depth?: number; name_i18n?: Record<string, string> | null }[];
+    const righe = (res.data ?? []) as { id: string; name: string; parent_id?: string | null; depth?: number; name_i18n?: Record<string, string> | null; kind?: string | null }[];
     const perId = new Map(righe.map((r) => [r.id, r]));
     for (const r of righe) {
       const parent = r.parent_id ? (perId.get(r.parent_id)?.name ?? null) : null;
-      out.set(r.name, { parent, depth: Number(r.depth ?? 0), name_i18n: r.name_i18n ?? null });
+      out.set(r.name, { parent, depth: Number(r.depth ?? 0), name_i18n: r.name_i18n ?? null, kind: r.kind ?? null });
     }
   } catch { /* nessuna gerarchia */ }
   return out;
 }
 
 /** Aggiunge parent/depth/root a ogni categoria del menu. */
-function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: string | null; depth: number; name_i18n: Record<string, string> | null }>): MenuCategoria[] {
+function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: string | null; depth: number; name_i18n: Record<string, string> | null; kind: string | null }>): MenuCategoria[] {
   const radiceDi = (nome: string): string => {
     let cur = nome;
     let guard = 0;
@@ -269,6 +272,7 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
     const info = mappa.get(g.category);
     g.parent = info?.parent ?? null;
     g.depth = info?.depth ?? 0;
+    g.kind = info?.kind ?? null;
     g.name_i18n = i18nDi(g.category, info?.name_i18n ?? null);
     g.root = radiceDi(g.category);
     g.root_i18n = i18nDi(g.root, mappa.get(g.root)?.name_i18n ?? null);

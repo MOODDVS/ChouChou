@@ -49,6 +49,10 @@ interface MenuCategoria {
   parent?: string | null;
   depth?: number;
   root?: string;
+  /** Traduzioni del nome della sezione (dal pannello o dal dizionario). */
+  name_i18n?: Record<string, string> | null;
+  /** "food" | "drink" (`menu_categories.kind`). */
+  kind?: string | null;
 }
 
 interface CartLine {
@@ -485,6 +489,17 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   }
   const gruppiVisibili: Gruppo[] = [];
   const haGerarchia = menu.some((c) => (c.depth ?? 0) > 0);
+  /** Il nome di una sezione nella lingua della pagina, se il pannello ce l'ha. */
+  const nomeSezione = (c: MenuCategoria): string => (c.name_i18n && (c.name_i18n[lang] || c.name_i18n.fr)) || c.category;
+  /* ⚠️ «CHI E' BEVANDA» LO DICONO I DATI (`kind`, #5), quando ci sono. Il
+     ramo storico qui sotto lo indovinava dai NUMERI di `category_order` — e
+     quei numeri erano quelli di La Molisana: da 4 a 7 «Pizza», da 9 in su
+     «Boissons». Su un altro menu senza sotto-categorie (L'Aperitivo,
+     21/10/2026) le Pinse si chiamavano «Pizza» e i Dolci finivano in fondo
+     alle bevande, senza errori e senza un titolo per dirlo. Con `kind` ogni
+     sezione e' un filtro suo. Il ramo storico
+     resta solo per un menu letto senza `kind`. */
+  const conTipo = menu.some((c) => c.kind === "food" || c.kind === "drink");
   if (haGerarchia) {
     // Filtri = categorie di PRIMO livello (root). Le sotto-categorie diventano
     // titoli dentro il gruppo della loro categoria radice.
@@ -501,8 +516,19 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
       g.subcats.push(cat);
     }
     for (const g of gruppiVisibili) g.subcats.sort((a, b) => a.category_order - b.category_order);
+  } else if (conTipo) {
+    // Senza sotto-categorie, coi dati: OGNI sezione e' un filtro suo, col
+    // suo nome e nell'ordine del pannello — anche le bevande. Softs, birre e
+    // vino sono tre filtri: chi cerca un vino non deve passare dalle lattine
+    // (decisione di Enzo, 21/10/2026). Chi le vuole insieme le mette sotto
+    // una sezione madre nel pannello, e il ramo della gerarchia sopra le
+    // raggruppa da solo.
+    for (const cat of menu) {
+      if (cat.items.length === 0) continue;
+      gruppiVisibili.push({ slug: "cat-" + gruppiVisibili.length, label: nomeSezione(cat), subcats: [cat] });
+    }
   } else {
-    // Legacy (senza sotto-categorie): raggruppamento storico per range.
+    // Legacy (senza sotto-categorie e senza `kind`): raggruppamento storico per range.
     for (const cat of menu) {
       if (cat.items.length === 0) continue;
       let slug = "cat-" + cat.category_order;
