@@ -806,8 +806,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          fra la testata e i numeri. Qui c'erano 330px scritti a mano — una
          misura in piu' da tenere d'accordo con l'altezza della colonna, e due
          numeri che si somigliano finiscono per divergere. */
+      /* ⚠️ Il respiro a destra e' per la barra di scorrimento, e si
+         RIPRENDE col margine negativo: prima le righe finivano 5px prima
+         della scatola dei servizi che sta sopra, e il bordo destro della
+         colonna era storto (22/10/2026). */
       .j-lista { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;
-        padding-right: 0.3rem; }
+        padding-right: 0.3rem; margin-right: -0.3rem; }
       /* ⚠️ `flex: none` sulla RIGA, non solo `overflow` sul riquadro. In una
          colonna flex le righe si lasciano SCHIACCIARE per starci dentro: con
          dieci prenotazioni in un riquadro da 330px non sarebbe comparsa
@@ -821,6 +825,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-li .h small { display: block; font-family: var(--font-body); font-size: 0.64rem; color: var(--c-muted); font-weight: 700; margin-top: 2px; }
       .j-li .tx { flex: 1 1 auto; min-width: 0; font-size: 0.88rem; font-weight: 600; }
       .j-li .j-nome { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* La riga di un ordine: nome e totale in testa, i piatti sotto. */
+      .j-ord-testa { display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
+      .j-ord-testa .j-nome { flex: 1 1 auto; min-width: 0; }
+      .j-ord-tot { flex: none; font-weight: 700; color: var(--c-text); }
+      .j-ord-piatti { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; min-width: 0;
+        font-size: 0.78rem; font-weight: 400; color: var(--c-muted); }
+      .j-ord-piatti > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .j-ord-altri { font-weight: 700; }
       /* L'anteprima della nota: UNA riga, tagliata dove finisce lo spazio.
          In corsivo e rientrata, cosi' si vede che sono parole del cliente e
          non un altro dato della prenotazione. */
@@ -1987,9 +1999,17 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
        *  del cliente (`id: "note"`, `qty: 0`), e questa riga era l'unica del
        *  motore che non la saltava — l'elenco dei piatti cominciava con
        *  «0× NOTE CLIENT». */
+      /** I piatti dell'ordine, UNO PER RIGA (22/10/2026): in fila con i «·»
+       *  la riga si tagliava al secondo piatto e il terzo non lo vedeva
+       *  nessuno. Al massimo quattro; oltre, «+N» — la scheda intera sta in
+       *  Commandes, qui serve sapere cosa preparare a colpo d'occhio. */
+      const PIATTI_IN_COLONNA = 4;
       function piattiDi(items: Item[]): string {
         const voci = piattiVeri(items).map((i) => `${i.qty}× ${i.name}`);
-        return voci.length > 3 ? voci.slice(0, 3).join(" · ") + " …" : voci.join(" · ");
+        const visti = voci.length > PIATTI_IN_COLONNA ? voci.slice(0, PIATTI_IN_COLONNA - 1) : voci;
+        const resto = voci.length - visti.length;
+        return visti.map((v) => `<span>${escHtml(v)}</span>`).join("") +
+          (resto > 0 ? `<span class="j-ord-altri">+${resto}</span>` : "");
       }
       /** ⚠️ IL GUASTO. L'ultima riga era un ripiego: OGNI stato che non fosse
        *  `done` o `pending` diventava «Payée» — un ordine annullato, o con uno
@@ -2014,11 +2034,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       function rigaOrdine(o: Order): string {
         return `<a class="j-li" href="/admin/orders">` +
           `<span class="h">${oraDa(o.pickup_time)}</span>` +
-          `<span class="tx">${escHtml(String(o.customer_name ?? ""))}` +
-          // ⚠️ Dentro uno `span`: la riga sotto il nome e' diventata una riga
-          // flex per far stare l'icona accanto al testo, e un testo nudo
-          // dentro un flex non si taglia coi puntini — si spezza a meta'.
-          `<small><span>${escHtml(piattiDi(o.items))} · <b>${euro(o.total_cents)}</b></span></small></span>` +
+          /* Il nome con il totale sulla stessa riga, a destra; sotto i
+             piatti, uno per riga. */
+          `<span class="tx"><span class="j-ord-testa"><span class="j-nome">${escHtml(String(o.customer_name ?? ""))}</span>` +
+          `<b class="j-ord-tot">${euro(o.total_cents)}</b></span>` +
+          `<span class="j-ord-piatti">${piattiDi(o.items)}</span></span>` +
           badgeOrdine(o) + `</a>`;
       }
       /** Gli stati, con le loro parole e i loro colori: gli stessi della pagina
