@@ -36,6 +36,8 @@
 // in `astro check` non si vede. Il componente si prende dal suo percorso, ed
 // e' lui a importare il modulo virtuale che il plugin risolve.
 import Font from "astro/components/Font.astro";
+// Niente zoom del browser sui campi, su telefono e tablet: vedi NoZoom.astro.
+import NoZoom from "./NoZoom.astro";
 
 interface Props {
   /** `false` sulle pagine dove i titoli non sono nel primo schermo. */
@@ -59,6 +61,7 @@ const { titoli = true, vetrina = false } = Astro.props;
   `settings.astro` e `ReservationWidget` usano Marcellus. Il testo sarebbe
   ricaduto su Georgia senza che niente lo dicesse.
 */}
+<NoZoom />
 <Font cssVariable="--font-body" preload />
 <Font cssVariable="--font-title" preload={titoli} />
 <Font cssVariable="--font-serif" preload={vetrina} />
