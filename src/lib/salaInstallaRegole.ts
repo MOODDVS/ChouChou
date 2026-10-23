@@ -24,8 +24,24 @@ export interface Proposta {
   ids: string[];
   nomi: string[];
   posti: number;
-  /** Posti in piu' rispetto alle persone: 0 = perfetta. */
+  /** Posti in piu' rispetto alle persone: 0 = perfetta, −1 = una sedia in piu' (stretti). */
   spreco: number;
+}
+
+/**
+ * STRETTI (Enzo, 23/10/2026): «se scelgo un tavolo da 2 ma sono 3 deve
+ * comunque darmi la possibilita'». Si propone sempre anche un tavolo (o una
+ * combinazione) con UN posto in meno delle persone: si aggiunge una sedia.
+ */
+export const TOLLERANZA_POSTI = 1;
+
+/**
+ * L'ordine delle proposte: prima quelle che sprecano meno, e «stretti di
+ * una sedia» vale come uno spreco di 1,5 — dopo chi ha un posto libero in
+ * piu', prima di chi ne ha due. A parita', meno tavoli.
+ */
+export function pesoProposta(p: { spreco: number }): number {
+  return p.spreco < 0 ? 1.5 : p.spreco;
 }
 
 /** Le catene di una section, da `reservation_plan_links` ({ zona: [[id…]] }). */
@@ -75,7 +91,7 @@ export function proposteInstallazione(opz: {
     viste.add(chiave);
     if (ids.some((id) => !perId.has(id) || occupati.has(id))) return;
     const posti = ids.reduce((s, id) => s + (perId.get(id)?.seats ?? 0), 0);
-    if (posti < persone) return;
+    if (posti < Math.max(1, persone - TOLLERANZA_POSTI)) return;
     // I nomi in ordine naturale («T1 + T2»): la catena puo' essere disegnata
     // al contrario, il cameriere legge i numeri. Gli id restano come sono.
     const nomi = ids.map((id) => perId.get(id)?.name ?? "?").sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
@@ -93,7 +109,7 @@ export function proposteInstallazione(opz: {
     }
   }
   return out
-    .sort((x, y) => x.spreco - y.spreco || x.ids.length - y.ids.length)
+    .sort((x, y) => pesoProposta(x) - pesoProposta(y) || x.ids.length - y.ids.length)
     .slice(0, opz.max ?? 4);
 }
 
@@ -228,7 +244,7 @@ export function proposteCambio(opz: {
         tutte.push(p);
       }
     }
-    tutte.sort((x, y) => x.spreco - y.spreco || x.ids.length - y.ids.length || perNome(x.nomi.join("+"), y.nomi.join("+")));
+    tutte.sort((x, y) => pesoProposta(x) - pesoProposta(y) || x.ids.length - y.ids.length || perNome(x.nomi.join("+"), y.nomi.join("+")));
     const proposte = tutte.slice(0, opz.maxPerZona ?? 4);
     if (proposte.length) out.push({ zona: z.zona, proposte });
   }
@@ -308,4 +324,63 @@ export function tavoliDaLiberare(opz: {
   return candidati
     .map((id) => ritocco(perId, perId.get(id) as TavoloPosti, attuali.filter((x) => x !== id)))
     .sort((x, y) => perNome(x.tavolo.name, y.tavolo.name));
+}
+
+/* =====================================================================
+ * PIU' TEMPO AL TAVOLO (23/10/2026) — «+15 / +30 / +45 min» nel modale,
+ * come nel dettaglio di una prenotazione. Si aggiungono `extra_minutes`
+ * alla sessione seduta: la piantina, le proposte e le prenotazioni la
+ * considerano occupata piu' a lungo.
+ * ===================================================================== */
+
+/** Quando finisce il tempo al tavolo (minuti dalla mezzanotte), o null. */
+export function fineSeduta(
+  r: RigaGiorno,
+  durate: { perServizio: Record<string, number>; ripiego: number },
+): number | null {
+  const inizio = minuti(r.heure);
+  if (inizio === null) return null;
+  return inizio + (durate.perServizio[String(r.service_key ?? "")] ?? durate.ripiego)
+    + Math.max(0, Math.floor(Number(r.extra_minutes)) || 0);
+}
+
+/** «20:15» da minuti dalla mezzanotte (anche oltre le 24). */
+export function oraDaMinuti(m: number): string {
+  const x = ((Math.round(m) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+}
+
+/**
+ * Allungare il tempo di `minutiPiu` scavalca una prenotazione? La prima che
+ * INIZIA dentro i minuti aggiunti su uno dei tavoli della tavolata (la
+ * stessa regola di Réservations, `conflittoEstensione`). null = via libera.
+ */
+export function conflittoEstensione(opz: {
+  seduta: RigaGiorno & { id?: unknown };
+  righe: (RigaGiorno & { id?: unknown; first_name?: unknown; last_name?: unknown })[];
+  minutiPiu: number;
+  durate: { perServizio: Record<string, number>; ripiego: number };
+}): { heure: string; nome: string; tavoli: string[] } | null {
+  const fine = fineSeduta(opz.seduta, opz.durate);
+  if (fine === null || opz.minutiPiu <= 0) return null;
+  const nuovaFine = fine + opz.minutiPiu;
+  const miei = new Set(tavoliDi(opz.seduta));
+  let primo: { m: number; heure: string; nome: string; tavoli: string[] } | null = null;
+  for (const r of opz.righe) {
+    if (r.id === opz.seduta.id) continue;
+    if (r.status !== "confirmed" && r.status !== "pending") continue;
+    const comuni = tavoliDi(r).filter((t) => miei.has(t));
+    if (!comuni.length) continue;
+    const m = minuti(r.heure);
+    if (m === null || m < fine || m >= nuovaFine) continue;
+    if (!primo || m < primo.m) {
+      primo = {
+        m,
+        heure: String(r.heure ?? "").slice(0, 5),
+        nome: [r.first_name, r.last_name].map((x) => String(x ?? "").trim()).filter(Boolean).join(" "),
+        tavoli: comuni,
+      };
+    }
+  }
+  return primo ? { heure: primo.heure, nome: primo.nome, tavoli: primo.tavoli } : null;
 }

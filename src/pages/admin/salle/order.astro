@@ -15,6 +15,8 @@
  * manda parte adesso. Vedi i prossimi passi in `claude/palmare.md`.
  */
 import PalmareHead from "../../../components/admin/PalmareHead.astro";
+import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
+import Immagine from "../../../components/Immagine.astro";
 import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
 import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
 import { claimsDaToken } from "../../../lib/admin/adminAuth";
@@ -92,28 +94,17 @@ const ancora = (i: number) => `cat-${i}`;
         padding: max(0.75rem, env(safe-area-inset-top)) 0 0.6rem;
         background: linear-gradient(var(--c-bg) 80%, transparent);
       }
-      .od-isola {
-        display: flex; align-items: center; gap: 0.6rem; max-width: min(92vw, 420px); min-width: 0;
-        min-height: 48px; padding: 5px 18px; border-radius: 999px;
-        border: 1px solid var(--c-line); background: var(--c-card); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-      }
       /* La freccia sta IN BASSO, sotto il pollice, come nella scheda del tavolo. */
       .od-indietro {
         width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-        background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-line); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-line);
       }
       .od-indietro svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-      .od-chi { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-      .od-bolla {
-        flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
-        min-width: 38px; height: 38px; padding: 0 0.75rem; margin-left: -13px; border-radius: 999px;
-        background: var(--c-text); color: var(--c-bg); font-weight: 800; font-size: 0.95rem; white-space: nowrap;
-      }
-      .od-chi h1 { font-family: var(--font-body); font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .od-chi span { font-size: 0.75rem; color: var(--c-muted); }
-      /* Le categorie: pillole che scorrono, ferme sotto l'isola. */
+      /* Le categorie: pillole che scorrono, in basso sopra i bottoni. Da bordo
+         a bordo dello schermo (il margine negativo annulla quello della barra). */
       .od-cat {
-        width: 100%; display: flex; gap: 0.4rem; overflow-x: auto; padding: 0 1rem;
+        position: relative; z-index: 0;
+        display: flex; gap: 0.4rem; overflow-x: auto; padding: 0 1rem; margin: 0 -1rem;
         scrollbar-width: none; -webkit-overflow-scrolling: touch;
       }
       .od-cat::-webkit-scrollbar { display: none; }
@@ -122,22 +113,40 @@ const ancora = (i: number) => `cat-${i}`;
         border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
         font-size: 0.8rem; font-weight: 700; text-decoration: none; white-space: nowrap;
       }
-      .od-cat a.is-on { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      /* Le parole stanno SOPRA il segno che scivola; il fondo delle pillole sotto. */
+      .od-cat a > span { position: relative; z-index: 2; }
+      .od-cat a { transition: color .3s ease, border-color .3s ease; }
+      .od-cat a.is-on { color: var(--c-bg); border-color: transparent; }
+      .od-cat-segno {
+        position: absolute; left: 0; top: 0; z-index: 1; height: 34px; width: 0; border-radius: 999px;
+        background: var(--c-text); pointer-events: none; opacity: 0;
+        transition: transform .38s cubic-bezier(.3, .9, .3, 1), width .38s cubic-bezier(.3, .9, .3, 1), opacity .2s;
+      }
+      .od-cat-segno.is-pronto { opacity: 1; }
+      /* Senza il segno (prima che lo script parta) la pillola accesa ha il suo fondo. */
+      .od-cat:not(.ha-segno) a.is-on { background: var(--c-text); }
 
       /* ---------- i piatti ---------- */
-      .od { padding: 0.25rem 1rem calc(110px + env(safe-area-inset-bottom)); }
-      .od h2 { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin: 1.1rem 0 0.5rem; scroll-margin-top: 120px; }
-      .od-griglia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+      .od { padding: 0.25rem 1rem calc(160px + env(safe-area-inset-bottom)); }
+      .od h2 { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin: 1.1rem 0 0.5rem; scroll-margin-top: 92px; }
+      /* align-items start: un piatto senza foto accanto a uno con la foto non si allunga a vuoto. */
+      .od-griglia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; align-items: start; }
       .od-piatto {
         position: relative; min-height: 76px; padding: 0.65rem 0.75rem; border-radius: 16px; text-align: left;
         display: flex; flex-direction: column; justify-content: space-between; gap: 0.3rem;
         border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text); font: inherit; cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
-      .od-piatto:active { transform: scale(0.98); }
+      /* Il tocco: la scheda si abbassa un attimo e torna (23/10/2026). */
+      .od-piatto { transition: transform .12s ease, border-color .2s ease, box-shadow .2s ease; }
+      .od-piatto:active { transform: scale(0.96); }
       .od-piatto b { font-size: 0.92rem; line-height: 1.2; padding-right: 1.6rem; }
       .od-piatto span { font-size: 0.8rem; color: var(--c-muted); }
-      .od-piatto.ha-qty { border: 2px solid var(--c-accent); }
+      /* Scelto: il bordo accent senza cambiare misura (niente salti). */
+      .od-piatto.ha-qty { border-color: var(--c-accent); box-shadow: inset 0 0 0 1px var(--c-accent); }
+      /* La foto in cima alla scheda, da bordo a bordo. */
+      .od-foto { display: block; margin: -0.65rem -0.75rem 0.15rem; border-radius: 15px 15px 0 0; overflow: hidden; background: var(--c-bg); }
+      .od-foto img { display: block; object-fit: cover; }
       .od-piatto:disabled { opacity: 0.4; cursor: default; }
       .od-piatto:disabled b { text-decoration: line-through; }
       .od-qty {
@@ -146,19 +155,39 @@ const ancora = (i: number) => `cat-${i}`;
         background: var(--c-accent); color: var(--c-bg);
       }
       .od-piatto.ha-qty .od-qty { display: inline-flex; }
+      /* ⚠️ `.od-piatto span` (il prezzo, grigio) vinceva sul numero: qui il colore torna pieno. */
+      .od-piatto .od-qty { color: var(--c-bg); }
+      /* Il numero «salta» quando cambia, e anche il bottone del Récap. */
+      @keyframes od-pop { 0% { transform: scale(.6); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+      @keyframes od-batti { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+      .od-qty.is-pop { animation: od-pop .32s cubic-bezier(.3, .9, .3, 1.2); }
+      .od-recap-btn.is-pop { animation: od-batti .3s ease; }
+      /* I piatti entrano salendo appena, quando arrivano sullo schermo. La
+         classe la mette lo script: senza script si vede tutto subito. */
+      .od-anima .od-piatto { opacity: 0; transform: translateY(10px); }
+      .od-anima .od-piatto.is-visto { opacity: 1; transform: none; transition: opacity .35s ease, transform .35s ease, border-color .2s ease, box-shadow .2s ease; }
+      .od-anima .od-piatto.is-visto:active { transform: scale(0.96); transition: transform .12s ease; }
+      .od-anima .od-piatto:disabled.is-visto { opacity: 0.4; }
+      @media (prefers-reduced-motion: reduce) {
+        .od-cat-segno, .od-cat a, .od-piatto, .od-anima .od-piatto.is-visto { transition: none !important; }
+        .od-qty.is-pop, .od-recap-btn.is-pop { animation: none; }
+        .od-anima .od-piatto { opacity: 1; transform: none; }
+        .od-anima .od-piatto:disabled { opacity: 0.4; }
+      }
       .od-blocco { margin: 2rem 1rem; padding: 1rem; border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); line-height: 1.5; }
 
       /* ---------- il carrello in basso ---------- */
       /* Flottante, come le isole: niente barra piena, una sfumatura del fondo. */
       .od-barra {
         position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-        display: flex; align-items: center; gap: 0.5rem;
+        display: flex; flex-direction: column; gap: 0.6rem;
         padding: 1.5rem 1rem calc(env(safe-area-inset-bottom) + 0.6rem);
         background: linear-gradient(transparent, var(--c-bg) 45%); pointer-events: none;
       }
       .od-barra > * { pointer-events: auto; }
+      .od-barra-riga { display: flex; align-items: center; gap: 0.5rem; }
       .od-recap-btn {
-        flex: 1; min-width: 0; height: 54px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); border-radius: 999px; border: none; padding: 0 1.25rem;
+        flex: 1; min-width: 0; height: 54px; border-radius: 999px; border: none; padding: 0 1.25rem;
         display: flex; align-items: center; justify-content: space-between;
         background: var(--c-accent); color: var(--c-bg); font: inherit; font-weight: 800; font-size: 1rem; cursor: pointer;
       }
@@ -197,18 +226,9 @@ const ancora = (i: number) => `cat-${i}`;
   </head>
   <body>
     <header class="od-testa">
-      <div class="od-isola">
-        {/* Il tavolo in una BOLLA a sinistra, come nella scheda (23/10/2026). */}
-        {s && <span class="od-bolla" title={titolo}>{nomiTavoli}</span>}
-        <div class="od-chi">
-          <h1>{t("sal.ord.title")}</h1>
-        </div>
-      </div>
-      {!bloccato && categorie.length > 1 && (
-        <nav class="od-cat" aria-label={t("sal.ord.title")}>
-          {categorie.map((c, i) => <a href={`#${ancora(i)}`} data-cat={ancora(i)} class:list={[{ "is-on": i === 0 }]}>{c.category}</a>)}
-        </nav>
-      )}
+      {/* La STESSA isola della scheda del tavolo (Enzo, 23/10/2026: «deve
+          essere sempre uguale»): `components/admin/IsolaTavolo.astro`. */}
+      <IsolaTavolo scheda={s} lang={lang} />
     </header>
 
     {bloccato ? (
@@ -227,7 +247,11 @@ const ancora = (i: number) => `cat-${i}`;
             <h2 id={ancora(i)}>{c.category}</h2>
             <div class="od-griglia">
               {c.items.map((p) => (
-                <button type="button" class="od-piatto" data-id={p.id} disabled={p.is_sold_out}>
+                <button type="button" class:list={["od-piatto", { "ha-foto": Boolean(p.image_url) }]} data-id={p.id} disabled={p.is_sold_out}>
+                  {/* La foto del piatto, se c'e' (Enzo, 23/10/2026): si riconosce prima
+                      di leggere. Posto riservato (16/10) e caricata solo quando arriva
+                      sullo schermo, come in tutto il motore (`Immagine`). */}
+                  {p.image_url && <span class="od-foto"><Immagine src={p.image_url} alt="" rapporto="16/10" /></span>}
                   <b>{p.name}</b>
                   <span>{p.is_sold_out ? t("sal.ord.soldOut") : `${(p.variants ?? []).filter((v) => v.orderable).length > 1 ? "≥ " : ""}${euro(p.price_cents)}`}</span>
                   <span class="od-qty" aria-hidden="true"></span>
@@ -242,13 +266,25 @@ const ancora = (i: number) => `cat-${i}`;
     {!bloccato && (
       <Fragment>
         <div class="od-barra">
-          <a class="od-indietro" href={ritorno} aria-label={t("sal.tb.back")}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-          </a>
-          <button type="button" class="od-recap-btn" id="od-recap-btn" disabled>
-            <span id="od-conta">{t("sal.ord.items").replace("{n}", "0")}</span>
-            <span>{t("sal.ord.recap")} →</span>
-          </button>
+          {/* Le categorie IN BASSO, sopra i bottoni (Enzo, 23/10/2026): sotto
+              il pollice, come tutto quello che si tocca spesso. */}
+          {categorie.length > 1 && (
+            <nav class="od-cat" aria-label={t("sal.ord.title")}>
+              {/* La pillola accesa e' un segno che SCIVOLA da una categoria
+                  all'altra (Enzo, 23/10/2026), sotto le parole. */}
+              <span class="od-cat-segno" id="od-cat-segno" aria-hidden="true"></span>
+              {categorie.map((c, i) => <a href={`#${ancora(i)}`} data-cat={ancora(i)} class:list={[{ "is-on": i === 0 }]}><span>{c.category}</span></a>)}
+            </nav>
+          )}
+          <div class="od-barra-riga">
+            <a class="od-indietro" href={ritorno} aria-label={t("sal.tb.back")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </a>
+            <button type="button" class="od-recap-btn" id="od-recap-btn" disabled>
+              <span id="od-conta">{t("sal.ord.items").replace("{n}", "0")}</span>
+              <span>{t("sal.ord.recap")} →</span>
+            </button>
+          </div>
         </div>
 
         <div class="od-foglio" id="od-formati" hidden>
@@ -315,18 +351,30 @@ const ancora = (i: number) => `cat-${i}`;
           else carrello.push({ chiave, id: p.id, nome: p.nome, formato: f?.key ?? "", formatoNome: f?.nome ?? "", prezzo: f ? f.prezzo : p.prezzo, qty: 1, nota: "" });
           aggiorna();
         };
+        // Rifa' partire l'animazione «pop» (togliere, ridisegnare, rimettere).
+        const salta = (el: HTMLElement) => {
+          el.classList.remove("is-pop");
+          void el.offsetWidth;
+          el.classList.add("is-pop");
+        };
+        let pezziPrima = 0;
         const aggiorna = () => {
           const pezzi = carrello.reduce((n, r) => n + r.qty, 0);
           const conta = document.getElementById("od-conta");
           if (conta) conta.textContent = `${(P.items ?? "").replace("{n}", String(pezzi))} · ${euro(carrello.reduce((t, r) => t + r.prezzo * r.qty, 0))}`;
           const btn = document.getElementById("od-recap-btn") as HTMLButtonElement | null;
           if (btn) btn.disabled = pezzi === 0;
+          if (btn && pezzi > pezziPrima) salta(btn);
+          pezziPrima = pezzi;
           // Il numero sul piatto: tutti i suoi formati insieme.
           document.querySelectorAll<HTMLElement>(".od-piatto").forEach((b) => {
             const q = carrello.filter((r) => r.id === b.dataset.id).reduce((n, r) => n + r.qty, 0);
             b.classList.toggle("ha-qty", q > 0);
-            const badge = b.querySelector(".od-qty");
-            if (badge) badge.textContent = q ? String(q) : "";
+            const badge = b.querySelector<HTMLElement>(".od-qty");
+            if (!badge) return;
+            const prima = badge.textContent ?? "";
+            badge.textContent = q ? String(q) : "";
+            if (q && badge.textContent !== prima) salta(badge);
           });
         };
 
@@ -422,18 +470,67 @@ const ancora = (i: number) => `cat-${i}`;
           invia.textContent = P.send ?? "";
         });
 
-        // La pillola della categoria segue lo scorrimento.
+        // ---- LE CATEGORIE (23/10/2026): il segno scivola, la fila scorre
+        // morbida, e toccare una categoria ci porta piano, non a salti. ----
         const pillole = [...document.querySelectorAll<HTMLAnchorElement>(".od-cat a")];
+        const fila = document.querySelector<HTMLElement>(".od-cat");
+        const segno = document.getElementById("od-cat-segno");
+        const morbido: ScrollBehavior = matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+        const accendi = (id: string) => {
+          const a = pillole.find((x) => x.dataset.cat === id);
+          if (!a || !fila) return;
+          pillole.forEach((x) => x.classList.toggle("is-on", x === a));
+          if (segno) {
+            segno.style.width = `${a.offsetWidth}px`;
+            segno.style.transform = `translate(${a.offsetLeft}px, ${a.offsetTop}px)`;
+          }
+          // La fila scorre da sola, senza muovere la pagina.
+          fila.scrollTo({ left: a.offsetLeft - (fila.clientWidth - a.offsetWidth) / 2, behavior: morbido });
+        };
+        if (fila && segno && pillole.length) {
+          fila.classList.add("ha-segno");
+          accendi(pillole.find((x) => x.classList.contains("is-on"))?.dataset.cat ?? pillole[0].dataset.cat ?? "");
+          // Prima posizione senza scivolare, poi si accende.
+          requestAnimationFrame(() => segno.classList.add("is-pronto"));
+        }
+        let mentreScorre = 0;
+        pillole.forEach((a) => a.addEventListener("click", (e) => {
+          const meta = document.getElementById(a.dataset.cat ?? "");
+          if (!meta) return;
+          e.preventDefault();
+          accendi(a.dataset.cat ?? "");
+          // Durante lo scorrimento morbido la pillola resta quella toccata.
+          mentreScorre = Date.now() + 900;
+          meta.scrollIntoView({ behavior: morbido, block: "start" });
+        }));
         if (pillole.length && "IntersectionObserver" in window) {
           const occhio = new IntersectionObserver((voci) => {
+            if (Date.now() < mentreScorre) return;
             for (const v of voci) {
-              if (!v.isIntersecting) continue;
-              const id = (v.target as HTMLElement).id;
-              pillole.forEach((a) => a.classList.toggle("is-on", a.dataset.cat === id));
-              pillole.find((a) => a.dataset.cat === id)?.scrollIntoView({ inline: "center", block: "nearest" });
+              if (v.isIntersecting) accendi((v.target as HTMLElement).id);
             }
-          }, { rootMargin: "-130px 0px -60% 0px" });
+          }, { rootMargin: "-85px 0px -55% 0px" });
           document.querySelectorAll(".od h2[id]").forEach((h) => occhio.observe(h));
+        }
+
+        // ---- I PIATTI entrano salendo appena, una volta sola ----
+        const lista = document.querySelector<HTMLElement>(".od");
+        if (lista && "IntersectionObserver" in window && morbido === "smooth") {
+          lista.classList.add("od-anima");
+          const vista = new IntersectionObserver((voci) => {
+            voci.forEach((v) => {
+              if (!v.isIntersecting) return;
+              const el = v.target as HTMLElement;
+              // In fila: il secondo della riga arriva un soffio dopo il primo.
+              const i = [...(el.parentElement?.children ?? [])].indexOf(el);
+              el.style.transitionDelay = `${(i % 2) * 60}ms`;
+              el.classList.add("is-visto");
+              vista.unobserve(el);
+              // Il ritardo serve solo all'entrata: dopo, il tocco risponde subito.
+              window.setTimeout(() => { el.style.transitionDelay = ""; }, 500);
+            });
+          }, { rootMargin: "0px 0px -20px 0px" });
+          lista.querySelectorAll(".od-piatto").forEach((p) => vista.observe(p));
         }
       }
     </script>

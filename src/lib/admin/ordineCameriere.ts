@@ -31,6 +31,7 @@ import { accodaTicket } from "../stampaCoda";
 import { contiApertiDellaSala } from "./contiSala";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
 import { piattiPerOrdine, rigaOrdine } from "./righeOrdine";
+import { applicaTogli, dividiModifica, ordineModificabile, type VoceItems } from "./modificaOrdineRegole";
 
 export interface RigaRichiesta {
   id?: unknown;
@@ -46,12 +47,29 @@ export type EsitoOrdine =
 /** Al massimo cosi' tante righe per invio: un palmare non manda un menu intero. */
 const MAX_RIGHE = 60;
 
+/**
+ * Scrive l'ordine con CHI L'HA PRESO (#90: `taken_by_id`, `taken_by_name`).
+ * ⚠️ Senza la #90 le due colonne non esistono: si riscrive senza, e l'ordine
+ * parte lo stesso. Un ordine perso perche' manca il nome del cameriere
+ * sarebbe il guasto peggiore possibile per una cosa che e' solo una faccina.
+ */
+async function inserisciOrdine(ambito: Ambito, riga: Record<string, unknown>, campi: string) {
+  let ins = await inserisci("orders", ambito, riga).select(campi).single();
+  if (ins.error && String(ins.error.message ?? "").includes("taken_by")) {
+    const { taken_by_id: _a, taken_by_name: _b, ...senza } = riga;
+    ins = await inserisci("orders", ambito, senza).select(campi).single();
+  }
+  return ins;
+}
+
 export async function ordinaDalPalmare(opz: {
   ambito: Ambito;
   tavoloId: string;
   righe: unknown;
   /** Chi ha preso l'ordine: va sul ticket come «chi ha preso cosa». */
   cameriere: string;
+  /** La persona del Team (per la sua faccina sulla scheda), se c'e'. */
+  cameriereId?: string | null;
 }): Promise<EsitoOrdine> {
   const { ambito, tavoloId } = opz;
   const righe = (Array.isArray(opz.righe) ? opz.righe : []).slice(0, MAX_RIGHE) as RigaRichiesta[];
@@ -129,6 +147,9 @@ export async function ordinaDalPalmare(opz: {
     items,
     total_cents: totale,
     lang: "fr",
+    // Chi l'ha preso (#90): la faccina sulla scheda del tavolo.
+    taken_by_id: opz.cameriereId ?? null,
+    taken_by_name: opz.cameriere || null,
   };
 
   // ---- Sul conto aperto: nel suo invio, che parte adesso ----
@@ -138,14 +159,14 @@ export async function ordinaDalPalmare(opz: {
     await rilasciaInviiScaduti(ambito, conto.id);
     const invioId = await invioPerOrdine(ambito, conto, ora.toJSDate());
     if (!invioId) return { ok: false, errore: "salvataggio" };
-    const ins = await inserisci("orders", ambito, {
+    const ins = await inserisciOrdine(ambito, {
       ...base,
       payment_method: "tab",
       round_id: invioId,
       reservation_id: conto.id,
       // «Chi ha preso cosa» sul ticket dell'invio: qui, il cameriere.
       customer_name: opz.cameriere || "Serveur",
-    }).select("id").single();
+    }, "id");
     if (ins.error || !ins.data) {
       console.error("[palmare] ordine sul conto fallito:", ins.error);
       return { ok: false, errore: "salvataggio" };
@@ -158,12 +179,12 @@ export async function ordinaDalPalmare(opz: {
   }
 
   // ---- Seduti senza conto: da incassare, e il ticket esce subito ----
-  const ins = await inserisci("orders", ambito, {
+  const ins = await inserisciOrdine(ambito, {
     ...base,
     payment_method: "onsite",
     reservation_id: sessione!.id,
     customer_name: sessione!.nome || opz.cameriere || "Walk-in",
-  }).select("id, location_id").single();
+  }, "id, location_id");
   if (ins.error || !ins.data) {
     console.error("[palmare] ordine fallito:", ins.error);
     return { ok: false, errore: "salvataggio" };
@@ -171,4 +192,84 @@ export async function ordinaDalPalmare(opz: {
   const ordine = ins.data as unknown as { id: string; location_id?: string | null };
   void accodaTicket({ id: ordine.id, status: "pending", payment_method: "onsite", location_id: ordine.location_id ?? null });
   return { ok: true, id: ordine.id, conto: false };
+}
+
+export type EsitoTogli =
+  | { ok: true; annullato: boolean }
+  | { ok: false; errore: "nessuno" | "bloccato" | "righe" | "salvataggio" };
+
+/**
+ * TOGLIERE DA UN ORDINE GIA' FATTO (23/10/2026) — le regole in
+ * `modificaOrdineRegole.ts`: solo meno, solo un ordine da incassare, tutto a
+ * zero = annullato. Aggiungere e' un ordine nuovo («Commander»).
+ *
+ * ⚠️ Si ricontrolla tutto qui: l'ordine deve essere della sessione seduta a
+ * QUESTO tavolo oggi, e ancora da incassare — fra la pagina e il tocco
+ * qualcuno puo' averlo incassato in Commandes. L'aggiornamento stesso
+ * richiede `status = pending`: un incasso arrivato nello stesso istante vince.
+ */
+export async function togliDaOrdine(
+  ambito: Ambito,
+  tavoloId: string,
+  ordineId: string,
+  nuove: unknown,
+): Promise<EsitoTogli> {
+  if (!/^[0-9a-f-]{36}$/i.test(tavoloId) || !/^[0-9a-f-]{36}$/i.test(ordineId)) return { ok: false, errore: "nessuno" };
+  const ora = DateTime.now().setZone(await fusoDi(ambito));
+  const { data: oRaw } = await leggi("orders", ambito, "id, status, payment_method, items, reservation_id")
+    .eq("id", ordineId).maybeSingle();
+  const o = oRaw as unknown as { id: string; status: string; payment_method: string | null; items: VoceItems[] | null; reservation_id: string | null } | null;
+  if (!o || !o.reservation_id) return { ok: false, errore: "nessuno" };
+  if (!ordineModificabile(o)) return { ok: false, errore: "bloccato" };
+  const { data: rRaw } = await leggi("reservations", ambito, "id, date, status, tables, tab_table_id")
+    .eq("id", o.reservation_id).maybeSingle();
+  const r = rRaw as unknown as { id: string; date: string; status: string; tables: unknown; tab_table_id: string | null } | null;
+  if (!r || r.status !== "seated" || r.date !== ora.toFormat("yyyy-MM-dd") || !tavoloDellaRiga(r, tavoloId)) {
+    return { ok: false, errore: "nessuno" };
+  }
+  const esito = applicaTogli(o.items, nuove);
+  if (!esito) return { ok: false, errore: "righe" };
+  if (!esito.cambiato) return { ok: true, annullato: false };
+  const campi: Record<string, unknown> = esito.vuoto
+    ? { status: "cancelled" }
+    : { items: esito.items, total_cents: esito.totale };
+  const upd = await aggiorna("orders", ambito, campi).eq("id", o.id).eq("status", "pending").select("id");
+  if (upd.error) {
+    console.error("[palmare] modifica ordine fallita:", upd.error);
+    return { ok: false, errore: "salvataggio" };
+  }
+  if (!(upd.data ?? []).length) return { ok: false, errore: "bloccato" };
+  return { ok: true, annullato: esito.vuoto };
+}
+
+/**
+ * MODIFICARE UN ORDINE dalla matita (23/10/2026): le quantita' nuove di ogni
+ * riga. Cio' che scende si toglie dall'ordine (`togliDaOrdine`); cio' che
+ * sale oltre la partenza parte come ORDINE NUOVO (`ordinaDalPalmare`), cosi'
+ * la cucina riceve il ticket solo dei piatti in piu'.
+ *
+ * ⚠️ Prima le aggiunte: se non partono (piatto esaurito nel frattempo), non
+ * si tocca niente e il cameriere lo vede. Poi le riduzioni.
+ */
+export async function modificaOrdine(opz: {
+  ambito: Ambito;
+  tavoloId: string;
+  ordineId: string;
+  nuove: unknown;
+  cameriere: string;
+  cameriereId?: string | null;
+}): Promise<EsitoTogli | { ok: false; errore: "aggiunta"; dettaglio: EsitoOrdine }> {
+  const { ambito, tavoloId, ordineId } = opz;
+  if (!/^[0-9a-f-]{36}$/i.test(ordineId)) return { ok: false, errore: "nessuno" };
+  const { data: oRaw } = await leggi("orders", ambito, "id, status, payment_method, items").eq("id", ordineId).maybeSingle();
+  const o = oRaw as unknown as { status: string; payment_method: string | null; items: VoceItems[] | null } | null;
+  if (!o) return { ok: false, errore: "nessuno" };
+  if (!ordineModificabile(o)) return { ok: false, errore: "bloccato" };
+  const d = dividiModifica(o.items, opz.nuove);
+  if (!d) return { ok: false, errore: "righe" };
+  if (d.aggiungi.length) {
+    const nuovo = await ordinaDalPalmare({ ambito, tavoloId, righe: d.aggiungi, cameriere: opz.cameriere, cameriereId: opz.cameriereId });
+    if (!nuovo.ok) return { ok: false, errore: "aggiunta", dettaglio: nuovo };
+  }
+  return togliDaOrdine(ambito, tavoloId, ordineId, d.togli);
 }

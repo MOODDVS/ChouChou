@@ -29,6 +29,7 @@ import { leggi, type Ambito } from "./sede";
 import { piattiVeri } from "./ordiniConti";
 import { riassumiConti, type RiassuntoConto } from "./contiSala";
 import { letturaSala, type LetturaSala } from "./letturaSala";
+import { righeModificabili, ordineModificabile, type RigaModificabile } from "./modificaOrdineRegole";
 import { tavoloDellaRiga, tavoliDelleRiga, prossimaPrenotazione, type PrenotazioneDelGiorno } from "./schedaTavoloRegole";
 
 export interface TavoloScheda {
@@ -41,6 +42,11 @@ export interface TavoloScheda {
 export interface OrdineSessione {
   id: string;
   nome: string;
+  /** Chi l'ha preso col palmare (#90), con la foto del Team se c'e'. */
+  cameriere: { nome: string; foto: string } | null;
+  /** Si puo' togliere qualcosa dal palmare (da incassare)? E le righe con il loro indice. */
+  modificabile: boolean;
+  righe: RigaModificabile[];
   ora: string;
   stato: string;
   totale_cents: number;
@@ -72,6 +78,19 @@ export interface SchedaTavolo {
   fuso: string;
 }
 
+/** Gli ordini di una sessione, con chi li ha presi (#90). Senza la #90 le
+ *  colonne non ci sono: si rilegge senza, la scheda resta come prima. */
+async function ordiniDellaSessione(ambito: Ambito, prenotazioneId: string): Promise<Record<string, unknown>[]> {
+  const leggiCon = (campi: string) => leggi("orders", ambito, campi)
+    .eq("reservation_id", prenotazioneId)
+    .neq("status", "cancelled")
+    .order("created_at", { ascending: true });
+  const r = await leggiCon("id, customer_name, items, total_cents, status, payment_method, created_at, taken_by_id, taken_by_name");
+  if (!r.error) return (r.data ?? []) as unknown as Record<string, unknown>[];
+  const s = await leggiCon("id, customer_name, items, total_cents, status, payment_method, created_at");
+  return (s.data ?? []) as unknown as Record<string, unknown>[];
+}
+
 /** `null` = il tavolo non esiste (o non e' di questo punto).
  *  `lettura`: quella della pagina, se l'ha gia' fatta (deve avere i conti e
  *  le chiamate). */
@@ -94,14 +113,17 @@ export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: L
   // L'unico viaggio in piu': il riassunto del conto, o gli ordini della sessione.
   const [conto, oRaw] = await Promise.all([
     mioConto ? riassumiConti(ambito, [mioConto]).then((x) => x[0] ?? null) : Promise.resolve(null),
-    seduta
-      ? leggi("orders", ambito, "id, customer_name, items, total_cents, status, created_at")
-          .eq("reservation_id", seduta.id)
-          .neq("status", "cancelled")
-          .order("created_at", { ascending: true })
-          .then((r) => r.data ?? [])
-      : Promise.resolve([]),
+    seduta ? ordiniDellaSessione(ambito, seduta.id) : Promise.resolve([]),
   ]);
+  // Le faccine dei camerieri: una lettura del Team, solo se serve.
+  const idsCamerieri = [...new Set((oRaw as { taken_by_id?: string | null }[]).map((o) => o.taken_by_id).filter((x): x is string => Boolean(x)))];
+  const foto = new Map<string, string>();
+  if (idsCamerieri.length) {
+    const { data: tRaw } = await leggi("team", ambito, "id, photo_url").in("id", idsCamerieri);
+    for (const p of (tRaw ?? []) as unknown as { id: string; photo_url: string | null }[]) {
+      if (p.photo_url) foto.set(String(p.id), String(p.photo_url));
+    }
+  }
 
   let sessione: SchedaTavolo["sessione"] = null;
   let idsGruppo: string[] = mioConto
@@ -111,10 +133,16 @@ export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: L
     idsGruppo = tavoliDelleRiga(seduta.tables);
     const ordini = ((oRaw ?? []) as unknown as {
       id: string; customer_name: string | null; status: string; total_cents: number | null; created_at: string;
-      items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number }[] | null;
+      taken_by_id?: string | null; taken_by_name?: string | null; payment_method?: string | null;
+      items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; price_cents?: number }[] | null;
     }[]).map((o) => ({
+      modificabile: ordineModificabile(o),
+      righe: righeModificabili(o.items),
       id: o.id,
       nome: String(o.customer_name ?? "").trim(),
+      cameriere: o.taken_by_name
+        ? { nome: String(o.taken_by_name).trim(), foto: foto.get(String(o.taken_by_id ?? "")) ?? "" }
+        : null,
       ora: DateTime.fromISO(o.created_at).setZone(fuso).toFormat("HH:mm"),
       stato: o.status,
       totale_cents: Number(o.total_cents) || 0,
