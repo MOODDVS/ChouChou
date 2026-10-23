@@ -21,7 +21,7 @@
  * dire che spegnere Statistiche per il cameriere la spegne al proprietario.
  */
 
-export type Ruolo = "super" | "admin" | "user";
+export type Ruolo = "super" | "admin" | "user" | "palmare";
 
 /** La home dell'admin: chiunque abbia fatto il login ci arriva. */
 export const PAGINA_HOME = "home";
@@ -35,6 +35,43 @@ export const PAGINE_SOLO_SUPER = ["super"];
  * assegna delle pagine a quella persona, comanda quella scelta.
  */
 export const PAGINE_SOLO_ADMIN = ["settings", "stats"];
+
+/**
+ * IL PALMARE (22/10/2026) — il telefono del cameriere.
+ *
+ * ⚠️ AL ROVESCIO DEGLI ALTRI RUOLI. Per super, admin e user una pagina o
+ * un'API sconosciuta passa («nel dubbio si lascia aperto», vedi sotto). Per
+ * il palmare NIENTE e' aperto se non e' scritto qui: e' un telefono che gira
+ * in sala, a volte passato di mano in mano, e una pagina nuova dell'admin non
+ * deve comparirci sopra perche' qualcuno ha dimenticato di negargliela.
+ * ⚠️ Nemmeno la home: la Accueil ha il fatturato del giorno.
+ * ⚠️ La stessa lista la applica `verificaStaff` dentro ogni API (adminAuth):
+ * il middleware legge le claims in locale e, se non ci riesce, lascia
+ * passare. Per il palmare quella porta non basta.
+ */
+export const PAGINE_PALMARE = ["salle"];
+
+/**
+ * Le API che il palmare puo' chiamare, una per una.
+ * - `salle-seat`: installare dei clienti a un tavolo libero (23/10/2026);
+ * - `salle-tab`: validare o rifiutare il conto del QR di un tavolo;
+ * - `salle-order`: l'ordine del cameriere per un tavolo occupato.
+ */
+export const API_PALMARE: string[] = ["salle-seat", "salle-tab", "salle-order"];
+
+/** Puo' il palmare chiamare questa API? `chiave` = `chiaveApi(percorso)`. */
+export function palmarePuoChiamare(chiave: string): boolean {
+  return API_PALMARE.includes(String(chiave || ""));
+}
+
+/**
+ * Dove arriva chi apre /admin, o una pagina che non e' sua.
+ * ⚠️ Per il palmare NON la home: la home non e' sua, e il rimando alla home
+ * di una pagina negata girerebbe in tondo.
+ */
+export function arrivoDi(ruolo: string): string {
+  return ruolo === "palmare" ? "/admin/salle" : "/admin";
+}
 
 /** Dal percorso alla chiave di pagina. "" se non e' una pagina admin. */
 export function chiavePagina(pathname: string): string {
@@ -57,6 +94,8 @@ export function pagineConsentite(ctx: {
 }): string[] {
   const tutte = ctx.tutte ?? [];
   if (ctx.ruolo === "super") return [...tutte, ...PAGINE_SOLO_SUPER];
+  // Il palmare non ha nessuna delle pagine dell'elenco: la sua sala non ci sta.
+  if (ctx.ruolo === "palmare") return [];
 
   const spente = new Set(ctx.nascoste ?? []);
   const disponibili = tutte.filter((k) => !spente.has(k));
@@ -84,7 +123,10 @@ export function puoVederePagina(
   chiave: string,
   ctx: Parameters<typeof pagineConsentite>[0],
 ): boolean {
-  if (!chiave || chiave === PAGINA_HOME) return true;
+  if (!chiave) return true;
+  // ⚠️ Prima della home e delle chiavi sconosciute: per il palmare non valgono.
+  if (ctx.ruolo === "palmare") return PAGINE_PALMARE.includes(chiave);
+  if (chiave === PAGINA_HOME) return true;
   if (PAGINE_SOLO_SUPER.includes(chiave)) return ctx.ruolo === "super";
   if (!(ctx.tutte ?? []).includes(chiave)) return true;
   return pagineConsentite(ctx).includes(chiave);
@@ -168,6 +210,11 @@ export const API_PAGINA: Record<string, string> = {
   // --- Prenotazioni -----------------------------------------------------
   "reservations": "reservations",
   "service-closures": "reservations",
+  // Installare dei clienti a un tavolo (il palmare, e chi vede le prenotazioni).
+  "salle-seat": "reservations",
+  // Il conto e l'ordine dal palmare: per gli altri ruoli, chi vede Commandes.
+  "salle-tab": "orders",
+  "salle-order": "orders",
   "zone-closures": "reservations",
   "zone-closure-impact": "reservations",
   // --- Clienti ----------------------------------------------------------
@@ -274,6 +321,7 @@ export function puoChiamareApi(
   ctx: Parameters<typeof pagineConsentite>[0],
 ): boolean {
   if (!chiave) return true;
+  if (ctx.ruolo === "palmare") return palmarePuoChiamare(chiave);
   const pagina = API_PAGINA[chiave];
   if (!pagina) return true;
   return puoVederePagina(pagina, ctx);

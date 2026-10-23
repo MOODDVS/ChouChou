@@ -29,6 +29,11 @@ Il remote `engine` servirà per gli aggiornamenti (punto 7).
   manifest.json (name/short_name), loghi in `public/SVG/` se servono.
 - `astro.config.mjs` — `site: "https://www.dominiocliente.be"`.
 - `public/robots.txt` — riga `Sitemap:` col dominio del cliente (stesso di `site`).
+- `src/config/sitePages.ts` — appena il sito pubblico esiste, le SUE pagine
+  (sono quelle che Marketing → Pop-up propone). Meglio ricavarle dalla
+  navigazione del sito che riscriverle: vedi Villa 77, che le prende da
+  `components/site/nav.ts`. La lista di fabbrica (Notre Carte, Ambiance,
+  Links…) non e' la pagina di nessuno.
 - Testi legali (`src/pages/privacy.astro`, `cookies.astro` + versioni `en/`)
   quando si attiverà il sito pubblico.
 - **Sito pubblico (solo quando si attiva)**: le pagine vetrina e i testi

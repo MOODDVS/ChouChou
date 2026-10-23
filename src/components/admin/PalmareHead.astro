@@ -1,0 +1,37 @@
+---
+/**
+ * LA TESTA DELLE PAGINE DEL PALMARE (22/10/2026) — /admin/salle e figlie.
+ *
+ * Le meta della PWA, i colori di ripiego e il reset, una volta sola per tutte
+ * le pagine del palmare; poi `AdminHead`, che porta i colori del cliente, i
+ * caratteri e il manifest come nel resto dell'admin.
+ *
+ * ⚠️ Va dentro <head>, e la pagina ci mette dopo i SUOI stili.
+ */
+import AdminHead from "./AdminHead.astro";
+import { CLIENT } from "../../config/client";
+
+interface Props { titolo: string }
+const { titolo } = Astro.props;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>{titolo + " — " + CLIENT.nome}</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#000000" />
+<style is:global>
+  /* I ripieghi delle altre pagine admin: AdminHead, piu' sotto, li
+     sovrascrive coi colori del cliente (Réglages → Design). */
+  :root {
+    --c-bg: #0c2a30; --c-text: #e9efef; --c-muted: #86a0a4;
+    --c-line: #244a52; --c-card: #16424b; --c-accent: #cb534d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); }
+</style>
+<AdminHead />

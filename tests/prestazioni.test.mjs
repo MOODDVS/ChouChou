@@ -379,7 +379,8 @@ test("ogni pagina che usa un font ha i font", () => {
     // seconda segnalava il nome di un file invece di un font mancante.
     // Quello che conta e' che la pagina renda UN telaio, e un telaio sta in
     // `src/layouts/` — comunque il cliente abbia deciso di chiamarlo.
-    if (/<Fonts\b|AdminHead/.test(testo)) continue;
+    // `PalmareHead` (le pagine del palmare) porta AdminHead con se'.
+    if (/<Fonts\b|AdminHead|PalmareHead/.test(testo)) continue;
     if (/^\s*import\s+\w+\s+from\s+["'][^"']*layouts\/[^"']+["']/m.test(testo)) continue;
     scoperte.push(f);
   }

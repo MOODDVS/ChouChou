@@ -1,0 +1,974 @@
+---
+/**
+ * LA SCHEDA DEL TAVOLO SUL PALMARE — /admin/salle/table?id=… (22/10/2026).
+ *
+ * Si apre toccando un tavolo sulla piantina di /admin/salle. Pagina intera,
+ * con la freccia per tornare alla sala (deciso con Enzo).
+ *
+ * Cosa dice, in quest'ordine (le regole in `lib/admin/schedaTavolo.ts`):
+ *  - il tavolo: nome, sala, posti;
+ *  - se qualcuno chiama o chiede l'addizione;
+ *  - lo stato: conto aperto (da validare / aperto, con codice, chi ha
+ *    ordinato, totale / pagato / resto e gli invii), oppure la sessione seduta
+ *    con i suoi ordini, oppure «Libre»;
+ *  - la prossima prenotazione di oggi su questo tavolo.
+ * In fondo i bottoni del cameriere: per ora SOLO DISEGNO, spenti — Commander,
+ * Addition, Encaisser, Déplacer arrivano dopo, un passo alla volta.
+ *
+ * UN TAVOLO LIBERO (23/10/2026): «quanti siete?», poi le proposte — il tavolo
+ * da solo se basta, altrimenti i tavoli COLLEGATI (le catene del piano) — e
+ * «Installer», che crea la prenotazione seduta e blocca i tavoli scelti
+ * (`/api/admin/salle-seat`, l'unica API del palmare). Le proposte si
+ * ricalcolano nel browser a ogni tocco: le regole sono pure
+ * (`lib/salaInstallaRegole.ts`) e i dati arrivano nella pagina.
+ *
+ * IL MODALE DELL'ISOLA (23/10/2026): su un tavolo occupato l'isola in alto e'
+ * un bottone. Apre le PERSONE (− / + e «Enregistrer») e «Déplacer», con le
+ * tre possibilita': cambiare tavolo, aggiungerne uno, liberarne uno
+ * (`/api/admin/salle-seat`, azioni «persone» e «sposta»).
+ *
+ * ⚠️ Pagina del palmare: chiave «salle» (chiavePagina prende il primo pezzo
+ * del percorso), quindi aperta al ruolo palmare come la sala. Tutto si legge
+ * QUI nel render: il palmare non ha API.
+ */
+import PalmareHead from "../../../components/admin/PalmareHead.astro";
+import { DateTime } from "luxon";
+import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
+import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
+import { claimsDaToken } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
+import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo";
+import { importoDa } from "../../../lib/soldi";
+import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
+import { tempoSeduti } from "../../../lib/admin/schedaTavoloRegole";
+import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
+import { ICONA_WALKIN, ICONA_PERSONE } from "../../../lib/iconeSala";
+
+export const prerender = false;
+
+// La lingua del cameriere (il suo telefono), o quella dell'admin.
+const lang = await linguaPalmare(Astro.request);
+const t = adminT(lang);
+const LOC = ADMIN_LOCALE[lang] ?? "fr-BE";
+const euro = (c: number) => importoDa(c, LOC);
+
+const id = Astro.url.searchParams.get("id") ?? "";
+let s: SchedaTavolo | null = null;
+let inst: ContestoInstallazione | null = null;
+let mv: ContestoSpostamento | null = null;
+/* ⚠️ VELOCITA' (23/10/2026): UNA lettura parallela della sala
+   (`letturaSala`), riusata dalla scheda, dalle proposte di «Installer» e dal
+   modale: prima erano una decina di letture in fila. Il tempo speso sta in
+   `Server-Timing` (strumenti del browser → Rete). */
+const crono = cronometro();
+try {
+  const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
+  const ambito = await ambitoDiRichiesta(Astro.request, staff);
+  const lettura = await letturaSala(ambito, { conti: true, chiamate: true });
+  crono.tappa("sala");
+  s = await schedaTavolo(ambito, id, lettura);
+  crono.tappa("tavolo");
+  // Solo per un tavolo libero: e' li' che si chiede «quanti siete?».
+  if (s && !s.conto && !s.sessione) inst = await contestoInstallazione(ambito, id, lettura);
+  // Occupato: il modale dell'isola (persone, «Déplacer») ha bisogno delle sale.
+  else if (s) mv = await contestoSpostamento(ambito, id, lettura);
+} catch { s = null; }
+Astro.response.headers.set("Server-Timing", crono.intestazione());
+const libero = Boolean(s && !s.conto && !s.sessione);
+/* Seduti ma NESSUN ordine, e nessun conto: se se ne vanno, si annulla e i
+   tavoli tornano liberi (23/10/2026). Con un ordine fatto no: c'e' da
+   incassare o da annullare l'ordine, ed e' un'altra storia. */
+const annullabile = Boolean(s && !s.conto && s.sessione && s.sessione.ordini.length === 0);
+/** I dati per il browser: le proposte si calcolano li', a ogni tocco. */
+const datiInst = inst && s
+  ? JSON.stringify({ tavoloId: s.tavolo.id, nome: s.tavolo.name, ...inst }).replace(/</g, "\\u003c")
+  : "";
+const NUMERI = [1, 2, 3, 4, 5, 6, 7, 8];
+/* IL MODALE DELL'ISOLA (23/10/2026, Enzo): toccando l'isola di un tavolo
+   occupato si cambiano le persone e si SPOSTA la tavolata (cambiare tavolo,
+   aggiungerne uno, liberarne uno). «Déplacer» non e' piu' un bottone in basso. */
+const personeAdesso = s?.conto ? s.conto.persone : (s?.sessione?.persone ?? 0);
+const datiMv = mv && s
+  ? JSON.stringify({ tavoloId: s.tavolo.id, persone: personeAdesso, ...mv }).replace(/</g, "\\u003c")
+  : "";
+const cliccabile = Boolean(datiMv);
+const haOrdini = Boolean((s?.conto && s.conto.invii.length > 0) || (s?.sessione && s.sessione.ordini.length > 0));
+
+/** Un istante ISO → «12:05» nel fuso del ristorante. */
+const ora = (iso: string | null | undefined): string =>
+  iso && s ? DateTime.fromISO(iso).setZone(s.fuso).toFormat("HH:mm") : "";
+const conto = s?.conto ?? null;
+const sessione = s?.sessione ?? null;
+const STATI_ORDINE: Record<string, string> = {
+  pending: t("sal.tb.st.pending"),
+  paid: t("sal.tb.st.paid"),
+  done: t("sal.tb.st.done"),
+};
+/* Il titolo dice TUTTI i tavoli di chi e' seduto qui: un gruppo a T1+T4
+   occupa anche T4, e la scheda di T1 lo deve dire (23/10/2026). */
+const nomiTavoli = s?.gruppo ? s.gruppo.nomi.join(" + ") : (s?.tavolo.name ?? "");
+const postiTavoli = s?.gruppo ? s.gruppo.posti : (s?.tavolo.seats ?? 0);
+const titolo = s ? `${t("sal.tb.table")} ${nomiTavoli}` : t("sal.title");
+const postiLibero = postiTavoli > 0 ? t("sal.tb.places").replace("{n}", String(postiTavoli)) : "";
+/* CHI E' SEDUTO, NELL'ISOLA (23/10/2026): stato, chi, quanti, da che ora, e
+   un TIMER che conta. Prima stava in una scheda sotto: l'isola resta ferma
+   in alto mentre si scorrono gli invii, ed e' li' che il cameriere guarda. */
+const dal = conto?.dal ?? sessione?.dal ?? null;
+const statoIsola: { classe: string; testo: string } | null = conto
+  ? { classe: conto.stato === "pending" ? "is-attesa" : "is-aperto", testo: conto.stato === "pending" ? t("sal.tb.tabPending") : t("sal.tb.tabOpen") }
+  : sessione ? { classe: "is-aperto", testo: t("sal.tb.seated") } : null;
+const personeIsola = personeAdesso;
+/* Walk-in: l'ICONA del motore, non la parola (23/10/2026). Le persone:
+   l'icona dei coperti accanto al numero. */
+const walkin = Boolean(sessione?.walkin);
+const nomeIsola = walkin ? "" : (sessione?.nome || "");
+const Isola = cliccabile ? "button" : "div";
+---
+
+<html lang={lang}>
+  <head>
+    <PalmareHead titolo={titolo} />
+    <style is:global>
+      :root { --tb-azioni-h: 160px; }
+      body { min-height: 100vh; min-height: 100dvh; }
+
+      /* ---------- la testa: un'ISOLA ferma, come la pillola del cameriere
+         nella sala (23/10/2026, coerenza grafica): stessa forma, stesso
+         fondo, stessa ombra. Dentro: la freccia tonda, il tavolo, la sala. */
+      .tb-testa {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; justify-content: center;
+        padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
+        background: linear-gradient(var(--c-bg) 70%, transparent);
+      }
+      .tb-isola {
+        display: flex; align-items: center; gap: 0.6rem;
+        min-height: 48px; max-width: min(92vw, 420px); min-width: 0;
+        padding: 5px 18px; border-radius: 999px;
+        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+      }
+      .tb-chi { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; text-align: left; }
+      /* Un tavolo occupato: l'isola e' un BOTTONE che apre il modale. */
+      button.tb-isola { font: inherit; cursor: pointer; }
+      .tb-isola-box { position: relative; display: flex; justify-content: center; max-width: 100%; }
+      .tb-freccia { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--c-muted); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+      .tb-isola[aria-expanded="true"] .tb-freccia { transform: rotate(180deg); }
+      /* Il timer: lo stato col suo colore, e da quanto. */
+      .tb-timer {
+        flex-shrink: 0; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+        min-width: 64px; height: 38px; padding: 0 0.7rem; border-radius: 999px; line-height: 1.05;
+        margin-right: -13px;
+      }
+      .tb-timer b { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .tb-timer.is-aperto { background: #4cc38a; color: #0b1f14; }
+      .tb-timer.is-attesa { background: #ff9f43; color: #241200; }
+      /* La bolla del tavolo: a sinistra, stessa altezza e stesso rientro del
+         timer a destra. Piu' tavoli: la bolla si allunga. */
+      .tb-bolla {
+        flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+        min-width: 38px; height: 38px; padding: 0 0.75rem; margin-left: -13px; border-radius: 999px;
+        background: var(--c-text); color: var(--c-bg); font-weight: 800; font-size: 0.95rem; white-space: nowrap;
+        max-width: 45vw; overflow: hidden; text-overflow: ellipsis;
+      }
+      .tb-tit { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-family: var(--font-body); font-weight: 700; font-size: 0.95rem; line-height: 1.2; color: var(--c-text); }
+      .tb-tit-testo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tb-ico { display: inline-flex; flex-shrink: 0; }
+      .tb-ico svg { width: 16px; height: 16px; display: block; }
+      .tb-pers { display: inline-flex; align-items: center; gap: 0.15rem; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+      .tb-sub { min-width: 0; font-size: 0.75rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* ---------- il modale dell'isola: persone e «Déplacer» ---------- */
+      .tb-pannello {
+        position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+        width: calc(100vw - 2rem); max-width: 480px; max-height: calc(100dvh - 120px); overflow-y: auto;
+        padding: 12px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px;
+        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+      }
+      .tb-pannello[hidden] { display: none; }
+      .tb-pan-tit { padding: 2px 4px 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+      /* Le persone: 1–9 da toccare, «10+» apre un campo (23/10/2026, Enzo). */
+      .tb-pan-num { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .tb-pan-num .tb-n { background: transparent; }
+      .tb-pan-num .tb-n[aria-pressed="true"] { background: var(--c-text); }
+      .tb-campo {
+        width: 100%; height: 52px; box-sizing: border-box; border-radius: 14px; border: 1px solid var(--c-line);
+        background: transparent; color: var(--c-text); font: inherit; font-size: 1.3rem; font-weight: 800; text-align: center;
+      }
+      .tb-campo { appearance: textfield; -moz-appearance: textfield; }
+      .tb-campo::-webkit-inner-spin-button, .tb-campo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      .tb-campo[hidden], #tb-p-salva[hidden], #tb-sposta-ok[hidden] { display: none; }
+      #tb-p-salva { flex: none; height: 52px; width: 100%; }
+      .tb-sposta {
+        display: flex; align-items: center; justify-content: center; gap: 0.6rem; width: 100%;
+        min-height: 54px; border-radius: 999px; border: 1px solid var(--c-line); background: transparent;
+        color: var(--c-text); font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
+      }
+      .tb-sposta[aria-expanded="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      .tb-modi-box { display: flex; flex-direction: column; gap: 10px; }
+      .tb-modi-box[hidden] { display: none; }
+      .tb-modi { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 8px; }
+      .tb-modo {
+        min-height: 56px; padding: 0.4rem 0.5rem; border-radius: 14px; border: 1px solid var(--c-line);
+        background: transparent; color: var(--c-text); font: inherit; font-size: 0.85rem; font-weight: 800; line-height: 1.2; cursor: pointer;
+      }
+      .tb-modo[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
+      .tb-zona { padding: 4px 4px 0; font-size: 0.78rem; font-weight: 800; color: var(--c-muted); }
+      #tb-sposta-ok { flex: none; height: 52px; width: 100%; }
+
+      .tb { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.9rem 1rem calc(var(--tb-azioni-h) + env(safe-area-inset-bottom) + 1rem); }
+
+      /* ---------- gli avvisi ---------- */
+      .tb-avvisi { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      .tb-avviso {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        height: 34px; padding: 0 0.85rem; border-radius: 999px;
+        font-size: 0.82rem; font-weight: 800; background: var(--c-text); color: var(--c-bg);
+      }
+      .tb-avviso svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+      /* ---------- le schede ---------- */
+      .tb-card { border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line); padding: 0.95rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+      .tb-riga { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+      .tb-stato { align-self: flex-start; display: inline-flex; align-items: center; height: 28px; padding: 0 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 800; }
+      .tb-stato.is-attesa { background: #ff9f43; color: #241200; }
+      .tb-stato.is-aperto { background: #4cc38a; color: #0b1f14; }
+      .tb-stato.is-libero { background: transparent; color: var(--c-muted); border: 1px solid var(--c-line); }
+      .tb-sotto { font-size: 0.85rem; color: var(--c-muted); }
+      .tb-cifre { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; padding-top: 0.2rem; }
+      .tb-cifre div { display: flex; flex-direction: column; gap: 2px; }
+      .tb-cifre span { font-size: 0.75rem; color: var(--c-muted); }
+      .tb-cifre strong { font-size: 1.05rem; }
+      .tb-cifre .is-resto strong { color: var(--c-accent); }
+      .tb-libero { font-family: var(--font-title); font-size: 1.5rem; }
+
+      .tb-titolo { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin-top: 0.35rem; }
+      .tb-invio-stato { font-size: 0.78rem; font-weight: 800; }
+      .tb-invio-stato.is-partito { color: #4fbe8c; }
+      .tb-invio-stato.is-attesa { color: #f0a040; }
+      .tb-persona { font-size: 0.8rem; font-weight: 700; color: var(--c-muted); }
+      .tb-piatto { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.95rem; line-height: 1.35; }
+      .tb-piatto em { font-style: normal; color: var(--c-muted); }
+      .tb-prossima { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
+      .tb-prossima svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: var(--c-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+      /* ---------- i bottoni del cameriere: FLOTTANTI, sotto il pollice ----------
+         (23/10/2026) Come le isole: niente barra piena, i bottoni galleggiano
+         sopra una sfumatura del fondo. La FRECCIA per tornare alla sala sta
+         qui e non in alto: e' il gesto piu' frequente, e in alto il pollice
+         non ci arriva. */
+      .tb-azioni {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+        display: flex; flex-direction: column; gap: 0.5rem;
+        padding: 1.5rem 1rem calc(env(safe-area-inset-bottom) + 0.6rem);
+        background: linear-gradient(transparent, var(--c-bg) 40%);
+        pointer-events: none;
+      }
+      .tb-azioni > * { pointer-events: auto; }
+      /* Una riga di bottoni: la freccia tonda fissa, gli altri si dividono il resto. */
+      .tb-azioni .tb-riga { display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; }
+      .tb-azioni .tb-riga > .tb-btn { flex: 1; min-width: 0; }
+      .tb-indietro {
+        width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-line);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+      .tb-indietro svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .tb-btn {
+        height: 46px; border-radius: 999px; border: 1px solid var(--c-line);
+        background: var(--c-card); color: var(--c-text); font: inherit; font-size: 0.88rem; font-weight: 700;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); cursor: pointer;
+      }
+      .tb-btn.is-primo { flex: 1; height: 52px; background: var(--c-accent); color: var(--c-bg); border-color: transparent; font-size: 1rem; font-weight: 800; }
+      .tb-btn:disabled { opacity: 0.45; box-shadow: none; }
+      /* Annuler e Refuser: lo stesso ROSSO del cestino e di «Disconnetti». */
+      .tb-btn.is-annulla, #tb-rifiuta { background: #a3320f; color: #fff; border-color: transparent; }
+      .tb-presto { text-align: center; font-size: 0.72rem; color: var(--c-muted); }
+      .tb-info {
+        align-self: center; padding: 0.35rem 0.85rem; border-radius: 999px;
+        background: var(--c-card); border: 1px solid var(--c-line); font-size: 0.78rem; color: var(--c-muted);
+      }
+      a.tb-btn { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+      .tb-decidi { display: grid; grid-template-columns: 1fr 2fr; gap: 0.5rem; }
+      .tb-btn.is-valida { background: #ff9f43; color: #241200; }
+      /* Armato (il primo tocco): piu' acceso, con un alone — il secondo tocco fa. */
+      .tb-btn.is-armato { background: #c23b12; color: #fff; border-color: transparent; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35); }
+      .tb-avviso-ok { align-self: center; padding: 0.55rem 1rem; border-radius: 999px; background: #4cc38a; color: #0b1f14; font-size: 0.85rem; font-weight: 800; }
+
+      /* ---------- un tavolo libero: quanti sono, e dove ---------- */
+      .tb-num { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.45rem; }
+      .tb-n {
+        height: 48px; border-radius: 14px; border: 1px solid var(--c-line);
+        background: var(--c-card); color: var(--c-text); font: inherit; font-size: 1.05rem; font-weight: 800; cursor: pointer;
+      }
+      .tb-n[aria-pressed="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      .tb-piu { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
+      .tb-piu[hidden] { display: none; }
+      .tb-piu button { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text); font: inherit; font-size: 1.4rem; cursor: pointer; }
+      .tb-piu strong { min-width: 3ch; text-align: center; font-size: 1.4rem; }
+      .tb-proposte { display: flex; flex-direction: column; gap: 0.5rem; }
+      .tb-prop {
+        display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+        min-height: 56px; padding: 0.6rem 1rem; border-radius: 16px; text-align: left;
+        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text); font: inherit; cursor: pointer;
+      }
+      .tb-prop[aria-pressed="true"] { border: 2px solid var(--c-accent); }
+      .tb-prop-nomi { font-weight: 800; font-size: 1rem; }
+      .tb-prop-posti { font-size: 0.82rem; color: var(--c-muted); white-space: nowrap; }
+      .tb-prop-tag { display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; background: #4cc38a; color: #0b1f14; }
+      .tb-prop.is-forzata { border-style: dashed; }
+      .tb-nessuna { font-size: 0.88rem; color: var(--c-muted); line-height: 1.5; }
+      .tb-errore { color: #ff8a80; font-size: 0.85rem; text-align: center; }
+      /* Vuoto non occupa posto: i bottoni stanno giu', vicino al pollice. */
+      .tb-errore:empty { display: none; }
+    </style>
+  </head>
+  <body>
+    <header class="tb-testa">
+      <div class="tb-isola-box">
+      <Isola class="tb-isola" id="tb-isola"
+        {...(cliccabile ? { type: "button", "aria-expanded": "false", "aria-controls": "tb-pannello", "aria-haspopup": "true", title: t("sal.tb.edit") } : {})}>
+        {/* Il tavolo (o i tavoli) in una BOLLA a sinistra, come il timer a
+            destra (23/10/2026, Enzo). Libero: la combinazione scelta. */}
+        {s && <span class="tb-bolla" id="tb-titolo" data-base={nomiTavoli} title={titolo}>{nomiTavoli}</span>}
+        <span class="tb-chi">
+          {!s ? (
+            <span class="tb-tit"><span class="tb-tit-testo">{t("sal.title")}</span></span>
+          ) : statoIsola ? (
+            <Fragment>
+              {/* Le icone del motore (`lib/iconeSala.ts`), le stesse di Réservations. */}
+              <span class="tb-tit">
+                {walkin && <span class="tb-ico" role="img" aria-label={t("sal.tb.walkin")} title={t("sal.tb.walkin")} set:html={ICONA_WALKIN} />}
+                {nomeIsola && <span class="tb-tit-testo">{nomeIsola}</span>}
+                {personeIsola > 0 && (
+                  <span class="tb-pers" aria-label={t("sal.tb.people").replace("{n}", String(personeIsola))}>
+                    <span class="tb-ico" aria-hidden="true" set:html={ICONA_PERSONE} />{personeIsola}
+                  </span>
+                )}
+              </span>
+              {dal && <span class="tb-sub">{t("sal.tb.since").replace("{ora}", ora(dal))}</span>}
+            </Fragment>
+          ) : (
+            <Fragment>
+              <span class="tb-tit"><span class="tb-tit-testo">{s.tavolo.zone}</span></span>
+              {postiLibero && <span class="tb-sub" id="tb-sottotitolo" data-base={postiLibero}>{postiLibero}</span>}
+            </Fragment>
+          )}
+        </span>
+        {cliccabile && <svg class="tb-freccia" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>}
+        {/* Solo i minuti: lo stato lo dice il colore (e il lettore di schermo). */}
+        {statoIsola && (
+          <span class:list={["tb-timer", statoIsola.classe]} id="tb-timer" data-dal={dal ?? ""} role="timer"
+            aria-label={`${statoIsola.testo}${dal ? ` · ${t("sal.tb.since").replace("{ora}", ora(dal))}` : ""}`}
+            title={statoIsola.testo}>
+            {dal ? <b>{tempoSeduti(dal, Date.now())}</b> : <b>·</b>}
+          </span>
+        )}
+      </Isola>
+
+      {/* IL MODALE DELL'ISOLA: persone e «Déplacer» (23/10/2026). Largo
+          quanto lo schermo, come il menu della pillola del cameriere. */}
+      {cliccabile && (
+        <div class="tb-pannello" id="tb-pannello" hidden>
+          <p class="tb-pan-tit">{t("sal.mv.people")}</p>
+          <div class="tb-num tb-pan-num" role="group" aria-label={t("sal.mv.people")}>
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+              <button type="button" class="tb-n tb-pn" data-n={n} aria-pressed={n === personeIsola ? "true" : "false"}>{n}</button>
+            ))}
+            <button type="button" class="tb-n tb-pn" data-n="piu" aria-pressed={personeIsola >= 10 ? "true" : "false"}>10+</button>
+          </div>
+          <input type="number" class="tb-campo" id="tb-p-campo" inputmode="numeric" min="1" max="100"
+            value={personeIsola >= 10 ? personeIsola : 10} hidden={personeIsola < 10} aria-label={t("sal.mv.people")} />
+          <button type="button" class="tb-btn is-primo" id="tb-p-salva" hidden>{t("sal.mv.save")}</button>
+
+          <button type="button" class="tb-sposta" id="tb-sposta" aria-expanded="false" aria-controls="tb-modi">
+            {t("sal.tb.act.move")}
+          </button>
+          <div class="tb-modi-box" id="tb-modi" hidden>
+            <div class="tb-modi" role="group" aria-label={t("sal.tb.act.move")}>
+              <button type="button" class="tb-modo" data-modo="cambia" aria-pressed="false">{t("sal.mv.change")}</button>
+              <button type="button" class="tb-modo" data-modo="aggiungi" aria-pressed="false">{t("sal.mv.add")}</button>
+              {mv && mv.attuali.length > 1 && <button type="button" class="tb-modo" data-modo="libera" aria-pressed="false">{t("sal.mv.free")}</button>}
+            </div>
+            <div class="tb-proposte" id="tb-opzioni"></div>
+            {haOrdini && <p class="tb-nessuna" id="tb-mv-ticket" hidden>{t("sal.mv.tickets")}</p>}
+            <button type="button" class="tb-btn is-primo" id="tb-sposta-ok" hidden></button>
+          </div>
+          <p class="tb-errore" id="tb-pan-err" role="status"></p>
+        </div>
+      )}
+      </div>
+    </header>
+
+    <main class="tb">
+      {!s ? (
+        <section class="tb-card"><p class="tb-sotto">{t("sal.tb.notFound")}</p></section>
+      ) : (
+        <Fragment>
+          {Astro.url.searchParams.get("inviato") === "1" && <p class="tb-avviso-ok" role="status">{t("sal.ord.sent")}</p>}
+          {(s.chiamata || s.addizione) && (
+            <div class="tb-avvisi">
+              {s.chiamata && (
+                <span class="tb-avviso">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+                  {t("sal.tb.call")}
+                </span>
+              )}
+              {s.addizione && <span class="tb-avviso">€ {t("sal.tb.bill")}</span>}
+            </div>
+          )}
+
+          {conto ? (
+            <Fragment>
+              <section class="tb-card">
+                {/* Stato e ora stanno nell'isola in alto. */}
+                <div class="tb-riga">
+                  <span class="tb-sotto">{t("sal.tb.ordered").replace("{a}", String(conto.ordinato)).replace("{b}", String(conto.persone))}</span>
+                  {conto.codice && <span class="tb-sotto">{t("sal.tb.code").replace("{c}", conto.codice)}</span>}
+                </div>
+                <div class="tb-cifre">
+                  <div><span>{t("sal.tb.total")}</span><strong>{euro(conto.totale_cents)}</strong></div>
+                  <div><span>{t("sal.tb.paid")}</span><strong>{euro(conto.pagato_cents)}</strong></div>
+                  <div class="is-resto"><span>{t("sal.tb.rest")}</span><strong>{euro(conto.resto_cents)}</strong></div>
+                </div>
+              </section>
+
+              {conto.invii.map((inv) => (
+                <section class="tb-card">
+                  <div class="tb-riga">
+                    <strong>{t("sal.tb.round").replace("{n}", String(inv.numero))}</strong>
+                    <span class:list={["tb-invio-stato", inv.partito ? "is-partito" : "is-attesa"]}>
+                      {inv.partito ? t("sal.tb.roundSent") : conto.stato === "pending" ? t("sal.val.waiting") : t("sal.tb.roundWaiting")}
+                    </span>
+                  </div>
+                  {inv.righe.map((r) => (
+                    <Fragment>
+                      {r.nome && <p class="tb-persona">{r.nome}</p>}
+                      {r.piatti.map((p) => (
+                        <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <em> · {p.variante}</em>}</span></p>
+                      ))}
+                    </Fragment>
+                  ))}
+                </section>
+              ))}
+            </Fragment>
+          ) : sessione ? (
+            <Fragment>
+              {/* Stato, chi, quanti e da quando stanno nell'isola in alto. */}
+              {sessione.ordini.length > 0 && (
+                <section class="tb-card">
+                  <div class="tb-cifre">
+                    <div><span>{t("sal.tb.total")}</span><strong>{euro(sessione.totale_cents)}</strong></div>
+                  </div>
+                </section>
+              )}
+
+              <p class="tb-titolo">{t("sal.tb.orders")}</p>
+              {sessione.ordini.length === 0 ? (
+                <p class="tb-sotto">{t("sal.tb.noOrders")}</p>
+              ) : sessione.ordini.map((o) => (
+                <section class="tb-card">
+                  <div class="tb-riga">
+                    <strong>{[o.ora, o.nome].filter(Boolean).join(" · ")}</strong>
+                    <span class="tb-sotto">{STATI_ORDINE[o.stato] ?? o.stato}</span>
+                  </div>
+                  {o.piatti.map((p) => (
+                    <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <em> · {p.variante}</em>}</span></p>
+                  ))}
+                  <div class="tb-riga"><span class="tb-sotto">{t("sal.tb.total")}</span><strong>{euro(o.totale_cents)}</strong></div>
+                </section>
+              ))}
+            </Fragment>
+          ) : (
+            <Fragment>
+              <section class="tb-card">
+                <span class="tb-stato is-libero">{t("sal.tb.free")}</span>
+                <p class="tb-sotto">{t("sal.tb.freeHint")}</p>
+              </section>
+              {datiInst && (
+                <section class="tb-card" id="tb-inst">
+                  <p class="tb-titolo" id="tb-quanti">{t("sal.seat.howMany")}</p>
+                  <div class="tb-num" role="group" aria-labelledby="tb-quanti">
+                    {NUMERI.map((n) => <button type="button" class="tb-n" data-n={n} aria-pressed="false">{n}</button>)}
+                    <button type="button" class="tb-n" data-n="piu" aria-pressed="false" aria-label={t("sal.seat.more")}>9+</button>
+                  </div>
+                  <div class="tb-piu" id="tb-piu" hidden>
+                    <button type="button" id="tb-meno" aria-label="−">−</button>
+                    <strong id="tb-piu-n">9</strong>
+                    <button type="button" id="tb-ancora" aria-label="+">+</button>
+                  </div>
+                  <p class="tb-titolo" id="tb-dove" hidden>{t("sal.seat.where")}</p>
+                  <div class="tb-proposte" id="tb-proposte" role="group" aria-labelledby="tb-dove"></div>
+                </section>
+              )}
+            </Fragment>
+          )}
+
+          {s.prossima && (
+            <section class="tb-card">
+              <p class="tb-prossima">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                <span>
+                  <strong>{t("sal.tb.next").replace("{h}", s.prossima.heure)}</strong>
+                  {[s.prossima.persone > 0 ? t("sal.tb.people").replace("{n}", String(s.prossima.persone)) : "", s.prossima.nome].filter(Boolean).map((x) => ` · ${x}`).join("")}
+                </span>
+              </p>
+            </section>
+          )}
+        </Fragment>
+      )}
+    </main>
+
+    {/* I BOTTONI DEL CAMERIERE, una barra sola che cambia col tavolo:
+        - libero → «Installer» (le proposte sono sopra);
+        - conto del QR da validare → «Valider et envoyer», e «Refuser» col
+          secondo tocco (annulla il conto e i suoi ordini);
+        - occupato → «Commander»; se NESSUN ordine e' stato fatto e i clienti
+          se ne vanno, «Annuler» libera i tavoli (secondo tocco). Conto e
+          Incassa arrivano dopo. «Déplacer» sta nel modale dell'isola.
+        La freccia per tornare alla sala e' sempre la prima, a sinistra. */}
+    {s && (
+      <nav class="tb-azioni" aria-label={titolo}>
+        {conto?.stato === "pending" && (
+          <p class="tb-info">
+            {t("sal.tb.ordered").replace("{a}", String(conto.ordinato)).replace("{b}", String(conto.persone))}
+            {conto.codice && ` · ${t("sal.tb.code").replace("{c}", conto.codice)}`}
+          </p>
+        )}
+        {/* ⚠️ La freccia sta sempre sull'ULTIMA riga, la piu' vicina al pollice
+            (23/10/2026); l'azione principale sopra, larga. */}
+        {(() => {
+          const freccia = (
+            <a class="tb-indietro" href="/admin/salle" aria-label={t("sal.tb.back")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </a>
+          );
+          if (libero && datiInst) {
+            return <div class="tb-riga">{freccia}<button type="button" class="tb-btn is-primo" id="tb-installa" disabled>{t("sal.seat.btn")}</button></div>;
+          }
+          if (conto?.stato === "pending") {
+            return (
+              <Fragment>
+                <div class="tb-riga"><button type="button" class="tb-btn is-primo is-valida" id="tb-valida">{t("sal.val.ok")}</button></div>
+                <div class="tb-riga">
+                  {freccia}
+                  <button type="button" class="tb-btn" id="tb-rifiuta" data-testo={t("sal.val.refuse")} data-conferma={t("sal.val.refuseConfirm")}>{t("sal.val.refuse")}</button>
+                </div>
+              </Fragment>
+            );
+          }
+          if ((sessione || conto) && !libero) {
+            return (
+              <Fragment>
+                <div class="tb-riga"><a class="tb-btn is-primo" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.order")}</a></div>
+                <div class="tb-riga">
+                  {freccia}
+                  {annullabile
+                    ? <button type="button" class="tb-btn is-annulla" id="tb-annulla" data-testo={t("sal.seat.cancel")} data-conferma={t("sal.seat.cancelConfirm")}>{t("sal.seat.cancel")}</button>
+                    : <Fragment>
+                        <button type="button" class="tb-btn" disabled>{t("sal.tb.act.bill")}</button>
+                        <button type="button" class="tb-btn" disabled>{t("sal.tb.act.pay")}</button>
+                      </Fragment>}
+                </div>
+              </Fragment>
+            );
+          }
+          return <div class="tb-riga">{freccia}<button type="button" class="tb-btn is-primo" disabled>{t("sal.tb.act.order")}</button></div>;
+        })()}
+        <p class="tb-errore" id="tb-errore" role="status"></p>
+      </nav>
+    )}
+    {datiInst && <script type="application/json" id="tb-dati" is:inline set:html={datiInst}></script>}
+    {datiMv && <script type="application/json" id="tb-dati-mv" is:inline set:html={datiMv}></script>}
+    <div id="tb-parole" hidden
+      data-places={t("sal.tb.places")}
+      data-perfect={t("sal.seat.perfect")}
+      data-none={t("sal.seat.none")}
+      data-force={t("sal.seat.force")}
+      data-force-hint={t("sal.seat.forceHint")}
+      data-btn={t("sal.seat.btn")}
+      data-btn-scelta={t("sal.seat.btnSummary")}
+      data-saving={t("sal.seat.saving")}
+      data-error={t("sal.seat.error")}
+      data-move={t("sal.tb.act.move")}
+      data-mv-none={t("sal.mv.none")}
+      data-mv-saving={t("sal.mv.saving")}
+      data-mv-error={t("sal.mv.error")}></div>
+
+    <script>
+      // VALIDARE / RIFIUTARE il conto del QR (`/api/admin/salle-tab`).
+      import { authFresh as authV } from "../../../lib/admin/auth";
+      const valida = document.getElementById("tb-valida") as HTMLButtonElement | null;
+      const rifiuta = document.getElementById("tb-rifiuta") as HTMLButtonElement | null;
+      const errV = document.getElementById("tb-errore");
+      const tavoloV = new URLSearchParams(location.search).get("id") ?? "";
+      const decidi = async (azione: "valida" | "rifiuta", btn: HTMLButtonElement) => {
+        btn.disabled = true;
+        if (errV) errV.textContent = "";
+        try {
+          const res = await fetch("/api/admin/salle-tab", { method: "POST", headers: await authV(), body: JSON.stringify({ table: tavoloV, azione }) });
+          if (res.ok) { location.replace(azione === "valida" ? location.pathname + location.search : "/admin/salle"); return; }
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          if (errV) errV.textContent = j.error ?? "";
+        } catch { if (errV) errV.textContent = "…"; }
+        btn.disabled = false;
+      };
+      valida?.addEventListener("click", () => void decidi("valida", valida));
+
+      // ANNULLARE: seduti senza nessun ordine, se ne vanno. Secondo tocco.
+      const annulla = document.getElementById("tb-annulla") as HTMLButtonElement | null;
+      let armatoA = 0;
+      annulla?.addEventListener("click", async () => {
+        if (!annulla) return;
+        if (!armatoA) {
+          annulla.classList.add("is-armato");
+          annulla.textContent = annulla.dataset.conferma ?? "";
+          armatoA = window.setTimeout(() => {
+            armatoA = 0;
+            annulla.classList.remove("is-armato");
+            annulla.textContent = annulla.dataset.testo ?? "";
+          }, 3000);
+          return;
+        }
+        window.clearTimeout(armatoA);
+        armatoA = 0;
+        annulla.disabled = true;
+        if (errV) errV.textContent = "";
+        try {
+          const res = await fetch("/api/admin/salle-seat", { method: "POST", headers: await authV(), body: JSON.stringify({ azione: "annulla", table: tavoloV }) });
+          if (res.ok) { location.replace("/admin/salle"); return; }
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          if (errV) errV.textContent = j.error ?? "";
+        } catch { if (errV) errV.textContent = "…"; }
+        annulla.disabled = false;
+        annulla.classList.remove("is-armato");
+        annulla.textContent = annulla.dataset.testo ?? "";
+      });
+      // Il secondo tocco: il primo arma, dopo tre secondi si disarma da solo.
+      let armato = 0;
+      rifiuta?.addEventListener("click", () => {
+        if (!rifiuta) return;
+        if (armato) { window.clearTimeout(armato); armato = 0; void decidi("rifiuta", rifiuta); return; }
+        rifiuta.classList.add("is-armato");
+        rifiuta.textContent = rifiuta.dataset.conferma ?? "";
+        armato = window.setTimeout(() => {
+          armato = 0;
+          rifiuta.classList.remove("is-armato");
+          rifiuta.textContent = rifiuta.dataset.testo ?? "";
+        }, 3000);
+      });
+    </script>
+    <script>
+      // IL TIMER DELL'ISOLA: ricalcolato ogni 30 secondi, e subito quando il
+      // telefono si riaccende (una pagina in tasca non conta).
+      import { tempoSeduti } from "../../../lib/admin/schedaTavoloRegole";
+      const timer = document.getElementById("tb-timer");
+      const cifra = timer?.querySelector("b");
+      if (timer && cifra && timer.dataset.dal) {
+        const giro = () => { cifra.textContent = tempoSeduti(timer.dataset.dal, Date.now()); };
+        window.setInterval(giro, 30000);
+        document.addEventListener("visibilitychange", () => { if (!document.hidden) giro(); });
+      }
+    </script>
+    <script>
+      import { proposteInstallazione, type Proposta } from "../../../lib/salaInstallaRegole";
+      import { authFresh } from "../../../lib/admin/auth";
+
+      /* QUANTI SIETE, E DOVE — tutto qui, senza chiedere niente al server
+         finche' non si tocca «Installer». */
+      const datiEl = document.getElementById("tb-dati");
+      const P = (document.getElementById("tb-parole")?.dataset ?? {}) as Record<string, string>;
+      if (datiEl) {
+        const d = JSON.parse(datiEl.textContent || "{}") as {
+          tavoloId: string; nome: string;
+          tavoli: { id: string; name: string; seats: number }[];
+          catene: string[][]; occupati: string[]; prenotati: string[];
+        };
+        const numeri = [...document.querySelectorAll<HTMLButtonElement>("#tb-inst .tb-n")];
+        const piu = document.getElementById("tb-piu");
+        const piuN = document.getElementById("tb-piu-n");
+        const dove = document.getElementById("tb-dove");
+        const box = document.getElementById("tb-proposte");
+        const btn = document.getElementById("tb-installa") as HTMLButtonElement | null;
+        const errore = document.getElementById("tb-errore");
+        let persone = 0;
+        let extra = 9;
+        let scelta: Proposta | null = null;
+
+        const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+        const nomi = (p: Proposta) => p.nomi.join(" + ");
+        /* La combinazione scelta si vede SUBITO nella testa: «Tavolo T1 + T4 ·
+           6 posti». Senza scelta torna quella del tavolo toccato. */
+        const titoloEl = document.getElementById("tb-titolo");
+        const sottoEl = document.getElementById("tb-sottotitolo");
+        const aggiornaTesta = () => {
+          if (titoloEl) {
+            titoloEl.textContent = scelta && persone > 0 ? nomi(scelta) : (titoloEl.dataset.base ?? "");
+          }
+          if (sottoEl) {
+            sottoEl.textContent = scelta && persone > 0
+              ? (P.places ?? "").replace("{n}", String(scelta.posti))
+              : (sottoEl.dataset.base ?? "");
+          }
+        };
+        const aggiornaBottone = () => {
+          aggiornaTesta();
+          if (!btn) return;
+          btn.disabled = !scelta || persone < 1;
+          btn.textContent = scelta && persone > 0
+            ? (P.btnScelta ?? "").replace("{n}", String(persone)).replace("{t}", nomi(scelta))
+            : (P.btn ?? "");
+        };
+        const disegna = () => {
+          if (!box || !dove) return;
+          dove.hidden = persone < 1;
+          if (persone < 1) { box.innerHTML = ""; scelta = null; aggiornaBottone(); return; }
+          // ⚠️ Fuori sia chi e' seduto sia chi arriva fra poco: proporre un
+          // tavolo prenotato vorrebbe dire lasciare in piedi chi ha prenotato.
+          const proposte = proposteInstallazione({
+            tavoli: d.tavoli, catene: d.catene, occupati: [...d.occupati, ...d.prenotati],
+            tavoloId: d.tavoloId, persone,
+          });
+          let html = proposte.map((p, i) => `
+            <button type="button" class="tb-prop" data-i="${i}" aria-pressed="${i === 0}">
+              <span class="tb-prop-nomi">${esc(nomi(p))}${p.spreco === 0 ? `<span class="tb-prop-tag">${esc(P.perfect ?? "")}</span>` : ""}</span>
+              <span class="tb-prop-posti">${esc((P.places ?? "").replace("{n}", String(p.posti)))}</span>
+            </button>`).join("");
+          // Nessuna proposta: si dice perche', e si lascia decidere il cameriere.
+          const tavolo = d.tavoli.find((x) => x.id === d.tavoloId);
+          const forzata: Proposta | null = proposte.length || !tavolo ? null
+            : { ids: [d.tavoloId], nomi: [d.nome], posti: tavolo.seats, spreco: tavolo.seats - persone };
+          if (forzata) {
+            html = `<p class="tb-nessuna">${esc((P.none ?? "").replace("{t}", d.nome).replace("{n}", String(persone)))}</p>
+              <button type="button" class="tb-prop is-forzata" data-i="0" aria-pressed="false">
+                <span class="tb-prop-nomi">${esc((P.force ?? "").replace("{t}", d.nome))}</span>
+                <span class="tb-prop-posti">${esc((P.places ?? "").replace("{n}", String(tavolo?.seats ?? 0)))}</span>
+              </button>
+              <p class="tb-nessuna">${esc(P.forceHint ?? "")}</p>`;
+          }
+          box.innerHTML = html;
+          const lista = forzata ? [forzata] : proposte;
+          // La piu' plausibile e' gia' scelta; quella forzata no, la si tocca apposta.
+          scelta = forzata ? null : (lista[0] ?? null);
+          box.querySelectorAll<HTMLButtonElement>(".tb-prop").forEach((b) => b.addEventListener("click", () => {
+            scelta = lista[Number(b.dataset.i)] ?? null;
+            box.querySelectorAll(".tb-prop").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+            aggiornaBottone();
+          }));
+          aggiornaBottone();
+        };
+        const scegliNumero = (n: number, bottone: HTMLButtonElement) => {
+          persone = n;
+          numeri.forEach((x) => x.setAttribute("aria-pressed", x === bottone ? "true" : "false"));
+          disegna();
+        };
+        numeri.forEach((b) => b.addEventListener("click", () => {
+          if (b.dataset.n === "piu") {
+            if (piu) piu.hidden = false;
+            scegliNumero(extra, b);
+          } else {
+            if (piu) piu.hidden = true;
+            scegliNumero(Number(b.dataset.n), b);
+          }
+        }));
+        const cambiaExtra = (delta: number) => {
+          extra = Math.min(60, Math.max(9, extra + delta));
+          if (piuN) piuN.textContent = String(extra);
+          const b = numeri.find((x) => x.dataset.n === "piu");
+          if (b) scegliNumero(extra, b);
+        };
+        document.getElementById("tb-meno")?.addEventListener("click", () => cambiaExtra(-1));
+        document.getElementById("tb-ancora")?.addEventListener("click", () => cambiaExtra(1));
+
+        btn?.addEventListener("click", async () => {
+          if (!scelta || persone < 1 || !btn) return;
+          btn.disabled = true;
+          btn.textContent = P.saving ?? "";
+          if (errore) errore.textContent = "";
+          try {
+            const res = await fetch("/api/admin/salle-seat", {
+              method: "POST",
+              headers: await authFresh(),
+              body: JSON.stringify({ tables: scelta.ids, people: persone }),
+            });
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            // Il primo ordine si fa SUBITO: dritti ai piatti (23/10/2026).
+            if (res.ok) { window.location.replace(`/admin/salle/order?id=${encodeURIComponent(d.tavoloId)}`); return; }
+            if (errore) errore.textContent = j.error ?? P.error ?? "";
+            // Occupato nel frattempo: la pagina si rifa' con la sala di adesso.
+            if (res.status === 409) { window.setTimeout(() => window.location.reload(), 1800); return; }
+          } catch {
+            if (errore) errore.textContent = P.error ?? "";
+          }
+          aggiornaBottone();
+        });
+      }
+    </script>
+    <script>
+      /* IL MODALE DELL'ISOLA (23/10/2026): persone e «Déplacer».
+         Le proposte si calcolano qui a ogni tocco (regole pure in
+         `lib/salaInstallaRegole.ts`); il server ricontrolla tutto. */
+      import { proposteCambio, tavoliDaAggiungere, tavoliDaLiberare, type Proposta, type Ritocco, type ZonaSala } from "../../../lib/salaInstallaRegole";
+      import { authFresh as authM } from "../../../lib/admin/auth";
+
+      const isola = document.getElementById("tb-isola");
+      const pannello = document.getElementById("tb-pannello");
+      const datiMv = document.getElementById("tb-dati-mv");
+      if (isola && pannello && datiMv) {
+        const d = JSON.parse(datiMv.textContent || "{}") as {
+          tavoloId: string; persone: number; zona: string; zone: ZonaSala[];
+          occupati: string[]; prenotati: string[]; attuali: string[];
+        };
+        const P = (document.getElementById("tb-parole")?.dataset ?? {}) as Record<string, string>;
+        const err = document.getElementById("tb-pan-err");
+        const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+        const posti = (n: number) => (P.places ?? "").replace("{n}", String(n));
+        const nomeDi = new Map(d.zone.flatMap((z) => z.tavoli.map((t) => [t.id, t.name] as const)));
+        const perNome = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
+        const nomiAdesso = d.attuali.map((id) => nomeDi.get(id) ?? "?").sort(perNome).join(" + ");
+        // ⚠️ Chi arriva fra poco non si propone, come per «Installer».
+        const presi = [...d.occupati, ...d.prenotati];
+
+        // ---- aprire / chiudere ----
+        const apri = (si: boolean) => {
+          pannello.hidden = !si;
+          isola.setAttribute("aria-expanded", si ? "true" : "false");
+        };
+        isola.addEventListener("click", (e) => { e.stopPropagation(); apri(pannello.hidden === true); });
+        document.addEventListener("click", (e) => {
+          if (!pannello.hidden && !pannello.contains(e.target as Node)) apri(false);
+        });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") apri(false); });
+
+        const invia = async (corpo: Record<string, unknown>): Promise<boolean> => {
+          if (err) err.textContent = "";
+          try {
+            const res = await fetch("/api/admin/salle-seat", { method: "POST", headers: await authM(), body: JSON.stringify(corpo) });
+            if (res.ok) return true;
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            if (err) err.textContent = j.error ?? P.mvError ?? "";
+            if (res.status === 409) window.setTimeout(() => location.reload(), 1800);
+          } catch {
+            if (err) err.textContent = P.mvError ?? "";
+          }
+          return false;
+        };
+
+        // ---- le persone ----
+        const iniziale = Math.max(1, d.persone || 1);
+        let persone = iniziale;
+        const salva = document.getElementById("tb-p-salva") as HTMLButtonElement | null;
+        const numeriP = [...document.querySelectorAll<HTMLButtonElement>(".tb-pn")];
+        const campo = document.getElementById("tb-p-campo") as HTMLInputElement | null;
+        const imposta = (n: number) => {
+          persone = Math.min(100, Math.max(1, Math.floor(n) || 1));
+          numeriP.forEach((b) => b.setAttribute("aria-pressed",
+            (b.dataset.n === "piu" ? persone >= 10 : Number(b.dataset.n) === persone) ? "true" : "false"));
+          if (salva) salva.hidden = persone === iniziale;
+          if (modo === "cambia") disegna();
+        };
+        numeriP.forEach((b) => b.addEventListener("click", () => {
+          if (b.dataset.n === "piu") {
+            // «10+»: il campo, gia' a 10 (o al numero di adesso), pronto da scrivere.
+            if (campo) { campo.hidden = false; campo.focus(); campo.select(); }
+            imposta(Math.max(10, Number(campo?.value) || 10));
+          } else {
+            if (campo) campo.hidden = true;
+            imposta(Number(b.dataset.n));
+          }
+        }));
+        campo?.addEventListener("input", () => {
+          const v = Math.floor(Number(campo.value));
+          if (v >= 1) imposta(v);
+        });
+        salva?.addEventListener("click", async () => {
+          salva.disabled = true;
+          const testo = salva.textContent;
+          salva.textContent = P.mvSaving ?? "";
+          if (await invia({ azione: "persone", table: d.tavoloId, people: persone })) { location.reload(); return; }
+          salva.disabled = false;
+          salva.textContent = testo;
+        });
+
+        // ---- «Déplacer»: prima le tre possibilita', poi le proposte ----
+        const sposta = document.getElementById("tb-sposta");
+        const modi = document.getElementById("tb-modi");
+        const box = document.getElementById("tb-opzioni");
+        const ok = document.getElementById("tb-sposta-ok") as HTMLButtonElement | null;
+        const ticket = document.getElementById("tb-mv-ticket");
+        let modo = "";
+        let scelta: string[] | null = null;
+        sposta?.addEventListener("click", () => {
+          const si = modi?.hidden ?? false;
+          if (modi) modi.hidden = !si;
+          sposta.setAttribute("aria-expanded", si ? "true" : "false");
+        });
+
+        const aggiornaOk = () => {
+          if (!ok) return;
+          ok.hidden = !scelta;
+          if (ticket) ticket.hidden = !scelta;
+          if (!scelta) return;
+          const dopo = scelta.map((id) => nomeDi.get(id) ?? "?").sort(perNome).join(" + ");
+          ok.textContent = `${P.move ?? ""} · ${nomiAdesso} → ${dopo}`;
+        };
+        const bottone = (i: number, nomi: string, sotto: string, perfetta = false) => `
+          <button type="button" class="tb-prop" data-i="${i}" aria-pressed="false">
+            <span class="tb-prop-nomi">${esc(nomi)}${perfetta ? `<span class="tb-prop-tag">${esc(P.perfect ?? "")}</span>` : ""}</span>
+            <span class="tb-prop-posti">${esc(sotto)}</span>
+          </button>`;
+        const disegna = () => {
+          if (!box) return;
+          scelta = null;
+          const zonaMia = d.zone.find((z) => z.zona === d.zona) ?? { zona: d.zona, tavoli: [], catene: [] };
+          let html = "";
+          let lista: string[][] = [];
+          if (modo === "cambia") {
+            for (const g of proposteCambio({ zone: d.zone, occupati: presi, attuali: d.attuali, persone })) {
+              html += `<p class="tb-zona">${esc(g.zona)}</p>`;
+              html += g.proposte.map((p: Proposta) => {
+                lista.push(p.ids);
+                return bottone(lista.length - 1, p.nomi.join(" + "), posti(p.posti), p.spreco === 0);
+              }).join("");
+            }
+          } else if (modo === "aggiungi" || modo === "libera") {
+            const r: Ritocco[] = modo === "aggiungi"
+              ? tavoliDaAggiungere({ tavoli: zonaMia.tavoli, catene: zonaMia.catene, occupati: presi, attuali: d.attuali })
+              : tavoliDaLiberare({ tavoli: zonaMia.tavoli, catene: zonaMia.catene, attuali: d.attuali });
+            lista = r.map((x) => x.ids);
+            html = r.map((x, i) => bottone(i, `${modo === "aggiungi" ? "+" : "−"} ${x.tavolo.name}`, `${x.nomi.join(" + ")} · ${posti(x.posti)}`)).join("");
+          }
+          box.innerHTML = html || `<p class="tb-nessuna">${esc(P.mvNone ?? "")}</p>`;
+          box.querySelectorAll<HTMLButtonElement>(".tb-prop").forEach((b) => b.addEventListener("click", () => {
+            scelta = lista[Number(b.dataset.i)] ?? null;
+            box.querySelectorAll(".tb-prop").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+            aggiornaOk();
+          }));
+          aggiornaOk();
+        };
+        document.querySelectorAll<HTMLButtonElement>(".tb-modo").forEach((b) => b.addEventListener("click", () => {
+          modo = b.dataset.modo ?? "";
+          document.querySelectorAll(".tb-modo").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+          disegna();
+        }));
+
+        ok?.addEventListener("click", async () => {
+          if (!scelta) return;
+          const ids = scelta;
+          ok.disabled = true;
+          ok.textContent = P.mvSaving ?? "";
+          if (await invia({ azione: "sposta", table: d.tavoloId, tables: ids })) {
+            // Lasciato il tavolo di questa pagina: si va alla scheda del nuovo.
+            const dove = ids.includes(d.tavoloId) ? d.tavoloId : ids[0];
+            location.replace(`/admin/salle/table?id=${encodeURIComponent(dove)}`);
+            return;
+          }
+          ok.disabled = false;
+          aggiornaOk();
+        });
+      }
+    </script>
+  </body>
+</html>

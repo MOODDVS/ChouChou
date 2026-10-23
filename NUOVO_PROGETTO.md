@@ -18,6 +18,12 @@ dal motore).
 - [ ] `src/config/client.ts` (nome, contatti, firma email, path loghi).
 - [ ] `public/` (favicon, icone, manifest, loghi) + `astro.config.mjs` (`site`)
       + `public/robots.txt` (Sitemap).
+- [ ] **Quando il sito pubblico esiste:** `src/config/sitePages.ts` con le
+      pagine VERE del sito (meglio: ricavate dalla navigazione del sito, come
+      Villa 77) e `src/config/siteImageSlots.ts` con gli slot foto veri.
+      ⚠️ Se no il pannello dei pop-up propone le pagine di fabbrica
+      (Notre Carte, Ambiance, Links) che il sito non ha, e Assets → Site
+      offre foto che nessuna pagina legge.
 - Tutto il resto si configura DALL'ADMIN (Général), senza codice.
 
 ## 3. Supabase (nuovo progetto)

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/admin/sede";
 import { stripeDi } from "../../../lib/stripe";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { rimborsabile } from "../../../lib/admin/ordiniConti";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -56,35 +57,38 @@ export const POST: APIRoute = async ({ request }) => {
   if (!ord.stripe_session_id) return json({ error: await msg("err.noStripePayment") }, 400);
 
   const giaRimborsato = ord.refunded_cents ?? 0;
-  const residuo = (ord.total_cents ?? 0) - giaRimborsato;
-  if (residuo <= 0) return json({ error: await msg("err.alreadyRefunded") }, 400);
-
-  // Modalità "differenza" (bottone dopo una modifica al ribasso): l'importo da
-  // rendere è quello tracciato in refund_due_cents, che può superare il totale
-  // corrente (l'ordine è stato ridotto), quindi NON usa il tetto `residuo`.
-  const isDiff = body.difference === true;
+  /* Le differenze aperte (#50): da rendere e da incassare. Senza la #50 non
+     ce ne possono essere, e valgono zero. */
   let refundDue = 0;
-  if (isDiff) {
-    const { data: d50, error: e50 } = await leggi("orders", ambito, "refund_due_cents")
+  let suppDue = 0;
+  {
+    const { data: d50, error: e50 } = await leggi("orders", ambito, "refund_due_cents, supplement_due_cents")
       .eq("id", id)
       .maybeSingle();
-    if (e50) return json({ error: await msg("err.migr50") }, 500);
-    refundDue = Number((d50 as { refund_due_cents?: number } | null)?.refund_due_cents ?? 0);
-    if (refundDue <= 0) return json({ error: await msg("err.noDiff") }, 400);
+    if (!e50 && d50) {
+      refundDue = Number((d50 as { refund_due_cents?: number }).refund_due_cents ?? 0);
+      suppDue = Number((d50 as { supplement_due_cents?: number }).supplement_due_cents ?? 0);
+    } else if (body.difference === true) {
+      return json({ error: await msg("err.migr50") }, 500);
+    }
   }
+  /* ⚠️ IL TETTO E' QUELLO CHE IL RISTORANTE TIENE ANCORA (`rimborsabile`),
+     non `totale − rimborsato`: dopo una modifica al ribasso il totale e' gia'
+     sceso, e annullando si poteva rendere solo quello che restava — il
+     piatto tolto non usciva piu' (23/10/2026). */
+  const residuo = rimborsabile({
+    total_cents: ord.total_cents, refunded_cents: giaRimborsato,
+    refund_due_cents: refundDue, supplement_due_cents: suppDue,
+  });
+  if (residuo <= 0) return json({ error: await msg("err.alreadyRefunded") }, 400);
 
-  const tetto = isDiff ? refundDue : residuo;
+  const isDiff = body.difference === true;
+  if (isDiff && refundDue <= 0) return json({ error: await msg("err.noDiff") }, 400);
+
+  const tetto = isDiff ? Math.min(refundDue, residuo) : residuo;
   const daRimborsare = amount === null ? tetto : Math.min(amount, tetto);
   if (daRimborsare <= 0) return json({ error: await msg("err.amount") }, 400);
 
-  // ⚠️⚠️ IL RIMBORSO ESCE DAL CONTO CHE HA INCASSATO, cioe' dalla sede
-  // scritta NELL'ORDINE — non da quella selezionata nell'header di chi sta
-  // premendo il bottone. Sono due cose che quasi sempre coincidono; il giorno
-  // che non coincidono, sono soldi che escono dal conto di una societa' che
-  // non c'entra, e il payment_intent non si troverebbe nemmeno.
-  // ⚠️ Il messaggio d'errore arriva fino allo schermo: dice quale chiave
-  // manca e dove metterla. Non contiene nessun segreto, e chi sta guardando
-  // questa pagina e' l'unico che puo' risolvere il problema.
   let motivo = "";
   const sp = await stripeDi(await cercaAmbito("orders", id, ambito)).catch((e) => {
     motivo = e instanceof Error ? e.message : "";
@@ -115,15 +119,17 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: dettaglio ? `${await msg("err.refundRefused")} : ${dettaglio}` : await msg("err.refund") }, 502);
   }
 
-  const nuovoTotale = giaRimborsato + daRimborsare;
+  /* ⚠️ UNA DIFFERENZA RESA NON E' UN RIMBORSO DEL PREZZO: il totale e' gia'
+     sceso con la modifica. Si salda `refund_due_cents` e `refunded_cents`
+     non si tocca — sommata li', la stessa somma veniva tolta due volte:
+     dall'incasso del giorno (`entrato`) e dal residuo rimborsabile. */
+  const nuovoTotale = isDiff ? giaRimborsato : giaRimborsato + daRimborsare;
   const upd: Record<string, unknown> = {
-    refunded_cents: nuovoTotale,
     refunded_at: new Date().toISOString(),
     last_refund_id: refund.id,
   };
-  // Differenza saldata: sgonfio (o azzero) refund_due_cents cosi' il bottone
-  // "Rembourser la difference" sparisce dalla card.
   if (isDiff) upd.refund_due_cents = Math.max(0, refundDue - daRimborsare);
+  else upd.refunded_cents = nuovoTotale;
   await aggiorna("orders", ambito, upd).eq("id", id);
 
   return json({ ok: true, refunded_cents: nuovoTotale, amount: daRimborsare, refund_id: refund.id });

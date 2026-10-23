@@ -26,6 +26,10 @@ import {
   chiaveApi,
   puoChiamareApi,
   funzioneAccesa,
+  PAGINE_PALMARE,
+  API_PALMARE,
+  palmarePuoChiamare,
+  arrivoDi,
 } from "../src/lib/admin/permessiRegole.ts";
 
 const TUTTE = ["orders", "reservations", "clients", "menu", "stats", "marketing", "assets", "print", "agenda", "settings"];
@@ -124,7 +128,7 @@ test("il middleware chiude la porta PRIMA di rendere la pagina", () => {
   assert.ok(mw.includes("puoVederePagina"), "il middleware non controlla i permessi");
   assert.ok(mw.includes("chiavePagina"), "il middleware non ricava la pagina dal percorso");
   assert.ok(
-    /puoVederePagina[\s\S]{0,400}context\.redirect\("\/admin"/.test(mw),
+    /puoVederePagina[\s\S]{0,700}context\.redirect\(arrivoDi\(/.test(mw),
     "il controllo non porta a un redirect: sarebbe un calcolo senza conseguenze",
   );
 });
@@ -467,4 +471,67 @@ test("cio' che e' spento sparisce prima del primo paint", () => {
   //
   // Cio' che conta QUI e' solo che la regola arrivi prima del primo paint, ed
   // e' quello che si e' appena provato.
+});
+
+// ============================================================
+// IL PALMARE (22/10/2026) — il telefono del cameriere.
+// Al rovescio degli altri ruoli: niente e' aperto se non e' scritto.
+// ============================================================
+
+const PALMARE = { ruolo: "palmare", nascoste: [], tutte: TUTTE };
+
+test("il palmare vede SOLO la sala: niente home, niente pagine sconosciute", () => {
+  assert.deepEqual(PAGINE_PALMARE, ["salle"]);
+  assert.equal(puoVederePagina("salle", PALMARE), true);
+  // La scheda del tavolo e' una figlia della sala: stessa chiave.
+  assert.equal(chiavePagina("/admin/salle/table"), "salle");
+  assert.equal(puoVederePagina(chiavePagina("/admin/salle/table"), PALMARE), true);
+  // La home ha il fatturato del giorno.
+  assert.equal(puoVederePagina("home", PALMARE), false);
+  for (const k of TUTTE) assert.equal(puoVederePagina(k, PALMARE), false, k);
+  assert.equal(puoVederePagina("super", PALMARE), false);
+  // Una pagina che nessuno ha ancora dichiarato: aperta agli altri, non a lui.
+  assert.equal(puoVederePagina("pagina-nuova", PALMARE), false);
+  assert.equal(puoVederePagina("pagina-nuova", { ruolo: "admin", nascoste: [], tutte: TUTTE }), true);
+  assert.deepEqual(pagineConsentite(PALMARE), []);
+  // Le caselle di un «utente» non gli aprono niente.
+  assert.equal(puoVederePagina("orders", { ...PALMARE, pagineUtente: ["orders"] }), false);
+});
+
+test("il palmare non chiama nessuna API che non sia nella sua lista", () => {
+  assert.deepEqual(API_PALMARE, ["salle-seat", "salle-tab", "salle-order"]);
+  // ⚠️ Non l'API del tablet: quella incassa, chiude e legge tutti i conti.
+  assert.equal(puoChiamareApi("table-tabs", PALMARE), false);
+  // La sua: installare dei clienti a un tavolo.
+  assert.equal(puoChiamareApi("salle-seat", PALMARE), true);
+  assert.equal(palmarePuoChiamare("salle-seat"), true);
+  // Anche quelle «aperte a chi ha fatto il login».
+  for (const k of ["today", "notes", "pages", "table-calls", "orders", "users", "api-nuova"]) {
+    assert.equal(puoChiamareApi(k, PALMARE), false, k);
+    assert.equal(palmarePuoChiamare(k), false, k);
+  }
+  assert.equal(palmarePuoChiamare(""), false, "fuori da /api/admin e' negato lo stesso");
+});
+
+test("il palmare negato va alla sua sala, gli altri alla home", () => {
+  assert.equal(arrivoDi("palmare"), "/admin/salle");
+  for (const r of ["super", "admin", "user"]) assert.equal(arrivoDi(r), "/admin");
+  // ⚠️ La sala non dev'essere negata a lui, o il rimando girerebbe in tondo.
+  assert.equal(puoVederePagina(chiavePagina(arrivoDi("palmare")), PALMARE), true);
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  assert.match(mw, /context\.redirect\(arrivoDi\(ctx\.ruolo\), 302\)/, "il middleware non usa arrivoDi");
+});
+
+test("il ruolo palmare e' conosciuto prima di essere scritto", () => {
+  // Un ruolo sconosciuto vale "admin": se ruoloDi non lo riconoscesse, un
+  // palmare entrerebbe nell'admin intero.
+  const sa = readFileSync("src/lib/admin/superAdmin.ts", "utf8");
+  assert.match(sa, /r === "palmare"\) return r/, "ruoloDi non riconosce palmare");
+  const auth = readFileSync("src/lib/admin/adminAuth.ts", "utf8");
+  assert.match(auth, /u\.role === "palmare"\) return true/, "staffAutorizzato rifiuta il palmare");
+  // La porta che tiene anche quando il middleware non legge le claims.
+  assert.match(auth, /ePalmare\(user\) && !palmarePuoChiamare\(chiaveApi\(/, "verificaStaff non ferma il palmare");
+  assert.match(auth, /if \(ePalmare\(user\)\) return null;/, "verificaTokenLocale rende i dati al palmare");
+  const users = readFileSync("src/pages/api/admin/users.ts", "utf8");
+  assert.match(users, /const RUOLI = \["super", "admin", "user", "palmare"\]/);
 });

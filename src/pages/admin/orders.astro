@@ -1240,7 +1240,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          restava un incasso su tutti e quattro gli schermi. */
       import {
         incassato, righeIncassate, restaDaIncassare, daServire, fatti,
-        piattiVeri, notaCliente,
+        piattiVeri, notaCliente, rimborsabile,
       } from "../../lib/admin/ordiniConti";
       import { importoDa } from "../../lib/soldi";
       import { iconaValuta, valutaDelMotore } from "../../lib/valuta";
@@ -1638,7 +1638,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           (importo === undefined ? "" : `<span class="db-val">· ${euro(importo)}</span>`) +
           `</div>`;
         const refunded = o.refunded_cents ?? 0;
-        const residuo = o.total_cents - refunded;
+        /* ⚠️ Quanto si puo' ancora rendere: la regola e' UNA, quella del
+           server (`rimborsabile`). Era `totale − rimborsato`, e dopo una
+           modifica al ribasso il piatto tolto non si rimborsava piu'. */
+        const residuo = rimborsabile(o);
         /* «C'e' un incasso Stripe da cui tirare fuori i soldi?» e' una domanda
            sui SOLDI, non sullo stato dell'ordine. Prima era legata ad
            «annullato», e un ordine completato da rimborsare (il cliente ha
@@ -2344,7 +2347,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             if (!r.ok) throw new Error(j.error || tr("ord.refundFailed"));
             const ord = ordini.find((o) => o.id === id);
             if (ord) {
-              ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + diff);
+              // Una differenza resa salda il debito, non e' un rimborso del
+              // prezzo: `refunded_cents` resta quello che dice il server.
+              ord.refunded_cents = Number(j.refunded_cents ?? ord.refunded_cents ?? 0);
               ord.refund_due_cents = 0;
             }
             resetConfirm();
@@ -2691,7 +2696,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             }
             const ord = ordini.find((o) => o.id === rfId);
             if (ord) {
-              ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + cents);
+              ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + (rfDiff ? 0 : cents));
               // Debito saldato: il bottone «Rimborsa» deve sparire subito,
               // senza aspettare il prossimo giro del server.
               if (rfDiff) ord.refund_due_cents = Math.max(0, (ord.refund_due_cents ?? 0) - cents);

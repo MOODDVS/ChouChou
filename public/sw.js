@@ -7,8 +7,15 @@ self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
+// VELOCITA' (23/10/2026): il «navigation preload». Senza, ogni pagina
+// aspettava che il service worker si svegliasse PRIMA di partire verso il
+// server (sul telefono, decine o centinaia di millisecondi a ogni tocco):
+// con il preload la richiesta parte subito, in parallelo al risveglio.
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(Promise.all([
+    self.clients.claim(),
+    self.registration.navigationPreload ? self.registration.navigationPreload.enable().catch(() => {}) : Promise.resolve(),
+  ]));
 });
 
 self.addEventListener("fetch", (event) => {
@@ -17,7 +24,15 @@ self.addEventListener("fetch", (event) => {
   // passano dritte al browser, cosi' un endpoint che fallisce (dev server
   // spento, offline) NON genera errori ne' warning dal service worker.
   if (event.request.mode !== "navigate") return;
-  event.respondWith(fetch(event.request).catch(() => Response.error()));
+  event.respondWith((async () => {
+    try {
+      const pronta = await event.preloadResponse;
+      if (pronta) return pronta;
+      return await fetch(event.request);
+    } catch (e) {
+      return Response.error();
+    }
+  })());
 });
 
 // --- Notifiche push (PWA admin) ---

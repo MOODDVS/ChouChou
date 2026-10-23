@@ -59,8 +59,11 @@ test("un conto aperto non si chiude da solo con la prenotazione", () => {
 });
 
 test("Commandes mostra i conti aperti anche dei giorni prima", () => {
+  // La lettura sta in contiSala dal 22/10/2026: la usano il tablet e il palmare.
   const T = leggi("src/pages/api/admin/table-tabs.ts");
-  const get = T.slice(T.indexOf("export const GET"), T.indexOf("export const POST"));
+  assert.match(T.slice(T.indexOf("export const GET"), T.indexOf("export const POST")), /await contiApertiDellaSala\(ambito\)/);
+  const C = leggi("src/lib/admin/contiSala.ts");
+  const get = C.slice(C.indexOf("export async function contiApertiDellaSala"), C.indexOf("export type RiassuntoConto"));
   assert.doesNotMatch(get, /\.eq\("date", oggi\)/, "a mezzanotte un conto aperto spariva con il suo resto");
   assert.match(get, /\.gte\("date", daData\)/);
   assert.match(get, /\.neq\("status", "cancelled"\)/);

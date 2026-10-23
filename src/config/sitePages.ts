@@ -6,6 +6,12 @@
 //    per decidere su quale pagina mostrare il pop-up.
 //
 // Ogni cliente adatta QUESTA lista alle pagine reali del suo sito.
+// ⚠️ APPENA IL SITO PUBBLICO ESISTE, non dopo: queste sono le pagine che il
+// pannello propone in Marketing → Pop-up. Lasciata cosi', un cliente vede
+// «Notre Carte», «Ambiance», «Links» anche se il suo sito non le ha, e un
+// pop-up messo li' non esce mai. Meglio ricavarla dalla navigazione del sito
+// che riscriverla (Villa 77: da `components/site/nav.ts`), cosi' una pagina
+// nuova entra da sola.
 //
 // ⚠️ NEL MOTORE questa lista e' un DEFAULT convenzionale, non la descrizione
 // di pagine che esistono qui: dal 16/09/2026 il motore non ha un sito. Le

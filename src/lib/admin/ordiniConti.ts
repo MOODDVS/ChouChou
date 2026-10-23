@@ -85,6 +85,30 @@ export function entrato(o: RigaOrdine): number {
  * un rimborso piu' grande di quel che e' stato pagato, e un rimborso che
  * supera l'incasso farebbe una percentuale sopra il cento.
  */
+/**
+ * QUANTO SI PUO' ANCORA RIMBORSARE su Stripe: i soldi del cliente che il
+ * ristorante tiene ancora (23/10/2026).
+ *
+ * ⚠️ NON E' `total_cents - refunded_cents`, ed era quella la formula — in
+ * tre posti. Dopo una modifica al ribasso il totale scende SUBITO (30 → 20)
+ * e la differenza resta in `refund_due_cents` finche' non la si rende: il
+ * cliente ha pagato 30, e annullando a quel punto si poteva rimborsare
+ * solo 20. Il pezzo tolto restava sulla carta del ristorante, e nessun
+ * bottone lo faceva piu' uscire.
+ *
+ * La regola, da come le modifiche tengono i conti (`orders.ts`, «netting»):
+ *   totale = pagato − differenze rese − differenza da rendere + supplemento dovuto
+ * quindi i soldi ancora in mano sono
+ *   totale + differenza da rendere − supplemento dovuto − rimborsi.
+ * ⚠️ «Rimborsi» = `refunded_cents`, che dal 23/10/2026 NON conta piu' le
+ * differenze rese: quelle sono un cambio di prezzo, gia' fuori dal totale
+ * (vedi `api/admin/refund.ts`). Contate due volte, il residuo scendeva di
+ * nuovo e l'incasso del giorno (`entrato`) pure.
+ */
+export function rimborsabile(o: RigaOrdine & { refund_due_cents?: number | null }): number {
+  return Math.max(0, num(o?.total_cents) + num(o?.refund_due_cents) - num(o?.supplement_due_cents) - num(o?.refunded_cents));
+}
+
 export function rimborsato(o: RigaOrdine): number {
   return Math.min(Math.max(0, num(o?.total_cents)), Math.max(0, num(o?.refunded_cents)));
 }

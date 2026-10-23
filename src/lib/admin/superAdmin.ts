@@ -173,10 +173,18 @@ export function isSuper(email: string | null | undefined): boolean {
  *  - "super" : vede tutto + la pagina Réglages (design, users, permissions)
  *  - "admin" : eredita esattamente ciò che è attivo in Réglages  [default]
  *  - "user"  : come admin, MENO les pages Admin (settings) et Statistiques
+ *  - "palmare": il telefono del cameriere — SOLO la sala (22/10/2026, vedi
+ *               `PAGINE_PALMARE` in permessiRegole). Legato o no a un
+ *               dipendente del Team (`app_metadata.employee_id`).
  * Gli utenti creati prima dei ruoli non hanno il campo → valgono "admin",
  * cioè il comportamento storico.
+ *
+ * ⚠️ UN RUOLO NUOVO VA INSEGNATO QUI PRIMA DI SCRIVERLO DA QUALCHE PARTE. Un
+ * ruolo che questa funzione non riconosce vale "admin" (e' il ripiego per gli
+ * account senza ruolo): un palmare creato su un motore che non lo conosce
+ * entrerebbe nell'admin intero.
  */
-export type RuoloAdmin = "super" | "admin" | "user";
+export type RuoloAdmin = "super" | "admin" | "user" | "palmare";
 
 /** Pagine riservate: mai visibili al ruolo "user". */
 export const PAGINE_SOLO_ADMIN = ["settings", "stats"];
@@ -191,7 +199,7 @@ export function ruoloDi(u: {
   if (isSuper(u.email)) return "super";
   const am = (u.app_metadata ?? {}) as { role?: string; is_super?: boolean };
   const r = String(u.role ?? am.role ?? "");
-  if (r === "super" || r === "admin" || r === "user") return r;
+  if (r === "super" || r === "admin" || r === "user" || r === "palmare") return r;
   // Retrocompatibilità col vecchio flag booleano
   if (u.is_super === true || am.is_super === true) return "super";
   return "admin";

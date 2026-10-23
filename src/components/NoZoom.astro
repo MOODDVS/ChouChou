@@ -1,0 +1,65 @@
+---
+/**
+ * MAI LO ZOOM DEL BROWSER SUI CAMPI (telefono e tablet) — 22/10/2026.
+ *
+ * Safari su iPhone e iPad ingrandisce la pagina quando si tocca un campo
+ * scritto sotto i 16px, e poi non la rimette com'era: chi compila un modulo
+ * si ritrova la pagina spostata e ingrandita. Il pannello e i siti devono
+ * restare sempre della misura disegnata.
+ *
+ * ⚠️ NON CON `maximum-scale=1` NEL VIEWPORT. Toglie lo zoom anche a chi lo
+ * fa apposta con due dita: su Android blocca l'ingrandimento a chi vede
+ * male, ed e' un errore di accessibilita' che Google segnala. Qui si tocca
+ * solo quello che fa scattare lo zoom automatico: la misura del testo nei
+ * campi.
+ *
+ * ⚠️ PERCHE' UNO SCRIPT E NON UNA REGOLA CSS: una regola «input { 16px }»
+ * perde contro le classi dei campi (piu' specifiche), e con `!important`
+ * rimpicciolirebbe anche i campi scritti GIA' piu' grandi di 16px (il PIN,
+ * le quantita'). Lo script guarda la misura VERA di ogni campo e porta a
+ * 16px solo quelli sotto. Gli altri non li tocca.
+ *
+ * ⚠️ Solo su schermi a dito (`hover: none` e `pointer: coarse`): sul
+ * computer i campi restano esattamente come sono.
+ * ⚠️ Anche i campi che nascono dopo (isole React, modali, righe aggiunte):
+ * un osservatore li guarda appena entrano nella pagina.
+ *
+ * Montato da `Fonts.astro`, che sta in testa a ogni pagina del motore e dei
+ * siti: cosi' arriva dappertutto senza toccare le pagine una per una.
+ */
+---
+
+<script is:inline>
+  (function () {
+    if (!window.matchMedia || !matchMedia("(hover: none) and (pointer: coarse)").matches) return;
+    var SEL =
+      "input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color])" +
+      ":not([type=file]):not([type=hidden]):not([type=submit]):not([type=button]),select,textarea";
+    var sistema = function (el) {
+      try {
+        if (parseFloat(getComputedStyle(el).fontSize) < 16) el.style.setProperty("font-size", "16px", "important");
+      } catch (e) {}
+    };
+    var giro = function (radice) {
+      if (!radice || radice.nodeType !== 1) return;
+      if (radice.matches && radice.matches(SEL)) sistema(radice);
+      if (radice.querySelectorAll) radice.querySelectorAll(SEL).forEach(sistema);
+    };
+    var parti = function () {
+      giro(document.documentElement);
+      new MutationObserver(function (cambi) {
+        for (var i = 0; i < cambi.length; i++) {
+          var nuovi = cambi[i].addedNodes;
+          for (var j = 0; j < nuovi.length; j++) giro(nuovi[j]);
+        }
+      }).observe(document.documentElement, { childList: true, subtree: true });
+      /* Rete di sicurezza: un campo che una classe ha rimpicciolito dopo. */
+      document.addEventListener("focusin", function (e) {
+        var t = e.target;
+        if (t && t.matches && t.matches(SEL)) sistema(t);
+      }, true);
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", parti);
+    else parti();
+  })();
+</script>

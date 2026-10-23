@@ -1,7 +1,7 @@
 import { accodaTicket } from "../../../lib/stampaCoda";
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../lib/db";
+import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from "../../../lib/stripe";
 import { basePubblicaOpz } from "../../../lib/basePubblica";
@@ -11,12 +11,11 @@ import { configRitiro } from "../../../lib/schedule";
 // Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
 // quindi l'importazione e' rinominata invece di rinominare le loro.
 import {
-  ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
+  ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella,
 } from "../../../lib/admin/sede";
-import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
 import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA, avvisaChePronto, alTavolo } from "../../../lib/ordiniRegole";
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
-import { applicaStatoSede } from "../../../lib/menuStato";
+import { piattiPerOrdine, rigaOrdine } from "../../../lib/admin/righeOrdine";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine, emailOrdinePronto } from "../../../lib/notifications";
 // Consegna e mancia dell'ordine, per le email di annullo e di modifica: senza,
 // parlerebbero di «retrait» a chi aspetta il fattorino.
@@ -24,6 +23,7 @@ import { consegnaDellOrdine, manciaDellOrdine } from "../../../lib/consegnaOrdin
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { rimborsabile } from "../../../lib/admin/ordiniConti";
 import { cosaDaIncassare } from "../../../lib/admin/daIncassare";
 export const prerender = false;
 
@@ -318,55 +318,8 @@ export const GET: APIRoute = async ({ request, url }) => {
 // Crea l'ordine (status pending, source manual), genera la sessione Stripe
 // e invia al cliente l'email con il link di pagamento. Il webhook esistente
 // lo passerà a 'paid' quando il cliente paga (email cucina/conferma comprese).
-/** Piatti per il calcolo di un ordine dello staff. Prezzi SEMPRE dal DB.
- *  Ripiega senza `variants` sui DB dove la migrazione #71 manca ancora. */
-async function piattiPerOrdine(ids: string[], ambito: Ambito): Promise<RisultatoQuery> {
-  const CAMPI = "id, name, price_cents, available, discount_type, discount_value";
-  const res = await conRipiegoColonne(
-    CAMPI,
-    async (campi) =>
-      (await leggi("menu_items", ambito, campi).in("id", ids)) as unknown as RisultatoQuery
-  );
-  // L'esaurito e' del PUNTO, non del piatto: si sovrappone qui, dentro la
-  // funzione, cosi' nessuno dei due chiamanti puo' dimenticarselo e vendere
-  // una burrata finita stamattina a Stockel.
-  if (res.data) {
-    res.data = (await applicaStatoSede(
-      res.data as unknown as Record<string, unknown>[],
-      ambito,
-    )) as unknown as typeof res.data;
-  }
-  return res;
-}
-
-/** Riga d'ordine a partire dal piatto e dal formato eventualmente scelto.
- *  `null` = il formato richiesto non esiste più (il chiamante risponde 409). */
-function rigaOrdine(
-  piatto: any,
-  rich: { qty?: unknown; variant?: unknown },
-  lang: string,
-  ambito: Ambito,
-): { name: string; base_name: string; variant_label?: string; price_cents: number; qty: number; variant?: string } | null {
-  const qty = Math.max(1, Math.floor(Number(rich.qty)));
-  let variante = null as ReturnType<typeof trovaVariante>;
-  if (haVarianti(piatto.variants, ambito)) {
-    variante = trovaVariante(piatto.variants, rich.variant, true, ambito);
-    if (!variante) return null;
-  }
-  const pieno = variante ? variante.price_cents : piatto.price_cents;
-  const price_cents = prezzoEffettivo(pieno, piatto.discount_type, piatto.discount_value);
-  const etichetta = variante ? etichettaVariante(variante, lang) : "";
-  return {
-    // `name` resta la stringa completa: la leggono email, stampa e Stripe.
-    name: etichetta ? `${piatto.name} — ${etichetta}` : piatto.name,
-    // I pezzi separati per la card Ordini (pastiglie sotto il nome), come in checkout.ts.
-    base_name: piatto.name,
-    ...(etichetta ? { variant_label: etichetta } : {}),
-    price_cents,
-    qty,
-    ...(variante ? { variant: variante.key } : {}),
-  };
-}
+// `piattiPerOrdine` e `rigaOrdine` stanno in `lib/admin/righeOrdine.ts`
+// (23/10/2026): li usa anche il palmare del cameriere.
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
@@ -768,8 +721,19 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
     const inPersona = inCassa(prima.payment_method);
     const totale = Number(prima.total_cents ?? 0);
-    const gia = Number(prima.refunded_cents ?? 0);
-    const residuo = Math.max(0, totale - gia);
+    /* ⚠️ L'importo che l'email promette di rendere e' quello che il
+       ristorante tiene ancora (`rimborsabile`), con la differenza di una
+       modifica non ancora resa: era `totale − rimborsato`, e a chi aveva
+       tolto un piatto l'email annunciava il rimborso solo di quello che
+       restava. Le colonne #50 si leggono a parte: senza, valgono zero. */
+    const { data: d50 } = await leggi("orders", ambito, "refund_due_cents, supplement_due_cents").eq("id", id).maybeSingle()
+      .then((r) => r, () => ({ data: null }));
+    const residuo = rimborsabile({
+      total_cents: totale,
+      refunded_cents: Number(prima.refunded_cents ?? 0),
+      refund_due_cents: Number((d50 as { refund_due_cents?: number } | null)?.refund_due_cents ?? 0),
+      supplement_due_cents: Number((d50 as { supplement_due_cents?: number } | null)?.supplement_due_cents ?? 0),
+    });
     let refundMode: "online" | "in_person" | "unpaid";
     if (prima.status === "pending") refundMode = "unpaid";
     else if (inPersona || residuo <= 0) refundMode = "in_person";

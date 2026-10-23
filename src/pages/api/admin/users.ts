@@ -24,7 +24,9 @@ async function msg(chiave: string): Promise<string> {
 // DELETE → elimina l'utente (?id=…) — mai sé stessi né il super admin
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const RUOLI = ["super", "admin", "user"];
+// ⚠️ "palmare" sta qui solo perche' `ruoloDi` lo conosce: un ruolo che
+// `ruoloDi` non riconosce vale "admin" (vedi superAdmin.ts).
+const RUOLI = ["super", "admin", "user", "palmare"];
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -40,6 +42,21 @@ async function sedeDaBody(v: unknown): Promise<string | null | undefined> {
   if (!RE_UUID.test(s)) throw new Error("err.locationUnknown");
   const { data } = await supabaseAdmin.from("locations").select("id").eq("id", s).maybeSingle();
   if (!data) throw new Error("err.locationUnknown");
+  return s;
+}
+
+/**
+ * Palmare: il dipendente del Team a cui e' assegnato. Come la sede: `undefined`
+ * se il campo non e' stato mandato, `null` per «nessuno» (il palmare del
+ * locale), l'id se e' davvero un DIPENDENTE del Team. Lancia una chiave.
+ */
+async function dipendenteDaBody(v: unknown): Promise<string | null | undefined> {
+  if (v === undefined) return undefined;
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  if (!RE_UUID.test(s)) throw new Error("err.employeeUnknown");
+  const { data } = await supabaseAdmin.from("team").select("id, is_employee").eq("id", s).maybeSingle();
+  if (!data || (data as { is_employee?: boolean }).is_employee !== true) throw new Error("err.employeeUnknown");
   return s;
 }
 
@@ -65,6 +82,16 @@ export const GET: APIRoute = async ({ request }) => {
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
   if (error) return json({ error: await msg("err.read") }, 500);
 
+  // Il nome del dipendente legato a un palmare: una lettura sola per tutti.
+  const idDipendenti = [...new Set((data?.users ?? [])
+    .map((u) => (u.app_metadata as { employee_id?: string } | undefined)?.employee_id)
+    .filter((x): x is string => typeof x === "string" && RE_UUID.test(x)))];
+  const nomiDipendenti = new Map<string, string>();
+  if (idDipendenti.length) {
+    const { data: righe } = await supabaseAdmin.from("team").select("id, name").in("id", idDipendenti);
+    for (const r of (righe ?? []) as { id: string; name: string }[]) nomiDipendenti.set(r.id, r.name);
+  }
+
   const users = (data?.users ?? []).map((u) => {
     const m = (u.user_metadata ?? {}) as { first_name?: string; last_name?: string; full_name?: string };
     // ⚠️ La stessa funzione che firma le note. Qui la formula era scritta a
@@ -85,6 +112,9 @@ export const GET: APIRoute = async ({ request }) => {
     location_id: (u.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
     // null = nessuno ha deciso → vale il default del ruolo (vedi permessiRegole)
     pages: (u.app_metadata as { pages?: string[] } | undefined)?.pages ?? null,
+    employee_id: (u.app_metadata as { employee_id?: string } | undefined)?.employee_id ?? null,
+    // "" se il dipendente e' stato cancellato dal Team: il legame resta, il nome no.
+    employee_name: nomiDipendenti.get(String((u.app_metadata as { employee_id?: string } | undefined)?.employee_id ?? "")) ?? "",
     };
   });
   users.sort((a, b) => a.email.localeCompare(b.email));
@@ -95,7 +125,7 @@ export const POST: APIRoute = async ({ request }) => {
   const g = await soloSuper(request);
   if (g instanceof Response) return g;
 
-  let body: { email?: string; password?: string; first_name?: string; last_name?: string; role?: string; location_id?: string; pages?: unknown };
+  let body: { email?: string; password?: string; first_name?: string; last_name?: string; role?: string; location_id?: string; pages?: unknown; employee_id?: string };
   try {
     body = await request.json();
   } catch {
@@ -113,7 +143,12 @@ export const POST: APIRoute = async ({ request }) => {
   // applicano, e salvarle lo stesso vorrebbe dire che cambiando ruolo da
   // admin a utente si riattivano scelte fatte mesi prima e dimenticate.
   const pagine = role === "user" ? pulisciPagine(body.pages, PAGINE_ADMIN.map((pg) => pg.key)) : null;
-  const appMeta: Record<string, unknown> = { role, location_id: sede ?? null, pages: pagine };
+  // Il dipendente vale SOLO per il palmare, per la stessa ragione delle pagine.
+  let dipendente: string | null = null;
+  if (role === "palmare") {
+    try { dipendente = (await dipendenteDaBody(body.employee_id)) ?? null; } catch (e) { return json({ error: await msg((e as Error).message) }, 400); }
+  }
+  const appMeta: Record<string, unknown> = { role, location_id: sede ?? null, pages: pagine, employee_id: dipendente };
   const meta = { first_name, last_name, full_name: `${first_name} ${last_name}`.trim() };
 
   // Password fornita → creazione diretta (accesso immediato).
@@ -157,7 +192,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const g = await soloSuper(request);
   if (g instanceof Response) return g;
 
-  let body: { id?: string; password?: string; first_name?: string; last_name?: string; email?: string; role?: string; location_id?: string; pages?: unknown };
+  let body: { id?: string; password?: string; first_name?: string; last_name?: string; email?: string; role?: string; location_id?: string; pages?: unknown; employee_id?: string };
   try {
     body = await request.json();
   } catch {
@@ -194,7 +229,8 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     const sede = await sedeDaBody(body.location_id);
     const pagineChieste = body.pages !== undefined;
-    if (sede !== undefined || pagineChieste || patch.app_metadata) {
+    const dipendenteChiesto = await dipendenteDaBody(body.employee_id);
+    if (sede !== undefined || pagineChieste || dipendenteChiesto !== undefined || patch.app_metadata) {
       const { data: chi } = await supabaseAdmin.auth.admin.getUserById(body.id);
       const attuale = (chi?.user?.app_metadata ?? {}) as Record<string, unknown>;
       // Il ruolo che questo utente AVRA' dopo la modifica: se non lo si sta
@@ -208,15 +244,23 @@ export const PUT: APIRoute = async ({ request }) => {
         : pagineChieste
           ? pulisciPagine(body.pages, PAGINE_ADMIN.map((pg) => pg.key))
           : ((attuale.pages as string[] | undefined) ?? null);
+      // Il dipendente esiste solo per il palmare: chi smette di esserlo lo
+      // perde, come le caselle sopra.
+      const dipendente = ruoloFinale !== "palmare"
+        ? null
+        : dipendenteChiesto !== undefined
+          ? dipendenteChiesto
+          : ((attuale.employee_id as string | undefined) ?? null);
       patch.app_metadata = {
         ...attuale,
         ...(patch.app_metadata ?? {}),
         ...(sede !== undefined ? { location_id: sede } : {}),
         pages: pagine,
+        employee_id: dipendente,
       };
     }
   } catch (e) {
-    // `sedeDaBody` lancia una CHIAVE, non una frase: qui si traduce.
+    // `sedeDaBody` e `dipendenteDaBody` lanciano una CHIAVE, non una frase: qui si traduce.
     return json({ error: await msg((e as Error).message) }, 400);
   }
   if (body.email !== undefined) {
