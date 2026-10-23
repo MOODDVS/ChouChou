@@ -12,7 +12,7 @@
 import type { DateTime } from "luxon";
 import { leggi, inserisci, aggiorna, type Ambito } from "./sede";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
-import { catenaDiZona, type TavoloPosti, type ZonaSala } from "../salaInstallaRegole";
+import { catenaDiZona, conflittoEstensione, fineSeduta, oraDaMinuti, type TavoloPosti, type ZonaSala } from "../salaInstallaRegole";
 import { letturaSala, occupazioneDa, type LetturaSala, type RigaGiornoSala } from "./letturaSala";
 
 export interface ContestoInstallazione {
@@ -175,6 +175,8 @@ export interface ContestoSpostamento {
   /** I tavoli della tavolata adesso. */
   attuali: string[];
   zona: string;
+  /** Fine prevista del tempo al tavolo («21:15»), per «+15 / +30 / +45». */
+  fine: string | null;
 }
 
 /** Per il modale: tutte le sale, e chi e' preso adesso tranne questa tavolata.
@@ -199,6 +201,7 @@ export async function contestoSpostamento(ambito: Ambito, tavoloId: string, lett
     prenotati: [...occ.prenotati],
     attuali,
     zona,
+    fine: (() => { const f = fineSeduta(seduta, l.durate); return f === null ? null : oraDaMinuti(f); })(),
   };
 }
 
@@ -280,4 +283,39 @@ export async function cambiaPersone(ambito: Ambito, tavoloId: string, personeGre
   if (seduta.tab_status) campi.tab_people = persone;
   const upd = await aggiorna("reservations", ambito, campi).eq("id", seduta.id).eq("status", "seated");
   return upd.error ? { ok: false, errore: "salvataggio" } : { ok: true };
+}
+
+export type EsitoEstensione =
+  | { ok: true; fine: string | null }
+  | { ok: false; errore: "nessuno" | "minuti" | "salvataggio" }
+  | { ok: false; errore: "conflitto"; heure: string; nome: string; tavoli: string[] };
+
+/**
+ * PIU' TEMPO AL TAVOLO (23/10/2026): +15 / +30 / +45 minuti alla sessione
+ * seduta, come «Prolonger» in Réservations (stessa colonna `extra_minutes`,
+ * stesso tetto di 600).
+ *
+ * ⚠️ Se una prenotazione sugli stessi tavoli inizia dentro i minuti aggiunti,
+ * NON si allunga e si dice chi e' (`conflitto`): il cameriere conferma con un
+ * secondo tocco (`forza`), come in Réservations. E' lui che sa se i clienti
+ * stanno per alzarsi.
+ */
+export async function estendiTavolo(ambito: Ambito, tavoloId: string, minutiGrezzi: unknown, forza = false): Promise<EsitoEstensione> {
+  const minuti = Math.floor(Number(minutiGrezzi));
+  if (![15, 30, 45].includes(minuti)) return { ok: false, errore: "minuti" };
+  const l = await letturaSala(ambito);
+  const seduta = sedutaDelTavolo(l, tavoloId);
+  if (!seduta) return { ok: false, errore: "nessuno" };
+  if (!forza) {
+    const c = conflittoEstensione({ seduta, righe: l.righe, minutiPiu: minuti, durate: l.durate });
+    if (c) {
+      const nomi = new Map(l.tavoli.map((t) => [t.id, t.name]));
+      return { ok: false, errore: "conflitto", heure: c.heure, nome: c.nome, tavoli: c.tavoli.map((id) => nomi.get(id) ?? id) };
+    }
+  }
+  const extra = Math.min(600, Math.max(0, Math.floor(Number(seduta.extra_minutes)) || 0) + minuti);
+  const upd = await aggiorna("reservations", ambito, { extra_minutes: extra }).eq("id", seduta.id).eq("status", "seated");
+  if (upd.error) return { ok: false, errore: "salvataggio" };
+  const f = fineSeduta({ ...seduta, extra_minutes: extra }, l.durate);
+  return { ok: true, fine: f === null ? null : oraDaMinuti(f) };
 }

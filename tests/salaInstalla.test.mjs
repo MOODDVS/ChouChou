@@ -137,3 +137,33 @@ test("liberare: ne resta uno, e in catena solo le punte", () => {
   // Fuori catena (fatti sedere «comunque»): si puo' togliere ognuno.
   assert.deepEqual(tavoliDaLiberare({ tavoli: TAV, catene: CATENA, attuali: ["T5", "T1"] }).map((x) => x.tavolo.name), ["T1", "T5"]);
 });
+
+// ---------- piu' tempo al tavolo (23/10/2026) ----------
+import { fineSeduta, oraDaMinuti, conflittoEstensione } from "../src/lib/salaInstallaRegole.ts";
+
+const DUR = { perServizio: { soir: 120 }, ripiego: 90 };
+
+test("la fine del tempo al tavolo: arrivo + durata del servizio + minuti aggiunti", () => {
+  assert.equal(oraDaMinuti(fineSeduta({ heure: "19:00", service_key: "soir", extra_minutes: 15 }, DUR)), "21:15");
+  assert.equal(oraDaMinuti(fineSeduta({ heure: "23:30", service_key: null }, DUR)), "01:00");
+});
+
+test("allungare: avvisa se una prenotazione sugli stessi tavoli inizia nei minuti aggiunti", () => {
+  const seduta = { id: "s", heure: "19:00", service_key: "soir", tables: ["T1", "T2"], status: "seated" };
+  const righe = [
+    seduta,
+    { id: "p", heure: "21:20", status: "confirmed", tables: ["T2"], first_name: "Anna", last_name: "Rossi" },
+    { id: "q", heure: "21:10", status: "confirmed", tables: ["T9"] },
+  ];
+  assert.equal(conflittoEstensione({ seduta, righe, minutiPiu: 15, durate: DUR }), null, "21:00 → 21:15: Anna arriva alle 21:20");
+  assert.deepEqual(conflittoEstensione({ seduta, righe, minutiPiu: 30, durate: DUR }), { heure: "21:20", nome: "Anna Rossi", tavoli: ["T2"] });
+});
+
+// ---------- stretti di una sedia (23/10/2026) ----------
+test("in 3 a un tavolo da 2: si propone lo stesso, dopo chi ha un posto libero", () => {
+  const p = proposteInstallazione({ tavoli: TAV, catene: CATENA, occupati: [], tavoloId: "T1", persone: 3, max: 99 });
+  assert.deepEqual(nomi(p).slice(0, 3), ["T1+T2", "T1", "T1+T2+T3"]);
+  assert.equal(p.find((x) => x.nomi.join("+") === "T1").spreco, -1);
+  // Due posti in meno no: in 4 a un tavolo da 2 ci vuole un altro tavolo.
+  assert.ok(!nomi(proposteInstallazione({ tavoli: TAV, catene: CATENA, occupati: [], tavoloId: "T1", persone: 4, max: 99 })).includes("T1"));
+});

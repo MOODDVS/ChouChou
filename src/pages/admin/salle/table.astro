@@ -32,7 +32,6 @@
  * QUI nel render: il palmare non ha API.
  */
 import PalmareHead from "../../../components/admin/PalmareHead.astro";
-import { DateTime } from "luxon";
 import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
 import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
 import { claimsDaToken } from "../../../lib/admin/adminAuth";
@@ -40,9 +39,9 @@ import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo";
 import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
-import { tempoSeduti } from "../../../lib/admin/schedaTavoloRegole";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
-import { ICONA_WALKIN, ICONA_PERSONE } from "../../../lib/iconeSala";
+import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
+import { ICONA_TAVOLO, ICONA_MATITA } from "../../../lib/iconeSala";
 
 export const prerender = false;
 
@@ -94,42 +93,22 @@ const datiMv = mv && s
 const cliccabile = Boolean(datiMv);
 const haOrdini = Boolean((s?.conto && s.conto.invii.length > 0) || (s?.sessione && s.sessione.ordini.length > 0));
 
-/** Un istante ISO → «12:05» nel fuso del ristorante. */
-const ora = (iso: string | null | undefined): string =>
-  iso && s ? DateTime.fromISO(iso).setZone(s.fuso).toFormat("HH:mm") : "";
 const conto = s?.conto ?? null;
 const sessione = s?.sessione ?? null;
-const STATI_ORDINE: Record<string, string> = {
-  pending: t("sal.tb.st.pending"),
-  paid: t("sal.tb.st.paid"),
-  done: t("sal.tb.st.done"),
-};
 /* Il titolo dice TUTTI i tavoli di chi e' seduto qui: un gruppo a T1+T4
    occupa anche T4, e la scheda di T1 lo deve dire (23/10/2026). */
 const nomiTavoli = s?.gruppo ? s.gruppo.nomi.join(" + ") : (s?.tavolo.name ?? "");
-const postiTavoli = s?.gruppo ? s.gruppo.posti : (s?.tavolo.seats ?? 0);
 const titolo = s ? `${t("sal.tb.table")} ${nomiTavoli}` : t("sal.title");
-const postiLibero = postiTavoli > 0 ? t("sal.tb.places").replace("{n}", String(postiTavoli)) : "";
-/* CHI E' SEDUTO, NELL'ISOLA (23/10/2026): stato, chi, quanti, da che ora, e
-   un TIMER che conta. Prima stava in una scheda sotto: l'isola resta ferma
-   in alto mentre si scorrono gli invii, ed e' li' che il cameriere guarda. */
-const dal = conto?.dal ?? sessione?.dal ?? null;
-const statoIsola: { classe: string; testo: string } | null = conto
-  ? { classe: conto.stato === "pending" ? "is-attesa" : "is-aperto", testo: conto.stato === "pending" ? t("sal.tb.tabPending") : t("sal.tb.tabOpen") }
-  : sessione ? { classe: "is-aperto", testo: t("sal.tb.seated") } : null;
+/* L'ISOLA (chi e' seduto, quanti, da quando, timer) la disegna
+   `components/admin/IsolaTavolo.astro`, la stessa dell'ordine. */
 const personeIsola = personeAdesso;
-/* Walk-in: l'ICONA del motore, non la parola (23/10/2026). Le persone:
-   l'icona dei coperti accanto al numero. */
-const walkin = Boolean(sessione?.walkin);
-const nomeIsola = walkin ? "" : (sessione?.nome || "");
-const Isola = cliccabile ? "button" : "div";
 ---
 
 <html lang={lang}>
   <head>
     <PalmareHead titolo={titolo} />
     <style is:global>
-      :root { --tb-azioni-h: 160px; }
+      :root { --tb-azioni-h: 210px; }
       body { min-height: 100vh; min-height: 100dvh; }
 
       /* ---------- la testa: un'ISOLA ferma, come la pillola del cameriere
@@ -141,42 +120,6 @@ const Isola = cliccabile ? "button" : "div";
         padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
         background: linear-gradient(var(--c-bg) 70%, transparent);
       }
-      .tb-isola {
-        display: flex; align-items: center; gap: 0.6rem;
-        min-height: 48px; max-width: min(92vw, 420px); min-width: 0;
-        padding: 5px 18px; border-radius: 999px;
-        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-      }
-      .tb-chi { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; text-align: left; }
-      /* Un tavolo occupato: l'isola e' un BOTTONE che apre il modale. */
-      button.tb-isola { font: inherit; cursor: pointer; }
-      .tb-isola-box { position: relative; display: flex; justify-content: center; max-width: 100%; }
-      .tb-freccia { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--c-muted); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
-      .tb-isola[aria-expanded="true"] .tb-freccia { transform: rotate(180deg); }
-      /* Il timer: lo stato col suo colore, e da quanto. */
-      .tb-timer {
-        flex-shrink: 0; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
-        min-width: 64px; height: 38px; padding: 0 0.7rem; border-radius: 999px; line-height: 1.05;
-        margin-right: -13px;
-      }
-      .tb-timer b { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-      .tb-timer.is-aperto { background: #4cc38a; color: #0b1f14; }
-      .tb-timer.is-attesa { background: #ff9f43; color: #241200; }
-      /* La bolla del tavolo: a sinistra, stessa altezza e stesso rientro del
-         timer a destra. Piu' tavoli: la bolla si allunga. */
-      .tb-bolla {
-        flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
-        min-width: 38px; height: 38px; padding: 0 0.75rem; margin-left: -13px; border-radius: 999px;
-        background: var(--c-text); color: var(--c-bg); font-weight: 800; font-size: 0.95rem; white-space: nowrap;
-        max-width: 45vw; overflow: hidden; text-overflow: ellipsis;
-      }
-      .tb-tit { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-family: var(--font-body); font-weight: 700; font-size: 0.95rem; line-height: 1.2; color: var(--c-text); }
-      .tb-tit-testo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .tb-ico { display: inline-flex; flex-shrink: 0; }
-      .tb-ico svg { width: 16px; height: 16px; display: block; }
-      .tb-pers { display: inline-flex; align-items: center; gap: 0.15rem; flex-shrink: 0; font-variant-numeric: tabular-nums; }
-      .tb-sub { min-width: 0; font-size: 0.75rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
       /* ---------- il modale dell'isola: persone e «Déplacer» ---------- */
       .tb-pannello {
@@ -184,34 +127,42 @@ const Isola = cliccabile ? "button" : "div";
         width: calc(100vw - 2rem); max-width: 480px; max-height: calc(100dvh - 120px); overflow-y: auto;
         padding: 12px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px;
         border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        /* Il modale SI' ha l'ombra (Enzo, 23/10/2026): sta sopra la pagina e
+           deve staccarsene. Le altre ombre portate restano tolte. */
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
       }
       .tb-pannello[hidden] { display: none; }
       .tb-pan-tit { padding: 2px 4px 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
       /* Le persone: 1–9 da toccare, «10+» apre un campo (23/10/2026, Enzo). */
       .tb-pan-num { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-      .tb-pan-num .tb-n { background: transparent; }
-      .tb-pan-num .tb-n[aria-pressed="true"] { background: var(--c-text); }
       .tb-campo {
         width: 100%; height: 52px; box-sizing: border-box; border-radius: 14px; border: 1px solid var(--c-line);
-        background: transparent; color: var(--c-text); font: inherit; font-size: 1.3rem; font-weight: 800; text-align: center;
+        background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 1.3rem; font-weight: 800; text-align: center;
       }
       .tb-campo { appearance: textfield; -moz-appearance: textfield; }
       .tb-campo::-webkit-inner-spin-button, .tb-campo::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-      .tb-campo[hidden], #tb-p-salva[hidden], #tb-sposta-ok[hidden] { display: none; }
+      .tb-campo:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+      .tb-passo { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; gap: 8px; align-items: center; }
+      .tb-passo-btn { height: 52px; font-size: 1.5rem; }
+      .tb-passo[hidden], #tb-p-salva[hidden], #tb-sposta-ok[hidden] { display: none; }
       #tb-p-salva { flex: none; height: 52px; width: 100%; }
       .tb-sposta {
         display: flex; align-items: center; justify-content: center; gap: 0.6rem; width: 100%;
-        min-height: 54px; border-radius: 999px; border: 1px solid var(--c-line); background: transparent;
+        min-height: 54px; border-radius: 999px;
+        /* Piu' chiaro della scheda e con un bordo che si vede (Enzo, 23/10/2026). */
+        border: 2px solid color-mix(in srgb, var(--c-text) 35%, transparent);
+        background: color-mix(in srgb, var(--c-text) 12%, var(--c-card));
         color: var(--c-text); font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
       }
+      .tb-sposta-ico { display: inline-flex; }
+      .tb-sposta-ico svg { display: block; width: auto; height: 1.15em; }
       .tb-sposta[aria-expanded="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
       .tb-modi-box { display: flex; flex-direction: column; gap: 10px; }
       .tb-modi-box[hidden] { display: none; }
       .tb-modi { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 8px; }
       .tb-modo {
         min-height: 56px; padding: 0.4rem 0.5rem; border-radius: 14px; border: 1px solid var(--c-line);
-        background: transparent; color: var(--c-text); font: inherit; font-size: 0.85rem; font-weight: 800; line-height: 1.2; cursor: pointer;
+        background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 0.85rem; font-weight: 800; line-height: 1.2; cursor: pointer;
       }
       .tb-modo[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
       .tb-zona { padding: 4px 4px 0; font-size: 0.78rem; font-weight: 800; color: var(--c-muted); }
@@ -269,23 +220,69 @@ const Isola = cliccabile ? "button" : "div";
       /* Una riga di bottoni: la freccia tonda fissa, gli altri si dividono il resto. */
       .tb-azioni .tb-riga { display: flex; align-items: center; justify-content: flex-start; gap: 0.5rem; }
       .tb-azioni .tb-riga > .tb-btn { flex: 1; min-width: 0; }
+      /* Una riga sola: tutti alti come la freccia, il testo non va a capo. */
+      .tb-riga-una > .tb-btn { height: 52px; padding: 0 0.4rem; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tb-riga-una > .tb-btn.is-primo { flex: 1.35; font-size: 0.92rem; }
       .tb-indietro {
         width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
         display: flex; align-items: center; justify-content: center;
         background: var(--c-card); color: var(--c-text); border: 1px solid var(--c-line);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
       }
       .tb-indietro svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
       .tb-btn {
         height: 46px; border-radius: 999px; border: 1px solid var(--c-line);
         background: var(--c-card); color: var(--c-text); font: inherit; font-size: 0.88rem; font-weight: 700;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); cursor: pointer;
+        cursor: pointer;
       }
       .tb-btn.is-primo { flex: 1; height: 52px; background: var(--c-accent); color: var(--c-bg); border-color: transparent; font-size: 1rem; font-weight: 800; }
-      .tb-btn:disabled { opacity: 0.45; box-shadow: none; }
+      .tb-btn:disabled { opacity: 0.45; }
       /* Annuler e Refuser: lo stesso ROSSO del cestino e di «Disconnetti». */
       .tb-btn.is-annulla, #tb-rifiuta { background: #a3320f; color: #fff; border-color: transparent; }
       .tb-presto { text-align: center; font-size: 0.72rem; color: var(--c-muted); }
+      .tb-ord-chi { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; }
+      /* Il punto separa ora e nome del cliente; la faccina basta da sola. */
+      .tb-ord-chi > span + span:not(.tb-cam)::before { content: "·"; margin-right: 0.5rem; color: var(--c-muted); }
+      .tb-cam { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
+      /* La faccina del cameriere: la foto del Team, o l'iniziale come nella sua pillola. */
+      .tb-faccina {
+        width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-accent); color: #fff; font-size: 0.7rem; font-weight: 800;
+      }
+      /* ---------- modificare un ordine (togliere) ---------- */
+      .tb-vista { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
+      .tb-vista-piatti { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+      .tb-vista .tb-ord-tot { flex-shrink: 0; }
+      .tb-ord-tot { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.1; }
+      .tb-ord-tot span { font-size: 0.7rem; color: var(--c-muted); }
+      .tb-ord-tot strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+      .tb-ord-dx { display: inline-flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+      .tb-ed-apri {
+        width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); cursor: pointer;
+      }
+      .tb-ed-apri svg { width: 17px; height: 17px; }
+      .tb-ed-apri[aria-expanded="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
+      .tb-vista[hidden], .tb-ed[hidden] { display: none; }
+      .tb-ed { display: flex; flex-direction: column; gap: 0.5rem; }
+      .tb-ed-riga { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+      .tb-ed-nome { min-width: 0; font-size: 0.95rem; }
+      .tb-ed-nome em { font-style: normal; color: var(--c-muted); }
+      .tb-ed-riga.is-zero .tb-ed-nome { text-decoration: line-through; color: var(--c-muted); }
+      .tb-ed-passo { display: inline-flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+      .tb-ed-passo .tb-n { width: 44px; height: 44px; font-size: 1.3rem; }
+      .tb-ed-passo .tb-n:disabled { opacity: 0.35; }
+      .tb-ed-passo b { min-width: 1.6rem; text-align: center; font-variant-numeric: tabular-nums; }
+      .tb-ed-azioni { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .tb-ed-azioni a.tb-btn, .tb-ed-azioni .tb-btn { height: 48px; font-size: 0.88rem; }
+      .tb-ed-salva:disabled { opacity: 0.45; }
+      .tb-totale {
+        align-self: center; display: inline-flex; align-items: baseline; gap: 0.75rem;
+        min-height: 44px; padding: 0.55rem 1.25rem; border-radius: 999px;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+      }
+      .tb-totale span { font-size: 0.8rem; color: var(--c-muted); }
+      .tb-totale strong { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
       .tb-info {
         align-self: center; padding: 0.35rem 0.85rem; border-radius: 999px;
         background: var(--c-card); border: 1px solid var(--c-line); font-size: 0.78rem; color: var(--c-muted);
@@ -294,16 +291,27 @@ const Isola = cliccabile ? "button" : "div";
       .tb-decidi { display: grid; grid-template-columns: 1fr 2fr; gap: 0.5rem; }
       .tb-btn.is-valida { background: #ff9f43; color: #241200; }
       /* Armato (il primo tocco): piu' acceso, con un alone — il secondo tocco fa. */
+      .tb-ext-tit { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+      .tb-ext-fine { text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 0.8rem; color: var(--c-text); }
+      .tb-ext-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .tb-ext-btn { height: 48px; font-size: 0.95rem; }
+      .tb-ext-btn.is-armato { background: #c23b12; color: #fff; border-color: transparent; }
+      .tb-ext-btn.is-fatto { background: #4cc38a; color: #0b1f14; border-color: transparent; }
+      .tb-ext-avviso { font-size: 0.82rem; line-height: 1.4; color: #ffb59f; padding: 0 4px; }
+      .tb-ext-avviso[hidden] { display: none; }
       .tb-btn.is-armato { background: #c23b12; color: #fff; border-color: transparent; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35); }
       .tb-avviso-ok { align-self: center; padding: 0.55rem 1rem; border-radius: 999px; background: #4cc38a; color: #0b1f14; font-size: 0.85rem; font-weight: 800; }
 
       /* ---------- un tavolo libero: quanti sono, e dove ---------- */
       .tb-num { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.45rem; }
+      /* I bottoni da scegliere (persone, 1–9 / 10+): PIU' SCURI della scheda
+         che li contiene, e la scelta nel colore accent — come la lingua nel
+         menu del cameriere (Enzo, 23/10/2026). Vale anche per «quanti siete?». */
       .tb-n {
         height: 48px; border-radius: 14px; border: 1px solid var(--c-line);
-        background: var(--c-card); color: var(--c-text); font: inherit; font-size: 1.05rem; font-weight: 800; cursor: pointer;
+        background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 1.05rem; font-weight: 800; cursor: pointer;
       }
-      .tb-n[aria-pressed="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      .tb-n[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
       .tb-piu { display: flex; align-items: center; justify-content: center; gap: 0.75rem; }
       .tb-piu[hidden] { display: none; }
       .tb-piu button { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text); font: inherit; font-size: 1.4rem; cursor: pointer; }
@@ -317,6 +325,8 @@ const Isola = cliccabile ? "button" : "div";
       .tb-prop[aria-pressed="true"] { border: 2px solid var(--c-accent); }
       .tb-prop-nomi { font-weight: 800; font-size: 1rem; }
       .tb-prop-posti { font-size: 0.82rem; color: var(--c-muted); white-space: nowrap; }
+      /* Stretti di una sedia: arancione, si puo' ma va detto. */
+      .tb-prop-tag.is-stretto { background: #ff9f43; color: #241200; }
       .tb-prop-tag { display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; background: #4cc38a; color: #0b1f14; }
       .tb-prop.is-forzata { border-style: dashed; }
       .tb-nessuna { font-size: 0.88rem; color: var(--c-muted); line-height: 1.5; }
@@ -327,46 +337,8 @@ const Isola = cliccabile ? "button" : "div";
   </head>
   <body>
     <header class="tb-testa">
-      <div class="tb-isola-box">
-      <Isola class="tb-isola" id="tb-isola"
-        {...(cliccabile ? { type: "button", "aria-expanded": "false", "aria-controls": "tb-pannello", "aria-haspopup": "true", title: t("sal.tb.edit") } : {})}>
-        {/* Il tavolo (o i tavoli) in una BOLLA a sinistra, come il timer a
-            destra (23/10/2026, Enzo). Libero: la combinazione scelta. */}
-        {s && <span class="tb-bolla" id="tb-titolo" data-base={nomiTavoli} title={titolo}>{nomiTavoli}</span>}
-        <span class="tb-chi">
-          {!s ? (
-            <span class="tb-tit"><span class="tb-tit-testo">{t("sal.title")}</span></span>
-          ) : statoIsola ? (
-            <Fragment>
-              {/* Le icone del motore (`lib/iconeSala.ts`), le stesse di Réservations. */}
-              <span class="tb-tit">
-                {walkin && <span class="tb-ico" role="img" aria-label={t("sal.tb.walkin")} title={t("sal.tb.walkin")} set:html={ICONA_WALKIN} />}
-                {nomeIsola && <span class="tb-tit-testo">{nomeIsola}</span>}
-                {personeIsola > 0 && (
-                  <span class="tb-pers" aria-label={t("sal.tb.people").replace("{n}", String(personeIsola))}>
-                    <span class="tb-ico" aria-hidden="true" set:html={ICONA_PERSONE} />{personeIsola}
-                  </span>
-                )}
-              </span>
-              {dal && <span class="tb-sub">{t("sal.tb.since").replace("{ora}", ora(dal))}</span>}
-            </Fragment>
-          ) : (
-            <Fragment>
-              <span class="tb-tit"><span class="tb-tit-testo">{s.tavolo.zone}</span></span>
-              {postiLibero && <span class="tb-sub" id="tb-sottotitolo" data-base={postiLibero}>{postiLibero}</span>}
-            </Fragment>
-          )}
-        </span>
-        {cliccabile && <svg class="tb-freccia" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>}
-        {/* Solo i minuti: lo stato lo dice il colore (e il lettore di schermo). */}
-        {statoIsola && (
-          <span class:list={["tb-timer", statoIsola.classe]} id="tb-timer" data-dal={dal ?? ""} role="timer"
-            aria-label={`${statoIsola.testo}${dal ? ` · ${t("sal.tb.since").replace("{ora}", ora(dal))}` : ""}`}
-            title={statoIsola.testo}>
-            {dal ? <b>{tempoSeduti(dal, Date.now())}</b> : <b>·</b>}
-          </span>
-        )}
-      </Isola>
+      {/* L'isola e' la stessa dell'ordine: `components/admin/IsolaTavolo`. */}
+      <IsolaTavolo scheda={s} lang={lang} cliccabile={cliccabile}>
 
       {/* IL MODALE DELL'ISOLA: persone e «Déplacer» (23/10/2026). Largo
           quanto lo schermo, come il menu della pillola del cameriere. */}
@@ -379,11 +351,32 @@ const Isola = cliccabile ? "button" : "div";
             ))}
             <button type="button" class="tb-n tb-pn" data-n="piu" aria-pressed={personeIsola >= 10 ? "true" : "false"}>10+</button>
           </div>
-          <input type="number" class="tb-campo" id="tb-p-campo" inputmode="numeric" min="1" max="100"
-            value={personeIsola >= 10 ? personeIsola : 10} hidden={personeIsola < 10} aria-label={t("sal.mv.people")} />
+          {/* «10+»: il campo, con − e + ai lati (Enzo, 23/10/2026). */}
+          <div class="tb-passo" id="tb-p-passo" hidden={personeIsola < 10}>
+            <button type="button" class="tb-n tb-passo-btn" id="tb-p-meno" aria-label="−">−</button>
+            <input type="number" class="tb-campo" id="tb-p-campo" inputmode="numeric" min="1" max="100"
+              value={personeIsola >= 10 ? personeIsola : 10} aria-label={t("sal.mv.people")} />
+            <button type="button" class="tb-n tb-passo-btn" id="tb-p-piu" aria-label="+">+</button>
+          </div>
           <button type="button" class="tb-btn is-primo" id="tb-p-salva" hidden>{t("sal.mv.save")}</button>
 
+          {/* PIU' TEMPO AL TAVOLO (Enzo, 23/10/2026): come «Prolonger» in
+              Réservations. Se una prenotazione arriva su quei tavoli, il primo
+              tocco lo dice e il secondo conferma. */}
+          <p class="tb-pan-tit tb-ext-tit">
+            <span>{t("sal.ext.title")}</span>
+            {mv?.fine && <span class="tb-ext-fine" id="tb-ext-fine" data-tpl={t("sal.ext.end")}>{t("sal.ext.end").replace("{h}", mv.fine)}</span>}
+          </p>
+          <div class="tb-ext-btns">
+            {[15, 30, 45].map((m) => (
+              <button type="button" class="tb-n tb-ext-btn" data-min={m} data-testo={`+${m} min`} data-conferma={t("sal.seat.cancelConfirm")}>+{m} min</button>
+            ))}
+          </div>
+          <p class="tb-ext-avviso" id="tb-ext-avviso" role="status" hidden></p>
+
           <button type="button" class="tb-sposta" id="tb-sposta" aria-expanded="false" aria-controls="tb-modi">
+            {/* L'icona del tavolo del motore (`lib/iconeSala.ts`), la stessa di Réservations. */}
+            <span class="tb-sposta-ico" aria-hidden="true" set:html={ICONA_TAVOLO} />
             {t("sal.tb.act.move")}
           </button>
           <div class="tb-modi-box" id="tb-modi" hidden>
@@ -399,7 +392,7 @@ const Isola = cliccabile ? "button" : "div";
           <p class="tb-errore" id="tb-pan-err" role="status"></p>
         </div>
       )}
-      </div>
+      </IsolaTavolo>
     </header>
 
     <main class="tb">
@@ -457,27 +450,69 @@ const Isola = cliccabile ? "button" : "div";
           ) : sessione ? (
             <Fragment>
               {/* Stato, chi, quanti e da quando stanno nell'isola in alto. */}
-              {sessione.ordini.length > 0 && (
-                <section class="tb-card">
-                  <div class="tb-cifre">
-                    <div><span>{t("sal.tb.total")}</span><strong>{euro(sessione.totale_cents)}</strong></div>
-                  </div>
-                </section>
-              )}
-
+              {/* Il totale sta in basso, in una pillola sopra i bottoni. */}
               <p class="tb-titolo">{t("sal.tb.orders")}</p>
               {sessione.ordini.length === 0 ? (
                 <p class="tb-sotto">{t("sal.tb.noOrders")}</p>
               ) : sessione.ordini.map((o) => (
                 <section class="tb-card">
                   <div class="tb-riga">
-                    <strong>{[o.ora, o.nome].filter(Boolean).join(" · ")}</strong>
-                    <span class="tb-sotto">{STATI_ORDINE[o.stato] ?? o.stato}</span>
+                    {/* Chi l'ha preso, con la sua faccina (Enzo, 23/10/2026): «Walk-in»
+                        non dice niente. Senza cameriere (QR, sito): il nome del
+                        cliente, se non e' «Walk-in». */}
+                    <strong class="tb-ord-chi">
+                      <span>{o.ora}</span>
+                      {o.cameriere ? (
+                        <span class="tb-cam">
+                          {o.cameriere.foto
+                            ? <img class="tb-faccina" src={o.cameriere.foto} alt="" width="22" height="22" loading="lazy" />
+                            : <span class="tb-faccina" aria-hidden="true">{o.cameriere.nome.slice(0, 1).toUpperCase()}</span>}
+                          {o.cameriere.nome}
+                        </span>
+                      ) : (o.nome && o.nome !== "Walk-in" && <span>{o.nome}</span>)}
+                    </strong>
+                    <span class="tb-ord-dx">
+                      {/* MODIFICARE (23/10/2026): solo togliere, e solo da incassare.
+                          Aggiungere = un ordine nuovo, cosi' la cucina riceve il ticket. */}
+                      {o.modificabile && (
+                        <button type="button" class="tb-ed-apri" aria-expanded="false" title={t("sal.ed.edit")} aria-label={t("sal.ed.edit")} set:html={ICONA_MATITA} />
+                      )}
+                    </span>
                   </div>
-                  {o.piatti.map((p) => (
-                    <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <em> · {p.variante}</em>}</span></p>
-                  ))}
-                  <div class="tb-riga"><span class="tb-sotto">{t("sal.tb.total")}</span><strong>{euro(o.totale_cents)}</strong></div>
+                  {/* I piatti a sinistra, il totale in basso a destra accanto a loro:
+                      niente riga in piu' sotto (Enzo, 23/10/2026). */}
+                  <div class="tb-vista">
+                    <div class="tb-vista-piatti">
+                      {o.piatti.map((p) => (
+                        <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <em> · {p.variante}</em>}</span></p>
+                      ))}
+                    </div>
+                    {/* «Total» piccolo SOPRA il numero, a destra (Enzo, 23/10/2026). */}
+                    <p class="tb-ord-tot"><span>{t("sal.tb.total")}</span><strong>{euro(o.totale_cents)}</strong></p>
+                  </div>
+                  {o.modificabile && (
+                    <div class="tb-ed" data-ordine={o.id} hidden>
+                      {o.righe.map((r) => (
+                        <div class="tb-ed-riga" data-i={r.i} data-max={r.qty} data-prezzo={r.prezzo}>
+                          <span class="tb-ed-nome">{r.nome}{r.variante && <em> · {r.variante}</em>}</span>
+                          <span class="tb-ed-passo">
+                            <button type="button" class="tb-n" data-d="-1" aria-label="−">−</button>
+                            <b>{r.qty}</b>
+                            <button type="button" class="tb-n" data-d="1" aria-label="+">+</button>
+                          </span>
+                        </div>
+                      ))}
+                      <p class="tb-ord-tot"><span>{t("sal.tb.total")}</span><strong class="tb-ed-tot">{euro(o.totale_cents)}</strong></p>
+                      <p class="tb-nessuna tb-ed-avviso" hidden>{t("sal.ed.kitchen")}</p>
+                      <p class="tb-nessuna tb-ed-piu" hidden>{t("sal.ed.added")}</p>
+                      <p class="tb-nessuna tb-ed-vuoto" hidden>{t("sal.ed.allGone")}</p>
+                      <div class="tb-ed-azioni">
+                        <a class="tb-btn" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>+ {t("sal.ed.add")}</a>
+                        <button type="button" class="tb-btn is-primo tb-ed-salva" disabled>{t("sal.mv.save")}</button>
+                      </div>
+                      <p class="tb-errore tb-ed-err" role="status"></p>
+                    </div>
+                  )}
                 </section>
               ))}
             </Fragment>
@@ -531,6 +566,14 @@ const Isola = cliccabile ? "button" : "div";
         La freccia per tornare alla sala e' sempre la prima, a sinistra. */}
     {s && (
       <nav class="tb-azioni" aria-label={titolo}>
+        {/* IL TOTALE: una pillola flottante sopra i bottoni (Enzo, 23/10/2026),
+            dove si guarda prima di «Addition» / «Encaisser». */}
+        {sessione && sessione.ordini.length > 0 && (
+          <p class="tb-totale">
+            <span>{t("sal.tb.total")}</span>
+            <strong>{euro(sessione.totale_cents)}</strong>
+          </p>
+        )}
         {conto?.stato === "pending" && (
           <p class="tb-info">
             {t("sal.tb.ordered").replace("{a}", String(conto.ordinato)).replace("{b}", String(conto.persone))}
@@ -560,19 +603,19 @@ const Isola = cliccabile ? "button" : "div";
             );
           }
           if ((sessione || conto) && !libero) {
+            /* Tutto su UNA riga (Enzo, 23/10/2026): freccia, poi Annuler (o
+               Addition / Encaisser), e Commander a destra, sotto il pollice. */
             return (
-              <Fragment>
-                <div class="tb-riga"><a class="tb-btn is-primo" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.order")}</a></div>
-                <div class="tb-riga">
-                  {freccia}
-                  {annullabile
-                    ? <button type="button" class="tb-btn is-annulla" id="tb-annulla" data-testo={t("sal.seat.cancel")} data-conferma={t("sal.seat.cancelConfirm")}>{t("sal.seat.cancel")}</button>
-                    : <Fragment>
-                        <button type="button" class="tb-btn" disabled>{t("sal.tb.act.bill")}</button>
-                        <button type="button" class="tb-btn" disabled>{t("sal.tb.act.pay")}</button>
-                      </Fragment>}
-                </div>
-              </Fragment>
+              <div class="tb-riga tb-riga-una">
+                {freccia}
+                {annullabile
+                  ? <button type="button" class="tb-btn is-annulla" id="tb-annulla" data-testo={t("sal.seat.cancel")} data-conferma={t("sal.seat.cancelConfirm")}>{t("sal.seat.cancel")}</button>
+                  : <Fragment>
+                      <button type="button" class="tb-btn" disabled>{t("sal.tb.act.bill")}</button>
+                      <button type="button" class="tb-btn" disabled>{t("sal.tb.act.pay")}</button>
+                    </Fragment>}
+                <a class="tb-btn is-primo" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.order")}</a>
+              </div>
             );
           }
           return <div class="tb-riga">{freccia}<button type="button" class="tb-btn is-primo" disabled>{t("sal.tb.act.order")}</button></div>;
@@ -585,6 +628,7 @@ const Isola = cliccabile ? "button" : "div";
     <div id="tb-parole" hidden
       data-places={t("sal.tb.places")}
       data-perfect={t("sal.seat.perfect")}
+      data-squeeze={t("sal.seat.squeeze")}
       data-none={t("sal.seat.none")}
       data-force={t("sal.seat.force")}
       data-force-hint={t("sal.seat.forceHint")}
@@ -595,7 +639,8 @@ const Isola = cliccabile ? "button" : "div";
       data-move={t("sal.tb.act.move")}
       data-mv-none={t("sal.mv.none")}
       data-mv-saving={t("sal.mv.saving")}
-      data-mv-error={t("sal.mv.error")}></div>
+      data-mv-error={t("sal.mv.error")}
+      data-loc={LOC}></div>
 
     <script>
       // VALIDARE / RIFIUTARE il conto del QR (`/api/admin/salle-tab`).
@@ -661,18 +706,6 @@ const Isola = cliccabile ? "button" : "div";
       });
     </script>
     <script>
-      // IL TIMER DELL'ISOLA: ricalcolato ogni 30 secondi, e subito quando il
-      // telefono si riaccende (una pagina in tasca non conta).
-      import { tempoSeduti } from "../../../lib/admin/schedaTavoloRegole";
-      const timer = document.getElementById("tb-timer");
-      const cifra = timer?.querySelector("b");
-      if (timer && cifra && timer.dataset.dal) {
-        const giro = () => { cifra.textContent = tempoSeduti(timer.dataset.dal, Date.now()); };
-        window.setInterval(giro, 30000);
-        document.addEventListener("visibilitychange", () => { if (!document.hidden) giro(); });
-      }
-    </script>
-    <script>
       import { proposteInstallazione, type Proposta } from "../../../lib/salaInstallaRegole";
       import { authFresh } from "../../../lib/admin/auth";
 
@@ -699,6 +732,10 @@ const Isola = cliccabile ? "button" : "div";
 
         const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
         const nomi = (p: Proposta) => p.nomi.join(" + ");
+        // «Parfait» (verde) o «+1 chaise» (arancione, stretti di una sedia).
+        const etichetta = (spreco: number) => spreco === 0
+          ? `<span class="tb-prop-tag">${esc(P.perfect ?? "")}</span>`
+          : spreco < 0 ? `<span class="tb-prop-tag is-stretto">${esc(P.squeeze ?? "")}</span>` : "";
         /* La combinazione scelta si vede SUBITO nella testa: «Tavolo T1 + T4 ·
            6 posti». Senza scelta torna quella del tavolo toccato. */
         const titoloEl = document.getElementById("tb-titolo");
@@ -733,7 +770,7 @@ const Isola = cliccabile ? "button" : "div";
           });
           let html = proposte.map((p, i) => `
             <button type="button" class="tb-prop" data-i="${i}" aria-pressed="${i === 0}">
-              <span class="tb-prop-nomi">${esc(nomi(p))}${p.spreco === 0 ? `<span class="tb-prop-tag">${esc(P.perfect ?? "")}</span>` : ""}</span>
+              <span class="tb-prop-nomi">${esc(nomi(p))}${etichetta(p.spreco)}</span>
               <span class="tb-prop-posti">${esc((P.places ?? "").replace("{n}", String(p.posti)))}</span>
             </button>`).join("");
           // Nessuna proposta: si dice perche', e si lascia decidere il cameriere.
@@ -862,6 +899,7 @@ const Isola = cliccabile ? "button" : "div";
         const salva = document.getElementById("tb-p-salva") as HTMLButtonElement | null;
         const numeriP = [...document.querySelectorAll<HTMLButtonElement>(".tb-pn")];
         const campo = document.getElementById("tb-p-campo") as HTMLInputElement | null;
+        const passo = document.getElementById("tb-p-passo");
         const imposta = (n: number) => {
           persone = Math.min(100, Math.max(1, Math.floor(n) || 1));
           numeriP.forEach((b) => b.setAttribute("aria-pressed",
@@ -872,10 +910,11 @@ const Isola = cliccabile ? "button" : "div";
         numeriP.forEach((b) => b.addEventListener("click", () => {
           if (b.dataset.n === "piu") {
             // «10+»: il campo, gia' a 10 (o al numero di adesso), pronto da scrivere.
-            if (campo) { campo.hidden = false; campo.focus(); campo.select(); }
+            if (passo) passo.hidden = false;
+            if (campo) { campo.focus(); campo.select(); }
             imposta(Math.max(10, Number(campo?.value) || 10));
           } else {
-            if (campo) campo.hidden = true;
+            if (passo) passo.hidden = true;
             imposta(Number(b.dataset.n));
           }
         }));
@@ -883,6 +922,15 @@ const Isola = cliccabile ? "button" : "div";
           const v = Math.floor(Number(campo.value));
           if (v >= 1) imposta(v);
         });
+        // − e + accanto al campo: da 10 in su (sotto ci sono i bottoni 1–9).
+        const passa = (delta: number) => {
+          if (!campo) return;
+          const n = Math.min(100, Math.max(10, (Math.floor(Number(campo.value)) || 10) + delta));
+          campo.value = String(n);
+          imposta(n);
+        };
+        document.getElementById("tb-p-meno")?.addEventListener("click", () => passa(-1));
+        document.getElementById("tb-p-piu")?.addEventListener("click", () => passa(1));
         salva?.addEventListener("click", async () => {
           salva.disabled = true;
           const testo = salva.textContent;
@@ -891,6 +939,50 @@ const Isola = cliccabile ? "button" : "div";
           salva.disabled = false;
           salva.textContent = testo;
         });
+
+        // ---- Piu' tempo al tavolo: +15 / +30 / +45 ----
+        const finEl = document.getElementById("tb-ext-fine");
+        const avvisoExt = document.getElementById("tb-ext-avviso");
+        let armatoExt: { b: HTMLButtonElement; t: number } | null = null;
+        const disarma = () => {
+          if (!armatoExt) return;
+          window.clearTimeout(armatoExt.t);
+          armatoExt.b.classList.remove("is-armato");
+          armatoExt.b.textContent = armatoExt.b.dataset.testo ?? "";
+          armatoExt = null;
+        };
+        document.querySelectorAll<HTMLButtonElement>(".tb-ext-btn").forEach((b) => b.addEventListener("click", async () => {
+          const forza = armatoExt?.b === b;
+          if (!forza) disarma();
+          b.disabled = true;
+          if (avvisoExt && !forza) avvisoExt.hidden = true;
+          try {
+            const res = await fetch("/api/admin/salle-seat", {
+              method: "POST", headers: await authM(),
+              body: JSON.stringify({ azione: "estendi", table: d.tavoloId, minuti: Number(b.dataset.min), forza }),
+            });
+            const j = (await res.json().catch(() => ({}))) as { fine?: string | null; conflitto?: boolean; error?: string };
+            if (res.ok) {
+              disarma();
+              if (avvisoExt) avvisoExt.hidden = true;
+              if (finEl && j.fine) finEl.textContent = (finEl.dataset.tpl ?? "").replace("{h}", j.fine);
+              b.classList.add("is-fatto");
+              window.setTimeout(() => b.classList.remove("is-fatto"), 900);
+            } else if (j.conflitto) {
+              // Una prenotazione arriva: si dice chi, e il secondo tocco conferma.
+              if (avvisoExt) { avvisoExt.textContent = j.error ?? ""; avvisoExt.hidden = false; }
+              b.classList.add("is-armato");
+              b.textContent = b.dataset.conferma ?? "";
+              armatoExt = { b, t: window.setTimeout(() => { disarma(); if (avvisoExt) avvisoExt.hidden = true; }, 5000) };
+            } else if (avvisoExt) {
+              avvisoExt.textContent = j.error ?? P.mvError ?? "";
+              avvisoExt.hidden = false;
+            }
+          } catch {
+            if (avvisoExt) { avvisoExt.textContent = P.mvError ?? ""; avvisoExt.hidden = false; }
+          }
+          b.disabled = false;
+        }));
 
         // ---- «Déplacer»: prima le tre possibilita', poi le proposte ----
         const sposta = document.getElementById("tb-sposta");
@@ -914,9 +1006,11 @@ const Isola = cliccabile ? "button" : "div";
           const dopo = scelta.map((id) => nomeDi.get(id) ?? "?").sort(perNome).join(" + ");
           ok.textContent = `${P.move ?? ""} · ${nomiAdesso} → ${dopo}`;
         };
-        const bottone = (i: number, nomi: string, sotto: string, perfetta = false) => `
+        const bottone = (i: number, nomi: string, sotto: string, spreco: number | null = null) => `
           <button type="button" class="tb-prop" data-i="${i}" aria-pressed="false">
-            <span class="tb-prop-nomi">${esc(nomi)}${perfetta ? `<span class="tb-prop-tag">${esc(P.perfect ?? "")}</span>` : ""}</span>
+            <span class="tb-prop-nomi">${esc(nomi)}${spreco === null ? "" : spreco === 0
+              ? `<span class="tb-prop-tag">${esc(P.perfect ?? "")}</span>`
+              : spreco < 0 ? `<span class="tb-prop-tag is-stretto">${esc(P.squeeze ?? "")}</span>` : ""}</span>
             <span class="tb-prop-posti">${esc(sotto)}</span>
           </button>`;
         const disegna = () => {
@@ -930,7 +1024,7 @@ const Isola = cliccabile ? "button" : "div";
               html += `<p class="tb-zona">${esc(g.zona)}</p>`;
               html += g.proposte.map((p: Proposta) => {
                 lista.push(p.ids);
-                return bottone(lista.length - 1, p.nomi.join(" + "), posti(p.posti), p.spreco === 0);
+                return bottone(lista.length - 1, p.nomi.join(" + "), posti(p.posti), p.spreco);
               }).join("");
             }
           } else if (modo === "aggiungi" || modo === "libera") {
@@ -969,6 +1063,84 @@ const Isola = cliccabile ? "button" : "div";
           aggiornaOk();
         });
       }
+    </script>
+    <script>
+      /* MODIFICARE UN ORDINE (23/10/2026): la matita apre le righe con − / +,
+         il totale si aggiorna, «Enregistrer» manda le quantita' nuove. Il
+         server toglie cio' che scende e manda cio' che sale come ordine
+         nuovo (ticket solo dei piatti in piu'). Un piatto che non c'era passa
+         da «Ajouter des plats» → Commander. */
+      import { authFresh as authE } from "../../../lib/admin/auth";
+      import { importoDa } from "../../../lib/soldi";
+      const PE = (document.getElementById("tb-parole")?.dataset ?? {}) as Record<string, string>;
+      const euroE = (c: number) => importoDa(c, PE.loc || "fr-BE");
+      const tavoloE = new URLSearchParams(location.search).get("id") ?? "";
+      document.querySelectorAll<HTMLButtonElement>(".tb-ed-apri").forEach((apri) => {
+        const card = apri.closest(".tb-card");
+        const ed = card?.querySelector<HTMLElement>(".tb-ed");
+        const vista = card?.querySelector<HTMLElement>(".tb-vista");
+        if (!card || !ed || !vista) return;
+        const righe = [...ed.querySelectorAll<HTMLElement>(".tb-ed-riga")];
+        const qty = new Map(righe.map((r) => [r, Number(r.dataset.max) || 0]));
+        const salva = ed.querySelector<HTMLButtonElement>(".tb-ed-salva");
+        const err = ed.querySelector<HTMLElement>(".tb-ed-err");
+        const disegna = () => {
+          let tot = 0;
+          let cambiato = false;
+          let meno = false;
+          let piuDi = false;
+          righe.forEach((r) => {
+            const q = qty.get(r) ?? 0;
+            const max = Number(r.dataset.max) || 0;
+            tot += q * (Number(r.dataset.prezzo) || 0);
+            if (q !== max) cambiato = true;
+            if (q < max) meno = true;
+            if (q > max) piuDi = true;
+            const b = r.querySelector("b");
+            if (b) b.textContent = String(q);
+            r.classList.toggle("is-zero", q === 0);
+            const bMeno = r.querySelector<HTMLButtonElement>('[data-d="-1"]');
+            const bPiu = r.querySelector<HTMLButtonElement>('[data-d="1"]');
+            if (bMeno) bMeno.disabled = q <= 0;
+            // Lo stesso tetto del server (MAX_QTY_RIGA): un dito che scivola non ordina 50 pizze.
+            if (bPiu) bPiu.disabled = q >= 50;
+          });
+          const totEl = ed.querySelector(".tb-ed-tot");
+          if (totEl) totEl.textContent = euroE(tot);
+          const vuoto = righe.every((r) => (qty.get(r) ?? 0) === 0);
+          ed.querySelector<HTMLElement>(".tb-ed-avviso")!.hidden = !meno || vuoto;
+          ed.querySelector<HTMLElement>(".tb-ed-piu")!.hidden = !piuDi;
+          ed.querySelector<HTMLElement>(".tb-ed-vuoto")!.hidden = !vuoto;
+          if (salva) salva.disabled = !cambiato;
+        };
+        righe.forEach((r) => r.querySelectorAll<HTMLButtonElement>("[data-d]").forEach((b) => b.addEventListener("click", () => {
+          qty.set(r, Math.min(50, Math.max(0, (qty.get(r) ?? 0) + Number(b.dataset.d))));
+          disegna();
+        })));
+        apri.addEventListener("click", () => {
+          const si = ed.hidden;
+          ed.hidden = !si;
+          vista.hidden = si;
+          apri.setAttribute("aria-expanded", si ? "true" : "false");
+          if (!si) { righe.forEach((r) => qty.set(r, Number(r.dataset.max) || 0)); disegna(); }
+        });
+        salva?.addEventListener("click", async () => {
+          salva.disabled = true;
+          if (err) err.textContent = "";
+          const nuove: Record<string, number> = {};
+          righe.forEach((r) => { nuove[r.dataset.i ?? ""] = qty.get(r) ?? 0; });
+          try {
+            const res = await fetch("/api/admin/salle-order", {
+              method: "POST", headers: await authE(),
+              body: JSON.stringify({ azione: "togli", table: tavoloE, order: ed.dataset.ordine, qty: nuove }),
+            });
+            if (res.ok) { location.reload(); return; }
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            if (err) err.textContent = j.error ?? "";
+          } catch { if (err) err.textContent = "…"; }
+          salva.disabled = false;
+        });
+      });
     </script>
   </body>
 </html>

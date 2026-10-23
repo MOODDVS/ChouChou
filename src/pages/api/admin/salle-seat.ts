@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
-import { installaClienti, annullaInstallazione, spostaTavoli, cambiaPersone } from "../../../lib/admin/installaTavolo";
+import { installaClienti, annullaInstallazione, spostaTavoli, cambiaPersone, estendiTavolo } from "../../../lib/admin/installaTavolo";
 import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
 import { adminT } from "../../../i18n/admin";
 
@@ -17,6 +17,9 @@ import { adminT } from "../../../i18n/admin";
  *   La tavolata seduta a `table` va sui tavoli `tables` (cambiare tavolo,
  *   aggiungerne, liberarne). 409 se un collega ne ha preso uno.
  * POST { azione: "persone", table, people } → { ok: true }   (23/10/2026)
+ * POST { azione: "estendi", table, minuti: 15|30|45, forza? } → { ok, fine }
+ *   (23/10/2026) piu' tempo al tavolo; 409 { conflitto } se una prenotazione
+ *   sugli stessi tavoli inizia nei minuti aggiunti (si conferma con forza).
  *
  * ⚠️ E' in `API_PALMARE` (permessiRegole): l'UNICA cosa che il palmare puo'
  * chiamare. Per gli altri ruoli vale la pagina «reservations».
@@ -34,7 +37,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
-  let body: { tables?: unknown; people?: unknown; azione?: unknown; table?: unknown };
+  let body: { tables?: unknown; people?: unknown; azione?: unknown; table?: unknown; minuti?: unknown; forza?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -55,6 +58,18 @@ export const POST: APIRoute = async ({ request }) => {
     if (m.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
     if (m.errore === "tavoli") return json({ error: t("sal.seat.badTables") }, 400);
     return json({ error: t("sal.mv.error") }, 500);
+  }
+  if (body.azione === "estendi") {
+    const e = await estendiTavolo(ambito, String(body.table ?? ""), body.minuti, body.forza === true);
+    if (e.ok) return json({ ok: true, fine: e.fine });
+    if (e.errore === "conflitto") {
+      return json({
+        conflitto: true,
+        error: t("sal.ext.conflict").replace("{nom}", e.nome || "—").replace("{h}", e.heure).replace("{t}", e.tavoli.join(" + ")),
+      }, 409);
+    }
+    if (e.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
+    return json({ error: t("sal.mv.error") }, e.errore === "minuti" ? 400 : 500);
   }
   if (body.azione === "persone") {
     const n = await cambiaPersone(ambito, String(body.table ?? ""), body.people);

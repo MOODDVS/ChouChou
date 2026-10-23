@@ -1,7 +1,7 @@
 /**
  * LE ICONE DELLA SALA, una copia sola (23/10/2026).
  *
- * Erano scritte dentro `/admin/reservations` (l'origine della prenotazione,
+ * Erano scritte dentro `/admin/reservations` (e la matita in `/admin/orders`) (l'origine della prenotazione,
  * la riga del modale dettagli). Il palmare usa le STESSE: un walk-in o i
  * coperti hanno un disegno solo in tutto il motore, non uno per pagina.
  *
@@ -19,3 +19,7 @@ export const ICONA_PERSONE =
 /** Il tavolo. */
 export const ICONA_TAVOLO =
   '<svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><ellipse cx="50" cy="25" rx="40" ry="15"/><path d="m50 45c-16.01 0-32.115-3.538-40-10.361v5.361c0 8.737 16.139 15.889 36.666 16.595v26.738h-3.333l-2.271-9.082c-6.539 1.367-11.062 4.16-11.062 7.415 0 4.6 8.955 8.333 19.999 8.333 11.042 0 20-3.733 20-8.333 0-4.124-7.215-7.545-16.666-8.209v-16.862c20.526-.706 36.667-7.858 36.667-16.595v-5.361c-7.885 6.823-23.992 10.361-40 10.361z"/></svg>';
+
+/** La matita: modificare (le card di Commandes, gli ordini del palmare). */
+export const ICONA_MATITA =
+  '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';

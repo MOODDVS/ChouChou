@@ -1,0 +1,146 @@
+---
+/**
+ * L'ISOLA DEL TAVOLO — una sola, per tutte le pagine del palmare (23/10/2026).
+ *
+ * Enzo: «l'isola del tavolo deve essere sempre uguale». La scheda del tavolo
+ * e l'ordine ne avevano due copie, e si erano gia' separate (l'ordine diceva
+ * «Order» al posto di chi e' seduto). Adesso la disegna solo questo file.
+ *
+ * Dentro, da sinistra:
+ *  - la BOLLA con il tavolo o i tavoli («T4», «T4 + T5»);
+ *  - chi e' seduto: icona walk-in (o il nome della prenotazione), icona delle
+ *    persone col numero, «depuis 11:54» — le icone del MOTORE
+ *    (`lib/iconeSala.ts`), mai inventate;
+ *    libero: la sala e i posti;
+ *  - il TIMER coi soli minuti, il colore dice lo stato.
+ *
+ * Lo `<slot />` sta accanto all'isola, nello stesso riquadro: e' li' che la
+ * scheda del tavolo mette il suo modale (si apre sotto l'isola).
+ *
+ * ⚠️ Gli id `tb-isola`, `tb-titolo`, `tb-sottotitolo`, `tb-timer` li usano gli
+ * script delle pagine (il modale, le proposte di «Installer»): non cambiarli.
+ */
+import { DateTime } from "luxon";
+import { adminT, type AdminLang } from "../../i18n/admin";
+import type { SchedaTavolo } from "../../lib/admin/schedaTavolo";
+import { tempoSeduti } from "../../lib/admin/schedaTavoloRegole";
+import { ICONA_WALKIN, ICONA_PERSONE } from "../../lib/iconeSala";
+
+interface Props {
+  scheda: SchedaTavolo | null;
+  lang: AdminLang;
+  /** L'isola e' un bottone che apre il modale (solo la scheda del tavolo). */
+  cliccabile?: boolean;
+}
+const { scheda: s, lang, cliccabile = false } = Astro.props;
+const t = adminT(lang);
+
+const conto = s?.conto ?? null;
+const sessione = s?.sessione ?? null;
+const nomiTavoli = s?.gruppo ? s.gruppo.nomi.join(" + ") : (s?.tavolo.name ?? "");
+const postiTavoli = s?.gruppo ? s.gruppo.posti : (s?.tavolo.seats ?? 0);
+const titolo = s ? `${t("sal.tb.table")} ${nomiTavoli}` : t("sal.title");
+const postiLibero = postiTavoli > 0 ? t("sal.tb.places").replace("{n}", String(postiTavoli)) : "";
+const ora = (iso: string | null | undefined): string =>
+  iso && s ? DateTime.fromISO(iso).setZone(s.fuso).toFormat("HH:mm") : "";
+const dal = conto?.dal ?? sessione?.dal ?? null;
+const stato: { classe: string; testo: string } | null = conto
+  ? { classe: conto.stato === "pending" ? "is-attesa" : "is-aperto", testo: conto.stato === "pending" ? t("sal.tb.tabPending") : t("sal.tb.tabOpen") }
+  : sessione ? { classe: "is-aperto", testo: t("sal.tb.seated") } : null;
+const persone = conto ? conto.persone : (sessione?.persone ?? 0);
+const walkin = Boolean(sessione?.walkin);
+const nome = walkin ? "" : (sessione?.nome || "");
+const Isola = cliccabile ? "button" : "div";
+---
+
+<div class="tb-isola-box">
+  <Isola class="tb-isola" id="tb-isola"
+    {...(cliccabile ? { type: "button", "aria-expanded": "false", "aria-controls": "tb-pannello", "aria-haspopup": "true", title: t("sal.tb.edit") } : {})}>
+    {s && <span class="tb-bolla" id="tb-titolo" data-base={nomiTavoli} title={titolo}>{nomiTavoli}</span>}
+    <span class="tb-chi">
+      {!s ? (
+        <span class="tb-tit"><span class="tb-tit-testo">{t("sal.title")}</span></span>
+      ) : stato ? (
+        <Fragment>
+          <span class="tb-tit">
+            {walkin && <span class="tb-ico tb-ico-walk" role="img" aria-label={t("sal.tb.walkin")} title={t("sal.tb.walkin")} set:html={ICONA_WALKIN} />}
+            {nome && <span class="tb-tit-testo">{nome}</span>}
+            {persone > 0 && (
+              <span class="tb-pers" aria-label={t("sal.tb.people").replace("{n}", String(persone))}>
+                <span class="tb-ico tb-ico-pers" aria-hidden="true" set:html={ICONA_PERSONE} />{persone}
+              </span>
+            )}
+          </span>
+          {dal && <span class="tb-sub">{t("sal.tb.since").replace("{ora}", ora(dal))}</span>}
+        </Fragment>
+      ) : (
+        <Fragment>
+          <span class="tb-tit"><span class="tb-tit-testo">{s.tavolo.zone}</span></span>
+          {postiLibero && <span class="tb-sub" id="tb-sottotitolo" data-base={postiLibero}>{postiLibero}</span>}
+        </Fragment>
+      )}
+    </span>
+    {/* Solo i minuti: lo stato lo dice il colore (e il lettore di schermo). */}
+    {stato && (
+      <span class:list={["tb-timer", stato.classe]} id="tb-timer" data-dal={dal ?? ""} role="timer"
+        aria-label={`${stato.testo}${dal ? ` · ${t("sal.tb.since").replace("{ora}", ora(dal))}` : ""}`}
+        title={stato.testo}>
+        {dal ? <b>{tempoSeduti(dal, Date.now())}</b> : <b>·</b>}
+      </span>
+    )}
+  </Isola>
+  <slot />
+</div>
+
+<style is:global>
+  .tb-isola-box { position: relative; display: flex; justify-content: center; max-width: 100%; }
+  .tb-isola {
+    display: flex; align-items: center; gap: 0.6rem;
+    min-height: 48px; max-width: min(92vw, 420px); min-width: 0;
+    padding: 5px 18px; border-radius: 999px;
+    border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+  }
+  /* Un tavolo occupato nella scheda: l'isola e' un BOTTONE che apre il modale. */
+  button.tb-isola { font: inherit; cursor: pointer; }
+  .tb-chi { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; text-align: left; }
+  /* Il timer: lo stato col suo colore, e da quanto. */
+  .tb-timer {
+    flex-shrink: 0; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 64px; height: 38px; padding: 0 0.7rem; border-radius: 999px; line-height: 1.05;
+    margin-right: -13px;
+  }
+  .tb-timer b { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .tb-timer.is-aperto { background: #4cc38a; color: #0b1f14; }
+  .tb-timer.is-attesa { background: #ff9f43; color: #241200; }
+  /* La bolla del tavolo: a sinistra, stessa altezza e stesso rientro del
+     timer a destra. Piu' tavoli: la bolla si allunga. */
+  .tb-bolla {
+    flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    min-width: 38px; height: 38px; padding: 0 0.75rem; margin-left: -13px; border-radius: 999px;
+    background: var(--c-text); color: var(--c-bg); font-weight: 800; font-size: 0.95rem; white-space: nowrap;
+    max-width: 45vw; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tb-tit { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-family: var(--font-body); font-weight: 700; font-size: 0.95rem; line-height: 1.2; color: var(--c-text); }
+  .tb-tit-testo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Le icone ALTE QUANTO IL NUMERO, e le due della stessa misura (Enzo,
+     23/10/2026). In em, cosi' seguono il testo. */
+  .tb-ico { display: inline-flex; flex-shrink: 0; }
+  .tb-ico svg { display: block; width: auto; height: 0.9em; }
+  /* Un po' piu' d'aria fra il walk-in e le persone. */
+  .tb-ico-walk { margin-right: 0.3rem; }
+  .tb-pers { display: inline-flex; align-items: center; gap: 0.15rem; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .tb-sub { min-width: 0; font-size: 0.75rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+
+<script>
+  // IL TIMER DELL'ISOLA: ricalcolato ogni 30 secondi, e subito quando il
+  // telefono si riaccende (una pagina in tasca non conta).
+  import { tempoSeduti } from "../../lib/admin/schedaTavoloRegole";
+  const timer = document.getElementById("tb-timer");
+  const cifra = timer?.querySelector("b");
+  if (timer && cifra && timer.dataset.dal) {
+    const giro = () => { cifra.textContent = tempoSeduti(timer.dataset.dal, Date.now()); };
+    window.setInterval(giro, 30000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) giro(); });
+  }
+</script>
