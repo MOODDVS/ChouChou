@@ -5,6 +5,11 @@
  * Solo LETTURA, e tutto in una volta: il palmare non ha API, la pagina
  * `/admin/salle/table` la chiede nel render.
  *
+ * ⚠️ VELOCITA' (23/10/2026): i dati del giorno arrivano da `letturaSala`
+ * (una lettura parallela, la pagina la passa e la riusa per il modale);
+ * qui resta UN solo viaggio in piu', il riassunto del conto OPPURE gli ordini
+ * della sessione. Prima erano cinque o sei letture in fila.
+ *
  * Un tavolo, in quest'ordine di domande:
  *  1. ha un CONTO APERTO (da validare o aperto)? → il riassunto e' quello del
  *     tablet di Commandes (`riassumiConti`), cosi' resto e invii non possono
@@ -21,9 +26,9 @@
  */
 import { DateTime } from "luxon";
 import { leggi, type Ambito } from "./sede";
-import { fusoDi } from "../fuso";
 import { piattiVeri } from "./ordiniConti";
-import { contiApertiDellaSala, riassumiConti, type RiassuntoConto } from "./contiSala";
+import { riassumiConti, type RiassuntoConto } from "./contiSala";
+import { letturaSala, type LetturaSala } from "./letturaSala";
 import { tavoloDellaRiga, tavoliDelleRiga, prossimaPrenotazione, type PrenotazioneDelGiorno } from "./schedaTavoloRegole";
 
 export interface TavoloScheda {
@@ -67,102 +72,86 @@ export interface SchedaTavolo {
   fuso: string;
 }
 
-/** `null` = il tavolo non esiste (o non e' di questo punto). */
-export async function schedaTavolo(ambito: Ambito, tavoloId: string): Promise<SchedaTavolo | null> {
+/** `null` = il tavolo non esiste (o non e' di questo punto).
+ *  `lettura`: quella della pagina, se l'ha gia' fatta (deve avere i conti e
+ *  le chiamate). */
+export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: LetturaSala): Promise<SchedaTavolo | null> {
   if (!/^[0-9a-f-]{36}$/i.test(tavoloId)) return null;
-  const { data: tRaw } = await leggi("restaurant_tables", ambito, "id, zone, name, seats").eq("id", tavoloId).maybeSingle();
-  const t = tRaw as unknown as { id: string; zone: string; name: string; seats: number } | null;
+  const l = lettura ?? await letturaSala(ambito, { conti: true, chiamate: true });
+  const t = l.tavoli.find((x) => x.id === tavoloId);
   if (!t) return null;
-
-  const fuso = await fusoDi(ambito);
-  const ora = DateTime.now().setZone(fuso);
-  const oggi = ora.toFormat("yyyy-MM-dd");
-
-  const [conti, { data: resaRaw }, chiamate] = await Promise.all([
-    contiApertiDellaSala(ambito),
-    // Le prenotazioni di oggi che possono toccare il tavolo: chi e' seduto,
-    // e chi deve ancora arrivare.
-    leggi("reservations", ambito, "id, heure, people, first_name, last_name, status, tables, seated_at, tab_status")
-      .eq("date", oggi)
-      .in("status", ["pending", "confirmed", "seated"]),
-    leggi("table_calls", ambito, "reason, status, created_at")
-      .eq("table_id", tavoloId)
-      .eq("status", "open")
-      .gte("created_at", ora.minus({ hours: 12 }).toUTC().toISO() as string)
-      .then((r) => (r.error ? [] : ((r.data ?? []) as unknown as { reason: string | null }[]))),
-  ]);
+  const { fuso, ora } = l;
 
   // 1. Il conto aperto su questo tavolo (quello di partenza o uno unito).
-  const mioConto = conti.find((c) => tavoloDellaRiga(c, tavoloId));
-  const conto = mioConto ? ((await riassumiConti(ambito, [mioConto]))[0] ?? null) : null;
-
-  const resa = (resaRaw ?? []) as unknown as {
-    id: string; heure: string; people: number; first_name: string; last_name: string;
-    status: string; tables: unknown; seated_at: string | null; tab_status: string | null;
-  }[];
-  const suoi = resa.filter((r) => tavoloDellaRiga(r, tavoloId));
-
+  const mioConto = l.conti.find((c) => tavoloDellaRiga(c, tavoloId));
+  // Le prenotazioni di oggi che toccano il tavolo: chi e' seduto, chi arriva.
+  const suoi = l.righe.filter((r) => tavoloDellaRiga(r, tavoloId));
   // 2. Senza conto: la sessione seduta di oggi, la piu' recente.
+  const seduta = mioConto ? undefined : suoi
+    .filter((r) => r.status === "seated")
+    .sort((a, b) => String(b.seated_at ?? "").localeCompare(String(a.seated_at ?? "")))[0];
+
+  // L'unico viaggio in piu': il riassunto del conto, o gli ordini della sessione.
+  const [conto, oRaw] = await Promise.all([
+    mioConto ? riassumiConti(ambito, [mioConto]).then((x) => x[0] ?? null) : Promise.resolve(null),
+    seduta
+      ? leggi("orders", ambito, "id, customer_name, items, total_cents, status, created_at")
+          .eq("reservation_id", seduta.id)
+          .neq("status", "cancelled")
+          .order("created_at", { ascending: true })
+          .then((r) => r.data ?? [])
+      : Promise.resolve([]),
+  ]);
+
   let sessione: SchedaTavolo["sessione"] = null;
   let idsGruppo: string[] = mioConto
     ? [mioConto.tab_table_id, ...(mioConto.tables ?? [])].filter((x): x is string => Boolean(x))
     : [];
-  if (!conto) {
-    const seduta = suoi
-      .filter((r) => r.status === "seated")
-      .sort((a, b) => String(b.seated_at ?? "").localeCompare(String(a.seated_at ?? "")))[0];
-    if (seduta) {
-      idsGruppo = tavoliDelleRiga(seduta.tables);
-      const { data: oRaw } = await leggi("orders", ambito, "id, customer_name, items, total_cents, status, created_at")
-        .eq("reservation_id", seduta.id)
-        .neq("status", "cancelled")
-        .order("created_at", { ascending: true });
-      const ordini = ((oRaw ?? []) as unknown as {
-        id: string; customer_name: string | null; status: string; total_cents: number | null; created_at: string;
-        items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number }[] | null;
-      }[]).map((o) => ({
-        id: o.id,
-        nome: String(o.customer_name ?? "").trim(),
-        ora: DateTime.fromISO(o.created_at).setZone(fuso).toFormat("HH:mm"),
-        stato: o.status,
-        totale_cents: Number(o.total_cents) || 0,
-        piatti: piattiVeri(o.items ?? []).map((p) => ({
-          qty: Math.max(1, Math.floor(Number(p.qty) || 1)),
-          nome: String(p.base_name ?? p.name ?? "").trim(),
-          variante: String(p.variant_label ?? "").trim() || null,
-        })),
-      }));
-      const nome = [seduta.first_name, seduta.last_name].map((x) => String(x ?? "").trim()).filter(Boolean).join(" ");
-      sessione = {
-        nome,
-        walkin: nome === "Walk-in",
-        persone: Number(seduta.people) || 0,
-        dal: seduta.seated_at,
-        ordini,
-        totale_cents: ordini.reduce((s, o) => s + o.totale_cents, 0),
-      };
-    }
+  if (seduta) {
+    idsGruppo = tavoliDelleRiga(seduta.tables);
+    const ordini = ((oRaw ?? []) as unknown as {
+      id: string; customer_name: string | null; status: string; total_cents: number | null; created_at: string;
+      items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number }[] | null;
+    }[]).map((o) => ({
+      id: o.id,
+      nome: String(o.customer_name ?? "").trim(),
+      ora: DateTime.fromISO(o.created_at).setZone(fuso).toFormat("HH:mm"),
+      stato: o.status,
+      totale_cents: Number(o.total_cents) || 0,
+      piatti: piattiVeri(o.items ?? []).map((p) => ({
+        qty: Math.max(1, Math.floor(Number(p.qty) || 1)),
+        nome: String(p.base_name ?? p.name ?? "").trim(),
+        variante: String(p.variant_label ?? "").trim() || null,
+      })),
+    }));
+    const nome = [seduta.first_name, seduta.last_name].map((x) => String(x ?? "").trim()).filter(Boolean).join(" ");
+    sessione = {
+      nome,
+      walkin: nome === "Walk-in",
+      persone: Number(seduta.people) || 0,
+      dal: seduta.seated_at,
+      ordini,
+      totale_cents: ordini.reduce((n, o) => n + o.totale_cents, 0),
+    };
   }
 
-  // Il gruppo: i tavoli uniti, nell'ordine in cui sono stati scelti.
-  idsGruppo = [...new Set(idsGruppo.map(String))];
-  let gruppo: SchedaTavolo["gruppo"] = null;
-  if (idsGruppo.length > 1) {
-    const { data: gRaw } = await leggi("restaurant_tables", ambito, "id, name, seats").in("id", idsGruppo);
-    const perId = new Map(((gRaw ?? []) as unknown as { id: string; name: string; seats: number }[]).map((x) => [String(x.id), x]));
-    const presenti = idsGruppo.map((id) => perId.get(id)).filter((x): x is { id: string; name: string; seats: number } => Boolean(x));
-    if (presenti.length > 1) {
-      gruppo = {
+  // Il gruppo: i tavoli uniti, dai tavoli gia' letti (nessun viaggio).
+  const perId = new Map(l.tavoli.map((x) => [x.id, x]));
+  const presenti = [...new Set(idsGruppo.map(String))]
+    .map((id) => perId.get(id))
+    .filter((x): x is NonNullable<typeof x> => Boolean(x));
+  const gruppo: SchedaTavolo["gruppo"] = presenti.length > 1
+    ? {
         // In ordine naturale («T1 + T2», mai «T2 + T1»): la catena del piano
         // puo' essere disegnata al contrario, il cameriere legge i numeri.
-        nomi: presenti.map((x) => String(x.name ?? "")).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
-        posti: presenti.reduce((n, x) => n + (Math.floor(Number(x.seats)) || 0), 0),
-      };
-    }
-  }
+        nomi: presenti.map((x) => x.name).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+        posti: presenti.reduce((n, x) => n + x.seats, 0),
+      }
+    : null;
 
+  const chiamate = l.chiamate.filter((c) => String(c.table_id ?? "") === tavoloId);
   return {
-    tavolo: { id: t.id, name: t.name, zone: t.zone, seats: Number(t.seats) || 0 },
+    tavolo: { id: t.id, name: t.name, zone: t.zone, seats: t.seats },
     gruppo,
     conto,
     sessione,

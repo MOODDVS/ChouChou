@@ -61,17 +61,25 @@ export async function ordinaDalPalmare(opz: {
   const ora = DateTime.now().setZone(fuso);
   const oggi = ora.toFormat("yyyy-MM-dd");
 
+  /* ⚠️ VELOCITA' (23/10/2026): conti, sessione, piatti e nomi dei tavoli si
+     leggono INSIEME — erano quattro letture in fila prima di scrivere. */
+  const ids = [...new Set(righe.map((r) => String(r.id ?? "")))].filter(Boolean);
+  const [conti, { data: sedutiRaw }, { data: piatti, error }, { data: tuttiRaw }] = await Promise.all([
+    contiApertiDellaSala(ambito),
+    leggi("reservations", ambito, "id, first_name, last_name, tables, seated_at")
+      .eq("date", oggi)
+      .eq("status", "seated"),
+    piattiPerOrdine(ids, ambito),
+    leggi("restaurant_tables", ambito, "id, name"),
+  ]);
+
   // ---- Chi c'e' seduto: il conto aperto, o la sessione di oggi ----
-  const conti = await contiApertiDellaSala(ambito);
   const rigaConto = conti.find((c) => c.date === oggi && c.status === "seated" && tavoloDellaRiga(c, tavoloId)) ?? null;
   if (rigaConto && rigaConto.tab_status === "pending") return { ok: false, errore: "valida_prima" };
 
   let sessione: { id: string; nome: string; tavoli: string[] } | null = null;
   if (!rigaConto) {
-    const { data } = await leggi("reservations", ambito, "id, first_name, last_name, tables, seated_at")
-      .eq("date", oggi)
-      .eq("status", "seated");
-    const seduta = ((data ?? []) as unknown as { id: string; first_name: string; last_name: string; tables: unknown; seated_at: string | null }[])
+    const seduta = ((sedutiRaw ?? []) as unknown as { id: string; first_name: string; last_name: string; tables: unknown; seated_at: string | null }[])
       .filter((r) => tavoloDellaRiga(r, tavoloId))
       .sort((a, b) => String(b.seated_at ?? "").localeCompare(String(a.seated_at ?? "")))[0];
     if (!seduta) return { ok: false, errore: "libero" };
@@ -83,8 +91,6 @@ export async function ordinaDalPalmare(opz: {
   }
 
   // ---- Le righe, coi prezzi del database ----
-  const ids = [...new Set(righe.map((r) => String(r.id ?? "")))].filter(Boolean);
-  const { data: piatti, error } = await piattiPerOrdine(ids, ambito);
   if (error || !piatti) return { ok: false, errore: "menu" };
   const items: Record<string, unknown>[] = [];
   for (const r of righe) {
@@ -105,8 +111,9 @@ export async function ordinaDalPalmare(opz: {
   const idsTavoli = rigaConto
     ? [rigaConto.tab_table_id, ...(rigaConto.tables ?? [])].filter((x): x is string => Boolean(x))
     : (sessione?.tavoli ?? []);
-  const { data: tRaw } = await leggi("restaurant_tables", ambito, "id, name").in("id", [...new Set([tavoloId, ...idsTavoli])]);
-  const nomi = ((tRaw ?? []) as unknown as { id: string; name: string }[])
+  const voluti = new Set([tavoloId, ...idsTavoli]);
+  const nomi = ((tuttiRaw ?? []) as unknown as { id: string; name: string }[])
+    .filter((t) => voluti.has(String(t.id)))
     .map((t) => String(t.name ?? ""))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   const etichetta = nomi.join(" + ");

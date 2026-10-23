@@ -41,6 +41,7 @@ import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo
 import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { tempoSeduti } from "../../../lib/admin/schedaTavoloRegole";
+import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import { ICONA_WALKIN, ICONA_PERSONE } from "../../../lib/iconeSala";
 
 export const prerender = false;
@@ -55,15 +56,24 @@ const id = Astro.url.searchParams.get("id") ?? "";
 let s: SchedaTavolo | null = null;
 let inst: ContestoInstallazione | null = null;
 let mv: ContestoSpostamento | null = null;
+/* ⚠️ VELOCITA' (23/10/2026): UNA lettura parallela della sala
+   (`letturaSala`), riusata dalla scheda, dalle proposte di «Installer» e dal
+   modale: prima erano una decina di letture in fila. Il tempo speso sta in
+   `Server-Timing` (strumenti del browser → Rete). */
+const crono = cronometro();
 try {
   const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
   const ambito = await ambitoDiRichiesta(Astro.request, staff);
-  s = await schedaTavolo(ambito, id);
+  const lettura = await letturaSala(ambito, { conti: true, chiamate: true });
+  crono.tappa("sala");
+  s = await schedaTavolo(ambito, id, lettura);
+  crono.tappa("tavolo");
   // Solo per un tavolo libero: e' li' che si chiede «quanti siete?».
-  if (s && !s.conto && !s.sessione) inst = await contestoInstallazione(ambito, id);
+  if (s && !s.conto && !s.sessione) inst = await contestoInstallazione(ambito, id, lettura);
   // Occupato: il modale dell'isola (persone, «Déplacer») ha bisogno delle sale.
-  else if (s) mv = await contestoSpostamento(ambito, id);
+  else if (s) mv = await contestoSpostamento(ambito, id, lettura);
 } catch { s = null; }
+Astro.response.headers.set("Server-Timing", crono.intestazione());
 const libero = Boolean(s && !s.conto && !s.sessione);
 /* Seduti ma NESSUN ordine, e nessun conto: se se ne vanno, si annulla e i
    tavoli tornano liberi (23/10/2026). Con un ordine fatto no: c'e' da

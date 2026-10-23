@@ -34,7 +34,8 @@ import { COOKIE_LINGUA_PALMARE } from "../../lib/admin/linguaPalmareRegole";
 import { adminT, LINGUE_ADMIN } from "../../i18n/admin";
 import { claimsDaToken } from "../../lib/admin/adminAuth";
 import { supabaseAdmin } from "../../lib/db";
-import { ambitoDiRichiesta, leggi, leggiConfig } from "../../lib/admin/sede";
+import { ambitoDiRichiesta, leggi } from "../../lib/admin/sede";
+import { configInCache, cronometro } from "../../lib/admin/letturaSala";
 import { saleDelPalmare, pianoVerticale, type SalaPalmare } from "../../lib/pianoPalmare";
 import { tavoliNonDisponibili } from "../../lib/salaInstallaRegole";
 import { durateDelServizio } from "../../lib/pianoSalaRegole";
@@ -48,26 +49,18 @@ const lang = await linguaPalmare(Astro.request);
 const t = adminT(lang);
 
 const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
-let nomeIntero = "";
-let foto = "";
-if (staff?.employee_id) {
+/* ⚠️ VELOCITA' (23/10/2026): il nome del cameriere e la sala si leggono
+   INSIEME, non uno dopo l'altro; la configurazione del piano arriva dalla
+   cache (30 s, svuotata a ogni salvataggio). Il tempo in `Server-Timing`. */
+const crono = cronometro();
+const leggiCameriere = async (): Promise<{ name?: string; photo_url?: string | null } | null> => {
   // Il palmare di un dipendente: nome e foto sono quelli del Team.
+  if (!staff?.employee_id) return null;
   try {
     const { data } = await supabaseAdmin.from("team").select("name, photo_url").eq("id", staff.employee_id).maybeSingle();
-    const riga = (data ?? null) as { name?: string; photo_url?: string | null } | null;
-    nomeIntero = String(riga?.name ?? "").trim();
-    foto = String(riga?.photo_url ?? "").trim();
-  } catch { nomeIntero = ""; }
-}
-// Il palmare del locale (o un dipendente cancellato dal Team): il nome
-// dell'utente, scritto in Super.
-if (!nomeIntero) nomeIntero = staff?.nome ?? "";
-const iniziali = nomeIntero
-  .split(/\s+/)
-  .filter(Boolean)
-  .slice(0, 2)
-  .map((p) => p[0]?.toUpperCase() ?? "")
-  .join("") || "·";
+    return (data ?? null) as { name?: string; photo_url?: string | null } | null;
+  } catch { return null; }
+};
 
 // LE SALE E LE LORO PIANTINE — lette una volta, tutte: si cambia sala senza
 // tornare al server. ⚠️ Nell'ambito di chi guarda: un palmare legato a una
@@ -79,32 +72,48 @@ let sale: SalaPalmare[] = [];
    qui non viene mai proposto la'. */
 let occupati = new Set<string>();
 let gruppi: string[][] = [];
-try {
-  const ambito = await ambitoDiRichiesta(Astro.request, staff);
-  const ora = DateTime.now().setZone(await fusoDi(ambito));
-  const [{ data: righe }, { valori }, { data: seduti }] = await Promise.all([
-    leggi("restaurant_tables", ambito, "id, zone, name, seats, shape, x, y, w, h"),
-    leggiConfig(ambito, ["reservation_zones", "reservation_plan_areas", "reservation_plan_decor", "reservation_hold_minutes", "reservation_services"]),
-    leggi("reservations", ambito, "heure, status, tables, service_key, extra_minutes, tab_status")
-      .eq("date", ora.toFormat("yyyy-MM-dd"))
-      .eq("status", "seated"),
-  ]);
-  sale = saleDelPalmare({
-    righe,
-    sezioni: valori.get("reservation_zones"),
-    aree: valori.get("reservation_plan_areas"),
-    decori: valori.get("reservation_plan_decor"),
-  });
-  const durate = durateDelServizio(valori.get("reservation_services"), valori.get("reservation_hold_minutes"));
-  const stato = tavoliNonDisponibili({
-    righe: (seduti ?? []) as unknown as Record<string, unknown>[],
-    adessoHHmm: ora.toFormat("HH:mm"),
-    durataNuova: durate.ripiego,
-    durate,
-  });
-  occupati = stato.occupati;
-  gruppi = stato.gruppi;
-} catch { sale = []; }
+const leggiSale = async () => {
+  try {
+    const ambito = await ambitoDiRichiesta(Astro.request, staff);
+    const ora = DateTime.now().setZone(await fusoDi(ambito));
+    const [{ data: righe }, valori, { data: seduti }] = await Promise.all([
+      leggi("restaurant_tables", ambito, "id, zone, name, seats, shape, x, y, w, h"),
+      configInCache(ambito, ["reservation_zones", "reservation_plan_areas", "reservation_plan_decor", "reservation_hold_minutes", "reservation_services"]),
+      leggi("reservations", ambito, "heure, status, tables, service_key, extra_minutes, tab_status")
+        .eq("date", ora.toFormat("yyyy-MM-dd"))
+        .eq("status", "seated"),
+    ]);
+    sale = saleDelPalmare({
+      righe,
+      sezioni: valori.get("reservation_zones"),
+      aree: valori.get("reservation_plan_areas"),
+      decori: valori.get("reservation_plan_decor"),
+    });
+    const durate = durateDelServizio(valori.get("reservation_services"), valori.get("reservation_hold_minutes"));
+    const stato = tavoliNonDisponibili({
+      righe: (seduti ?? []) as unknown as Record<string, unknown>[],
+      adessoHHmm: ora.toFormat("HH:mm"),
+      durataNuova: durate.ripiego,
+      durate,
+    });
+    occupati = stato.occupati;
+    gruppi = stato.gruppi;
+  } catch { sale = []; }
+};
+const [riga] = await Promise.all([leggiCameriere(), leggiSale()]);
+crono.tappa("sala");
+Astro.response.headers.set("Server-Timing", crono.intestazione());
+let nomeIntero = String(riga?.name ?? "").trim();
+const foto = String(riga?.photo_url ?? "").trim();
+// Il palmare del locale (o un dipendente cancellato dal Team): il nome
+// dell'utente, scritto in Super.
+if (!nomeIntero) nomeIntero = staff?.nome ?? "";
+const iniziali = nomeIntero
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((p) => p[0]?.toUpperCase() ?? "")
+  .join("") || "·";
 const piante = sale.map((s, i) => {
   const p = pianoVerticale(s);
   // Il centro di ogni tavolo, gia' girato: da qui passa la striscia del legame.

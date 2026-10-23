@@ -22,6 +22,7 @@ import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo";
 import { getMenuSala, type MenuCategoria } from "../../../lib/db";
 import { importoDa } from "../../../lib/soldi";
+import { cronometro } from "../../../lib/admin/letturaSala";
 
 export const prerender = false;
 
@@ -34,12 +35,21 @@ const euro = (c: number) => importoDa(c, LOC);
 const id = Astro.url.searchParams.get("id") ?? "";
 let s: SchedaTavolo | null = null;
 let menu: MenuCategoria[] = [];
+// ⚠️ VELOCITA' (23/10/2026): il tavolo e il menu INSIEME, non uno dopo
+// l'altro. Il menu si legge anche se poi non serve: e' in cache quasi sempre.
+const crono = cronometro();
 try {
   const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
   const ambito = await ambitoDiRichiesta(Astro.request, staff);
-  s = await schedaTavolo(ambito, id);
-  if (s && (s.sessione || s.conto?.stato === "open")) menu = await getMenuSala(ambito);
+  const [scheda, carta] = await Promise.all([
+    schedaTavolo(ambito, id),
+    getMenuSala(ambito).catch(() => [] as MenuCategoria[]),
+  ]);
+  s = scheda;
+  if (s && (s.sessione || s.conto?.stato === "open")) menu = carta;
 } catch { s = null; }
+crono.tappa("tavolo+menu");
+Astro.response.headers.set("Server-Timing", crono.intestazione());
 
 /** Si puo' ordinare? Solo su un tavolo occupato, e su un conto gia' validato. */
 const bloccato = !s ? t("sal.tb.notFound")

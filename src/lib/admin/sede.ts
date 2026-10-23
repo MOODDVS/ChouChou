@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../db";
 import { cacheOr, cacheDel, cacheDelPrefisso } from "../cache";
+import { invalidaAppConfig } from "../appConfigCache";
 import { decifra } from "../segreti";
 import {
   CHIESTA_TUTTE,
@@ -470,6 +471,21 @@ export async function leggiConfig(ambito: Ambito, chiavi: string[]): Promise<Con
  * indovinare quale valesse. Adesso decide `CLASSIFICA_CONFIG`, una volta.
  */
 export async function scriviConfig(
+  ambito: Ambito,
+  coppie: Record<string, string>,
+): Promise<string | null> {
+  /* ⚠️ La cache di `app_config` (30 s, `appConfigCache`) si svuota a OGNI
+     scrittura, qui, e non a carico di chi chiama: il palmare legge il piano
+     e le durate da quella cache (23/10/2026), e un salvataggio che si
+     dimenticasse di svuotarla lascerebbe la sala vecchia per 30 secondi. */
+  try {
+    return await scriviConfigEsatto(ambito, coppie);
+  } finally {
+    invalidaAppConfig();
+  }
+}
+
+async function scriviConfigEsatto(
   ambito: Ambito,
   coppie: Record<string, string>,
 ): Promise<string | null> {

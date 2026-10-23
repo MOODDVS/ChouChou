@@ -9,14 +9,11 @@
  * e per il QR — chi inquadra il QR di uno di quei tavoli entra nella stessa
  * sessione (`/api/table-session` la ritrova da `tables`).
  */
-import { DateTime } from "luxon";
-import { leggi, inserisci, aggiorna, leggiConfig, type Ambito } from "./sede";
+import type { DateTime } from "luxon";
+import { leggi, inserisci, aggiorna, type Ambito } from "./sede";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
-import { fusoDi } from "../fuso";
-import { servizioInCorso } from "../ordiniRegole";
-import { configSala } from "../schedule";
-import { durateDelServizio } from "../pianoSalaRegole";
-import { catenaDiZona, tavoliNonDisponibili, type TavoloPosti, type ZonaSala } from "../salaInstallaRegole";
+import { catenaDiZona, type TavoloPosti, type ZonaSala } from "../salaInstallaRegole";
+import { letturaSala, occupazioneDa, type LetturaSala, type RigaGiornoSala } from "./letturaSala";
 
 export interface ContestoInstallazione {
   zona: string;
@@ -36,61 +33,33 @@ interface Lettura {
   servizio: string | null;
 }
 
-/**
- * Chi e' preso adesso, in tutto il punto: seduti (`occupati`) e in arrivo
- * (`prenotati`). `escludiId` = una prenotazione da non contare — la tavolata
- * che si sposta: i suoi tavoli si liberano nel momento stesso in cui si muove.
- */
-async function occupazione(ambito: Ambito, escludiId?: string) {
-  const fuso = await fusoDi(ambito);
-  const ora = DateTime.now().setZone(fuso);
-  const [{ valori }, { data: resaRaw }, cfg] = await Promise.all([
-    leggiConfig(ambito, ["reservation_plan_links", "reservation_hold_minutes", "reservation_services"]),
-    leggi("reservations", ambito, "id, heure, status, tables, service_key, extra_minutes, tab_status")
-      .eq("date", ora.toFormat("yyyy-MM-dd"))
-      .in("status", ["pending", "confirmed", "seated"]),
-    configSala(DateTime.now(), ambito).catch(() => null),
-  ]);
-  const durate = durateDelServizio(valori.get("reservation_services"), valori.get("reservation_hold_minutes"));
-  const servizio = cfg ? servizioInCorso(cfg, ora.toFormat("HH:mm")) : null;
-  const righe = ((resaRaw ?? []) as unknown as Record<string, unknown>[])
-    .filter((r) => !escludiId || String(r.id ?? "") !== escludiId);
-  const { occupati, prenotati } = tavoliNonDisponibili({
-    righe,
-    adessoHHmm: ora.toFormat("HH:mm"),
-    durataNuova: (servizio ? durate.perServizio[servizio] : undefined) ?? durate.ripiego,
-    durate,
-  });
-  return { ora, servizio, occupati, prenotati, legami: valori.get("reservation_plan_links") };
-}
-
 const comeTavolo = (t: { id: string; name: string; seats: number }): TavoloPosti =>
-  ({ id: String(t.id), name: String(t.name ?? ""), seats: Math.max(0, Math.floor(Number(t.seats)) || 0) });
+  ({ id: t.id, name: t.name, seats: t.seats });
 
-/** Tutto quello che serve, letto una volta: per la pagina e per l'API. */
-async function leggiSala(ambito: Ambito, tavoloId: string, escludiId?: string): Promise<Lettura | null> {
+/**
+ * La sala di un tavolo, dai dati del giorno gia' letti (`letturaSala`):
+ * nessun viaggio al database. `escludiId` = la tavolata che si sposta.
+ */
+function salaDi(l: LetturaSala, tavoloId: string, escludiId?: string): Lettura | null {
   if (!/^[0-9a-f-]{36}$/i.test(tavoloId)) return null;
-  const { data: tRaw } = await leggi("restaurant_tables", ambito, "id, zone").eq("id", tavoloId).maybeSingle();
-  const zona = String((tRaw as { zone?: string } | null)?.zone ?? "").trim();
+  const zona = l.tavoli.find((t) => t.id === tavoloId)?.zone ?? "";
   if (!zona) return null;
-  const [{ data: tavRaw }, occ] = await Promise.all([
-    leggi("restaurant_tables", ambito, "id, name, seats").eq("zone", zona),
-    occupazione(ambito, escludiId),
-  ]);
+  const { occupati, prenotati } = occupazioneDa(l, escludiId);
   return {
     zona,
-    tavoli: ((tavRaw ?? []) as unknown as { id: string; name: string; seats: number }[]).map(comeTavolo),
-    catene: catenaDiZona(occ.legami, zona),
-    occupati: occ.occupati,
-    prenotati: occ.prenotati,
-    ora: occ.ora,
-    servizio: occ.servizio,
+    tavoli: l.tavoli.filter((t) => t.zone === zona).map(comeTavolo),
+    catene: catenaDiZona(l.legami, zona),
+    occupati,
+    prenotati,
+    ora: l.ora,
+    servizio: l.servizio,
   };
 }
 
-/** Per la pagina: la sala del tavolo, le catene e chi e' preso adesso. */
-export async function contestoInstallazione(ambito: Ambito, tavoloId: string): Promise<ContestoInstallazione | null> {
-  const l = await leggiSala(ambito, tavoloId);
+/** Per la pagina: la sala del tavolo, le catene e chi e' preso adesso.
+ *  `lettura`: quella della pagina, se l'ha gia' fatta. */
+export async function contestoInstallazione(ambito: Ambito, tavoloId: string, lettura?: LetturaSala): Promise<ContestoInstallazione | null> {
+  const l = salaDi(lettura ?? await letturaSala(ambito), tavoloId);
   if (!l) return null;
   return { zona: l.zona, tavoli: l.tavoli, catene: l.catene, occupati: [...l.occupati], prenotati: [...l.prenotati] };
 }
@@ -114,7 +83,7 @@ export async function installaClienti(ambito: Ambito, idsGrezzi: unknown, person
   const ids = [...new Set((Array.isArray(idsGrezzi) ? idsGrezzi : []).map(String))].slice(0, 16);
   const persone = Math.floor(Number(personeGrezze));
   if (!ids.length || !Number.isFinite(persone) || persone < 1 || persone > 100) return { ok: false, errore: "tavoli" };
-  const l = await leggiSala(ambito, ids[0]);
+  const l = salaDi(await letturaSala(ambito), ids[0]);
   if (!l) return { ok: false, errore: "tavoli" };
   const della = new Set(l.tavoli.map((t) => t.id));
   if (ids.some((id) => !della.has(id))) return { ok: false, errore: "tavoli" };
@@ -163,7 +132,7 @@ export type EsitoAnnullamento = { ok: true } | { ok: false; errore: "nessuno" | 
  * un'altra decisione (Commandes).
  */
 export async function annullaInstallazione(ambito: Ambito, tavoloId: string): Promise<EsitoAnnullamento> {
-  const seduta = await sedutaDelTavolo(ambito, tavoloId);
+  const seduta = sedutaDelTavolo(await letturaSala(ambito), tavoloId);
   if (!seduta) return { ok: false, errore: "nessuno" };
   if (seduta.tab_status === "pending" || seduta.tab_status === "open") return { ok: false, errore: "ordini" };
   const { count } = await leggi("orders", ambito, "id", { count: "exact", head: true })
@@ -182,24 +151,13 @@ export async function annullaInstallazione(ambito: Ambito, tavoloId: string): Pr
  * Le regole delle proposte in `lib/salaInstallaRegole.ts`.
  * ===================================================================== */
 
-interface Seduta {
-  id: string;
-  tables: unknown;
-  tab_table_id: string | null;
-  tab_status: string | null;
-  seated_at: string | null;
-  people: number | null;
-}
+type Seduta = RigaGiornoSala;
 
 /** La sessione seduta OGGI su questo tavolo (la piu' recente), o null. */
-async function sedutaDelTavolo(ambito: Ambito, tavoloId: string): Promise<Seduta | null> {
+function sedutaDelTavolo(l: LetturaSala, tavoloId: string): Seduta | null {
   if (!/^[0-9a-f-]{36}$/i.test(tavoloId)) return null;
-  const ora = DateTime.now().setZone(await fusoDi(ambito));
-  const { data } = await leggi("reservations", ambito, "id, tables, tab_table_id, tab_status, seated_at, people")
-    .eq("date", ora.toFormat("yyyy-MM-dd"))
-    .eq("status", "seated");
-  return ((data ?? []) as unknown as Seduta[])
-    .filter((r) => tavoloDellaRiga(r, tavoloId))
+  return l.righe
+    .filter((r) => r.status === "seated" && tavoloDellaRiga(r, tavoloId))
     .sort((a, b) => String(b.seated_at ?? "").localeCompare(String(a.seated_at ?? "")))[0] ?? null;
 }
 
@@ -219,24 +177,23 @@ export interface ContestoSpostamento {
   zona: string;
 }
 
-/** Per il modale: tutte le sale, e chi e' preso adesso tranne questa tavolata. */
-export async function contestoSpostamento(ambito: Ambito, tavoloId: string): Promise<ContestoSpostamento | null> {
-  const seduta = await sedutaDelTavolo(ambito, tavoloId);
+/** Per il modale: tutte le sale, e chi e' preso adesso tranne questa tavolata.
+ *  `lettura`: quella della pagina, se l'ha gia' fatta (nessun viaggio in piu'). */
+export async function contestoSpostamento(ambito: Ambito, tavoloId: string, lettura?: LetturaSala): Promise<ContestoSpostamento | null> {
+  const l = lettura ?? await letturaSala(ambito);
+  const seduta = sedutaDelTavolo(l, tavoloId);
   if (!seduta) return null;
-  const [{ data: tavRaw }, occ] = await Promise.all([
-    leggi("restaurant_tables", ambito, "id, name, seats, zone"),
-    occupazione(ambito, seduta.id),
-  ]);
-  const tutti = (tavRaw ?? []) as unknown as { id: string; name: string; seats: number; zone: string | null }[];
+  const occ = occupazioneDa(l, seduta.id);
+  const tutti = l.tavoli;
   const attuali = tavoliDellaSeduta(seduta);
-  const zona = String(tutti.find((t) => attuali.includes(String(t.id)))?.zone ?? "").trim();
-  const nomiZone = [...new Set(tutti.map((t) => String(t.zone ?? "").trim()).filter(Boolean))]
+  const zona = tutti.find((t) => attuali.includes(t.id))?.zone ?? "";
+  const nomiZone = [...new Set(tutti.map((t) => t.zone).filter(Boolean))]
     .sort((a, b) => (a === zona ? -1 : b === zona ? 1 : a.localeCompare(b, undefined, { numeric: true })));
   return {
     zone: nomiZone.map((z) => ({
       zona: z,
-      tavoli: tutti.filter((t) => String(t.zone ?? "").trim() === z).map(comeTavolo),
-      catene: catenaDiZona(occ.legami, z),
+      tavoli: tutti.filter((t) => t.zone === z).map(comeTavolo),
+      catene: catenaDiZona(l.legami, z),
     })),
     occupati: [...occ.occupati],
     prenotati: [...occ.prenotati],
@@ -268,9 +225,10 @@ export type EsitoSpostamento =
 export async function spostaTavoli(ambito: Ambito, tavoloId: string, idsGrezzi: unknown): Promise<EsitoSpostamento> {
   const ids = [...new Set((Array.isArray(idsGrezzi) ? idsGrezzi : []).map(String))].slice(0, 16);
   if (!ids.length || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) return { ok: false, errore: "tavoli" };
-  const seduta = await sedutaDelTavolo(ambito, tavoloId);
+  const lettura = await letturaSala(ambito);
+  const seduta = sedutaDelTavolo(lettura, tavoloId);
   if (!seduta) return { ok: false, errore: "nessuno" };
-  const l = await leggiSala(ambito, ids[0], seduta.id);
+  const l = salaDi(lettura, ids[0], seduta.id);
   if (!l) return { ok: false, errore: "tavoli" };
   const della = new Map(l.tavoli.map((t) => [t.id, t]));
   if (ids.some((id) => !della.has(id))) return { ok: false, errore: "tavoli" };
@@ -316,7 +274,7 @@ export type EsitoPersone = { ok: true } | { ok: false; errore: "nessuno" | "nume
 export async function cambiaPersone(ambito: Ambito, tavoloId: string, personeGrezze: unknown): Promise<EsitoPersone> {
   const persone = Math.floor(Number(personeGrezze));
   if (!Number.isFinite(persone) || persone < 1 || persone > 100) return { ok: false, errore: "numero" };
-  const seduta = await sedutaDelTavolo(ambito, tavoloId);
+  const seduta = sedutaDelTavolo(await letturaSala(ambito), tavoloId);
   if (!seduta) return { ok: false, errore: "nessuno" };
   const campi: Record<string, unknown> = { people: persone };
   if (seduta.tab_status) campi.tab_people = persone;
