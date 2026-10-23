@@ -526,6 +526,10 @@ const prI18n = {
         color: var(--c-muted); margin: 1.1rem 0 0.35rem; }
       .us-frow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
       .us-frow .us-lab { margin-top: 0; }
+      /* Il ruolo e' il primo campo: niente aria sopra, la da' gia' l'avviso. */
+      .us-lab.us-lab-primo { margin-top: 0; }
+      /* Nome e cognome non sono piu' in cima: prendono l'aria delle altre etichette. */
+      .us-frow-nomi { margin-top: 1.1rem; }
       .us-frow-pass { grid-template-columns: 1fr auto; align-items: center; }
       /* L'errore spinge i bottoni a destra; da vuoto non occupa spazio. */
       #us-overlay .md-foot .us-err { margin-right: auto; }
@@ -997,7 +1001,28 @@ const prI18n = {
     <Modal id="us-overlay" title={t("us.new")} titleId="us-titre" width="460px">
         <p class="note us-hint" id="us-hint">{t("us.newHint")}</p>
 
-        <div class="us-frow">
+        <!-- ⚠️ IL RUOLO PRIMA DI TUTTO (22/10/2026): per il palmare si sceglie
+             il dipendente, e il dipendente porta gia' nome, cognome ed email
+             dal Team. Chiederli prima e poi riscriverli era lavoro buttato. -->
+        <label class="us-lab us-lab-primo">{t("us.role")}</label>
+        <div class="us-roles" id="us-roles">
+          <button type="button" class="us-role" data-role="super">{t("role.super")}</button>
+          <button type="button" class="us-role is-on" data-role="admin">{t("role.admin")}</button>
+          <button type="button" class="us-role" data-role="user">{t("role.user")}</button>
+          <button type="button" class="us-role" data-role="palmare">{t("role.palmare")}</button>
+        </div>
+        <p class="note us-sotto" id="us-role-hint"></p>
+
+        <!-- DIPENDENTE: solo per il palmare, e FACOLTATIVO. «Aucun» = il
+             palmare del locale, passato di mano in mano. Scegliendolo, nome,
+             cognome ed email si riempiono dal Team (solo alla creazione). -->
+        <div id="us-dip-box" hidden>
+          <label class="us-lab" for="us-dip">{t("us.employee")}</label>
+          <select id="us-dip"><option value="">{t("us.employeeNone")}</option></select>
+          <p class="note us-sotto">{t("us.employeeHint")}</p>
+        </div>
+
+        <div class="us-frow us-frow-nomi">
           <div>
             <label class="us-lab" for="us-fname">{t("us.fname")}</label>
             <input type="text" id="us-fname" placeholder={t("us.fname")} autocomplete="off" />
@@ -1017,14 +1042,6 @@ const prI18n = {
           <button type="button" id="us-gen" class="btn">{t("us.gen")}</button>
         </div>
         <p class="note us-sotto" id="us-pass-hint">{t("us.passHint")}</p>
-
-        <label class="us-lab">{t("us.role")}</label>
-        <div class="us-roles" id="us-roles">
-          <button type="button" class="us-role" data-role="super">{t("role.super")}</button>
-          <button type="button" class="us-role is-on" data-role="admin">{t("role.admin")}</button>
-          <button type="button" class="us-role" data-role="user">{t("role.user")}</button>
-        </div>
-        <p class="note us-sotto" id="us-role-hint"></p>
 
         <!-- PAGINE: solo per «utente». Per super e admin il blocco non esiste
              proprio — non e' un elenco disabilitato, che farebbe credere che
@@ -1942,6 +1959,7 @@ const prI18n = {
           super: tr("role.super.desc"),
           admin: tr("role.admin.desc"),
           user: tr("role.user.desc"),
+          palmare: tr("role.palmare.desc"),
         };
         function usRuoloSel(): string {
           return (usRoles?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.role ?? "admin";
@@ -1982,7 +2000,55 @@ const prI18n = {
           );
           if (usRoleHint) usRoleHint.textContent = RUOLO_TESTO[r] ?? "";
           if (usPagineBox) usPagineBox.hidden = r !== "user";
+          if (usDipBox) usDipBox.hidden = r !== "palmare";
         }
+
+        // ---- Il dipendente del palmare (facoltativo) ----------------------
+        // L'elenco e' quello di Réglages → Team: chi ha la casella «Employé»
+        // ed e' attivo. Si carica la prima volta che si apre il modale.
+        const usDipBox = document.getElementById("us-dip-box") as HTMLElement | null;
+        const usDipSel = document.getElementById("us-dip") as HTMLSelectElement | null;
+        let usDipendenti: { id: string; name: string; email: string }[] | null = null;
+        async function usCaricaDipendenti(): Promise<void> {
+          if (usDipendenti) return;
+          try {
+            const res = await fetch("/api/admin/team", { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { team?: { id: string; name: string; email?: string | null; is_employee?: boolean; active?: boolean }[] };
+            usDipendenti = (j.team ?? [])
+              .filter((m) => m.is_employee === true && m.active !== false)
+              .map((m) => ({ id: m.id, name: m.name, email: String(m.email ?? "").trim() }))
+              .sort((a, b) => a.name.localeCompare(b.name));
+          } catch { /* resta «Aucun»: il palmare si crea lo stesso */ }
+        }
+        function usRiempiDipendenti(scelta: string, nomeScelta: string) {
+          if (!usDipSel) return;
+          const lista = [...(usDipendenti ?? [])];
+          // ⚠️ Il dipendente gia' legato resta nell'elenco anche se oggi non
+          // e' piu' attivo (o non e' arrivato): se mancasse, salvando senza
+          // toccare il campo il legame sparirebbe di nascosto.
+          if (scelta && !lista.some((d) => d.id === scelta)) lista.push({ id: scelta, name: nomeScelta || "?", email: "" });
+          usDipSel.innerHTML =
+            `<option value="">${esc(tr("us.employeeNone"))}</option>` +
+            lista.map((d) => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join("");
+          usDipSel.value = scelta;
+        }
+        /**
+         * Scelto il dipendente, nome, cognome ed email vengono dal Team.
+         * ⚠️ SOLO ALLA CREAZIONE: su un utente che esiste gia' l'email e' il suo
+         * login, e cambiarla perche' si e' toccato un menu lo chiuderebbe fuori.
+         * Il Team ha un nome solo: la prima parola e' il nome, il resto il
+         * cognome. Senza email nel Team il campo resta com'e', da scrivere.
+         */
+        usDipSel?.addEventListener("change", () => {
+          if (usEditId) return;
+          const d = (usDipendenti ?? []).find((x) => x.id === usDipSel?.value);
+          if (!d) return;
+          const parti = d.name.trim().split(/\s+/);
+          if (usFname) usFname.value = parti[0] ?? "";
+          if (usLname) usLname.value = parti.slice(1).join(" ");
+          if (usEmail && d.email) usEmail.value = d.email;
+        });
         usRoles?.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".us-role") as HTMLButtonElement | null;
           if (!b || b.disabled) return;
@@ -2033,7 +2099,7 @@ const prI18n = {
           return false;
         }
         let usEditId: string | null = null;
-        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null }[] = [];
+        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null; employee_id?: string | null; employee_name?: string }[] = [];
 
         // ---- Sede dell'utente (multi-sede) ----
         // L'elenco arriva dalla stessa API delle Sedi, gia' caricata da questo
@@ -2086,13 +2152,13 @@ const prI18n = {
             const res = await fetch("/api/admin/users", { headers });
             if (!res.ok) { usList.innerHTML = `<p class="note">${tr("us.loadErr")}</p>`; return; }
             const j = (await res.json()) as {
-              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean; location_id?: string | null }[];
+              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean; location_id?: string | null; employee_id?: string | null; employee_name?: string }[];
             };
             usCache = j.users ?? [];
             usList.innerHTML = (j.users ?? [])
               .map((u) => `
                 <div class="us-row" data-uid="${u.id}">
-                  <span class="us-cell nom">${[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : '<span class="us-tag role-admin">ADMIN</span>'}</span>
+                  <span class="us-cell nom">${[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : u.role === "palmare" ? `<span class="us-tag role-user">${esc(tr("role.palmare"))}${u.employee_name ? ` · ${esc(u.employee_name)}` : ""}</span>` : '<span class="us-tag role-admin">ADMIN</span>'}</span>
                   <span class="us-cell" title="${u.email}">${u.email}${
                     u.location_id ? `<span class="us-tag role-user">${esc(sedi.find((s) => s.id === u.location_id)?.name ?? "?")}</span>` : ""
                   }</span>
@@ -2114,7 +2180,7 @@ const prI18n = {
           if (usPass) usPass.value = usPwd();
         });
 
-        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null; pages?: string[] | null }) {
+        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null; pages?: string[] | null; employee_id?: string | null; employee_name?: string }) {
           usEditId = u?.id ?? null;
           if (usErr) usErr.textContent = "";
           if (usFname) usFname.value = u?.first_name ?? "";
@@ -2132,6 +2198,13 @@ const prI18n = {
           // cosi' se poi si passa a «utente» le caselle sono gia' quelle sue.
           usDisegnaPagine(u?.pages ?? null);
           usRiempiSedi(u?.location_id ?? "");
+          // Subito con quello che c'e', poi di nuovo quando arriva il Team —
+          // ma solo se nel frattempo nessuno ha gia' scelto a mano.
+          const dipScelto = u?.employee_id ?? "";
+          usRiempiDipendenti(dipScelto, u?.employee_name ?? "");
+          void usCaricaDipendenti().then(() => {
+            if ((usDipSel?.value ?? "") === dipScelto) usRiempiDipendenti(dipScelto, u?.employee_name ?? "");
+          });
           usRoles?.querySelectorAll<HTMLButtonElement>(".us-role").forEach((b) => {
             b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
           });
@@ -2168,6 +2241,8 @@ const prI18n = {
             // Solo per «utente»: per gli altri l'API le ignora comunque, ma
             // mandarle darebbe l'idea che contino.
             if (corpo.role === "user") corpo.pages = usPagineScelte();
+            // Solo per il palmare; "" = nessun dipendente (il palmare del locale).
+            if (corpo.role === "palmare") corpo.employee_id = usDipSel?.value ?? "";
             // Si manda solo se il campo esiste: su un cliente a sede unica
             // non deve arrivare all'API nemmeno come stringa vuota.
             if (usSedeBox && !usSedeBox.hidden) corpo.location_id = usSedeSel?.value ?? "";

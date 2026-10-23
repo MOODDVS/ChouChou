@@ -256,7 +256,8 @@ test("gli invii partono una volta sola, e solo dopo la validazione o la finestra
   // Solo l'invio salta `daStampare`: l'autorizzazione e' la validazione.
   assert.match(nudo("src/lib/stampaCoda.ts"), /if \(!opz\.invio && !daStampare\(o\.status, o\.payment_method\)\)/);
   // Il primo invio aspetta la validazione: `release_at` NULL non passa mai `lte`.
-  const api = nudo("src/pages/api/admin/table-tabs.ts");
+  // La validazione sta in contiSala (tablet e palmare, 23/10/2026).
+  const api = nudo("src/lib/admin/contiSala.ts");
   assert.match(api, /await aggiorna\("table_rounds", ambito, \{ release_at: adessoIso \}\)\s*\.eq\("reservation_id", conto\.id\)\s*\.eq\("status", "waiting"\)\s*\.is\("release_at", null\);/);
   assert.match(nudo("src/pages/api/checkout.ts"), /await rilasciaInviiScaduti\(ambitoPub, conto\.id\);\s*invioId = await invioPerOrdine/);
 });
@@ -414,7 +415,8 @@ test("il tablet: «Encaisser» prende solo il resto; con una parte pagata online
   const api = nudo("src/pages/api/admin/table-tabs.ts");
   assert.match(api, /kind: "staff", method: metodo, status: "paid", amount_cents: resto/);
   assert.match(api, /pagato > 0 \? \{ status: "done", payment_method: null \} : \{ status: "cancelled" \}/);
-  assert.match(api, /resto_cents: q\.resto,/);
+  // Il riassunto dei conti sta in contiSala (lo legge anche il palmare).
+  assert.match(nudo("src/lib/admin/contiSala.ts"), /resto_cents: q\.resto,/);
   const pag = nudo("src/pages/admin/orders.astro");
   assert.match(pag, /function pagatiConto\(c: ContoSala\): string \{/);
 });

@@ -2,7 +2,7 @@ import { defineMiddleware, sequence } from "astro:middleware";
 import { colpisci, ipClient } from "./lib/rateLimit";
 import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
 import { contestoDaToken } from "./lib/admin/permessi";
-import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi } from "./lib/admin/permessiRegole";
+import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi, arrivoDi } from "./lib/admin/permessiRegole";
 
 /**
  * Host canonico: forza il www.
@@ -239,7 +239,9 @@ const authGuardAdmin = defineMiddleware(async (context, next) => {
         // Rimandato alla home, non al login: e' loggato, semplicemente quella
         // pagina non e' sua. Un redirect al login sembrerebbe una sessione
         // scaduta e lo farebbe riaccedere all'infinito.
-        if (!ok) return context.redirect("/admin", 302);
+        // ⚠️ Il palmare va alla sua sala, non alla home: la home non e' sua,
+        // e rimandarcelo girerebbe in tondo (arrivoDi, permessiRegole).
+        if (!ok) return context.redirect(arrivoDi(ctx.ruolo), 302);
       }
     }
   }

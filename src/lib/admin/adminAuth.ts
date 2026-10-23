@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
+import { chiaveApi, palmarePuoChiamare } from "./permessiRegole";
 
 // Helper di autenticazione per gli endpoint admin (/api/admin/*).
 // Verifica che la richiesta arrivi da uno staff autenticato, leggendo il
@@ -59,7 +60,7 @@ const BOOTSTRAP_EMAILS = new Set(
 function staffAutorizzato(u: StaffUser): boolean {
   const email = (u.email ?? "").trim().toLowerCase();
   if (email === SUPER_EMAIL_AUTH) return true; // super MOODD: sempre
-  if (u.role === "super" || u.role === "admin" || u.role === "user") return true; // ruolo esplicito
+  if (u.role === "super" || u.role === "admin" || u.role === "user" || u.role === "palmare") return true; // ruolo esplicito
   if (u.is_super === true) return true; // vecchio flag booleano
   if (email && BOOTSTRAP_EMAILS.has(email)) return true; // valvola legacy (env)
   return false; // nessun ruolo → probabile auto-registrato → rifiutato
@@ -69,8 +70,11 @@ function staffAutorizzato(u: StaffUser): boolean {
 export interface StaffUser {
   id: string;
   email: string | null;
-  /** Ruolo (app_metadata, scrivibile solo con service key): super | admin | user. */
+  /** Ruolo (app_metadata, scrivibile solo con service key): super | admin | user | palmare. */
   role?: string;
+  /** Palmare: il dipendente del Team a cui e' assegnato (app_metadata,
+   *  service key). null = palmare del locale, di nessuno in particolare. */
+  employee_id?: string | null;
   /** Vecchio flag booleano, tenuto per retrocompatibilità. */
   is_super?: boolean;
   /** Multi-sede: la sede a cui questo utente è legato (app_metadata,
@@ -194,6 +198,8 @@ async function verificaLocale(token: string, opts: { ignoraScadenza?: boolean } 
     is_super: payload.app_metadata?.is_super === true,
     location_id:
       typeof payload.app_metadata?.location_id === "string" ? payload.app_metadata.location_id : null,
+    employee_id:
+      typeof payload.app_metadata?.employee_id === "string" ? payload.app_metadata.employee_id : null,
     pages: Array.isArray(payload.app_metadata?.pages)
       ? (payload.app_metadata.pages as unknown[]).map((x: unknown) => String(x))
       : null,
@@ -254,12 +260,21 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
       is_super: (data.user.app_metadata as { is_super?: boolean } | undefined)?.is_super === true,
       location_id:
         (data.user.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
+      employee_id:
+        (data.user.app_metadata as { employee_id?: string } | undefined)?.employee_id ?? null,
       nome: nomeDiStaff(data.user.user_metadata),
     };
   }
 
   // AUTORIZZAZIONE: token valido ma utente non provisionato → niente accesso.
   if (!staffAutorizzato(user)) return null;
+
+  // ⚠️ IL PALMARE (22/10/2026): solo le API della sua lista, e la decisione
+  // sta QUI oltre che nel middleware. Il middleware legge le claims in locale
+  // e, se non ci riesce, lascia passare (vedi middleware.ts); qui il ruolo
+  // arriva anche dal ripiego di rete, quindi questa e' la porta che tiene.
+  // Fuori da /api/admin la chiave e' vuota: negato anche lì.
+  if (ePalmare(user) && !palmarePuoChiamare(chiaveApi(new URL(request.url).pathname))) return null;
 
   if (tokenVerificati.size > 200) tokenVerificati.clear();
   tokenVerificati.set(token, { scade: Date.now() + CACHE_TOKEN_MS, user });
@@ -276,7 +291,17 @@ export async function verificaTokenLocale(token: string): Promise<StaffUser | nu
   if (!token) return null;
   const user = await verificaLocale(token);
   if (!user || !staffAutorizzato(user)) return null;
+  // Serve al render delle pagine admin con i dati dentro: il palmare non ne
+  // ha nessuna (la sua sala legge le claims da sola, vedi admin/salle.astro).
+  if (ePalmare(user)) return null;
   return user;
+}
+
+/** Il ruolo del telefono del cameriere. L'accesso MOODD non lo e' mai. */
+export function ePalmare(u: StaffUser | null | undefined): boolean {
+  if (!u) return false;
+  if ((u.email ?? "").trim().toLowerCase() === SUPER_EMAIL_AUTH) return false;
+  return u.role === "palmare";
 }
 
 /**
