@@ -210,14 +210,38 @@ const ancora = (i: number) => `cat-${i}`;
         border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); font: inherit; font-weight: 700; cursor: pointer;
       }
       .od-formato:disabled { opacity: 0.4; }
-      .od-riga { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem 0; border-bottom: 1px solid var(--c-line); }
+      /* ---------- il recap: una pagina ---------- */
+      .od-recap-pagina { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.4rem 1rem calc(190px + env(safe-area-inset-bottom)); }
+      .od-recap-pagina[hidden], .od-barra-recap[hidden] { display: none; }
+      body.is-recap main.od, body.is-recap .od-barra:not(.od-barra-recap) { display: none; }
+      .od-recap-tit { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin: 0.6rem 0 0.1rem; }
+      .od-righe { display: flex; flex-direction: column; gap: 0.6rem; }
+      .od-riga { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.8rem 0.9rem; border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line); }
+      .od-com-btn {
+        align-self: flex-start; height: 36px; padding: 0 0.9rem; border-radius: 999px; cursor: pointer;
+        border: 1px dashed var(--c-line); background: transparent; color: var(--c-muted); font: inherit; font-size: 0.85rem; font-weight: 700;
+      }
+      .od-com-btn[hidden] { display: none; }
+      .od-barra-recap .od-invia { flex: 1; min-width: 0; }
+      .od-totale-pill {
+        align-self: center; display: inline-flex; align-items: baseline; gap: 0.75rem; min-height: 44px; padding: 0.55rem 1.25rem;
+        border-radius: 999px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+      }
+      .od-totale-pill span { font-size: 0.8rem; color: var(--c-muted); }
+      .od-totale-pill strong { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+      button.od-indietro { cursor: pointer; font: inherit; }
       .od-riga-su { display: flex; align-items: center; gap: 0.6rem; }
       .od-riga-nome { flex: 1; min-width: 0; font-weight: 700; }
       .od-riga-nome small { display: block; font-weight: 400; color: var(--c-muted); font-size: 0.8rem; }
       .od-passo { display: flex; align-items: center; background: var(--c-bg); border-radius: 12px; }
       .od-passo button { width: 40px; height: 40px; border: none; background: transparent; color: var(--c-text); font-size: 1.2rem; cursor: pointer; }
       .od-passo b { min-width: 1.6rem; text-align: center; }
-      .od-nota { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 16px; padding: 0 0.75rem; }
+      .od-nota {
+        width: 100%; min-height: 64px; resize: vertical; border-radius: 12px; border: 1px solid var(--c-line);
+        background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 16px; padding: 0.6rem 0.75rem; line-height: 1.35;
+      }
+      .od-nota[hidden] { display: none; }
+      .od-nota:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
       .od-totale { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.05rem; }
       .od-invia { height: 54px; border-radius: 999px; border: none; background: var(--c-accent); color: var(--c-bg); font: inherit; font-weight: 800; font-size: 1rem; cursor: pointer; }
       .od-invia:disabled { opacity: 0.5; }
@@ -299,18 +323,24 @@ const ancora = (i: number) => `cat-${i}`;
           </div>
         </div>
 
-        <div class="od-foglio" id="od-recap" hidden>
-          <div class="od-foglio-box" role="dialog" aria-modal="true" aria-labelledby="od-recap-tit">
-            <span class="od-maniglia" aria-hidden="true"></span>
-            <div class="od-foglio-testa">
-              <h2 id="od-recap-tit">{t("sal.ord.recap")} · {nomiTavoli}</h2>
-              <button type="button" class="od-chiudi" data-chiudi aria-label={t("sal.ord.close")}>×</button>
-            </div>
-            <div id="od-righe"></div>
-            <div class="od-totale"><span>{t("sal.tb.total")}</span><span id="od-totale"></span></div>
+        {/* IL RECAP E' UNA PAGINA, non un modale (Enzo, 24/10/2026): i piatti
+            scelti in schede, − / + e un COMMENTO per piatto. Il commento va
+            sull'ordine (`notes` del piatto): esce sul ticket della cucina, in
+            grande, e nel riepilogo degli ordini del tavolo. La freccia torna
+            al menu senza perdere niente (anche il «indietro» del telefono). */}
+        <section class="od-recap-pagina" id="od-recap" hidden aria-labelledby="od-recap-tit">
+          <h2 class="od-recap-tit" id="od-recap-tit">{t("sal.ord.recap")}</h2>
+          <div class="od-righe" id="od-righe"></div>
+        </section>
+        <div class="od-barra od-barra-recap" id="od-barra-recap" hidden>
+          <p class="od-totale-pill"><span>{t("sal.tb.total")}</span><strong id="od-totale"></strong></p>
+          <div class="od-barra-riga">
+            <button type="button" class="od-indietro" id="od-recap-indietro" aria-label={t("sal.tb.back")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
             <button type="button" class="od-invia" id="od-invia">{t("sal.ord.send")}</button>
-            <p class="od-errore" id="od-errore" role="status"></p>
           </div>
+          <p class="od-errore" id="od-errore" role="status"></p>
         </div>
 
         <script type="application/json" id="od-dati" is:inline set:html={datiMenu}></script>
@@ -320,6 +350,7 @@ const ancora = (i: number) => `cat-${i}`;
           data-loc={LOC}
           data-items={t("sal.ord.items")}
           data-note={t("sal.ord.notePh")}
+          data-add-note={t("sal.ord.addNote")}
           data-sending={t("sal.ord.sending")}
           data-send={t("sal.ord.send")}
           data-sold={t("sal.ord.soldOut")}
@@ -420,28 +451,55 @@ const ancora = (i: number) => `cat-${i}`;
                   <button type="button" data-meno="${i}" aria-label="−">−</button><b>${r.qty}</b><button type="button" data-piu="${i}" aria-label="+">+</button>
                 </span>
               </div>
-              <input class="od-nota" data-nota="${i}" maxlength="200" placeholder="${esc(P.note ?? "")}" value="${esc(r.nota)}" />
+              <button type="button" class="od-com-btn" data-com="${i}"${r.nota ? " hidden" : ""}>${esc(P.addNote ?? "")}</button>
+              <textarea class="od-nota" data-nota="${i}" maxlength="200" rows="2" placeholder="${esc(P.note ?? "")}"${r.nota ? "" : " hidden"}>${esc(r.nota)}</textarea>
             </div>`).join("");
+          // «+ Commentaire»: apre il campo di quel piatto, gia' pronto a scrivere.
+          box.querySelectorAll<HTMLButtonElement>("[data-com]").forEach((b) => b.addEventListener("click", () => {
+            const campo = box.querySelector<HTMLTextAreaElement>(`[data-nota="${b.dataset.com}"]`);
+            b.hidden = true;
+            if (campo) { campo.hidden = false; campo.focus(); }
+          }));
           box.querySelectorAll<HTMLButtonElement>("[data-meno]").forEach((b) => b.addEventListener("click", () => {
             const i = Number(b.dataset.meno);
             if (!carrello[i]) return;
             carrello[i].qty -= 1;
             if (carrello[i].qty <= 0) carrello.splice(i, 1);
             aggiorna(); disegnaRiepilogo();
-            if (!carrello.length) chiudi(document.getElementById("od-recap"));
+            if (!carrello.length) chiudiRecap();
           }));
           box.querySelectorAll<HTMLButtonElement>("[data-piu]").forEach((b) => b.addEventListener("click", () => {
             const r = carrello[Number(b.dataset.piu)];
             if (r) { r.qty += 1; aggiorna(); disegnaRiepilogo(); }
           }));
-          box.querySelectorAll<HTMLInputElement>("[data-nota]").forEach((inp) => inp.addEventListener("input", () => {
+          box.querySelectorAll<HTMLTextAreaElement>("[data-nota]").forEach((inp) => inp.addEventListener("input", () => {
             const r = carrello[Number(inp.dataset.nota)];
             if (r) r.nota = inp.value;
           }));
           const tot = document.getElementById("od-totale");
           if (tot) tot.textContent = euro(carrello.reduce((t, r) => t + r.prezzo * r.qty, 0));
         };
-        document.getElementById("od-recap-btn")?.addEventListener("click", () => { disegnaRiepilogo(); apri("od-recap"); });
+        // ---- Il recap come PAGINA: si apre al posto del menu; la freccia e
+        // l'«indietro» del telefono tornano ai piatti, il carrello resta. ----
+        const recap = document.getElementById("od-recap");
+        const barraRecap = document.getElementById("od-barra-recap");
+        const mostraRecap = (si: boolean) => {
+          if (recap) recap.hidden = !si;
+          if (barraRecap) barraRecap.hidden = !si;
+          document.body.classList.toggle("is-recap", si);
+          window.scrollTo(0, 0);
+        };
+        const chiudiRecap = () => {
+          if (history.state && (history.state as { recap?: boolean }).recap) history.back();
+          else mostraRecap(false);
+        };
+        window.addEventListener("popstate", () => mostraRecap(Boolean((history.state as { recap?: boolean } | null)?.recap)));
+        document.getElementById("od-recap-btn")?.addEventListener("click", () => {
+          disegnaRiepilogo();
+          history.pushState({ recap: true }, "");
+          mostraRecap(true);
+        });
+        document.getElementById("od-recap-indietro")?.addEventListener("click", chiudiRecap);
 
         // ---- Mandare in cucina ----
         const invia = document.getElementById("od-invia") as HTMLButtonElement | null;
