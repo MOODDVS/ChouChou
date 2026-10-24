@@ -41,7 +41,7 @@ import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
-import { ICONA_TAVOLO, ICONA_MATITA } from "../../../lib/iconeSala";
+import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE } from "../../../lib/iconeSala";
 
 export const prerender = false;
 
@@ -108,7 +108,7 @@ const personeIsola = personeAdesso;
   <head>
     <PalmareHead titolo={titolo} />
     <style is:global>
-      :root { --tb-azioni-h: 210px; }
+      :root { --tb-azioni-h: 110px; }
       body { min-height: 100vh; min-height: 100dvh; }
 
       /* ---------- la testa: un'ISOLA ferma, come la pillola del cameriere
@@ -168,7 +168,7 @@ const personeIsola = personeAdesso;
       .tb-zona { padding: 4px 4px 0; font-size: 0.78rem; font-weight: 800; color: var(--c-muted); }
       #tb-sposta-ok { flex: none; height: 52px; width: 100%; }
 
-      .tb { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.9rem 1rem calc(var(--tb-azioni-h) + env(safe-area-inset-bottom) + 1rem); }
+      .tb { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.15rem 1rem calc(var(--tb-azioni-h) + env(safe-area-inset-bottom) + 1rem); }
 
       /* ---------- gli avvisi ---------- */
       .tb-avvisi { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -194,7 +194,7 @@ const personeIsola = personeAdesso;
       .tb-cifre .is-resto strong { color: var(--c-accent); }
       .tb-libero { font-family: var(--font-title); font-size: 1.5rem; }
 
-      .tb-titolo { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin-top: 0.35rem; }
+      .tb-titolo { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin-top: 0; }
       .tb-invio-stato { font-size: 0.78rem; font-weight: 800; }
       .tb-invio-stato.is-partito { color: #4fbe8c; }
       .tb-invio-stato.is-attesa { color: #f0a040; }
@@ -278,12 +278,40 @@ const personeIsola = personeAdesso;
       .tb-ed-azioni { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
       .tb-ed-azioni a.tb-btn, .tb-ed-azioni .tb-btn { height: 48px; font-size: 0.88rem; }
       .tb-ed-salva:disabled { opacity: 0.45; }
+      /* «+ Commande», sotto gli ordini: non a tutta larghezza, bordino e testo
+         corallo (l'accent) — Enzo, 24/10/2026. */
+      a.tb-btn.tb-ordina {
+        flex: none; align-self: center; height: 48px; padding: 0 1.6rem; margin-top: 0.25rem;
+        background: transparent; color: var(--c-accent); border: 2px solid var(--c-accent);
+        font-size: 0.95rem; font-weight: 800;
+      }
+      a.tb-btn.tb-ordina:active { transform: scale(0.97); }
+      /* Il totale accanto alla freccia: una pillola che si prende lo spazio. */
+      .tb-riga-una > .tb-totale { flex: 1.3; min-width: 0; height: 52px; align-items: center; justify-content: center; padding: 0 0.8rem; gap: 0.5rem; }
+      .tb-riga-una > .tb-totale strong { font-size: 1.05rem; white-space: nowrap; }
       .tb-totale {
         align-self: center; display: inline-flex; align-items: baseline; gap: 0.75rem;
         min-height: 44px; padding: 0.55rem 1.25rem; border-radius: 999px;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
       }
       .tb-totale span { font-size: 0.8rem; color: var(--c-muted); }
+      button.tb-totale { font: inherit; cursor: pointer; }
+      .tb-totale[aria-expanded="true"] { border-color: var(--c-accent); }
+      /* Il modale del conto: sopra la riga, con l'ombra come gli altri modali. */
+      .tb-pan-conto {
+        display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 20px;
+        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+      }
+      .tb-pan-conto[hidden] { display: none; }
+      .tb-pan-conto-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      /* Evidenti come «Déplacer»: fondo piu' chiaro, bordo di 2px, icona sopra. */
+      /* Addition / Encaisser: gli stessi bottoni pillola del palmare, con l'icona del motore. */
+      .tb-pan-conto-btns .tb-btn { height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 1rem; font-weight: 800; }
+      .tb-conto-ico { display: inline-flex; }
+      .tb-conto-ico svg { width: auto; height: 20px; display: block; }
+      .tb-conto-presto { text-align: center; font-size: 0.82rem; color: var(--c-muted); }
+      .tb-conto-presto[hidden] { display: none; }
       .tb-totale strong { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
       .tb-info {
         align-self: center; padding: 0.35rem 0.85rem; border-radius: 999px;
@@ -448,6 +476,9 @@ const personeIsola = personeAdesso;
                   ))}
                 </section>
               ))}
+              {/* «Commander» SOTTO gli ordini (Enzo, 24/10/2026): si legge cosa
+                  c'e', e subito sotto si aggiunge. */}
+              {conto.stato !== "pending" && <a class="tb-btn tb-ordina" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.addOrder")}</a>}
             </Fragment>
           ) : sessione ? (
             <Fragment>
@@ -517,6 +548,7 @@ const personeIsola = personeAdesso;
                   )}
                 </section>
               ))}
+              <a class="tb-btn tb-ordina" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.addOrder")}</a>
             </Fragment>
           ) : (
             <Fragment>
@@ -568,14 +600,6 @@ const personeIsola = personeAdesso;
         La freccia per tornare alla sala e' sempre la prima, a sinistra. */}
     {s && (
       <nav class="tb-azioni" aria-label={titolo}>
-        {/* IL TOTALE: una pillola flottante sopra i bottoni (Enzo, 23/10/2026),
-            dove si guarda prima di «Addition» / «Encaisser». */}
-        {sessione && sessione.ordini.length > 0 && (
-          <p class="tb-totale">
-            <span>{t("sal.tb.total")}</span>
-            <strong>{euro(sessione.totale_cents)}</strong>
-          </p>
-        )}
         {conto?.stato === "pending" && (
           <p class="tb-info">
             {t("sal.tb.ordered").replace("{a}", String(conto.ordinato)).replace("{b}", String(conto.persone))}
@@ -605,19 +629,39 @@ const personeIsola = personeAdesso;
             );
           }
           if ((sessione || conto) && !libero) {
-            /* Tutto su UNA riga (Enzo, 23/10/2026): freccia, poi Annuler (o
-               Addition / Encaisser), e Commander a destra, sotto il pollice. */
+            /* Una riga sola (Enzo, 24/10/2026): la freccia e ACCANTO il totale.
+               Toccando il totale si apre il modale del conto con «Addition» e
+               «Encaisser» (per ora spenti: da fare). Senza ordini: «Annuler».
+               «Commander» sta sotto gli ordini, nella pagina. */
+            const conOrdini = Boolean(sessione && sessione.ordini.length > 0);
             return (
-              <div class="tb-riga tb-riga-una">
-                {freccia}
-                {annullabile
-                  ? <button type="button" class="tb-btn is-annulla" id="tb-annulla" data-testo={t("sal.seat.cancel")} data-conferma={t("sal.seat.cancelConfirm")}>{t("sal.seat.cancel")}</button>
-                  : <Fragment>
-                      <button type="button" class="tb-btn" disabled>{t("sal.tb.act.bill")}</button>
-                      <button type="button" class="tb-btn" disabled>{t("sal.tb.act.pay")}</button>
-                    </Fragment>}
-                <a class="tb-btn is-primo" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.order")}</a>
-              </div>
+              <Fragment>
+                {conOrdini && (
+                  <div class="tb-pan-conto" id="tb-pan-conto" hidden>
+                    {/* Senza il totale (e' gia' sul bottone che apre); due bottoni
+                        grandi con le icone del motore (Enzo, 24/10/2026). Non fanno
+                        ancora niente: lo dicono, invece di sembrare rotti. */}
+                    <div class="tb-pan-conto-btns">
+                      <button type="button" class="tb-btn" data-presto>
+                        <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_STAMPA} />{t("sal.tb.act.bill")}
+                      </button>
+                      <button type="button" class="tb-btn is-primo" data-presto>
+                        <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_MONETE} />{t("sal.tb.act.pay")}
+                      </button>
+                    </div>
+                    <p class="tb-conto-presto" id="tb-conto-presto" hidden>{t("sal.tb.soon")}</p>
+                  </div>
+                )}
+                <div class="tb-riga tb-riga-una">
+                  {freccia}
+                  {conOrdini && (
+                    <button type="button" class="tb-totale" id="tb-totale" aria-expanded="false" aria-controls="tb-pan-conto">
+                      <span>{t("sal.tb.total")}</span><strong>{euro(sessione!.totale_cents)}</strong>
+                    </button>
+                  )}
+                  {annullabile && <button type="button" class="tb-btn is-annulla" id="tb-annulla" data-testo={t("sal.seat.cancel")} data-conferma={t("sal.seat.cancelConfirm")}>{t("sal.seat.cancel")}</button>}
+                </div>
+              </Fragment>
             );
           }
           return <div class="tb-riga">{freccia}<button type="button" class="tb-btn is-primo" disabled>{t("sal.tb.act.order")}</button></div>;
@@ -644,6 +688,27 @@ const personeIsola = personeAdesso;
       data-mv-error={t("sal.mv.error")}
       data-loc={LOC}></div>
 
+    <script>
+      // IL MODALE DEL CONTO: toccando il totale in basso (Enzo, 24/10/2026).
+      const totBtn = document.getElementById("tb-totale");
+      const panConto = document.getElementById("tb-pan-conto");
+      if (totBtn && panConto) {
+        const apriConto = (si: boolean) => {
+          panConto.hidden = !si;
+          totBtn.setAttribute("aria-expanded", si ? "true" : "false");
+        };
+        totBtn.addEventListener("click", (e) => { e.stopPropagation(); apriConto(panConto.hidden === true); });
+        document.addEventListener("click", (e) => {
+          if (!panConto.hidden && !panConto.contains(e.target as Node)) apriConto(false);
+        });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") apriConto(false); });
+        // Addition / Encaisser non sono ancora fatti: un tocco lo dice.
+        const presto = document.getElementById("tb-conto-presto");
+        panConto.querySelectorAll("[data-presto]").forEach((b) => b.addEventListener("click", () => {
+          if (presto) presto.hidden = false;
+        }));
+      }
+    </script>
     <script>
       // VALIDARE / RIFIUTARE il conto del QR (`/api/admin/salle-tab`).
       import { authFresh as authV } from "../../../lib/admin/auth";
