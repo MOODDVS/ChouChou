@@ -612,6 +612,7 @@ const DIZIONARIO: Dizionario = {
   "sal.tb.freeHint": { fr: "Personne n'est assis à cette table.", en: "Nobody is seated at this table.", it: "Nessuno è seduto a questo tavolo.", nl: "Niemand zit aan deze tafel.", es: "No hay nadie sentado en esta mesa." },
   "sal.tb.next": { fr: "Réservée à {h}", en: "Booked at {h}", it: "Prenotato alle {h}", nl: "Gereserveerd om {h}", es: "Reservada a las {h}" },
   "sal.tb.act.order": { fr: "Commander", en: "Order", it: "Ordina", nl: "Bestellen", es: "Pedir" },
+  "sal.tb.act.addOrder": { fr: "+ Commande", en: "+ Order", it: "+ Ordine", nl: "+ Bestelling", es: "+ Pedido" },
   "sal.tb.act.bill": { fr: "Addition", en: "Bill", it: "Conto", nl: "Rekening", es: "Cuenta" },
   "sal.tb.act.pay": { fr: "Encaisser", en: "Collect", it: "Incassa", nl: "Innen", es: "Cobrar" },
   "sal.tb.act.move": { fr: "Déplacer", en: "Move", it: "Sposta", nl: "Verplaatsen", es: "Mover" },
