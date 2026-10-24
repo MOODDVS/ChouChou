@@ -667,6 +667,7 @@ const DIZIONARIO: Dizionario = {
   "sal.ord.recap": { fr: "Récap", en: "Summary", it: "Riepilogo", nl: "Overzicht", es: "Resumen" },
   "sal.ord.send": { fr: "Envoyer en cuisine", en: "Send to the kitchen", it: "Invia in cucina", nl: "Naar de keuken sturen", es: "Enviar a cocina" },
   "sal.ord.sending": { fr: "Envoi…", en: "Sending…", it: "Invio…", nl: "Versturen…", es: "Enviando…" },
+  "sal.ord.addNote": { fr: "+ Commentaire", en: "+ Comment", it: "+ Commento", nl: "+ Opmerking", es: "+ Comentario" },
   "sal.ord.sent": { fr: "Commande envoyée en cuisine", en: "Order sent to the kitchen", it: "Ordine inviato in cucina", nl: "Bestelling naar de keuken gestuurd", es: "Pedido enviado a cocina" },
   "sal.ord.notePh": { fr: "Note pour la cuisine (sans oignon…)", en: "Note for the kitchen (no onion…)", it: "Nota per la cucina (senza cipolla…)", nl: "Notitie voor de keuken (zonder ui…)", es: "Nota para cocina (sin cebolla…)" },
   "sal.ord.chooseFormat": { fr: "Choisissez le format", en: "Choose the size", it: "Scegli il formato", nl: "Kies het formaat", es: "Elige el formato" },

@@ -40,7 +40,7 @@ export const CAMPI_CONTO = "id, date, status, tables, first_name, people, seated
 export interface RigaOrdineConto {
   id: string;
   customer_name: string | null;
-  items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; price_cents?: number }[] | null;
+  items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; price_cents?: number; notes?: string }[] | null;
   total_cents: number | null;
   status: string;
   round_id: string | null;
@@ -159,6 +159,7 @@ export async function riassumiConti(ambito: Ambito, conti: RigaConto[]) {
                 qty: Math.max(1, Math.floor(Number(p.qty) || 1)),
                 nome: String(p.base_name ?? p.name ?? "").trim(),
                 variante: String(p.variant_label ?? "").trim() || null,
+                nota: String(p.notes ?? "").trim() || null,
               })),
               totale_cents: Number(o.total_cents) || 0,
             })),

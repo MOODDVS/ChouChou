@@ -50,7 +50,7 @@ export interface OrdineSessione {
   ora: string;
   stato: string;
   totale_cents: number;
-  piatti: { qty: number; nome: string; variante: string | null }[];
+  piatti: { qty: number; nome: string; variante: string | null; nota: string | null }[];
 }
 
 export interface SchedaTavolo {
@@ -134,7 +134,7 @@ export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: L
     const ordini = ((oRaw ?? []) as unknown as {
       id: string; customer_name: string | null; status: string; total_cents: number | null; created_at: string;
       taken_by_id?: string | null; taken_by_name?: string | null; payment_method?: string | null;
-      items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; price_cents?: number }[] | null;
+      items: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; price_cents?: number; notes?: string }[] | null;
     }[]).map((o) => ({
       modificabile: ordineModificabile(o),
       righe: righeModificabili(o.items),
@@ -150,6 +150,8 @@ export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: L
         qty: Math.max(1, Math.floor(Number(p.qty) || 1)),
         nome: String(p.base_name ?? p.name ?? "").trim(),
         variante: String(p.variant_label ?? "").trim() || null,
+        // Il commento del cameriere per la cucina («sans oignon»).
+        nota: String(p.notes ?? "").trim() || null,
       })),
     }));
     const nome = [seduta.first_name, seduta.last_name].map((x) => String(x ?? "").trim()).filter(Boolean).join(" ");
