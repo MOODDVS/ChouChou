@@ -670,6 +670,11 @@ export function ticketAddizione(a: AddizioneDaStampare): RigaTicket[] {
   righe.push({ testo: `${tx.titolo} · ${tx.tavolo} ${a.tavolo}`, taglia: "largo", grassetto: true, centrato: true });
   righe.push({ testo: a.quando, taglia: "normale", centrato: true, linea: true });
   for (const p of a.persone) {
+    // Senza nome (la sessione del cameriere): solo i piatti, il totale e' sotto.
+    if (!p.nome) {
+      for (const r of p.righe) righe.push({ testo: rigaPrezzo(r.testo, r.cents), taglia: "normale" });
+      continue;
+    }
     righe.push({ testo: p.nome.toUpperCase(), taglia: "normale", grassetto: true });
     for (const r of p.righe) righe.push({ testo: rigaPrezzo(`  ${r.testo}`, r.cents), taglia: "normale" });
     righe.push({ testo: rigaPrezzo("", p.totale), taglia: "normale", grassetto: true });
