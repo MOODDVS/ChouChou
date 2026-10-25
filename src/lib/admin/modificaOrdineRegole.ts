@@ -69,7 +69,7 @@ export function ordineModificabile(o: { status?: unknown; payment_method?: unkno
 export function applicaTogli(
   items: VoceItems[] | null | undefined,
   nuove: unknown,
-): { items: VoceItems[]; totale: number; vuoto: boolean; cambiato: boolean } | null {
+): { items: VoceItems[]; totale: number; vuoto: boolean; cambiato: boolean; tolte: VoceItems[] } | null {
   if (!nuove || typeof nuove !== "object" || Array.isArray(nuove)) return null;
   const lista = items ?? [];
   const vere = new Map(righeModificabili(lista).map((r) => [r.i, r]));
@@ -83,15 +83,20 @@ export function applicaTogli(
   }
   let cambiato = false;
   const fuori: VoceItems[] = [];
+  // Le righe TOLTE, con la quantita' tolta: il ticket d'annullo della cucina.
+  const tolte: VoceItems[] = [];
   lista.forEach((it, i) => {
     if (!vere.has(i)) { fuori.push(it); return; }
-    const q = chieste.has(i) ? (chieste.get(i) as number) : (vere.get(i) as RigaModificabile).qty;
-    if (q !== (vere.get(i) as RigaModificabile).qty) cambiato = true;
+    const prima = (vere.get(i) as RigaModificabile).qty;
+    const q = chieste.has(i) ? (chieste.get(i) as number) : prima;
+    if (q !== prima) cambiato = true;
     if (q > 0) fuori.push({ ...it, qty: q });
+    if (q < prima) tolte.push({ ...it, qty: prima - q });
   });
   const rimaste = righeModificabili(fuori);
   return {
     items: fuori,
+    tolte,
     totale: rimaste.reduce((t, r) => t + r.prezzo * r.qty, 0),
     vuoto: rimaste.length === 0,
     cambiato,

@@ -236,7 +236,7 @@ test("lo stato «stampato» lo decide la stampante, non noi", () => {
 // DALL'ORDINE AL TICKET, E LA SERRATURA DELLA PAGINA PUBBLICA
 // ============================================================
 import { ordineDaRiga } from "../src/lib/stampaRegole.ts";
-import { firmaProva, leggiProva, sembraProva, VALIDITA_PROVA_S, firmaChiamata, leggiChiamata } from "../src/lib/printToken.ts";
+import { firmaProva, leggiProva, sembraProva, VALIDITA_PROVA_S, firmaChiamata, leggiChiamata, firmaAnnullo, leggiAnnullo, VALIDITA_ANNULLO_S, MAX_RIGHE_ANNULLO } from "../src/lib/printToken.ts";
 
 const RIGA = {
   id: "9a1b2c3d-0000-4000-8000-00000000"+"4f2a",
@@ -707,4 +707,24 @@ test("il ticket della chiamata: interruttore spento di ripiego, della sede, e ac
   const pag = leggi("src/pages/admin/settings.astro");
   assert.match(pag, /id="o-table-call-print"/);
   assert.match(pag, /orders_table_call_print: \(document\.getElementById\("o-table-call-print"\)/);
+});
+
+
+test("il biglietto d'annullo: porta i piatti tolti, firmato, scade, e non e' una chiamata", () => {
+  const S = "segreto-di-prova";
+  const t0 = 1_800_000_000_000;
+  const righe = [{ qty: 2, nome: "Pizza Margherita", variante: "Grande" }, { qty: 1, nome: "Coca", variante: null }];
+  const tk = firmaAnnullo({ sede: "s1", tavolo: "T1 + T2", chi: "Mario", righe }, S, t0);
+  const a = leggiAnnullo(tk, S, t0 + 1000);
+  assert.equal(a.tavolo, "T1 + T2");
+  assert.equal(a.chi, "Mario");
+  assert.deepEqual(a.righe, righe);
+  assert.equal(leggiChiamata(tk, S, t0), null, "un annullo non e' una chiamata");
+  assert.equal(leggiProva(tk, S, t0), null, "ne' una prova");
+  assert.equal(leggiAnnullo(tk, "altro", t0), null, "firma sbagliata");
+  assert.equal(leggiAnnullo(tk, S, t0 + (VALIDITA_ANNULLO_S + 1) * 1000), null, "scaduto");
+  const molte = Array.from({ length: 40 }, (_, i) => ({ qty: 1, nome: "Un piatto dal nome molto lungo numero " + i, variante: "Variante lunga" }));
+  const lungo = firmaAnnullo({ sede: "", tavolo: "T1", chi: "Mario", righe: molte }, S, t0);
+  assert.ok(lungo.length <= 2000, `la rotta accetta fino a 2000 segni (${lungo.length})`);
+  assert.equal(leggiAnnullo(lungo, S, t0).righe.length, MAX_RIGHE_ANNULLO);
 });

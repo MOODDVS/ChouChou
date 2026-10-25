@@ -134,3 +134,69 @@ export function leggiChiamata(token: string, segreto: string, adessoMs = Date.no
     ora: Number(j.o) || 0,
   };
 }
+
+/* ==========================================================================
+   IL BIGLIETTO D'ANNULLO PER LA CUCINA (25/10/2026, il palmare).
+
+   Un ordine annullato (o dei piatti tolti con la matita) DOPO che la comanda
+   e' uscita: la cucina sta gia' preparando, e deve saperlo su carta. Stessa
+   serratura della chiamata: dentro c'e' quello che il ticket deve dire —
+   tavolo, chi, ora, i piatti tolti — perche' i piatti tolti non stanno piu'
+   nell'ordine. ⚠️ Piu' lungo della chiamata (la rotta accetta fino a 2000
+   segni): al massimo `MAX_RIGHE_ANNULLO` righe, nomi tagliati.
+   ⚠️ Vive 30 minuti: il servizio di stampa puo' riprovare se la stampante
+   era spenta un attimo, ma un annullo di stamattina stasera non serve.
+   ========================================================================== */
+
+export const VALIDITA_ANNULLO_S = 1800;
+export const MAX_RIGHE_ANNULLO = 20;
+
+export interface DatiAnnullo {
+  sede: string;
+  tavolo: string;
+  /** Chi ha annullato (il cameriere). */
+  chi: string;
+  ora: number;
+  righe: { qty: number; nome: string; variante: string | null }[];
+}
+
+export function firmaAnnullo(d: Omit<DatiAnnullo, "ora">, segreto: string, adessoMs = Date.now()): string {
+  const ora = Math.floor(adessoMs / 1000);
+  const dati = b64(JSON.stringify({
+    k: "a",
+    s: String(d.sede ?? ""),
+    t: String(d.tavolo ?? "").slice(0, 40),
+    c: String(d.chi ?? "").slice(0, 30),
+    o: ora,
+    x: ora + VALIDITA_ANNULLO_S,
+    r: d.righe.slice(0, MAX_RIGHE_ANNULLO).map((r) => [
+      Math.max(1, Math.floor(Number(r.qty) || 1)),
+      String(r.nome ?? "").slice(0, 32),
+      String(r.variante ?? "").slice(0, 20),
+    ]),
+  }));
+  return `${PREFISSO}${dati}${SEP}${firma(dati, segreto)}`;
+}
+
+export function leggiAnnullo(token: string, segreto: string, adessoMs = Date.now()): DatiAnnullo | null {
+  const t = String(token ?? "");
+  if (!t.startsWith(PREFISSO) || !segreto) return null;
+  const [dati, dato] = t.slice(PREFISSO.length).split(SEP);
+  if (!dati || !dato) return null;
+  const attesa = Buffer.from(firma(dati, segreto), "utf8");
+  const avuta = Buffer.from(dato, "utf8");
+  if (attesa.length !== avuta.length || !timingSafeEqual(attesa, avuta)) return null;
+  let j: { k?: unknown; s?: unknown; t?: unknown; c?: unknown; o?: unknown; x?: unknown; r?: unknown };
+  try {
+    j = JSON.parse(deB64(dati));
+  } catch {
+    return null;
+  }
+  if (!j || j.k !== "a") return null;
+  if (!Number.isFinite(Number(j.x)) || Number(j.x) * 1000 < adessoMs) return null;
+  const righe = (Array.isArray(j.r) ? j.r : []).flatMap((r) => {
+    if (!Array.isArray(r)) return [];
+    return [{ qty: Math.max(1, Math.floor(Number(r[0]) || 1)), nome: String(r[1] ?? ""), variante: String(r[2] ?? "") || null }];
+  });
+  return { sede: String(j.s ?? ""), tavolo: String(j.t ?? ""), chi: String(j.c ?? ""), ora: Number(j.o) || 0, righe };
+}

@@ -41,7 +41,7 @@ import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
-import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA } from "../../../lib/iconeSala";
+import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA, ICONA_CESTINO } from "../../../lib/iconeSala";
 
 export const prerender = false;
 
@@ -125,13 +125,16 @@ const personeIsola = personeAdesso;
       .tb-pannello {
         position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
         width: calc(100vw - 2rem); max-width: 480px; max-height: calc(100dvh - 120px); overflow-y: auto;
-        padding: 12px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px;
+        padding: 16px 12px; border-radius: 20px; display: flex; flex-direction: column; gap: 10px;
         border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
         /* Il modale SI' ha l'ombra (Enzo, 23/10/2026): sta sopra la pagina e
            deve staccarsene. Le altre ombre portate restano tolte. */
         box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
       }
       .tb-pannello[hidden] { display: none; }
+      /* Piu' aria fra le sezioni (Enzo, 25/10/2026: «troppo compatto»). */
+      .tb-pan-tit + .tb-pan-num, .tb-pan-tit + .tb-ext-btns { margin-top: 2px; }
+      .tb-pannello > .tb-pan-tit:not(:first-child), .tb-pannello > .tb-sposta, .tb-pannello > .tb-libera { margin-top: 14px; }
       .tb-pan-tit { padding: 2px 4px 0; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
       /* Le persone: 1–9 da toccare, «10+» apre un campo (23/10/2026, Enzo). */
       .tb-pan-num { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -167,6 +170,8 @@ const personeIsola = personeAdesso;
       .tb-modo[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
       .tb-zona { padding: 4px 4px 0; font-size: 0.78rem; font-weight: 800; color: var(--c-muted); }
       #tb-sposta-ok { flex: none; height: 52px; width: 100%; }
+      .tb-libera { flex: none; width: 100%; height: 52px; }
+      .tb-libera-nota { padding: 0 4px; font-size: 0.78rem; line-height: 1.4; color: var(--c-muted); }
 
       .tb { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.15rem 1rem calc(var(--tb-azioni-h) + env(safe-area-inset-bottom) + 1rem); }
 
@@ -263,7 +268,22 @@ const personeIsola = personeAdesso;
         background: var(--c-accent); color: #fff; font-size: 0.7rem; font-weight: 800;
       }
       /* ---------- modificare un ordine (togliere) ---------- */
-      .tb-vista { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; }
+      .tb-vista { display: flex; align-items: stretch; justify-content: space-between; gap: 0.75rem; }
+      .tb-vista-piatti { align-self: flex-end; }
+      .tb-vista-dx { position: relative; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; }
+      .tb-vista-dx .tb-ord-tot { margin-top: auto; }
+      /* Il CESTINO: come la matita sopra; il primo tocco lo fa rosso con
+         «Confirmer ?», il secondo annulla (come Annuler e Refuser). */
+      .tb-ord-annulla {
+        height: 36px; min-width: 36px; padding: 0; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
+        border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 0.8rem; font-weight: 800; cursor: pointer;
+        transition: background .2s ease, padding .2s ease;
+      }
+      .tb-oa-ico { display: inline-flex; }
+      .tb-oa-ico svg { width: 17px; height: 17px; display: block; }
+      .tb-oa-txt { display: none; white-space: nowrap; }
+      .tb-ord-annulla.is-armato { position: absolute; top: 0; right: 0; z-index: 2; padding: 0 0.8rem; background: #a3320f; color: #fff; border-color: transparent; }
+      .tb-ord-annulla.is-armato .tb-oa-txt { display: inline; }
       .tb-vista-piatti { min-width: 0; display: flex; flex-direction: column; gap: 0.3rem; }
       .tb-vista .tb-ord-tot { flex-shrink: 0; }
       .tb-ord-tot { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.1; }
@@ -442,6 +462,15 @@ const personeIsola = personeAdesso;
             {haOrdini && <p class="tb-nessuna" id="tb-mv-ticket" hidden>{t("sal.mv.tickets")}</p>}
             <button type="button" class="tb-btn is-primo" id="tb-sposta-ok" hidden></button>
           </div>
+          {/* LIBERARE IL TAVOLO (25/10/2026): se ne vanno, o cambiano tutto.
+              Rosso, doppio tocco. Non per il conto aperto del QR. */}
+          {sessione && sessione.ordini.length > 0 && (
+            <Fragment>
+              <button type="button" class="tb-btn is-annulla tb-libera" id="tb-libera"
+                data-testo={t("sal.tb.release")} data-conferma={t("sal.seat.cancelConfirm")}>{t("sal.tb.release")}</button>
+              <p class="tb-libera-nota">{t("sal.tb.releaseHint")}</p>
+            </Fragment>
+          )}
           <p class="tb-errore" id="tb-pan-err" role="status"></p>
         </div>
       )}
@@ -543,8 +572,17 @@ const personeIsola = personeAdesso;
                         <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <span class="tb-variante">{p.variante}</span>}{p.nota && <span class="tb-piatto-nota"><span class="tb-nota-ico" set:html={ICONA_NOTA} />{p.nota}</span>}</span></p>
                       ))}
                     </div>
-                    {/* «Total» piccolo SOPRA il numero, a destra (Enzo, 23/10/2026). */}
-                    <p class="tb-ord-tot"><span>{t("sal.tb.total")}</span><strong>{euro(o.totale_cents)}</strong></p>
+                    {/* A destra: il CESTINO sotto la matita (25/10/2026, doppio tocco),
+                        e «Total» piccolo SOPRA il numero, in basso (23/10/2026). */}
+                    <div class="tb-vista-dx">
+                      {o.modificabile && (
+                        <button type="button" class="tb-ord-annulla" data-ordine={o.id} title={t("sal.ord.cancel")} aria-label={t("sal.ord.cancel")}>
+                          <span class="tb-oa-ico" aria-hidden="true" set:html={ICONA_CESTINO} />
+                          <span class="tb-oa-txt">{t("sal.seat.cancelConfirm")}</span>
+                        </button>
+                      )}
+                      <p class="tb-ord-tot"><span>{t("sal.tb.total")}</span><strong>{euro(o.totale_cents)}</strong></p>
+                    </div>
                   </div>
                   {o.modificabile && (
                     <div class="tb-ed" data-ordine={o.id} hidden>
@@ -770,6 +808,53 @@ const personeIsola = personeAdesso;
         btn.disabled = false;
       };
       valida?.addEventListener("click", () => void decidi("valida", valida));
+
+      /* IL DOPPIO TOCCO (25/10/2026): il primo arma (rosso, «Confirmer ?»),
+         il secondo fa; dopo 3 secondi si disarma da solo. */
+      const doppio = (btn: HTMLButtonElement, arma: (si: boolean) => void, fai: () => Promise<void>) => {
+        let armato = 0;
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (btn.disabled) return;
+          if (!armato) {
+            arma(true);
+            armato = window.setTimeout(() => { armato = 0; arma(false); }, 3000);
+            return;
+          }
+          window.clearTimeout(armato);
+          armato = 0;
+          btn.disabled = true;
+          await fai();
+          btn.disabled = false;
+          arma(false);
+        });
+      };
+      const chiedi = async (corpo: Record<string, unknown>, err: HTMLElement | null): Promise<boolean> => {
+        if (err) err.textContent = "";
+        try {
+          const res = await fetch("/api/admin/salle-order", { method: "POST", headers: await authV(), body: JSON.stringify(corpo) });
+          if (res.ok) return true;
+          const j = (await res.json().catch(() => ({}))) as { error?: string };
+          if (err) err.textContent = j.error ?? "";
+        } catch { if (err) err.textContent = "…"; }
+        return false;
+      };
+      // ANNULLARE UN ORDINE: il cestino della card.
+      document.querySelectorAll<HTMLButtonElement>(".tb-ord-annulla").forEach((b) => {
+        doppio(b, (si) => b.classList.toggle("is-armato", si), async () => {
+          if (await chiedi({ azione: "annulla", table: tavoloV, order: b.dataset.ordine }, errV)) location.reload();
+        });
+      });
+      // LIBERARE IL TAVOLO: dal modale dell'isola.
+      const libera = document.getElementById("tb-libera") as HTMLButtonElement | null;
+      if (libera) {
+        doppio(libera, (si) => {
+          libera.classList.toggle("is-armato", si);
+          libera.textContent = (si ? libera.dataset.conferma : libera.dataset.testo) ?? "";
+        }, async () => {
+          if (await chiedi({ azione: "libera", table: tavoloV }, document.getElementById("tb-pan-err"))) location.replace("/admin/salle");
+        });
+      }
 
       // ANNULLARE: seduti senza nessun ordine, se ne vanno. Secondo tocco.
       const annulla = document.getElementById("tb-annulla") as HTMLButtonElement | null;

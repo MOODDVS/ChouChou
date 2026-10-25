@@ -27,11 +27,12 @@ import { DateTime } from "luxon";
 import { leggi, inserisci, aggiorna, type Ambito } from "./sede";
 import { fusoDi } from "../fuso";
 import { contoPerId, invioPerOrdine, rilasciaInviiScaduti } from "../contoServer";
-import { accodaTicket } from "../stampaCoda";
+import { accodaTicket, stampaAnnullo } from "../stampaCoda";
 import { contiApertiDellaSala } from "./contiSala";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
 import { piattiPerOrdine, rigaOrdine } from "./righeOrdine";
-import { applicaTogli, dividiModifica, ordineModificabile, type VoceItems } from "./modificaOrdineRegole";
+import { applicaTogli, dividiModifica, ordineModificabile, righeModificabili, type VoceItems } from "./modificaOrdineRegole";
+import { letturaSala } from "./letturaSala";
 
 export interface RigaRichiesta {
   id?: unknown;
@@ -213,12 +214,14 @@ export async function togliDaOrdine(
   tavoloId: string,
   ordineId: string,
   nuove: unknown,
+  /** Chi toglie: va sul ticket d'annullo della cucina. */
+  chi = "",
 ): Promise<EsitoTogli> {
   if (!/^[0-9a-f-]{36}$/i.test(tavoloId) || !/^[0-9a-f-]{36}$/i.test(ordineId)) return { ok: false, errore: "nessuno" };
   const ora = DateTime.now().setZone(await fusoDi(ambito));
-  const { data: oRaw } = await leggi("orders", ambito, "id, status, payment_method, items, reservation_id")
+  const { data: oRaw } = await leggi("orders", ambito, "id, status, payment_method, items, reservation_id, table_label")
     .eq("id", ordineId).maybeSingle();
-  const o = oRaw as unknown as { id: string; status: string; payment_method: string | null; items: VoceItems[] | null; reservation_id: string | null } | null;
+  const o = oRaw as unknown as { id: string; status: string; payment_method: string | null; items: VoceItems[] | null; reservation_id: string | null; table_label: string | null } | null;
   if (!o || !o.reservation_id) return { ok: false, errore: "nessuno" };
   if (!ordineModificabile(o)) return { ok: false, errore: "bloccato" };
   const { data: rRaw } = await leggi("reservations", ambito, "id, date, status, tables, tab_table_id")
@@ -239,7 +242,63 @@ export async function togliDaOrdine(
     return { ok: false, errore: "salvataggio" };
   }
   if (!(upd.data ?? []).length) return { ok: false, errore: "bloccato" };
+  /* Il TICKET D'ANNULLO (25/10/2026): se la comanda e' gia' uscita, la
+     cucina riceve i piatti tolti su carta (`stampaAnnullo` decide se serve). */
+  void stampaAnnullo(ambito, o.id, esito.tolte, { tavolo: String(o.table_label ?? ""), chi });
   return { ok: true, annullato: esito.vuoto };
+}
+
+/**
+ * ANNULLARE UN ORDINE dal palmare (il cestino della card, 25/10/2026): tutte
+ * le righe a zero, cioe' `togliDaOrdine` — stesse regole (solo da incassare,
+ * solo sul tavolo seduto di oggi) e stesso ticket d'annullo.
+ */
+export async function annullaOrdine(ambito: Ambito, tavoloId: string, ordineId: string, chi = ""): Promise<EsitoTogli> {
+  if (!/^[0-9a-f-]{36}$/i.test(ordineId)) return { ok: false, errore: "nessuno" };
+  const { data: oRaw } = await leggi("orders", ambito, "items").eq("id", ordineId).maybeSingle();
+  const o = oRaw as unknown as { items: VoceItems[] | null } | null;
+  if (!o) return { ok: false, errore: "nessuno" };
+  const zero = Object.fromEntries(righeModificabili(o.items).map((r) => [r.i, 0]));
+  return togliDaOrdine(ambito, tavoloId, ordineId, zero, chi);
+}
+
+export type EsitoLibera =
+  | { ok: true; annullati: number }
+  | { ok: false; errore: "nessuno" | "conto" | "salvataggio" };
+
+/**
+ * «LIBÉRER LA TABLE» dal modale dell'isola (25/10/2026): se ne vanno (o
+ * cambiano tutto). Ogni ordine ancora da incassare si annulla — con il suo
+ * ticket d'annullo se la comanda e' uscita — e la seduta si chiude:
+ *  - nessun ordine rimasto → `cancelled`, come «Annuler» senza ordini;
+ *  - restano ordini gia' pagati (QR online, gia' incassati) → `done`: hanno
+ *    mangiato e pagato, il tavolo si libera e la storia resta.
+ * ⚠️ Non per il conto aperto del QR: li' gli ordini sono dei clienti, divisi
+ * per invio, a volte pagati in parte. Si chiude da Commandes.
+ */
+export async function liberaTavolo(ambito: Ambito, tavoloId: string, chi = ""): Promise<EsitoLibera> {
+  if (!/^[0-9a-f-]{36}$/i.test(tavoloId)) return { ok: false, errore: "nessuno" };
+  const l = await letturaSala(ambito);
+  const seduta = l.righe
+    .filter((r) => r.status === "seated" && tavoloDellaRiga(r, tavoloId))
+    .sort((a, b) => String(b.seated_at ?? "").localeCompare(String(a.seated_at ?? "")))[0];
+  if (!seduta) return { ok: false, errore: "nessuno" };
+  if (seduta.tab_status === "pending" || seduta.tab_status === "open") return { ok: false, errore: "conto" };
+  const { data: oRaw } = await leggi("orders", ambito, "id, status, payment_method")
+    .eq("reservation_id", seduta.id)
+    .neq("status", "cancelled");
+  const ordini = (oRaw ?? []) as unknown as { id: string; status: string; payment_method: string | null }[];
+  let annullati = 0;
+  for (const o of ordini.filter(ordineModificabile)) {
+    const a = await annullaOrdine(ambito, tavoloId, o.id, chi);
+    if (!a.ok) return { ok: false, errore: "salvataggio" };
+    annullati++;
+  }
+  const restano = ordini.length - annullati;
+  const upd = await aggiorna("reservations", ambito, { status: restano > 0 ? "done" : "cancelled" })
+    .eq("id", seduta.id)
+    .eq("status", "seated");
+  return upd.error ? { ok: false, errore: "salvataggio" } : { ok: true, annullati };
 }
 
 /**
@@ -271,5 +330,5 @@ export async function modificaOrdine(opz: {
     const nuovo = await ordinaDalPalmare({ ambito, tavoloId, righe: d.aggiungi, cameriere: opz.cameriere, cameriereId: opz.cameriereId });
     if (!nuovo.ok) return { ok: false, errore: "aggiunta", dettaglio: nuovo };
   }
-  return togliDaOrdine(ambito, tavoloId, ordineId, d.togli);
+  return togliDaOrdine(ambito, tavoloId, ordineId, d.togli, opz.cameriere);
 }
