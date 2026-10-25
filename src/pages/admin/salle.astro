@@ -17,7 +17,7 @@
  *  - sopra la navigazione, piccole PILLOLE con le sale, e al centro la
  *    PIANTINA della sala scelta: quella disegnata in Réglages → Réservations,
  *    col lato lungo sempre sul lato lungo del telefono (`pianoVerticale`).
- *    Per ora i tavoli sono tutti «spenti»: i colori dello stato arrivano dopo.
+ *    I tavoli hanno gli stati di `lib/statoTavoliRegole.ts` (25/10/2026).
  *    Toccare un tavolo apre la sua scheda (`/admin/salle/table?id=`).
  *    Fra le sale si passa anche con uno swipe orizzontale.
  *
@@ -38,6 +38,9 @@ import { ambitoDiRichiesta, leggi } from "../../lib/admin/sede";
 import { configInCache, cronometro } from "../../lib/admin/letturaSala";
 import { saleDelPalmare, pianoVerticale, type SalaPalmare } from "../../lib/pianoPalmare";
 import { tavoliNonDisponibili } from "../../lib/salaInstallaRegole";
+import { statiTavoli, type StatoTavolo, type IconaTavolo } from "../../lib/statoTavoliRegole";
+import { contiApertiDellaSala } from "../../lib/admin/contiSala";
+import { ICONA_QR, ICONA_CARTA, ICONA_STAMPA } from "../../lib/iconeSala";
 import { durateDelServizio } from "../../lib/pianoSalaRegole";
 import { fusoDi } from "../../lib/fuso";
 import { DateTime } from "luxon";
@@ -70,19 +73,46 @@ let sale: SalaPalmare[] = [];
    uniti per una sola tavolata legati da una striscia. La regola e' la stessa
    delle proposte di «Installer» (`tavoliNonDisponibili`): un tavolo verde
    qui non viene mai proposto la'. */
-let occupati = new Set<string>();
 let gruppi: string[][] = [];
+/* GLI STATI DEI TAVOLI (25/10/2026): colore, bordo, icone, timer — le regole
+   in `lib/statoTavoliRegole.ts`. */
+let stati = new Map<string, StatoTavolo>();
+let fuso = "Europe/Brussels";
 const leggiSale = async () => {
   try {
     const ambito = await ambitoDiRichiesta(Astro.request, staff);
-    const ora = DateTime.now().setZone(await fusoDi(ambito));
-    const [{ data: righe }, valori, { data: seduti }] = await Promise.all([
+    fuso = await fusoDi(ambito);
+    const ora = DateTime.now().setZone(fuso);
+    const [{ data: righe }, valori, { data: giornoRaw }, conti, { data: chiamateRaw }] = await Promise.all([
       leggi("restaurant_tables", ambito, "id, zone, name, seats, shape, x, y, w, h"),
       configInCache(ambito, ["reservation_zones", "reservation_plan_areas", "reservation_plan_decor", "reservation_hold_minutes", "reservation_services"]),
-      leggi("reservations", ambito, "heure, status, tables, service_key, extra_minutes, tab_status")
+      // Oggi: chi e' seduto E chi deve arrivare (il bordo bianco, il rosso).
+      leggi("reservations", ambito, "id, heure, status, tables, service_key, extra_minutes, tab_status, tab_table_id")
         .eq("date", ora.toFormat("yyyy-MM-dd"))
-        .eq("status", "seated"),
+        .in("status", ["pending", "confirmed", "seated"]),
+      contiApertiDellaSala(ambito),
+      // «L'addition» chiesta dal tavolo (le ultime 12 ore, come la scheda).
+      leggi("table_calls", ambito, "table_id, reason")
+        .eq("status", "open")
+        .gte("created_at", ora.minus({ hours: 12 }).toUTC().toISO() as string),
     ]);
+    const giorno = (giornoRaw ?? []) as unknown as { id: string; status: string; tab_status: string | null }[];
+    const seduti = giorno.filter((r) => r.status === "seated");
+    /* Il QR con pagamento diretto: una seduta SENZA conto con un ordine fuori
+       dagli invii pagato online (`payment_method` vuoto e non piu' `pending`:
+       un `pending` senza metodo e' un carrello abbandonato). Il cameriere
+       scrive `onsite`, il conto `tab`. */
+    const senzaConto = seduti.filter((r) => r.tab_status !== "pending" && r.tab_status !== "open").map((r) => r.id);
+    const qrDiretti = new Set<string>();
+    if (senzaConto.length) {
+      const { data: oRaw } = await leggi("orders", ambito, "reservation_id, payment_method, status")
+        .in("reservation_id", senzaConto)
+        .is("round_id", null)
+        .neq("status", "cancelled");
+      for (const o of (oRaw ?? []) as unknown as { reservation_id: string; payment_method: string | null; status: string }[]) {
+        if (!o.payment_method && o.status !== "pending") qrDiretti.add(String(o.reservation_id));
+      }
+    }
     sale = saleDelPalmare({
       righe,
       sezioni: valori.get("reservation_zones"),
@@ -96,8 +126,16 @@ const leggiSale = async () => {
       durataNuova: durate.ripiego,
       durate,
     });
-    occupati = stato.occupati;
     gruppi = stato.gruppi;
+    stati = statiTavoli({
+      tavoli: ((righe ?? []) as unknown as { id: string }[]).map((r) => String(r.id)),
+      righe: giorno,
+      conti,
+      chiamate: (chiamateRaw ?? []) as unknown as { table_id: string | null; reason: string | null }[],
+      qrDiretti,
+      adessoHHmm: ora.toFormat("HH:mm"),
+      durate,
+    });
   } catch { sale = []; }
 };
 const [riga] = await Promise.all([leggiCameriere(), leggiSale()]);
@@ -126,6 +164,16 @@ const piante = sale.map((s, i) => {
 });
 /** Il nome del tavolo: grande quanto il tavolo permette, ma leggibile sempre. */
 const corpoNome = (w: number, h: number) => Math.round(Math.max(16, Math.min(30, Math.min(w, h) * 0.36)));
+const LIBERO: StatoTavolo = { colore: "libero", bordo: false, icone: [], arrivo: null, sforo: null };
+const ICONE_STATO: Record<IconaTavolo, string> = { qr: ICONA_QR, carta: ICONA_CARTA, addizione: ICONA_STAMPA };
+/** Le misure dei bollini e del timer, nelle unita' della piantina. */
+const BOLLO_R = 13, ICONA_L = 15, TIMER_H = 24;
+/** «42 min» fino all'arrivo, «+12 min · 20:30» dopo la fine (il rosso). */
+const adessoMin = (() => { const o = DateTime.now().setZone(fuso); return o.hour * 60 + o.minute; })();
+const min = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+const delta = (da: number, a: number) => { let d = a - da; if (d > 720) d -= 1440; if (d < -720) d += 1440; return d; };
+const testoArrivo = (hhmm: string) => `${delta(adessoMin, min(hhmm))} min`;
+const testoSforo = (s: { fine: string; prossima: string }) => `+${Math.max(0, delta(min(s.fine), adessoMin))} min · ${s.prossima}`;
 const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c", brown: "#4a4038" };
 
 // La navigazione. `attiva` = la voce di questa pagina. Per ora solo disegno:
@@ -238,17 +286,33 @@ const VOCI = [
         flex: 0 0 100%; height: 100%; padding: 0 0.75rem;
         scroll-snap-align: center; scroll-snap-stop: always;
       }
-      .pm-sala svg { display: block; width: 100%; height: 100%; }
+      .pm-sala > svg { display: block; width: 100%; height: 100%; }
       .pm-area { fill: color-mix(in srgb, var(--c-text) 4%, transparent); stroke: var(--c-line); stroke-width: 3; stroke-linejoin: round; }
       /* Il tavolo «spento» = libero. I colori dello stato arrivano dopo. */
       .pm-tav-forma { fill: color-mix(in srgb, var(--c-card) 70%, var(--c-bg)); stroke: color-mix(in srgb, var(--c-text) 22%, transparent); stroke-width: 2.5; }
       /* Toccare un tavolo apre la sua scheda: il tocco si vede. */
       .pm-tav { cursor: pointer; -webkit-tap-highlight-color: transparent; }
       .pm-tav:active .pm-tav-forma, .pm-tav:focus-visible .pm-tav-forma { stroke: var(--c-accent); stroke-width: 4; }
-      /* Occupato = verde, come deciso per la mappa del palmare. ⚠️ Il nome resta
-         scuro sul verde: il colore da solo non basta, il numero si deve leggere. */
-      .pm-tav.is-occupato .pm-tav-forma { fill: #4cc38a; stroke: #2f8f61; }
-      .pm-tav.is-occupato .pm-tav-nome { fill: #0b1f14; }
+      /* GLI STATI (Enzo, 25/10/2026 — `lib/statoTavoliRegole.ts`). ⚠️ Il nome
+         resta leggibile su ogni colore: il colore da solo non basta. */
+      .pm-tav.is-verde .pm-tav-forma { fill: #4cc38a; stroke: #2f8f61; }
+      .pm-tav.is-verde .pm-tav-nome { fill: #0b1f14; }
+      .pm-tav.is-arancio .pm-tav-forma { fill: #ff9f43; stroke: #c77a2c; }
+      .pm-tav.is-arancio .pm-tav-nome { fill: #241200; }
+      .pm-tav.is-rosso .pm-tav-forma { fill: #e5484d; stroke: #a8282d; }
+      .pm-tav.is-rosso .pm-tav-nome { fill: #fff; }
+      .pm-tav.is-blu .pm-tav-forma { fill: #3e8ef7; stroke: #2563c4; }
+      .pm-tav.is-blu .pm-tav-nome { fill: #fff; }
+      /* Prenotato entro l'ora: bordo bianco spesso (anche sopra un colore). */
+      .pm-tav.is-bordo .pm-tav-forma { stroke: #fff; stroke-width: 6; }
+      .pm-tav.is-libero.is-bordo .pm-tav-nome { fill: var(--c-text); }
+      /* I bollini delle icone (in alto a destra) e il timer (sotto). */
+      .pm-bollo { fill: var(--c-bg); stroke: var(--c-card); stroke-width: 2; }
+      .pm-bollo-ico { color: #fff; overflow: visible; }
+      .pm-timer-fondo { fill: var(--c-bg); stroke: var(--c-card); stroke-width: 2; }
+      .pm-timer-testo { fill: #fff; font-family: var(--font-body); font-weight: 800; font-size: 13px; text-anchor: middle; dominant-baseline: central; font-variant-numeric: tabular-nums; }
+      .pm-timer.is-rosso .pm-timer-fondo { fill: #fff; }
+      .pm-timer.is-rosso .pm-timer-testo { fill: #c22d32; }
       /* Il legame fra i tavoli di una sola tavolata: una striscia verde sotto. */
       .pm-legame { fill: none; stroke: #2f8f61; stroke-width: 22; stroke-linecap: round; stroke-linejoin: round; }
       .pm-tav-nome { fill: var(--c-muted); font-family: var(--font-body); font-weight: 800; text-anchor: middle; dominant-baseline: central; }
@@ -348,7 +412,7 @@ const VOCI = [
           <span>{t("sal.noPlanHint")}</span>
         </div>
       ) : (
-        <div class="pm-binario" id="pm-binario">
+        <div class="pm-binario" id="pm-binario" data-fuso={fuso}>
         {piante.map(({ zona, p, legami }) => (
         <div class="pm-sala" data-zona={zona}>
           <svg viewBox={`0 0 ${p.larghezza} ${p.altezza}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={zona}>
@@ -358,14 +422,38 @@ const VOCI = [
               : <rect x={d.x} y={d.y} width={d.w} height={d.h} rx="3" fill={COLORE_MURO[d.color]} />)}
             {/* Il legame sta SOTTO i tavoli: si vede fra un tavolo e l'altro. */}
             {legami.map((punti) => <polyline class="pm-legame" points={punti} />)}
-            {p.tavoli.map((tv) => (
-              <a class:list={["pm-tav", { "is-occupato": occupati.has(tv.id) }]} href={`/admin/salle/table?id=${encodeURIComponent(tv.id)}`} aria-label={tv.name}>
+            {p.tavoli.map((tv) => {
+              const st = stati.get(tv.id) ?? LIBERO;
+              const cx = tv.x + tv.w / 2;
+              const tw = st.sforo ? 112 : 66;
+              return (
+              <a class:list={["pm-tav", `is-${st.colore}`, { "is-bordo": st.bordo }]} href={`/admin/salle/table?id=${encodeURIComponent(tv.id)}`} aria-label={tv.name}>
                 {tv.shape === "round"
-                  ? <ellipse class="pm-tav-forma" cx={tv.x + tv.w / 2} cy={tv.y + tv.h / 2} rx={tv.w / 2} ry={tv.h / 2} />
+                  ? <ellipse class="pm-tav-forma" cx={cx} cy={tv.y + tv.h / 2} rx={tv.w / 2} ry={tv.h / 2} />
                   : <rect class="pm-tav-forma" x={tv.x} y={tv.y} width={tv.w} height={tv.h} rx="10" />}
-                <text class="pm-tav-nome" x={tv.x + tv.w / 2} y={tv.y + tv.h / 2} font-size={corpoNome(tv.w, tv.h)}>{tv.name}</text>
+                <text class="pm-tav-nome" x={cx} y={tv.y + tv.h / 2} font-size={corpoNome(tv.w, tv.h)}>{tv.name}</text>
+                {/* Le icone: bollini scuri sull'angolo in alto a destra. */}
+                {st.icone.map((ic, k) => {
+                  const bx = tv.x + tv.w - 2 - (st.icone.length - 1 - k) * (BOLLO_R * 2 + 3); // nell'ordine: QR, poi carta
+                  const by = tv.y + 2;
+                  return (
+                    <g>
+                      <circle class="pm-bollo" cx={bx} cy={by} r={BOLLO_R} />
+                      <svg class="pm-bollo-ico" x={bx - ICONA_L / 2} y={by - ICONA_L / 2} width={ICONA_L} height={ICONA_L} set:html={ICONE_STATO[ic]} />
+                    </g>
+                  );
+                })}
+                {/* Il timer: fino all'arrivo (bordo), o lo sforo (rosso). */}
+                {(st.sforo || st.arrivo) && (
+                  <g class:list={["pm-timer", { "is-rosso": Boolean(st.sforo) }]}
+                    data-arrivo={st.sforo ? undefined : st.arrivo} data-fine={st.sforo?.fine} data-prossima={st.sforo?.prossima}>
+                    <rect class="pm-timer-fondo" x={cx - tw / 2} y={tv.y + tv.h - TIMER_H / 2} width={tw} height={TIMER_H} rx={TIMER_H / 2} />
+                    <text class="pm-timer-testo" x={cx} y={tv.y + tv.h}>{st.sforo ? testoSforo(st.sforo) : testoArrivo(st.arrivo!)}</text>
+                  </g>
+                )}
               </a>
-            ))}
+              );
+            })}
           </svg>
         </div>
         ))}
@@ -452,6 +540,47 @@ const VOCI = [
         const i = piante.findIndex((p) => p.dataset.zona === ricordata);
         if (i > 0) vai(i, false);
       } catch { /* niente memoria: resta la prima */ }
+
+      // ---- I timer dei tavoli e gli stati, sempre freschi ----
+      // Ogni 30 secondi i minuti dei timer; ogni minuto, a pagina visibile,
+      // la piantina si rilegge dal server (solo i disegni delle sale: la sala
+      // scelta, lo swipe e il menu restano dove sono).
+      const fusoSala = binario?.dataset.fuso || undefined;
+      const adessoMinuti = () => {
+        const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: fusoSala, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+          .format(new Date()).split(":").map(Number);
+        return h * 60 + m;
+      };
+      const minDi = (s: string) => { const [h, m] = s.split(":").map(Number); return h * 60 + m; };
+      const scarto = (da: number, a: number) => { let d = a - da; if (d > 720) d -= 1440; if (d < -720) d += 1440; return d; };
+      const aggiornaTimer = () => {
+        const ora = adessoMinuti();
+        document.querySelectorAll<SVGGElement>(".pm-timer").forEach((g) => {
+          const testo = g.querySelector("text");
+          if (!testo) return;
+          const { arrivo, fine, prossima } = g.dataset;
+          if (arrivo) testo.textContent = `${scarto(ora, minDi(arrivo))} min`;
+          else if (fine) testo.textContent = `+${Math.max(0, scarto(minDi(fine), ora))} min · ${prossima ?? ""}`;
+        });
+      };
+      setInterval(() => { if (document.visibilityState === "visible") aggiornaTimer(); }, 30_000);
+      const rileggi = async () => {
+        if (document.visibilityState !== "visible" || !navigator.onLine) return;
+        try {
+          const res = await fetch(location.href, { cache: "no-store", credentials: "same-origin" });
+          if (!res.ok) return;
+          const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+          doc.querySelectorAll<HTMLElement>(".pm-sala").forEach((nuova) => {
+            const qui = piante.find((p) => p.dataset.zona === nuova.dataset.zona);
+            const svg = nuova.querySelector(":scope > svg");
+            const vecchio = qui?.querySelector(":scope > svg");
+            if (svg && vecchio) vecchio.replaceWith(document.importNode(svg, true));
+          });
+          aggiornaTimer();
+        } catch { /* niente rete: si riprova al prossimo giro */ }
+      };
+      setInterval(() => { void rileggi(); }, 60_000);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void rileggi(); });
 
       // ---- Il pallino della rete ----
       // Per ora dice solo se il telefono ha la rete. Quando arriveranno gli

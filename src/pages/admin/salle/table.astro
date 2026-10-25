@@ -41,7 +41,7 @@ import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
-import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE } from "../../../lib/iconeSala";
+import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA } from "../../../lib/iconeSala";
 
 export const prerender = false;
 
@@ -304,14 +304,19 @@ const personeIsola = personeAdesso;
         box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
       }
       .tb-pan-conto[hidden] { display: none; }
-      .tb-pan-conto-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
       /* Evidenti come «Déplacer»: fondo piu' chiaro, bordo di 2px, icona sopra. */
       /* Addition / Encaisser: gli stessi bottoni pillola del palmare, con l'icona del motore. */
-      .tb-pan-conto-btns .tb-btn { height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 1rem; font-weight: 800; }
+      /* «Addition»: la pillola del palmare, sfondo scuro (Enzo, 24/10/2026). */
+      .tb-addizione {
+        width: 100%; height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem;
+        background: var(--c-bg); border-color: var(--c-line); font-size: 1rem; font-weight: 800;
+      }
+      .tb-addizione:active { transform: scale(0.98); }
+      .tb-conto-esito { text-align: center; font-size: 0.85rem; font-weight: 700; color: #4cc38a; }
+      .tb-conto-esito.is-errore { color: #ffb59f; }
+      .tb-conto-esito[hidden] { display: none; }
       .tb-conto-ico { display: inline-flex; }
       .tb-conto-ico svg { width: auto; height: 20px; display: block; }
-      .tb-conto-presto { text-align: center; font-size: 0.82rem; color: var(--c-muted); }
-      .tb-conto-presto[hidden] { display: none; }
       .tb-totale strong { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
       .tb-info {
         align-self: center; padding: 0.35rem 0.85rem; border-radius: 999px;
@@ -638,18 +643,13 @@ const personeIsola = personeAdesso;
               <Fragment>
                 {conOrdini && (
                   <div class="tb-pan-conto" id="tb-pan-conto" hidden>
-                    {/* Senza il totale (e' gia' sul bottone che apre); due bottoni
-                        grandi con le icone del motore (Enzo, 24/10/2026). Non fanno
-                        ancora niente: lo dicono, invece di sembrare rotti. */}
-                    <div class="tb-pan-conto-btns">
-                      <button type="button" class="tb-btn" data-presto>
-                        <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_STAMPA} />{t("sal.tb.act.bill")}
-                      </button>
-                      <button type="button" class="tb-btn is-primo" data-presto>
-                        <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_MONETE} />{t("sal.tb.act.pay")}
-                      </button>
-                    </div>
-                    <p class="tb-conto-presto" id="tb-conto-presto" hidden>{t("sal.tb.soon")}</p>
+                    {/* Per ora SOLO «Addition» (Enzo, 24/10/2026): il ticket di
+                        tutto quello che il tavolo ha ordinato, sulla stampante
+                        principale. «Encaisser» verra' dopo. */}
+                    <button type="button" class="tb-btn tb-addizione" id="tb-addizione" data-testo={t("sal.tb.act.bill")}>
+                      <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_STAMPA} /><span class="tb-addizione-txt">{t("sal.tb.act.bill")}</span>
+                    </button>
+                    <p class="tb-conto-esito" id="tb-conto-esito" role="status" hidden></p>
                   </div>
                 )}
                 <div class="tb-riga tb-riga-una">
@@ -690,6 +690,7 @@ const personeIsola = personeAdesso;
 
     <script>
       // IL MODALE DEL CONTO: toccando il totale in basso (Enzo, 24/10/2026).
+      import { authFresh as authC } from "../../../lib/admin/auth";
       const totBtn = document.getElementById("tb-totale");
       const panConto = document.getElementById("tb-pan-conto");
       if (totBtn && panConto) {
@@ -702,11 +703,34 @@ const personeIsola = personeAdesso;
           if (!panConto.hidden && !panConto.contains(e.target as Node)) apriConto(false);
         });
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") apriConto(false); });
-        // Addition / Encaisser non sono ancora fatti: un tocco lo dice.
-        const presto = document.getElementById("tb-conto-presto");
-        panConto.querySelectorAll("[data-presto]").forEach((b) => b.addEventListener("click", () => {
-          if (presto) presto.hidden = false;
-        }));
+        // «Addition»: il ticket di tutto il tavolo sulla stampante principale.
+        const add = document.getElementById("tb-addizione") as HTMLButtonElement | null;
+        const esito = document.getElementById("tb-conto-esito");
+        const tavoloA = new URLSearchParams(location.search).get("id") ?? "";
+        add?.addEventListener("click", async () => {
+          if (add.disabled) return;
+          add.disabled = true;
+          const dici = (testo: string, errore: boolean) => {
+            if (!esito) return;
+            esito.textContent = testo;
+            esito.classList.toggle("is-errore", errore);
+            esito.hidden = false;
+          };
+          try {
+            const res = await fetch("/api/admin/salle-seat", {
+              method: "POST", headers: await authC(),
+              body: JSON.stringify({ azione: "addizione", table: tavoloA }),
+            });
+            const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+            if (res.ok) {
+              dici(j.message || "OK", false);
+              setTimeout(() => { apriConto(false); if (esito) esito.hidden = true; }, 1800);
+            } else dici(j.error || "Erreur", true);
+          } catch {
+            dici("Erreur réseau", true);
+          }
+          add.disabled = false;
+        });
       }
     </script>
     <script>

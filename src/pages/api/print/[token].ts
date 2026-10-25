@@ -227,18 +227,22 @@ export const GET: APIRoute = async ({ params }) => {
   /* ---- L'ADDIZIONE del conto aperto («Imprimer l'addition») ----
      ⚠️ Riga `customer`: va in mano al cliente, quindi i prezzi ci sono, per
      persona, e la lingua e' quella pubblica del locale. Tutti gli ordini del
-     conto, non solo quello a cui e' attaccata la riga. */
+     conto, non solo quello a cui e' attaccata la riga.
+     ⚠️ Capo SENZA `round_id` = l'«Addition» del palmare su una sessione del
+     cameriere (24/10/2026): tutti gli ordini della seduta senza invio, in
+     un blocco solo (niente nome: e' un tavolo, non dei clienti del QR). */
   if (String((riga as { kind?: string }).kind ?? "") === "customer") {
     if (!conto.reservation_id) return vuoto();
-    const { data: tuttiRaw } = await leggi("orders", ambito, "customer_name, items, total_cents, table_label, created_at")
+    const sessione = !conto.round_id;
+    let qTutti = leggi("orders", ambito, "customer_name, items, total_cents, table_label, created_at")
       .eq("reservation_id", conto.reservation_id)
-      .not("round_id", "is", null)
-      .neq("status", "cancelled")
-      .order("created_at", { ascending: true });
+      .neq("status", "cancelled");
+    qTutti = sessione ? qTutti.is("round_id", null) : qTutti.not("round_id", "is", null);
+    const { data: tuttiRaw } = await qTutti.order("created_at", { ascending: true });
     const tutti = (tuttiRaw ?? []) as unknown as { customer_name: string | null; items: RigaOrdine["items"]; total_cents: number | null; table_label: string | null }[];
     const perNome = new Map<string, { nome: string; righe: { testo: string; cents: number }[]; totale: number }>();
     for (const o of tutti) {
-      const nome = String(o.customer_name ?? "").trim() || "-";
+      const nome = sessione ? "" : String(o.customer_name ?? "").trim() || "-";
       const p = perNome.get(nome) ?? { nome, righe: [], totale: 0 };
       for (const i of piattiVeri(o.items ?? [])) {
         const qty = Math.max(1, Math.floor(Number(i.qty) || 1));

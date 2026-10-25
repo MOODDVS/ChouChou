@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { installaClienti, annullaInstallazione, spostaTavoli, cambiaPersone, estendiTavolo } from "../../../lib/admin/installaTavolo";
+import { stampaAddizioneTavolo } from "../../../lib/admin/addizioneTavolo";
 import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
 import { adminT } from "../../../i18n/admin";
 
@@ -20,6 +21,8 @@ import { adminT } from "../../../i18n/admin";
  * POST { azione: "estendi", table, minuti: 15|30|45, forza? } → { ok, fine }
  *   (23/10/2026) piu' tempo al tavolo; 409 { conflitto } se una prenotazione
  *   sugli stessi tavoli inizia nei minuti aggiunti (si conferma con forza).
+ * POST { azione: "addizione", table } → { ok: true }   (24/10/2026)
+ *   L'«Addition» di tutto il tavolo sulla stampante principale.
  *
  * ⚠️ E' in `API_PALMARE` (permessiRegole): l'UNICA cosa che il palmare puo'
  * chiamare. Per gli altri ruoli vale la pagina «reservations».
@@ -70,6 +73,13 @@ export const POST: APIRoute = async ({ request }) => {
     }
     if (e.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
     return json({ error: t("sal.mv.error") }, e.errore === "minuti" ? 400 : 500);
+  }
+  if (body.azione === "addizione") {
+    const a = await stampaAddizioneTavolo(ambito, String(body.table ?? ""));
+    if (a.ok) return json({ ok: true, message: t("ord.tabPrinted") });
+    if (a.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
+    if (a.errore === "vuoto") return json({ error: t("err.tabEmpty") }, 409);
+    return json({ error: t("err.tabPrint"), motivo: a.motivo }, 409);
   }
   if (body.azione === "persone") {
     const n = await cambiaPersone(ambito, String(body.table ?? ""), body.people);
