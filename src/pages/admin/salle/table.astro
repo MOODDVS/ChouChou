@@ -41,7 +41,7 @@ import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
-import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA } from "../../../lib/iconeSala";
+import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA } from "../../../lib/iconeSala";
 
 export const prerender = false;
 
@@ -202,7 +202,18 @@ const personeIsola = personeAdesso;
       .tb-piatto { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.95rem; line-height: 1.35; }
       .tb-piatto em { font-style: normal; color: var(--c-muted); }
       /* Il commento per la cucina, sotto il piatto (come sul ticket, dove esce in grande). */
-      .tb-piatto-nota { display: block; margin-top: 2px; font-size: 0.82rem; font-style: italic; color: #ffcf99; }
+      /* La VARIANTE e' una pillola, come in Commandes (`.v-chip`); il COMMENTO
+         del cameriere ha il fumetto delle note davanti, nel grigio del motore
+         (Enzo, 25/10/2026). */
+      .tb-variante {
+        display: inline-block; margin-left: 0.45rem; vertical-align: 1px;
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; line-height: 1.4;
+        color: var(--c-accent); border: 1px solid var(--c-accent);
+        border-radius: 999px; padding: 0.05rem 0.55rem; white-space: nowrap;
+      }
+      .tb-piatto-nota { display: flex; align-items: center; gap: 0.35rem; margin-top: 3px; font-size: 0.85rem; color: var(--c-muted); }
+      .tb-nota-ico { display: inline-flex; flex: none; }
+      .tb-nota-ico svg { width: 14px; height: 14px; display: block; }
       .tb-prossima { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
       .tb-prossima svg { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: var(--c-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -287,7 +298,14 @@ const personeIsola = personeAdesso;
       }
       a.tb-btn.tb-ordina:active { transform: scale(0.97); }
       /* Il totale accanto alla freccia: una pillola che si prende lo spazio. */
-      .tb-riga-una > .tb-totale { flex: 1.3; min-width: 0; height: 52px; align-items: center; justify-content: center; padding: 0 0.8rem; gap: 0.5rem; }
+      /* Corallo, come «Récap» nella pagina dei piatti: «Total» a sinistra, la
+         cifra a destra (Enzo, 25/10/2026). */
+      .tb-riga-una > .tb-totale {
+        flex: 1.3; min-width: 0; height: 52px; align-items: center; justify-content: space-between; padding: 0 1.25rem; gap: 0.5rem;
+        background: var(--c-accent); color: var(--c-bg); border-color: transparent;
+      }
+      .tb-riga-una > .tb-totale span { color: var(--c-bg); font-size: 1rem; font-weight: 800; }
+      .tb-riga-una > .tb-totale[aria-expanded="true"] { border-color: transparent; }
       .tb-riga-una > .tb-totale strong { font-size: 1.05rem; white-space: nowrap; }
       .tb-totale {
         align-self: center; display: inline-flex; align-items: baseline; gap: 0.75rem;
@@ -475,7 +493,7 @@ const personeIsola = personeAdesso;
                     <Fragment>
                       {r.nome && <p class="tb-persona">{r.nome}</p>}
                       {r.piatti.map((p) => (
-                        <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <em> · {p.variante}</em>}{p.nota && <span class="tb-piatto-nota">{p.nota}</span>}</span></p>
+                        <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <span class="tb-variante">{p.variante}</span>}{p.nota && <span class="tb-piatto-nota"><span class="tb-nota-ico" set:html={ICONA_NOTA} />{p.nota}</span>}</span></p>
                       ))}
                     </Fragment>
                   ))}
@@ -522,7 +540,7 @@ const personeIsola = personeAdesso;
                   <div class="tb-vista">
                     <div class="tb-vista-piatti">
                       {o.piatti.map((p) => (
-                        <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <em> · {p.variante}</em>}{p.nota && <span class="tb-piatto-nota">{p.nota}</span>}</span></p>
+                        <p class="tb-piatto"><span>{p.qty}× {p.nome}{p.variante && <span class="tb-variante">{p.variante}</span>}{p.nota && <span class="tb-piatto-nota"><span class="tb-nota-ico" set:html={ICONA_NOTA} />{p.nota}</span>}</span></p>
                       ))}
                     </div>
                     {/* «Total» piccolo SOPRA il numero, a destra (Enzo, 23/10/2026). */}
@@ -532,7 +550,7 @@ const personeIsola = personeAdesso;
                     <div class="tb-ed" data-ordine={o.id} hidden>
                       {o.righe.map((r) => (
                         <div class="tb-ed-riga" data-i={r.i} data-max={r.qty} data-prezzo={r.prezzo}>
-                          <span class="tb-ed-nome">{r.nome}{r.variante && <em> · {r.variante}</em>}</span>
+                          <span class="tb-ed-nome">{r.nome}{r.variante && <span class="tb-variante">{r.variante}</span>}</span>
                           <span class="tb-ed-passo">
                             <button type="button" class="tb-n" data-d="-1" aria-label="−">−</button>
                             <b>{r.qty}</b>
