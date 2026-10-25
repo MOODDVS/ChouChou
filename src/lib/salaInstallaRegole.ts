@@ -121,6 +121,7 @@ function minuti(v: unknown): number | null {
 
 /** Le prenotazioni di oggi, come servono qui. */
 export interface RigaGiorno {
+  id?: unknown;
   heure?: unknown;
   status?: unknown;
   tables?: unknown;
@@ -164,6 +165,9 @@ export function tavoliNonDisponibili(opz: {
   adessoHHmm: string;
   durataNuova: number;
   durate: { perServizio: Record<string, number>; ripiego: number };
+  /** Le sedute con ordini ancora DA INCASSARE (id della prenotazione):
+   *  occupano sempre, come il conto aperto (25/10/2026). */
+  conOrdini?: Set<string>;
 }): { occupati: Set<string>; prenotati: Set<string>; gruppi: string[][] } {
   const occupati = new Set<string>();
   const prenotati = new Set<string>();
@@ -180,7 +184,10 @@ export function tavoliNonDisponibili(opz: {
       const contoAperto = r.tab_status === "pending" || r.tab_status === "open";
       // La cena dopo mezzanotte: arrivati alle 23:30, all'01:00 sono ancora li'.
       const ora = inizio !== null && adesso < inizio ? adesso + 1440 : adesso;
-      if (contoAperto || inizio === null || ora < inizio + durata + MARGINE_FINE_MINUTI) {
+      /* ⚠️ Chi ha ancora da pagare e' ancora li', anche oltre il suo tempo
+         (Enzo, 25/10/2026: un tavolo con un ordine aperto non tornava verde). */
+      const daPagare = Boolean(opz.conOrdini?.has(String(r.id ?? "")));
+      if (contoAperto || daPagare || inizio === null || ora < inizio + durata + MARGINE_FINE_MINUTI) {
         ids.forEach((id) => occupati.add(id));
         // Piu' tavoli per una sola tavolata: sulla piantina si legano.
         if (ids.length > 1) gruppi.push(ids);

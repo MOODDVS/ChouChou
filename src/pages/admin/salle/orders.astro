@@ -1,0 +1,294 @@
+---
+/**
+ * COMMANDES — gli ordini aperti di tutta la sala, dal palmare
+ * (/admin/salle/orders). Deciso con Enzo il 25/10/2026 (mockup approvato).
+ *
+ * Una card per ORDINE, una riga compatta, SENZA gli articoli: toccandola si
+ * apre la scheda del tavolo, dove ci sono piatti, matita, cestino, Addition.
+ *  - a sinistra il tavolo nella bolla dell'isola, sotto l'ora di seduta;
+ *  - prima riga: il cameriere (faccina) — o, dal QR, i nomi di chi ha ordinato;
+ *  - seconda riga: le etichette (À valider, Compte, Payé, la prenotazione che
+ *    arriva: rossa o bianca come sulla mappa); senza etichette sparisce;
+ *  - terza riga: quanti articoli;
+ *  - a destra: da quanto aspetta (verde < 10 min, arancione < 30, rosso) e
+ *    il totale.
+ * Filtri in basso sopra la navigazione: Toutes, Les miennes, À libérer, À
+ * valider. Prima chi aspetta la convalida, poi chi aspetta da piu' tempo.
+ * I dati: `lib/admin/ordiniAperti.ts`. La lista si rilegge ogni minuto.
+ */
+import PalmareHead from "../../../components/admin/PalmareHead.astro";
+import PalmareTesta from "../../../components/admin/PalmareTesta.astro";
+import PalmareNav from "../../../components/admin/PalmareNav.astro";
+import { CLIENT } from "../../../config/client";
+import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
+import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
+import { claimsDaToken } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
+import { cameriereDellaPillola } from "../../../lib/admin/cameriereCorrente";
+import { ordiniAperti, type OrdineAperto } from "../../../lib/admin/ordiniAperti";
+import { cronometro } from "../../../lib/admin/letturaSala";
+import { fusoDi } from "../../../lib/fuso";
+import { importoDa } from "../../../lib/soldi";
+import { ICONA_QR, ICONA_CARTA, ICONA_OROLOGIO } from "../../../lib/iconeSala";
+
+export const prerender = false;
+
+const lang = await linguaPalmare(Astro.request);
+const t = adminT(lang);
+const LOC = ADMIN_LOCALE[lang] ?? "fr-BE";
+const euro = (c: number) => importoDa(c, LOC);
+
+const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
+const crono = cronometro();
+let ordini: OrdineAperto[] = [];
+let fuso = "Europe/Brussels";
+const leggiOrdini = async () => {
+  try {
+    const ambito = await ambitoDiRichiesta(Astro.request, staff);
+    fuso = await fusoDi(ambito); // dalla cache: niente viaggio
+    ordini = await ordiniAperti(ambito, staff?.employee_id ?? null);
+  } catch { ordini = []; }
+};
+const [cameriere] = await Promise.all([cameriereDellaPillola(staff, CLIENT.nome), leggiOrdini()]);
+crono.tappa("ordini");
+Astro.response.headers.set("Server-Timing", crono.intestazione());
+
+const conta = {
+  tutte: ordini.length,
+  miei: ordini.filter((o) => o.mio).length,
+  liberare: ordini.filter((o) => o.liberare).length,
+  valider: ordini.filter((o) => o.tag.includes("valider")).length,
+};
+const FILTRI = [
+  { k: "tutte", label: t("sal.or.all"), n: conta.tutte },
+  // «Les miennes» solo per il telefono di un dipendente: il palmare del
+  // locale non ha ordini «suoi».
+  ...(staff?.employee_id ? [{ k: "miei", label: t("sal.or.mine"), n: conta.miei }] : []),
+  { k: "liberare", label: t("sal.or.free"), n: conta.liberare },
+  { k: "valider", label: t("sal.or.validate"), n: conta.valider },
+];
+const articoli = (n: number) => (n === 1 ? t("sal.or.item") : t("sal.or.items").replace("{n}", String(n)));
+const iniziale = (nome: string) => nome.trim().slice(0, 1).toUpperCase() || "·";
+---
+
+<html lang={lang}>
+  <head>
+    <PalmareHead titolo={t("sal.nav.orders")} />
+    <style is:global>
+      .or { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.15rem 1rem calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 34px + 2.2rem); }
+      .or-tit { display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+      .or-vuoto { margin-top: 1rem; text-align: center; color: var(--c-muted); line-height: 1.5; }
+      .or-vuoto[hidden], .or-card[hidden] { display: none; }
+      /* La card: una riga, tutta toccabile (porta alla scheda del tavolo). */
+      .or-card {
+        display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem;
+        border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); text-decoration: none; -webkit-tap-highlight-color: transparent;
+        transition: transform .12s ease;
+      }
+      .or-card:active { transform: scale(0.98); }
+      .or-sx { flex: none; min-width: 56px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+      /* La bolla del tavolo: la stessa dell'isola (`IsolaTavolo`). */
+      .or-bolla {
+        min-width: 52px; height: 40px; padding: 0 0.8rem; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-text); color: var(--c-bg); font-weight: 800; font-size: 1rem; white-space: nowrap;
+      }
+      .or-seduti { font-size: 0.75rem; font-weight: 600; color: var(--c-muted); font-variant-numeric: tabular-nums; }
+      .or-mezzo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .or-chi { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-weight: 800; }
+      .or-chi > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .or-sep { color: var(--c-muted); margin: 0 0.35rem; }
+      /* La faccina del cameriere: come nella scheda del tavolo. */
+      .or-faccina {
+        width: 22px; height: 22px; border-radius: 50%; flex: none; object-fit: cover;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-accent); color: var(--c-bg); font-size: 0.7rem; font-weight: 800;
+      }
+      .or-tag-riga { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+      .or-tag {
+        height: 26px; padding: 0 0.65rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem;
+        font-size: 0.75rem; font-weight: 800; white-space: nowrap;
+        background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-line);
+      }
+      .or-tag svg { width: 13px; height: 13px; display: block; }
+      .or-tag.is-arancio { background: #ff9f43; color: #241200; border-color: transparent; }
+      .or-tag.is-rosso { background: #e5484d; color: #fff; border-color: transparent; }
+      .or-tag.is-bianco { background: transparent; color: #fff; border: 2px solid #fff; }
+      .or-art { font-size: 0.82rem; color: var(--c-muted); }
+      .or-dx { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+      .or-dx strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
+      /* Il timer: la pillola dell'isola, coi colori dell'attesa. */
+      .or-timer {
+        height: 26px; min-width: 52px; padding: 0 0.65rem; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 0.78rem; font-weight: 800; background: #4cc38a; color: #0b1f14; font-variant-numeric: tabular-nums;
+      }
+      .or-timer.is-medio { background: #ff9f43; color: #241200; }
+      .or-timer.is-lungo { background: #e5484d; color: #fff; }
+      /* I filtri: pillole sopra la navigazione, come le sale nella mappa. */
+      .or-filtri {
+        position: fixed; left: 0; right: 0; z-index: 19;
+        bottom: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 0.6rem);
+        display: flex; justify-content: safe center; gap: 0.4rem;
+        padding: 0 1rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+      }
+      .or-filtri::-webkit-scrollbar { display: none; }
+      .or-filtro {
+        flex: 0 0 auto; height: 34px; padding: 0 0.6rem 0 0.95rem; border-radius: 999px; white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+        font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+      }
+      .or-filtro b { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--c-bg); color: var(--c-text); font-size: 0.7rem; }
+      .or-filtro[aria-pressed="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      /* La sfumatura sotto i filtri: le card ci scivolano sotto. */
+      .or-sfuma { position: fixed; left: 0; right: 0; bottom: 0; z-index: 18; height: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 60px); background: linear-gradient(transparent, var(--c-bg) 40%); pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <PalmareTesta lang={lang} cameriere={cameriere} />
+
+    <main class="or" id="or-lista" data-fuso={fuso}>
+      <p class="or-tit"><span>{t("sal.or.title")}</span><span id="or-conta">{ordini.length}</span></p>
+      {ordini.map((o) => (
+          <a class="or-card" href={`/admin/salle/table?id=${encodeURIComponent(o.tavoloId)}`}
+            data-mio={o.mio ? "1" : undefined} data-liberare={o.liberare ? "1" : undefined}
+            data-valider={o.tag.includes("valider") ? "1" : undefined}>
+            <span class="or-sx">
+              <span class="or-bolla">{o.tavoli || "—"}</span>
+              {o.seduti && <span class="or-seduti">{o.seduti}</span>}
+            </span>
+            <span class="or-mezzo">
+              {o.cameriere ? (
+                <span class="or-chi">
+                  {o.cameriere.foto
+                    ? <img class="or-faccina" src={o.cameriere.foto} alt="" width="22" height="22" loading="lazy" />
+                    : <span class="or-faccina" aria-hidden="true">{iniziale(o.cameriere.nome)}</span>}
+                  <span>{o.cameriere.nome}</span>
+                </span>
+              ) : o.nomi.length > 0 ? (
+                <span class="or-chi"><span>{o.nomi.map((n, i) => <Fragment>{i > 0 && <span class="or-sep">·</span>}{n}</Fragment>)}</span></span>
+              ) : null}
+              {(o.tag.length > 0 || o.liberare) && (
+                <span class="or-tag-riga">
+                  {o.tag.includes("valider") && <span class="or-tag is-arancio"><span set:html={ICONA_QR} />{t("sal.or.validate")}</span>}
+                  {o.tag.includes("compte") && <span class="or-tag"><span set:html={ICONA_QR} />{t("sal.or.tab")}</span>}
+                  {o.tag.includes("paye") && <span class="or-tag"><span set:html={ICONA_QR} /><span set:html={ICONA_CARTA} />{t("sal.or.paid")}</span>}
+                  {o.liberare && (
+                    <span class:list={["or-tag", o.liberare.tipo === "rosso" ? "is-rosso" : "is-bianco"]}
+                      data-resa={o.liberare.resa} data-fine={o.liberare.fine ?? undefined} data-tpl={t("sal.or.resa")}>
+                      <span set:html={ICONA_OROLOGIO} /><span class="or-resa-txt">{t("sal.or.resa").replace("{h}", o.liberare.resa)}</span>
+                    </span>
+                  )}
+                </span>
+              )}
+              <span class="or-art">{articoli(o.articoli)}</span>
+            </span>
+            <span class="or-dx">
+              <span class="or-timer" data-dal={o.dal}>·</span>
+              <strong>{euro(o.totale_cents)}</strong>
+            </span>
+          </a>
+      ))}
+      <p class="or-vuoto" id="or-vuoto" hidden={ordini.length > 0} data-tutti={t("sal.or.empty")} data-filtro={t("sal.or.emptyFilter")}>{t("sal.or.empty")}</p>
+    </main>
+
+    <div class="or-sfuma" aria-hidden="true"></div>
+    <nav class="or-filtri" id="or-filtri" aria-label={t("sal.nav.orders")}>
+      {FILTRI.map((f, i) => (
+        <button type="button" class="or-filtro" data-filtro={f.k} aria-pressed={i === 0 ? "true" : "false"}>
+          {f.label}<b>{f.n}</b>
+        </button>
+      ))}
+    </nav>
+    <PalmareNav lang={lang} attiva="orders" />
+
+    <script>
+      // ---- I FILTRI: si ricordano per questa visita (e dopo la rilettura) ----
+      const CHIAVE = "mdd-palmare-filtro-ordini";
+      let filtro = "tutte";
+      try { filtro = sessionStorage.getItem(CHIAVE) || "tutte"; } catch { /* niente memoria */ }
+      const applica = () => {
+        const bottoni = [...document.querySelectorAll<HTMLButtonElement>(".or-filtro")];
+        if (!bottoni.some((b) => b.dataset.filtro === filtro)) filtro = "tutte";
+        bottoni.forEach((b) => b.setAttribute("aria-pressed", b.dataset.filtro === filtro ? "true" : "false"));
+        const card = [...document.querySelectorAll<HTMLElement>(".or-card")];
+        let visibili = 0;
+        card.forEach((c) => {
+          const si = filtro === "tutte"
+            || (filtro === "miei" && c.dataset.mio === "1")
+            || (filtro === "liberare" && c.dataset.liberare === "1")
+            || (filtro === "valider" && c.dataset.valider === "1");
+          c.hidden = !si;
+          if (si) visibili++;
+        });
+        const vuoto = document.getElementById("or-vuoto");
+        if (vuoto) {
+          vuoto.hidden = visibili > 0;
+          vuoto.textContent = (card.length ? vuoto.dataset.filtro : vuoto.dataset.tutti) ?? "";
+        }
+      };
+      document.getElementById("or-filtri")?.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLButtonElement>(".or-filtro");
+        if (!b) return;
+        filtro = b.dataset.filtro ?? "tutte";
+        try { sessionStorage.setItem(CHIAVE, filtro); } catch { /* resta per questa pagina */ }
+        applica();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+
+      // ---- I TIMER: da quanto aspetta, e lo sforo della prenotazione ----
+      const aggiorna = () => {
+        const ora = Date.now();
+        document.querySelectorAll<HTMLElement>(".or-timer[data-dal]").forEach((el) => {
+          const m = Math.max(0, Math.floor((ora - new Date(el.dataset.dal ?? "").getTime()) / 60000));
+          if (!Number.isFinite(m)) return;
+          el.textContent = `${m} min`;
+          el.classList.toggle("is-medio", m >= 10 && m < 30);
+          el.classList.toggle("is-lungo", m >= 30);
+        });
+        // L'ora del RISTORANTE, non quella del telefono.
+        const fuso = document.getElementById("or-lista")?.dataset.fuso || undefined;
+        const [hh, mi] = new Intl.DateTimeFormat("en-GB", { timeZone: fuso, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+          .format(new Date()).split(":").map(Number);
+        const minuti = hh * 60 + mi;
+        const di = (s: string) => { const [h, mm] = s.split(":").map(Number); return h * 60 + mm; };
+        const scarto = (da: number, a: number) => { let d = a - da; if (d > 720) d -= 1440; if (d < -720) d += 1440; return d; };
+        document.querySelectorAll<HTMLElement>(".or-tag[data-resa]").forEach((el) => {
+          const txt = el.querySelector(".or-resa-txt");
+          if (!txt) return;
+          const resa = el.dataset.resa ?? "";
+          const base = (el.dataset.tpl ?? "{h}").replace("{h}", resa);
+          // Rosso: di quanto ha sforato; bianco: fra quanto arriva.
+          txt.textContent = el.dataset.fine
+            ? `${base} · +${Math.max(0, scarto(di(el.dataset.fine), minuti))} min`
+            : `${base} · ${Math.max(0, scarto(minuti, di(resa)))} min`;
+        });
+      };
+
+      // ---- La lista si rilegge ogni minuto, a pagina visibile ----
+      const rileggi = async () => {
+        if (document.visibilityState !== "visible" || !navigator.onLine) return;
+        try {
+          const res = await fetch(location.href, { cache: "no-store", credentials: "same-origin" });
+          if (!res.ok) return;
+          const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+          const nuova = doc.getElementById("or-lista");
+          const nuoviFiltri = doc.getElementById("or-filtri");
+          const lista = document.getElementById("or-lista");
+          const filtri = document.getElementById("or-filtri");
+          if (nuova && lista) lista.replaceChildren(...[...nuova.childNodes].map((n) => document.importNode(n, true)));
+          if (nuoviFiltri && filtri) filtri.replaceChildren(...[...nuoviFiltri.childNodes].map((n) => document.importNode(n, true)));
+          applica();
+          aggiorna();
+        } catch { /* niente rete: si riprova al prossimo giro */ }
+      };
+      applica();
+      aggiorna();
+      setInterval(() => { if (document.visibilityState === "visible") aggiorna(); }, 30_000);
+      setInterval(() => { void rileggi(); }, 60_000);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void rileggi(); });
+    </script>
+  </body>
+</html>

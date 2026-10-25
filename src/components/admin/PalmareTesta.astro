@@ -1,0 +1,154 @@
+---
+/**
+ * LA PILLOLA DEL CAMERIERE, ferma in alto — le pagine del palmare (sala,
+ * Commandes). Spostata da /admin/salle il 25/10/2026: le pagine sono due, la
+ * pillola e' una. Foto (dal Team) o iniziali, nome, pallino della rete;
+ * toccandola il menu: lingua del telefono e «Disconnetti».
+ * Il cameriere lo legge la pagina (`cameriereDellaPillola`), insieme alle
+ * sue letture.
+ */
+import { CLIENT } from "../../config/client";
+import { adminT, LINGUE_ADMIN, type AdminLang } from "../../i18n/admin";
+import { COOKIE_LINGUA_PALMARE } from "../../lib/admin/linguaPalmareRegole";
+import type { CamerierePillola } from "../../lib/admin/cameriereCorrente";
+
+interface Props { lang: AdminLang; cameriere: CamerierePillola }
+const { lang, cameriere } = Astro.props;
+const t = adminT(lang);
+---
+
+    <header class="sal-testa">
+      <div class="sal-pillola-box">
+        <button type="button" class="sal-pillola" id="sal-pillola" aria-haspopup="true" aria-expanded="false" aria-controls="sal-menu">
+          {cameriere.foto
+            ? <img class="sal-foto" src={cameriere.foto} alt="" />
+            : <span class="sal-iniz" aria-hidden="true">{cameriere.iniziali}</span>}
+          <span class="sal-chi">{cameriere.nome || CLIENT.nome}</span>
+          <span class="sal-rete" id="sal-rete" role="img" aria-label={t("sal.online")}></span>
+          <svg class="sal-freccia" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
+        <div class="sal-menu" id="sal-menu" hidden data-cookie={COOKIE_LINGUA_PALMARE}>
+          <p class="sal-menu-rete" id="sal-menu-rete" data-on={t("sal.online")} data-off={t("sal.offline")}>{t("sal.online")}</p>
+          {/* LA LINGUA DEL CAMERIERE (23/10/2026): sul suo telefono, non per
+              tutto il locale — l'admin puo' essere in italiano e lui parlare
+              solo inglese. */}
+          <p class="sal-menu-tit">{t("sal.lang")}</p>
+          <div class="sal-lingue" role="group" aria-label={t("sal.lang")}>
+            {LINGUE_ADMIN.map((l) => (
+              <button type="button" class="sal-lingua" data-lingua={l.code} aria-pressed={l.code === lang ? "true" : "false"} title={l.label}>{l.code.toUpperCase()}</button>
+            ))}
+          </div>
+          <button type="button" class="sal-esci" id="sal-esci">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
+            {t("hdr.logout")}
+          </button>
+        </div>
+      </div>
+    </header>
+
+<style is:global>
+      /* ---------- la pillola, ferma in alto ---------- */
+      .sal-testa {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; justify-content: center;
+        padding: max(0.75rem, env(safe-area-inset-top)) 1rem 0.75rem;
+        background: linear-gradient(var(--c-bg) 70%, transparent);
+      }
+      .sal-pillola-box { position: relative; }
+      .sal-pillola {
+        display: flex; align-items: center; gap: 0.6rem;
+        min-height: 48px; max-width: min(92vw, 360px);
+        padding: 5px 14px 5px 5px; border-radius: 999px;
+        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+        font: inherit; cursor: pointer;
+      }
+      .sal-foto, .sal-iniz {
+        width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; object-fit: cover;
+      }
+      .sal-iniz {
+        display: flex; align-items: center; justify-content: center;
+        background: var(--c-accent); color: #fff; font-weight: 800; font-size: 0.9rem; letter-spacing: 0.02em;
+      }
+      .sal-chi { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* Il pallino della rete: verde collegato, arancione fuori linea. */
+      .sal-rete { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #4fbe8c; box-shadow: 0 0 0 3px color-mix(in srgb, #4fbe8c 25%, transparent); }
+      .sal-rete.is-off { background: #f0a040; box-shadow: 0 0 0 3px color-mix(in srgb, #f0a040 25%, transparent); }
+      .sal-freccia { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--c-muted); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+      .sal-pillola[aria-expanded="true"] .sal-freccia { transform: rotate(180deg); }
+
+      /* Il menu largo quanto lo schermo (meno il margine): bottoni grandi, da
+         toccare col pollice. La pillola e' al centro, quindi lo e' anche lui. */
+      .sal-menu {
+        position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+        width: calc(100vw - 2rem); max-width: 480px; padding: 10px; border-radius: 20px;
+        border: 1px solid var(--c-line); background: var(--c-card);
+        /* Come il modale del tavolo: un modale ha l'ombra, il resto no. */
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+      }
+      .sal-menu-rete { padding: 10px 12px 8px; font-size: 0.8rem; color: var(--c-muted); }
+      .sal-menu-tit { padding: 6px 12px 4px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+      .sal-lingue { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 2px 2px 14px; }
+      .sal-lingua {
+        height: 56px; border-radius: 14px; border: 1px solid var(--c-line); background: transparent;
+        color: var(--c-text); font: inherit; font-size: 1.05rem; font-weight: 800; cursor: pointer;
+      }
+      /* La lingua scelta: il corallo dell'admin, come la voce attiva della nav. */
+      .sal-lingua[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
+      /* Disconnetti: un bottone pieno, ROSSO come quello del cestino e di
+         «Annuler» — e' un gesto che chiude, e si deve vedere. */
+      .sal-esci {
+        display: flex; align-items: center; justify-content: center; gap: 0.6rem; width: 100%;
+        min-height: 54px; padding: 0 16px; border-radius: 999px; border: none;
+        background: #a3320f; color: #fff; font: inherit; font-size: 1rem; font-weight: 800; cursor: pointer;
+      }
+      .sal-esci:hover { background: #8c2a0c; }
+      .sal-esci svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .sal-esci[aria-busy="true"] { opacity: .6; }
+
+</style>
+
+<script>
+      import { collegaLogout } from "../../lib/admin/logout";
+
+      // ---- Il menu della pillola: si apre e si chiude, il fuori lo chiude ----
+      const pillola = document.getElementById("sal-pillola");
+      const menu = document.getElementById("sal-menu");
+      const apri = (si: boolean) => {
+        if (!pillola || !menu) return;
+        menu.hidden = !si;
+        pillola.setAttribute("aria-expanded", si ? "true" : "false");
+      };
+      pillola?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        apri(menu?.hidden === true);
+      });
+      document.addEventListener("click", (e) => {
+        if (menu && !menu.hidden && !menu.contains(e.target as Node)) apri(false);
+      });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") apri(false); });
+      collegaLogout(document.getElementById("sal-esci"));
+
+      // La lingua: un cookie del telefono per un anno, e la pagina si rifa'.
+      document.querySelectorAll<HTMLButtonElement>(".sal-lingua").forEach((b) => b.addEventListener("click", () => {
+        const l = b.dataset.lingua ?? "";
+        document.cookie = `${document.getElementById("sal-menu")?.dataset.cookie ?? ""}=${encodeURIComponent(l)}; path=/; max-age=31536000; samesite=lax`;
+        location.reload();
+      }));
+
+
+      // ---- Il pallino della rete ----
+      // Per ora dice solo se il telefono ha la rete. Quando arriveranno gli
+      // invii in coda, dira' anche se ce n'e' qualcuno che aspetta.
+      const rete = document.getElementById("sal-rete");
+      const reteTesto = document.getElementById("sal-menu-rete");
+      const aggiornaRete = () => {
+        const on = navigator.onLine;
+        rete?.classList.toggle("is-off", !on);
+        const testo = (on ? reteTesto?.dataset.on : reteTesto?.dataset.off) ?? "";
+        rete?.setAttribute("aria-label", testo);
+        if (reteTesto) reteTesto.textContent = testo;
+      };
+      window.addEventListener("online", aggiornaRete);
+      window.addEventListener("offline", aggiornaRete);
+      aggiornaRete();
+</script>

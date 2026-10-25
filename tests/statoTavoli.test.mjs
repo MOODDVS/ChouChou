@@ -100,3 +100,13 @@ test("blu: la tavolata ha chiesto il conto, vince su tutto", () => {
   assert.deepEqual(m.get("T1").icone, ["qr", "addizione"]);
   assert.equal(m.get("T3").colore, "libero", "una chiamata del cameriere non e' il conto");
 });
+
+test("seduto oltre il tempo ma con un ordine da incassare: resta occupato (e rosso se arriva qualcuno)", () => {
+  // Enzo, 25/10/2026: seduti alle 17:00, ordine aperto, alle 20:00 il tavolo era tornato libero.
+  const m = statiTavoli(base({
+    righe: [seduto("s1", "17:00", ["T1"]), seduto("s2", "17:00", ["T2"]), attesa("r2", "20:10", ["T2"])],
+    conOrdini: new Set(["s1", "s2"]),
+  }));
+  assert.equal(m.get("T1").colore, "verde");
+  assert.equal(m.get("T2").colore, "rosso");
+});

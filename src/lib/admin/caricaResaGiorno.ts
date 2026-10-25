@@ -159,6 +159,21 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
         if (inizio < 0) return false;
         return adesso >= inizio + holdDiKey(r.service_key ?? null) + (Number((r as { extra_minutes?: number }).extra_minutes) || 0) + 20;
       });
+      /* ⚠️ NEMMENO UNA SEDUTA CON ORDINI DA INCASSARE (il palmare, 25/10/2026):
+         chi non ha ancora pagato e' ancora li'. Chiudendola, il tavolo
+         spariva dal palmare con il suo ordine aperto. La chiude chi incassa,
+         o «Annuler la table». */
+      if (daChiudere.length) {
+        const seduti = daChiudere.filter((r) => r.status === "seated").map((r) => r.id);
+        if (seduti.length) {
+          const { data: apertiRaw } = await leggi("orders", ambito, "reservation_id")
+            .in("reservation_id", seduti)
+            .eq("status", "pending")
+            .eq("payment_method", "onsite");
+          const aperti = new Set(((apertiRaw ?? []) as unknown as { reservation_id: string }[]).map((o) => String(o.reservation_id)));
+          for (let i = daChiudere.length - 1; i >= 0; i--) if (aperti.has(String(daChiudere[i].id))) daChiudere.splice(i, 1);
+        }
+      }
       if (daChiudere.length) {
         // Durata reale del tavolo per l'auto-Fini: il manager ha lasciato correre
         // → si registra fino a heure + durée + 15 (dall'arrivo reale se seated_at).
