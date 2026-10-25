@@ -2,13 +2,14 @@
  * GLI ORDINI APERTI DI TUTTA LA SALA — la pagina «Commandes» del palmare
  * (/admin/salle/orders, deciso con Enzo il 25/10/2026).
  *
- * Una card per ORDINE (non per tavolo). Quali sono «aperti»:
+ * Una card per TAVOLATA (la seduta): i suoi ordini aperti insieme (Enzo,
+ * 25/10/2026; prima era una card per ordine). Quali ordini sono «aperti»:
  *  - sui tavoli seduti dal cameriere: gli ordini DA INCASSARE (`pending` +
  *    `onsite`) e quelli del QR pagati subito online (metodo vuoto e non piu'
  *    `pending`: un `pending` senza metodo e' un carrello abbandonato) — la
  *    cucina li sta preparando finche' il tavolo e' seduto;
- *  - sul conto aperto del QR: un INVIO (`round_id`) e' una comanda, quindi
- *    una card, con i nomi di chi ha ordinato dentro.
+ *  - sul conto aperto del QR: gli ordini dei suoi invii (`round_id`), con i
+ *    nomi di chi ha ordinato.
  * ⚠️ Gli ordini gia' incassati (cash / card) sono chiusi: non ci sono.
  *
  * Tre letture in fila, e tutte piccole: la sala (`letturaSala`, in
@@ -33,7 +34,8 @@ export interface OrdineAperto {
   seduti: string | null;
   /** Da quando aspetta (ISO): il timer della card. */
   dal: string;
-  cameriere: { nome: string; foto: string } | null;
+  /** Chi ha preso gli ordini (uno o piu' camerieri). */
+  camerieri: { nome: string; foto: string }[];
   /** Il QR: i nomi di chi ha ordinato. */
   nomi: string[];
   tag: TagOrdine[];
@@ -123,56 +125,56 @@ export async function ordiniAperti(ambito: Ambito, mioId: string | null): Promis
   const articoliDi = (items: RigaOrdineAperto["items"]) =>
     piattiVeri((items ?? []) as { id?: unknown; qty?: unknown }[]).reduce((n, i) => n + Math.max(1, Math.floor(Number(i.qty) || 1)), 0);
 
-  const out: OrdineAperto[] = [];
-  const base = (s: Seduta) => ({
-    tavoli: s.tavoli.map((t) => nomeDi.get(t) ?? "").filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(" + "),
-    tavoloId: s.tavoli[0] ?? "",
-    seduti: s.seduti,
-    liberare: liberareDi(s.tavoli),
-  });
-
-  // Il conto aperto: una card per INVIO.
-  const invii = new Map<string, RigaOrdineAperto[]>();
+  /* UNA CARD PER TAVOLATA (Enzo, 25/10/2026: «deve raggruppare»): tutti gli
+     ordini aperti della stessa seduta insieme — i camerieri che li hanno
+     presi, i nomi del QR, le etichette, gli articoli e il totale sommati. */
+  const perSeduta = new Map<string, RigaOrdineAperto[]>();
   for (const o of righe) {
     const s = sedute.get(o.reservation_id);
     if (!s) continue;
+    // Il conto aperto: gli ordini dei suoi invii.
     if (s.conto) {
       if (!o.round_id) continue;
-      const k = o.round_id;
-      invii.set(k, [...(invii.get(k) ?? []), o]);
-      continue;
+    } else {
+      const daIncassare = o.status === "pending" && o.payment_method === "onsite";
+      const pagatoOnline = !o.payment_method && o.status !== "pending";
+      if (!daIncassare && !pagatoOnline) continue;
     }
-    const daIncassare = o.status === "pending" && o.payment_method === "onsite";
-    const pagatoOnline = !o.payment_method && o.status !== "pending";
-    if (!daIncassare && !pagatoOnline) continue;
-    const cam = o.taken_by_id || o.taken_by_name
-      ? { nome: String(o.taken_by_name ?? "").trim(), foto: o.taken_by_id ? (foto.get(o.taken_by_id) ?? "") : "" }
-      : null;
-    const nome = String(o.customer_name ?? "").trim();
-    out.push({
-      id: o.id,
-      ...base(s),
-      dal: o.created_at,
-      cameriere: cam && cam.nome ? cam : null,
-      nomi: !cam && nome && nome !== "Walk-in" ? [nome] : [],
-      tag: pagatoOnline ? ["paye"] : [],
-      articoli: articoliDi(o.items),
-      totale_cents: Number(o.total_cents) || 0,
-      mio: Boolean(mioId && o.taken_by_id === mioId),
-    });
+    perSeduta.set(s.id, [...(perSeduta.get(s.id) ?? []), o]);
   }
-  for (const [k, ordini] of invii) {
-    const s = sedute.get(ordini[0].reservation_id)!;
+  const out: OrdineAperto[] = [];
+  for (const [id, ordini] of perSeduta) {
+    const s = sedute.get(id)!;
+    const camerieri = new Map<string, { nome: string; foto: string }>();
+    const nomi: string[] = [];
+    for (const o of ordini) {
+      const nomeCam = String(o.taken_by_name ?? "").trim();
+      if (nomeCam) {
+        const k = o.taken_by_id || nomeCam;
+        if (!camerieri.has(k)) camerieri.set(k, { nome: nomeCam, foto: o.taken_by_id ? (foto.get(o.taken_by_id) ?? "") : "" });
+        continue;
+      }
+      // Dal QR (o dal sito): il nome di chi ha ordinato.
+      const nome = String(o.customer_name ?? "").trim();
+      if (nome && nome !== "Walk-in" && !nomi.includes(nome)) nomi.push(nome);
+    }
+    const tag: TagOrdine[] = [];
+    if (s.conto) tag.push(s.conto === "pending" ? "valider" : "compte");
+    else if (ordini.some((o) => !o.payment_method && o.status !== "pending")) tag.push("paye");
     out.push({
-      id: k,
-      ...base(s),
+      id,
+      tavoli: s.tavoli.map((t) => nomeDi.get(t) ?? "").filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(" + "),
+      tavoloId: s.tavoli[0] ?? "",
+      seduti: s.seduti,
+      // Da quando aspetta: il primo ordine ancora aperto.
       dal: ordini[0].created_at,
-      cameriere: null,
-      nomi: [...new Set(ordini.map((o) => String(o.customer_name ?? "").trim()).filter(Boolean))],
-      tag: [s.conto === "pending" ? "valider" : "compte"],
+      camerieri: [...camerieri.values()],
+      nomi,
+      tag,
       articoli: ordini.reduce((n, o) => n + articoliDi(o.items), 0),
       totale_cents: ordini.reduce((n, o) => n + (Number(o.total_cents) || 0), 0),
-      mio: false,
+      mio: Boolean(mioId && ordini.some((o) => o.taken_by_id === mioId)),
+      liberare: liberareDi(s.tavoli),
     });
   }
   // Prima chi aspetta la convalida, poi chi aspetta da piu' tempo.
