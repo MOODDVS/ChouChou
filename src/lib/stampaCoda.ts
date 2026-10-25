@@ -8,7 +8,7 @@ import {
 import { mandaStampa, stampaConfigurata } from "./bizprint";
 import { piattiVeri } from "./admin/ordiniConti";
 import { indirizzoPubblico } from "./indirizzoPubblico";
-import { firmaChiamata } from "./printToken";
+import { firmaChiamata, firmaAnnullo } from "./printToken";
 import { acceso } from "./ordiniRegole";
 
 /**
@@ -312,6 +312,60 @@ export async function stampaChiamata(
     return r.ok ? { accodati: 1 } : { accodati: 0, motivo: "coda" };
   } catch (e) {
     console.error("[stampa] stampaChiamata:", String((e as Error)?.message ?? e));
+    return { accodati: 0, motivo: "errore" };
+  }
+}
+
+/**
+ * IL TICKET D'ANNULLO (25/10/2026, il palmare): un ordine annullato o dei
+ * piatti tolti con la matita, quando la comanda e' GIA' USCITA in cucina.
+ *
+ * ⚠️ Solo se la comanda e' uscita (una riga `kitchen` `sent`/`printed`): se
+ * e' ancora in coda, la rotta stampa l'ordine com'e' adesso (ridotto) o non
+ * lo stampa affatto (annullato) — un annullo di una cosa mai arrivata
+ * confonderebbe la cucina.
+ * ⚠️ Divisa per stampante come la comanda (`dividiPerStampante`): le pizze
+ * tolte escono al forno, le bibite al bar.
+ * ⚠️ Fuori dalla coda, come la chiamata: un biglietto firmato con i piatti
+ * dentro (`firmaAnnullo`), perche' i piatti tolti non stanno piu' nell'ordine.
+ * Non fa mai fallire l'annullo: si chiama con `void`.
+ */
+export async function stampaAnnullo(
+  ambito: Ambito,
+  ordineId: string,
+  righe: { id?: unknown; qty?: unknown; name?: unknown; base_name?: unknown; variant_label?: unknown; notes?: unknown }[],
+  d: { tavolo: string; chi: string },
+): Promise<EsitoCoda> {
+  try {
+    if (!righe.length) return { accodati: 0, motivo: "vuoto" };
+    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    const { count } = await leggi("print_tickets", ambito, "id", { count: "exact", head: true })
+      .eq("order_id", ordineId)
+      .eq("kind", "kitchen")
+      .in("status", ["sent", "printed"]);
+    if (!count) return { accodati: 0, motivo: "mai_uscita" };
+    const cfg = await leggiConfig(ambito, ["print_printer_id", CHIAVE_DESTINAZIONI]);
+    const principale = idStampante(cfg.valori.get("print_printer_id"));
+    if (!principale) return { accodati: 0, motivo: "stampante" };
+    const base = indirizzoPubblico();
+    if (!base) return { accodati: 0, motivo: "indirizzo" };
+    const segreto = String(import.meta.env.CRON_SECRET || import.meta.env.SUPABASE_SERVICE_KEY || "");
+    if (!segreto) return { accodati: 0, motivo: "segreto" };
+    const sede = ambito.modo === "sede" ? ambito.id : "";
+    const gruppi = await dividiPerStampante({ id: ordineId, items: righe } as unknown as RigaOrdine, ambito, cfg.valori.get(CHIAVE_DESTINAZIONI), principale);
+    let accodati = 0;
+    for (const g of gruppi) {
+      const token = firmaAnnullo({
+        sede, tavolo: d.tavolo, chi: d.chi,
+        righe: g.piatti.map((p) => ({ qty: p.qty, nome: p.nome, variante: p.variante ?? null })),
+      }, segreto);
+      const r = await mandaStampa(Number(g.printer), `${base}/api/print/${token}`, `Annule ${d.tavolo}${g.chiave ? ` · ${g.chiave}` : ""}`);
+      if (r.ok) accodati++;
+      else console.error("[stampa] annullo:", r.errore);
+    }
+    return accodati ? { accodati } : { accodati: 0, motivo: "coda" };
+  } catch (e) {
+    console.error("[stampa] stampaAnnullo:", String((e as Error)?.message ?? e));
     return { accodati: 0, motivo: "errore" };
   }
 }

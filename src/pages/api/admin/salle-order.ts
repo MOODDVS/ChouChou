@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
-import { ordinaDalPalmare, modificaOrdine } from "../../../lib/admin/ordineCameriere";
+import { ordinaDalPalmare, modificaOrdine, annullaOrdine, liberaTavolo } from "../../../lib/admin/ordineCameriere";
 import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
 import { adminT } from "../../../i18n/admin";
 
@@ -10,6 +10,9 @@ import { adminT } from "../../../i18n/admin";
  *
  * POST { table, items: [{ id, qty, variant?, note? }] } → { ok, id }
  * POST { azione: "togli", table, order, qty: { indice: quantita' } } → { ok, annullato }
+ * POST { azione: "annulla", table, order } → { ok }   (25/10/2026, il cestino)
+ * POST { azione: "libera", table } → { ok, annullati }  (25/10/2026, «Libérer la table»)
+ *   Tutti e due stampano il ticket d'annullo se la comanda e' uscita.
  *   (23/10/2026) modificare un ordine gia' fatto e ancora da incassare: cio'
  *   che scende si toglie, cio' che sale parte come ordine nuovo (ticket).
  *   Regole in `modificaOrdineRegole.ts`.
@@ -42,6 +45,24 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (!cameriere) cameriere = String(staff.nome ?? "").trim();
 
+  /* ANNULLARE un ordine (il cestino) e LIBERARE il tavolo (il modale
+     dell'isola), 25/10/2026: con il ticket d'annullo per la cucina. */
+  if (body.azione === "annulla") {
+    const tt = adminT(await linguaPalmare(request));
+    const a = await annullaOrdine(ambito, String(body.table ?? ""), String(body.order ?? ""), cameriere);
+    if (a.ok) return json({ ok: true });
+    if (a.errore === "bloccato") return json({ error: tt("sal.ed.locked") }, 409);
+    if (a.errore === "nessuno") return json({ error: tt("sal.tb.notFound") }, 404);
+    return json({ error: tt("sal.ed.error") }, 500);
+  }
+  if (body.azione === "libera") {
+    const tt = adminT(await linguaPalmare(request));
+    const l = await liberaTavolo(ambito, String(body.table ?? ""), cameriere);
+    if (l.ok) return json({ ok: true, annullati: l.annullati });
+    if (l.errore === "conto") return json({ error: tt("sal.tb.freeTab") }, 409);
+    if (l.errore === "nessuno") return json({ error: tt("sal.seat.cancelNone") }, 404);
+    return json({ error: tt("sal.ed.error") }, 500);
+  }
   if (body.azione === "togli") {
     const tt = adminT(await linguaPalmare(request));
     const m = await modificaOrdine({

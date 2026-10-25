@@ -23,6 +23,15 @@ test("togliere: la quantita' scende, la riga a zero sparisce, la nota resta", ()
   assert.deepEqual(r.items.map((x) => [x.id, x.qty]), [["a", 1], ["note", 0]]);
 });
 
+test("le righe tolte, con la quantita' tolta: il ticket d'annullo della cucina", () => {
+  const r = applicaTogli(ITEMS, { 0: 1, 2: 0 });
+  assert.deepEqual(r.tolte.map((x) => [x.id, x.qty]), [["a", 1], ["b", 1]]);
+  const tutto = applicaTogli(ITEMS, { 0: 0, 2: 0 });
+  assert.equal(tutto.vuoto, true);
+  assert.deepEqual(tutto.tolte.map((x) => [x.id, x.qty]), [["a", 2], ["b", 1]]);
+  assert.deepEqual(applicaTogli(ITEMS, { 0: 2 }).tolte, [], "niente tolto, niente ticket");
+});
+
 test("mai piu' della partenza, mai la nota, mai un numero storto", () => {
   assert.equal(applicaTogli(ITEMS, { 0: 3 }), null, "aggiungere passa da un ordine nuovo");
   assert.equal(applicaTogli(ITEMS, { 1: 0 }), null, "la nota non e' una riga");

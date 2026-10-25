@@ -14,7 +14,7 @@ import { defaultLang } from "../../../i18n/ui";
 import { disegnaTicket } from "../../../config/ticket";
 import { dividiPerStampante } from "../../../lib/stampaCoda";
 import { componiTesto } from "../../../lib/escpos";
-import { leggiProva, sembraProva, leggiChiamata } from "../../../lib/printToken";
+import { leggiProva, sembraProva, leggiChiamata, leggiAnnullo } from "../../../lib/printToken";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
 // ⚠️ TEMPORANEO: le bande della prova del logo. Si cancella con l'esperimento.
@@ -36,7 +36,8 @@ export const prerender = false;
 
 /* ⚠️ 400 e non 200: il biglietto di una chiamata porta dentro tavolo e nome
    (vedi `firmaChiamata`), ed e' piu' lungo di quello di una prova. */
-const RE_TOKEN = /^[A-Za-z0-9~._-]{16,400}$/;
+// ⚠️ 2000: il biglietto d'annullo porta dentro i piatti tolti (`firmaAnnullo`).
+const RE_TOKEN = /^[A-Za-z0-9~._-]{16,2000}$/;
 
 /** Il segreto che firma i biglietti di prova. `CRON_SECRET` c'e' gia' su ogni
  *  cliente; la chiave di servizio e' la rete di sicurezza per chi non l'ha
@@ -95,7 +96,32 @@ export const GET: APIRoute = async ({ params }) => {
   const token = String(params.token ?? "");
   if (!RE_TOKEN.test(token)) return vuoto();
 
-  // ---- 0. La chiamata dal tavolo (`orders_table_call_print`): come la
+  // ---- 0a. L'ANNULLO per la cucina (il palmare, 25/10/2026): i piatti
+  // tolti stanno nel biglietto, l'ordine non li ha piu'.
+  if (sembraProva(token)) {
+    const a = leggiAnnullo(token, segretoProva());
+    if (a) {
+      const ambito = a.sede ? ambitoDiRiga(a.sede) : tutteLeSedi();
+      const [cfg, lingua] = await Promise.all([leggiConfig(ambito, ["timezone"]), adminLang().catch(() => "fr" as const)]);
+      const tr = adminT(lingua);
+      const fuso = String(cfg.valori.get("timezone") || "Europe/Brussels");
+      const ora = oraDi(new Date(a.ora * 1000).toISOString(), fuso);
+      return ticket(
+        componiTesto([
+          { testo: tr("tk.cancelTitle"), taglia: "grande", grassetto: true, centrato: true, inverso: true },
+          { testo: a.tavolo || "—", taglia: "gigante", grassetto: true, centrato: true },
+          { testo: a.chi ? `${ora} · ${tr("tk.cancelBy").replace("{nome}", a.chi)}` : ora, taglia: "normale", centrato: true, linea: true },
+          ...a.righe.flatMap((r) => [
+            { testo: `- ${r.qty}x ${r.nome}`, taglia: "largo" as const, grassetto: true },
+            ...(r.variante ? [{ testo: `   ${r.variante}`, taglia: "normale" as const }] : []),
+          ]),
+          { testo: "", linea: true },
+        ]),
+      );
+    }
+  }
+
+  // ---- 0b. La chiamata dal tavolo (`orders_table_call_print`): come la
   // prova, un biglietto firmato che porta dentro quello che deve dire.
   if (sembraProva(token)) {
     const c = leggiChiamata(token, segretoProva());
@@ -223,6 +249,15 @@ export const GET: APIRoute = async ({ params }) => {
     }
   };
   const conto = ordine as unknown as { round_id?: string | null; reservation_id?: string | null };
+  /* ⚠️ Una COMANDA di un ordine annullato non esce (25/10/2026): il palmare
+     puo' annullare un ordine la cui comanda e' ancora in coda (stampante
+     spenta un attimo). Uscirebbe dopo, e la cucina preparerebbe piatti che
+     nessuno vuole piu'. (L'invio del conto aperto ha la sua regola: i suoi
+     ordini si leggono senza gli annullati.) */
+  if (String((riga as { kind?: string }).kind ?? "") !== "customer" && !conto.round_id
+    && String((ordine as { status?: string }).status ?? "") === "cancelled") {
+    return vuoto();
+  }
 
   /* ---- L'ADDIZIONE del conto aperto («Imprimer l'addition») ----
      ⚠️ Riga `customer`: va in mano al cliente, quindi i prezzi ci sono, per
