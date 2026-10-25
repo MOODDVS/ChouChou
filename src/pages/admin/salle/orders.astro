@@ -3,10 +3,12 @@
  * COMMANDES — gli ordini aperti di tutta la sala, dal palmare
  * (/admin/salle/orders). Deciso con Enzo il 25/10/2026 (mockup approvato).
  *
- * Una card per ORDINE, una riga compatta, SENZA gli articoli: toccandola si
+ * Una card per TAVOLATA (i suoi ordini aperti insieme, Enzo 25/10/2026),
+ * una riga compatta, SENZA gli articoli: toccandola si
  * apre la scheda del tavolo, dove ci sono piatti, matita, cestino, Addition.
  *  - a sinistra il tavolo nella bolla dell'isola, sotto l'ora di seduta;
- *  - prima riga: il cameriere (faccina) — o, dal QR, i nomi di chi ha ordinato;
+ *  - prima riga: il cameriere (o i camerieri, con le faccine) — o, dal QR, i
+ *    nomi di chi ha ordinato;
  *  - seconda riga: le etichette (À valider, Compte, Payé, la prenotazione che
  *    arriva: rossa o bianca come sulla mappa); senza etichette sparisce;
  *  - terza riga: quanti articoli;
@@ -105,6 +107,8 @@ const iniziale = (nome: string) => nome.trim().slice(0, 1).toUpperCase() || "·"
         display: inline-flex; align-items: center; justify-content: center;
         background: var(--c-accent); color: var(--c-bg); font-size: 0.7rem; font-weight: 800;
       }
+      .or-facce { display: inline-flex; flex: none; }
+      .or-facce .or-faccina + .or-faccina { margin-left: -7px; box-shadow: 0 0 0 2px var(--c-card); }
       .or-tag-riga { display: flex; flex-wrap: wrap; gap: 0.3rem; }
       .or-tag {
         height: 26px; padding: 0 0.65rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem;
@@ -160,12 +164,15 @@ const iniziale = (nome: string) => nome.trim().slice(0, 1).toUpperCase() || "·"
               {o.seduti && <span class="or-seduti">{o.seduti}</span>}
             </span>
             <span class="or-mezzo">
-              {o.cameriere ? (
+              {o.camerieri.length > 0 ? (
                 <span class="or-chi">
-                  {o.cameriere.foto
-                    ? <img class="or-faccina" src={o.cameriere.foto} alt="" width="22" height="22" loading="lazy" />
-                    : <span class="or-faccina" aria-hidden="true">{iniziale(o.cameriere.nome)}</span>}
-                  <span>{o.cameriere.nome}</span>
+                  {/* Uno o piu' camerieri: le faccine una sull'altra, i nomi in fila. */}
+                  <span class="or-facce">
+                    {o.camerieri.map((c) => c.foto
+                      ? <img class="or-faccina" src={c.foto} alt="" width="22" height="22" loading="lazy" />
+                      : <span class="or-faccina" aria-hidden="true">{iniziale(c.nome)}</span>)}
+                  </span>
+                  <span>{o.camerieri.map((c, i) => <Fragment>{i > 0 && <span class="or-sep">·</span>}{c.nome}</Fragment>)}</span>
                 </span>
               ) : o.nomi.length > 0 ? (
                 <span class="or-chi"><span>{o.nomi.map((n, i) => <Fragment>{i > 0 && <span class="or-sep">·</span>}{n}</Fragment>)}</span></span>
