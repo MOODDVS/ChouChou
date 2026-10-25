@@ -19,7 +19,8 @@
  * ⚠️ Regole pure, nessun import: si provano in vitest (tests/statoTavoli).
  * ⚠️ «Occupato» segue la stessa finestra di `tavoliNonDisponibili`: chi e'
  * seduto da piu' del suo tempo + 20 minuti di margine non conta piu' (l'admin
- * lo segna «Fini» da solo), un conto aperto conta sempre.
+ * lo segna «Fini» da solo); un conto aperto e una seduta con ordini ancora da
+ * incassare (`conOrdini`) contano sempre.
  */
 
 export type ColoreTavolo = "libero" | "arancio" | "verde" | "rosso" | "blu";
@@ -100,6 +101,9 @@ export function statiTavoli(opz: {
   qrDiretti: Set<string>;
   adessoHHmm: string;
   durate: { perServizio: Record<string, number>; ripiego: number };
+  /** Le sedute con ordini ancora da incassare: occupate anche oltre il
+   *  tempo (e allora, se arriva qualcuno, rosse). */
+  conOrdini?: Set<string>;
 }): Map<string, StatoTavolo> {
   const out = new Map<string, StatoTavolo>();
   const adesso = minuti(opz.adessoHHmm);
@@ -122,7 +126,7 @@ export function statiTavoli(opz: {
     // La cena dopo mezzanotte: arrivati alle 23:30, all'01:00 sono ancora li'.
     const fine = inizio === null ? null : inizio + durata(r);
     const ora = inizio !== null && adesso < inizio ? adesso + 1440 : adesso;
-    if (!conto && fine !== null && ora >= fine + MARGINE_FINE_MINUTI) continue;
+    if (!conto && !opz.conOrdini?.has(r.id) && fine !== null && ora >= fine + MARGINE_FINE_MINUTI) continue;
     sessioni.push({ id: r.id, tavoli, conto, fine, inizio });
     viste.add(r.id);
   }

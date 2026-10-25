@@ -167,3 +167,12 @@ test("in 3 a un tavolo da 2: si propone lo stesso, dopo chi ha un posto libero",
   // Due posti in meno no: in 4 a un tavolo da 2 ci vuole un altro tavolo.
   assert.ok(!nomi(proposteInstallazione({ tavoli: TAV, catene: CATENA, occupati: [], tavoloId: "T1", persone: 4, max: 99 })).includes("T1"));
 });
+
+test("una seduta con ordini da incassare occupa anche oltre il suo tempo", () => {
+  const righe = [{ id: "s1", heure: "17:00", status: "seated", tables: ["T1"] }];
+  const durate = { perServizio: {}, ripiego: 90 };
+  const senza = tavoliNonDisponibili({ righe, adessoHHmm: "20:00", durataNuova: 90, durate });
+  assert.equal(senza.occupati.has("T1"), false);
+  const con = tavoliNonDisponibili({ righe, adessoHHmm: "20:00", durataNuova: 90, durate, conOrdini: new Set(["s1"]) });
+  assert.equal(con.occupati.has("T1"), true);
+});

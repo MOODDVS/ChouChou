@@ -1225,7 +1225,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE, ICONA_CARTA, ICONA_CESTINO } from "../../lib/iconeSala";
+      import { ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE, ICONA_CARTA, ICONA_CESTINO, ICONA_OROLOGIO } from "../../lib/iconeSala";
       import { mostraToast } from "../../lib/admin/toast";
       import { collegaLogout } from "../../lib/admin/logout";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
@@ -1345,7 +1345,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       // Matita (modifica ordine).
       // Contatti della card: un'icona al posto di «Email :» / «Tel :».
       // Stesso tratto delle altre (24, stroke 1.8, currentColor).
-      const ICON_CLOCK = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6.5 12 12 15.5 14"/></svg>`;
+      const ICON_CLOCK = ICONA_OROLOGIO;
       const ICON_USER = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
       const ICON_MAIL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="m3 6.5 9 6 9-6"/></svg>`;
       const ICON_PHONE = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 2.5h-2A2.1 2.1 0 0 0 2.5 4.8a19.5 19.5 0 0 0 16.7 16.7 2.1 2.1 0 0 0 2.3-2.1v-2a1.4 1.4 0 0 0-1.2-1.4 13 13 0 0 1-2.8-.7 1.4 1.4 0 0 0-1.5.3l-.9.9a16 16 0 0 1-6.1-6.1l.9-.9a1.4 1.4 0 0 0 .3-1.5 13 13 0 0 1-.7-2.8 1.4 1.4 0 0 0-1.4-1.2Z"/></svg>`;

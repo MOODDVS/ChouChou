@@ -65,6 +65,9 @@ export interface LetturaSala {
   conti: RigaConto[];
   /** Chiamate aperte delle ultime 12 ore: solo se chieste. */
   chiamate: { table_id: string | null; reason: string | null }[];
+  /** Le sedute con ordini ancora DA INCASSARE (`pending` + `onsite`): sono
+   *  occupate anche oltre il loro tempo (25/10/2026). */
+  conOrdini: Set<string>;
 }
 
 /** La configurazione dalla cache (30 s), come mappa chiave → valore. */
@@ -80,7 +83,7 @@ export async function letturaSala(
   const fuso = await fusoDi(ambito); // dalla cache: niente viaggio
   const ora = DateTime.now().setZone(fuso);
   const oggi = ora.toFormat("yyyy-MM-dd");
-  const [{ data: tavRaw }, { data: resaRaw }, valori, cfg, conti, chiamate] = await Promise.all([
+  const [{ data: tavRaw }, { data: resaRaw }, valori, cfg, conti, chiamate, conOrdini] = await Promise.all([
     leggi("restaurant_tables", ambito, "id, name, seats, zone"),
     leggi("reservations", ambito, CAMPI_GIORNO).eq("date", oggi).in("status", ["pending", "confirmed", "seated"]),
     configInCache(ambito, ["reservation_plan_links", "reservation_hold_minutes", "reservation_services"]),
@@ -92,6 +95,7 @@ export async function letturaSala(
           .gte("created_at", ora.minus({ hours: 12 }).toUTC().toISO() as string)
           .then((r) => (r.error ? [] : ((r.data ?? []) as unknown as LetturaSala["chiamate"])))
       : Promise.resolve([] as LetturaSala["chiamate"]),
+    seduteConOrdini(ambito, ora),
   ]);
   const durate = durateDelServizio(valori.get("reservation_services"), valori.get("reservation_hold_minutes"));
   const servizio = cfg ? servizioInCorso(cfg, ora.toFormat("HH:mm")) : null;
@@ -112,7 +116,24 @@ export async function letturaSala(
     durataNuova: (servizio ? durate.perServizio[servizio] : undefined) ?? durate.ripiego,
     conti,
     chiamate,
+    conOrdini,
   };
+}
+
+/**
+ * Le sedute con ordini ancora DA INCASSARE (id della prenotazione), dalle
+ * ultime 18 ore. ⚠️ Una lettura piccola e in parallelo: chi ha da pagare e'
+ * ancora seduto, anche se il suo tempo e' finito — senza questo il tavolo
+ * tornava libero sulla mappa e proponibile a «Installer» (25/10/2026).
+ */
+export async function seduteConOrdini(ambito: Ambito, ora: DateTime): Promise<Set<string>> {
+  const { data, error } = await leggi("orders", ambito, "reservation_id")
+    .eq("status", "pending")
+    .eq("payment_method", "onsite")
+    .not("reservation_id", "is", null)
+    .gte("created_at", ora.minus({ hours: 18 }).toUTC().toISO() as string);
+  if (error) return new Set();
+  return new Set(((data ?? []) as unknown as { reservation_id: string | null }[]).map((o) => String(o.reservation_id ?? "")).filter(Boolean));
 }
 
 /**
@@ -126,6 +147,7 @@ export function occupazioneDa(l: LetturaSala, escludiId?: string) {
     adessoHHmm: l.ora.toFormat("HH:mm"),
     durataNuova: l.durataNuova,
     durate: l.durate,
+    conOrdini: l.conOrdini,
   });
 }
 
