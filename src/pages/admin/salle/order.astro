@@ -25,6 +25,7 @@ import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo
 import { getMenuSala, type MenuCategoria } from "../../../lib/db";
 import { importoDa } from "../../../lib/soldi";
 import { cronometro } from "../../../lib/admin/letturaSala";
+import { ICONA_CIBO, ICONA_BEVANDA } from "../../../lib/iconeSala";
 
 export const prerender = false;
 
@@ -65,6 +66,14 @@ const ritorno = `/admin/salle/table?id=${encodeURIComponent(id)}`;
 /* Le categorie con almeno un piatto. Per il browser: id, nome, prezzo, e i
    formati ordinabili (gli esauriti si vedono ma non si scelgono). */
 const categorie = menu.filter((c) => c.items.length > 0);
+/* CIBO / BEVANDE (Enzo, 25/10/2026): due bottoni fermi a sinistra delle
+   categorie; si vedono solo le categorie (e i piatti) del tipo scelto. Il
+   tipo e' quello di Menu (`menu_categories.kind`); senza tipo = cibo. I
+   bottoni ci sono solo se il menu ha tutti e due i tipi. */
+const tipoDi = (c: MenuCategoria): "food" | "drink" => (c.kind === "drink" ? "drink" : "food");
+const haTipi = categorie.some((c) => tipoDi(c) === "drink") && categorie.some((c) => tipoDi(c) === "food");
+const tipoIniziale = "food";
+const nascosta = (c: MenuCategoria) => haTipi && tipoDi(c) !== tipoIniziale;
 const datiMenu = JSON.stringify(
   categorie.flatMap((c) => c.items).map((p) => ({
     id: p.id,
@@ -91,7 +100,7 @@ const ancora = (i: number) => `cat-${i}`;
       .od-testa {
         position: sticky; top: 0; z-index: 10;
         display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
-        padding: max(0.75rem, env(safe-area-inset-top)) 0 0.6rem;
+        padding: max(0.75rem, env(safe-area-inset-top)) 0 0.3rem;
         background: linear-gradient(var(--c-bg) 80%, transparent);
       }
       /* La freccia sta IN BASSO, sotto il pollice, come nella scheda del tavolo. */
@@ -108,17 +117,29 @@ const ancora = (i: number) => `cat-${i}`;
         scrollbar-width: none; -webkit-overflow-scrolling: touch;
       }
       .od-cat::-webkit-scrollbar { display: none; }
+      .od-cat a[hidden] { display: none; }
+      /* CIBO / BEVANDE: fermi a sinistra, le categorie scorrono accanto. */
+      .od-cat-riga { display: flex; align-items: center; gap: 0.4rem; margin-right: -1rem; }
+      .od-cat-riga .od-cat { flex: 1; min-width: 0; margin: 0; padding: 0 1rem 0 0; }
+      .od-tipo { flex: none; display: flex; gap: 0.3rem; }
+      .od-tipo-btn {
+        width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); cursor: pointer;
+        transition: background .25s ease, color .25s ease;
+      }
+      .od-tipo-btn svg { width: 20px; height: 20px; display: block; }
+      .od-tipo-btn[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
       .od-cat a {
-        flex: 0 0 auto; height: 34px; padding: 0 0.95rem; border-radius: 999px; display: inline-flex; align-items: center;
+        flex: 0 0 auto; height: 44px; padding: 0 1.15rem; border-radius: 999px; display: inline-flex; align-items: center;
         border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
-        font-size: 0.8rem; font-weight: 700; text-decoration: none; white-space: nowrap;
+        font-size: 0.92rem; font-weight: 700; text-decoration: none; white-space: nowrap;
       }
       /* Le parole stanno SOPRA il segno che scivola; il fondo delle pillole sotto. */
       .od-cat a > span { position: relative; z-index: 2; }
       .od-cat a { transition: color .3s ease, border-color .3s ease; }
       .od-cat a.is-on { color: var(--c-bg); border-color: transparent; }
       .od-cat-segno {
-        position: absolute; left: 0; top: 0; z-index: 1; height: 34px; width: 0; border-radius: 999px;
+        position: absolute; left: 0; top: 0; z-index: 1; height: 44px; width: 0; border-radius: 999px;
         background: var(--c-text); pointer-events: none; opacity: 0;
         transition: transform .38s cubic-bezier(.3, .9, .3, 1), width .38s cubic-bezier(.3, .9, .3, 1), opacity .2s;
       }
@@ -127,7 +148,10 @@ const ancora = (i: number) => `cat-${i}`;
       .od-cat:not(.ha-segno) a.is-on { background: var(--c-text); }
 
       /* ---------- i piatti ---------- */
-      .od { padding: 0.25rem 1rem calc(160px + env(safe-area-inset-bottom)); }
+      /* Il contenuto subito sotto l'isola (Enzo, 25/10/2026): il margine del
+         primo titolo visibile (qualunque sia, col filtro cibo/bevande) si
+         mangia col margine negativo. */
+      .od { padding: 0 1rem calc(175px + env(safe-area-inset-bottom)); margin-top: -0.9rem; }
       .od h2 { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin: 1.1rem 0 0.5rem; scroll-margin-top: 92px; }
       /* align-items start: un piatto senza foto accanto a uno con la foto non si allunga a vuoto. */
       .od-griglia { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; align-items: start; }
@@ -211,10 +235,10 @@ const ancora = (i: number) => `cat-${i}`;
       }
       .od-formato:disabled { opacity: 0.4; }
       /* ---------- il recap: una pagina ---------- */
-      .od-recap-pagina { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.4rem 1rem calc(190px + env(safe-area-inset-bottom)); }
+      .od-recap-pagina { display: flex; flex-direction: column; gap: 0.6rem; padding: 0 1rem calc(190px + env(safe-area-inset-bottom)); }
       .od-recap-pagina[hidden], .od-barra-recap[hidden] { display: none; }
       body.is-recap main.od, body.is-recap .od-barra:not(.od-barra-recap) { display: none; }
-      .od-recap-tit { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin: 0.6rem 0 0.1rem; }
+      .od-recap-tit { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); margin: 0.2rem 0 -0.1rem; } /* alla stessa altezza dei titoli delle categorie */
       .od-righe { display: flex; flex-direction: column; gap: 0.6rem; }
       .od-riga { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.8rem 0.9rem; border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line); }
       .od-com-btn {
@@ -246,6 +270,9 @@ const ancora = (i: number) => `cat-${i}`;
       .od-invia { height: 54px; border-radius: 999px; border: none; background: var(--c-accent); color: var(--c-bg); font: inherit; font-weight: 800; font-size: 1rem; cursor: pointer; }
       .od-invia:disabled { opacity: 0.5; }
       .od-errore { color: #ff8a80; font-size: 0.85rem; text-align: center; min-height: 1em; }
+      /* Vuoto non occupa posto: freccia e «Envoyer» stanno alla stessa altezza
+         della freccia e del «Récap» della pagina dei piatti (Enzo, 25/10/2026). */
+      .od-errore:empty { display: none; }
     </style>
   </head>
   <body>
@@ -267,7 +294,7 @@ const ancora = (i: number) => `cat-${i}`;
     ) : (
       <main class="od">
         {categorie.map((c, i) => (
-          <section>
+          <section data-tipo={tipoDi(c)} hidden={nascosta(c)}>
             <h2 id={ancora(i)}>{c.category}</h2>
             <div class="od-griglia">
               {c.items.map((p) => (
@@ -292,13 +319,21 @@ const ancora = (i: number) => `cat-${i}`;
         <div class="od-barra">
           {/* Le categorie IN BASSO, sopra i bottoni (Enzo, 23/10/2026): sotto
               il pollice, come tutto quello che si tocca spesso. */}
-          {categorie.length > 1 && (
-            <nav class="od-cat" aria-label={t("sal.ord.title")}>
-              {/* La pillola accesa e' un segno che SCIVOLA da una categoria
-                  all'altra (Enzo, 23/10/2026), sotto le parole. */}
-              <span class="od-cat-segno" id="od-cat-segno" aria-hidden="true"></span>
-              {categorie.map((c, i) => <a href={`#${ancora(i)}`} data-cat={ancora(i)} class:list={[{ "is-on": i === 0 }]}><span>{c.category}</span></a>)}
-            </nav>
+          {(categorie.length > 1 || haTipi) && (
+            <div class="od-cat-riga">
+              {haTipi && (
+                <div class="od-tipo" role="group" aria-label={t("sal.ord.title")}>
+                  <button type="button" class="od-tipo-btn" data-tipo="food" aria-pressed="true" aria-label={t("tab.menu.food")} title={t("tab.menu.food")} set:html={ICONA_CIBO} />
+                  <button type="button" class="od-tipo-btn" data-tipo="drink" aria-pressed="false" aria-label={t("tab.menu.drink")} title={t("tab.menu.drink")} set:html={ICONA_BEVANDA} />
+                </div>
+              )}
+              <nav class="od-cat" aria-label={t("sal.ord.title")}>
+                {/* La pillola accesa e' un segno che SCIVOLA da una categoria
+                    all'altra (Enzo, 23/10/2026), sotto le parole. */}
+                <span class="od-cat-segno" id="od-cat-segno" aria-hidden="true"></span>
+                {categorie.map((c, i) => <a href={`#${ancora(i)}`} data-cat={ancora(i)} data-tipo={tipoDi(c)} hidden={nascosta(c)} class:list={[{ "is-on": i === categorie.findIndex((x) => !nascosta(x)) }]}><span>{c.category}</span></a>)}
+              </nav>
+            </div>
           )}
           <div class="od-barra-riga">
             <a class="od-indietro" href={ritorno} aria-label={t("sal.tb.back")}>
@@ -552,6 +587,21 @@ const ancora = (i: number) => `cat-${i}`;
           requestAnimationFrame(() => segno.classList.add("is-pronto"));
         }
         let mentreScorre = 0;
+        // CIBO / BEVANDE: si vedono solo le categorie (e i piatti) del tipo.
+        const tipi = [...document.querySelectorAll<HTMLButtonElement>(".od-tipo-btn")];
+        tipi.forEach((b) => b.addEventListener("click", () => {
+          const tipo = b.dataset.tipo ?? "food";
+          if (b.getAttribute("aria-pressed") === "true") return;
+          tipi.forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+          document.querySelectorAll<HTMLElement>(".od section[data-tipo], .od-cat a[data-tipo]").forEach((el) => {
+            el.hidden = el.dataset.tipo !== tipo;
+          });
+          window.scrollTo({ top: 0, behavior: "auto" });
+          mentreScorre = Date.now() + 400;
+          fila?.scrollTo({ left: 0, behavior: "auto" });
+          const prima = pillole.find((x) => !x.hidden);
+          if (prima) accendi(prima.dataset.cat ?? "");
+        }));
         pillole.forEach((a) => a.addEventListener("click", (e) => {
           const meta = document.getElementById(a.dataset.cat ?? "");
           if (!meta) return;
@@ -564,9 +614,11 @@ const ancora = (i: number) => `cat-${i}`;
         if (pillole.length && "IntersectionObserver" in window) {
           const occhio = new IntersectionObserver((voci) => {
             if (Date.now() < mentreScorre) return;
-            for (const v of voci) {
-              if (v.isIntersecting) accendi((v.target as HTMLElement).id);
-            }
+            // La PRIMA categoria visibile (all'apertura arrivano tutte insieme:
+            // prendere l'ultima accendeva «Pasta» con gli antipasti in cima).
+            const prima = voci.filter((v) => v.isIntersecting)
+              .sort((x, y) => x.boundingClientRect.top - y.boundingClientRect.top)[0];
+            if (prima) accendi((prima.target as HTMLElement).id);
           }, { rootMargin: "-85px 0px -55% 0px" });
           document.querySelectorAll(".od h2[id]").forEach((h) => occhio.observe(h));
         }
