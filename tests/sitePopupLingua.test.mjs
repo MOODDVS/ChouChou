@@ -9,7 +9,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { linguaEPercorso, localizzaLink } from "../src/lib/linguaUrl.ts";
 
 test("sito in francese (fr alla radice, en e it sotto /xx/)", () => {
@@ -62,4 +62,17 @@ test("SitePopup e /api/popup leggono le lingue da i18n/ui, nessuna scritta a man
   const A = readFileSync("src/pages/api/popup.ts", "utf8");
   assert.doesNotMatch(A, /=== "en" \? "en" : "fr"/);
   assert.match(A, /Object\.hasOwn\(languages, chiesta\) \? chiesta : defaultLang/);
+});
+
+test("il bottone di chiusura parla la lingua della pagina", () => {
+  const C = readFileSync("src/components/SitePopup.astro", "utf8");
+  assert.match(C, /const t = useTranslations\(lingua as Lang\);/);
+  assert.match(C, /class="sitepop__close"[^>]*aria-label=\{t\("common\.close"\)\}/);
+  assert.doesNotMatch(C, /aria-label="(Fermer|Close|Chiudi)"/, "un'etichetta scritta a mano");
+  // ⚠️ La chiave sta nei dizionari DEL CLIENTE (`src/i18n/*.json`, merge=ours):
+  // se un cliente non l'avesse, il lettore di schermo leggerebbe «common.close».
+  for (const f of readdirSync("src/i18n").filter((x) => x.endsWith(".json"))) {
+    const d = JSON.parse(readFileSync(`src/i18n/${f}`, "utf8"));
+    assert.ok(String(d["common.close"] ?? "").trim(), `common.close manca in ${f}`);
+  }
 });
