@@ -14,7 +14,7 @@ import { adminT } from "../../../i18n/admin";
  * POST { azione: "annulla", table } → { ok: true }   (23/10/2026)
  *   I clienti seduti senza aver ordinato se ne vanno: i tavoli si liberano.
  *   409 se nel frattempo c'e' un ordine o un conto.
- * POST { azione: "sposta", table, tables: [id…] } → { ok: true }   (23/10/2026)
+ * POST { azione: "sposta", table, tables: [id…], people? } → { ok: true }   (23/10/2026)
  *   La tavolata seduta a `table` va sui tavoli `tables` (cambiare tavolo,
  *   aggiungerne, liberarne). 409 se un collega ne ha preso uno.
  * POST { azione: "persone", table, people } → { ok: true }   (23/10/2026)
@@ -55,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: t("sal.seat.error") }, 500);
   }
   if (body.azione === "sposta") {
-    const m = await spostaTavoli(ambito, String(body.table ?? ""), body.tables);
+    const m = await spostaTavoli(ambito, String(body.table ?? ""), body.tables, body.people);
     if (m.ok) return json({ ok: true });
     if (m.errore === "occupato") return json({ error: t("sal.seat.taken") }, 409);
     if (m.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);

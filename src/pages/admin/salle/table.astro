@@ -1247,7 +1247,12 @@ const personeIsola = personeAdesso;
           const ids = scelta;
           ok.disabled = true;
           ok.textContent = P.mvSaving ?? "";
-          if (await invia({ azione: "sposta", table: d.tavoloId, tables: ids })) {
+          /* ⚠️ Le persone scelte nello stesso modale partono INSIEME ai tavoli
+             (Enzo, 26/10/2026: 4 → 6 e un tavolo in piu', restavano 4 perche'
+             «Enregistrer» non era stato toccato). */
+          const corpo: Record<string, unknown> = { azione: "sposta", table: d.tavoloId, tables: ids };
+          if (persone !== iniziale) corpo.people = persone;
+          if (await invia(corpo)) {
             // Lasciato il tavolo di questa pagina: si va alla scheda del nuovo.
             const dove = ids.includes(d.tavoloId) ? d.tavoloId : ids[0];
             location.replace(`/admin/salle/table?id=${encodeURIComponent(dove)}`);
