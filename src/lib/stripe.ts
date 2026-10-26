@@ -264,3 +264,40 @@ export async function creaCheckoutConto(opts: {
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return { url: session.url, id: session.id };
 }
+
+/**
+ * L'INCASSO COL QR (26/10/2026): il cameriere (o la cassa) mostra un QR, il
+ * cliente lo inquadra col telefono e paga uno o piu' ordini DA INCASSARE
+ * (`pending` + `onsite`) di un tavolo. Una riga sola, il totale del tavolo:
+ * e' il conto di quel tavolo, non un nuovo ordine.
+ * `metadata.incasso_ordini` (gli id separati da virgola) -> il webhook li
+ * segna pagati (`lib/incassoQr.ts`) SENZA riannunciarli: la comanda e' gia'
+ * uscita, e un secondo annuncio vorrebbe dire una seconda email in cucina.
+ * ⚠️ Scade da sola dopo 30 minuti (il minimo di Stripe): un QR rimasto su uno
+ * schermo non deve incassare domani un tavolo di oggi.
+ */
+export async function creaCheckoutIncasso(opts: {
+  ambito: Ambito;
+  ordini: string[];
+  nome: string;
+  totaleCents: number;
+  /** Dove torna il telefono del cliente: la pagina del motore `/paiement/ok`
+   *  (non del sito del cliente, quindi senza lingua nell'indirizzo). */
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<{ url: string; id: string }> {
+  const session = await (await stripeDi(opts.ambito)).checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [{
+      price_data: { currency: valutaStripe(), product_data: { name: opts.nome }, unit_amount: opts.totaleCents },
+      quantity: 1,
+    }],
+    metadata: { incasso_ordini: opts.ordini.join(",") },
+    expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
+    success_url: opts.successUrl,
+    cancel_url: opts.cancelUrl,
+  });
+  if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
+  return { url: session.url, id: session.id };
+}

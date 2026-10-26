@@ -1,0 +1,53 @@
+---
+/**
+ * DOPO IL PAGAMENTO COL QR DEL TAVOLO (26/10/2026): dove Stripe riporta il
+ * telefono del cliente (`creaCheckoutIncasso`). Una pagina sola, del motore,
+ * senza ordine da cercare: il conto del tavolo lo segna pagato il webhook.
+ * ⚠️ Nessun dato del cliente qui: l'indirizzo e' lo stesso per tutti.
+ */
+import { CLIENT } from "../../config/client";
+
+export const prerender = false;
+const annullato = Astro.url.searchParams.has("annule");
+// Il nome del marchio: la pagina non sa di quale sede e' il tavolo.
+const brand = CLIENT.nome;
+const lingua = String(Astro.request.headers.get("accept-language") ?? "").slice(0, 2).toLowerCase();
+const T: Record<string, [string, string, string]> = {
+  fr: ["Merci !", "Votre paiement a bien été reçu.", "Paiement annulé : vous pouvez réessayer ou payer sur place."],
+  en: ["Thank you!", "Your payment has been received.", "Payment cancelled: you can try again or pay on site."],
+  it: ["Grazie!", "Il pagamento è stato ricevuto.", "Pagamento annullato: puoi riprovare o pagare sul posto."],
+  nl: ["Bedankt!", "Je betaling is ontvangen.", "Betaling geannuleerd: probeer opnieuw of betaal ter plaatse."],
+  es: ["¡Gracias!", "Hemos recibido tu pago.", "Pago anulado: puedes volver a intentarlo o pagar en el local."],
+};
+const [titolo, ok, ko] = T[lingua] ?? T.fr;
+---
+<!doctype html>
+<html lang={T[lingua] ? lingua : "fr"}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>{brand}</title>
+  <style>
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: #0c2a30; color: #e9efef; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; text-align: center; padding: 24px; box-sizing: border-box; }
+    .spunta { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; background: #4cc38a; color: #0b1f14; }
+    .spunta.ko { background: #ff9f43; color: #241200; }
+    svg { width: 42px; height: 42px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+    h1 { margin: 0 0 8px; font-size: 1.6rem; }
+    p { margin: 0; color: #a9bfc2; line-height: 1.5; }
+    .brand { margin-top: 28px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.8rem; color: #86a0a4; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class:list={["spunta", { ko: annullato }]}>
+      {annullato
+        ? <svg viewBox="0 0 24 24"><path d="M12 7v6" /><path d="M12 17h.01" /></svg>
+        : <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
+    </div>
+    {!annullato && <h1>{titolo}</h1>}
+    <p>{annullato ? ko : ok}</p>
+    <p class="brand">{brand}</p>
+  </main>
+</body>
+</html>
