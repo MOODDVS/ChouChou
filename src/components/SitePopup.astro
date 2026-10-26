@@ -7,7 +7,7 @@
 import { popupPerPagina } from "../lib/popups";
 import { SITE_PAGES } from "../config/sitePages";
 import Immagine from "./Immagine.astro";
-import { languages, defaultLang } from "../i18n/ui";
+import { languages, defaultLang, useTranslations, type Lang } from "../i18n/ui";
 import { linguaEPercorso, localizzaLink } from "../lib/linguaUrl";
 
 // ⚠️ La lingua di base e le lingue del sito le dice `i18n/ui.ts` (file del
@@ -16,6 +16,8 @@ import { linguaEPercorso, localizzaLink } from "../lib/linguaUrl";
 // francese sulle pagine inglesi. Un pop-up senza titolo nella lingua della
 // pagina NON si mostra (`titoloPopup`): nessun ripiego su un'altra lingua.
 const { lingua, path } = linguaEPercorso(Astro.url.pathname, Object.keys(languages), defaultLang);
+// `lingua` e' sempre una delle `languages` (o la lingua di base): il cast e' sicuro.
+const t = useTranslations(lingua as Lang);
 // Mappa rotta pubblica -> chiave pagina, dalla config per-cliente.
 const MAP: Record<string, string> = Object.fromEntries(
   SITE_PAGES.map((pg) => [(pg.path ?? "/").replace(/\/$/, "") || "/", pg.k]),
@@ -34,7 +36,7 @@ const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: lo
   <div class="sitepop" id="sitepop" data-pop-id={pop.id} data-max={pop.max_shows} data-pos={pop.position} aria-hidden="true">
     <div class="sitepop__overlay" data-sitepop-close></div>
     <div class="sitepop__box" role="dialog" aria-modal="true" aria-label={pop.title}>
-      <button class="sitepop__close" type="button" data-sitepop-close aria-label="Fermer">
+      <button class="sitepop__close" type="button" data-sitepop-close aria-label={t("common.close")}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 6l12 12M18 6 6 18" />
         </svg>
