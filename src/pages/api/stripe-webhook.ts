@@ -125,7 +125,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (incasso) {
       try {
         if (session.payment_status === "paid") {
-          const n = await incassaOrdiniQr(ambito, incasso, session.id);
+          const n = await incassaOrdiniQr(ambito, incasso, session.id, session.metadata?.chiudi_seduta);
           console.log(`Incasso QR: ${n} ordini pagati`);
         }
       } catch (e) {

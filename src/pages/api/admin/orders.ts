@@ -25,6 +25,7 @@ import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
 import { rimborsabile } from "../../../lib/admin/ordiniConti";
 import { cosaDaIncassare } from "../../../lib/admin/daIncassare";
+import { chiudiSeContoChiesto } from "../../../lib/admin/incassoSeduta";
 export const prerender = false;
 
 
@@ -716,6 +717,14 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ error: await msg("err.update") }, 500);
   }
   if (!data) return json({ error: await msg("err.orderNotFound") }, 404);
+  /* Incassato al banco un ordine di un tavolo che aveva chiesto il conto
+     («Paiement en caisse» dal palmare, 26/10/2026): se non resta niente da
+     incassare, la seduta si chiude e il tavolo torna libero (non piu' blu). */
+  if (incassoBanco) {
+    const { data: rr } = await leggi("orders", ambito, "reservation_id").eq("id", id).maybeSingle();
+    const rid = String((rr as { reservation_id?: string | null } | null)?.reservation_id ?? "");
+    if (rid) await chiudiSeContoChiesto(ambito, rid).catch((e) => console.error("[incasso] seduta:", e));
+  }
 
   // Email di annullamento al cliente (solo alla transizione verso "cancelled").
   if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
