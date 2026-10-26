@@ -957,7 +957,8 @@ test("i titoli delle due schede esistono in tutte e cinque le lingue", () => {
 
 test("una lista sola, nell'ordine di sempre", () => {
   assert.doesNotMatch(ORD, /id="grid-sala"|id="due-col"/, "sono tornate le due colonne");
-  assert.match(ORD, /gridEl\.innerHTML = attivi\.map\(cardHTML\)\.join\(""\);/);
+  // Un tavolo, un ticket (26/10/2026): gli ordini della stessa seduta insieme.
+  assert.match(ORD, /gridEl\.innerHTML = raggruppa\(attivi\)\.map\(gruppoHTML\)\.join\(""\);/);
 });
 
 test("il nastro: sala in corallo col tavolo, ritiro discreto, deciso da alTavolo", () => {

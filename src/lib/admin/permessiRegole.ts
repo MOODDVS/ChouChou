@@ -207,6 +207,7 @@ export const API_PAGINA: Record<string, string> = {
   // I conti aperti della sala (conto-aperto.md): la scheda sta in Commandes.
   "table-tabs": "orders",
   "order-delay": "orders",       // spostare l'ora di ritiro e avvisare il cliente
+  "qr-incasso": "orders",        // il QR per far pagare il tavolo online (26/10/2026)
   // --- Prenotazioni -----------------------------------------------------
   "reservations": "reservations",
   "service-closures": "reservations",

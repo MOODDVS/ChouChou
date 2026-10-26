@@ -760,7 +760,7 @@ test("lo stato che disegna le card e' dichiarato una volta, prima di cardHTML", 
   }
   assert.equal((pag.match(/const labelDiffRefund = /g) ?? []).length, 1, "labelDiffRefund e' dichiarata piu' volte");
   // E stanno PRIMA di chi le usa.
-  const iCard = pag.indexOf("function cardHTML(o: Order): string {");
+  const iCard = pag.indexOf("function cardHTML(o: Order, inGruppo = false): string {");
   for (const nome of ["let incassaId", "let incDiffId", "const labelDiffRefund"]) {
     assert.ok(pag.indexOf(nome) < iCard, `${nome} e' finita dopo cardHTML, che la usa`);
   }
@@ -781,7 +781,9 @@ test("«Pronto» e «Incassato» sono due gesti, su due righe, per ogni ordine (
   const pag = leggi("src/pages/admin/orders.astro");
   const api = leggi("src/pages/api/admin/orders.ts");
   assert.match(pag, /const rigaTop = /);
-  assert.match(pag, /<div class="actions actions-2">\$\{rigaTop\}\$\{rigaMain\}<\/div>/);
+  // Nel ticket di un tavolo con piu' ordini (26/10/2026) la seconda riga e'
+  // solo «Pronto»: incassare e' del tavolo intero, in fondo al ticket.
+  assert.match(pag, /<div class="actions actions-2">\$\{rigaTop\}\$\{inGruppo && [\s\S]*?: rigaMain\}<\/div>/);
   assert.match(pag, /data-act="pronto"/);
   assert.match(pag, /JSON\.stringify\(\{ id, pronto: true \}\)/);
   assert.match(pag, /status === "paid" && ord\.ready_at \? "done" : status/,

@@ -1,3 +1,4 @@
+import { incassaOrdiniQr } from "../../lib/incassoQr";
 import type { APIRoute } from "astro";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
 import Stripe from "stripe";
@@ -110,6 +111,25 @@ export const POST: APIRoute = async ({ request }) => {
         }
       } catch (e) {
         console.error("Errore pagamento del conto:", e);
+        return new Response("Errore DB", { status: 500 });
+      }
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // --- L'INCASSO COL QR di un tavolo (26/10/2026, `creaCheckoutIncasso`) ---
+    // ⚠️ Ordini gia' annunciati: si segnano pagati e basta (`incassaOrdiniQr`).
+    const incasso = session.metadata?.incasso_ordini;
+    if (incasso) {
+      try {
+        if (session.payment_status === "paid") {
+          const n = await incassaOrdiniQr(ambito, incasso, session.id);
+          console.log(`Incasso QR: ${n} ordini pagati`);
+        }
+      } catch (e) {
+        console.error("Errore incasso QR:", e);
         return new Response("Errore DB", { status: 500 });
       }
       return new Response(JSON.stringify({ received: true }), {

@@ -376,6 +376,41 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .row-ico { flex: 0 0 auto; display: inline-flex; color: var(--c-muted); }
       .row-ico svg { width: 14px; height: 14px; display: block; }
 
+      /* ---------- l'incasso col QR (26/10/2026) ---------- */
+      .qr-fondo { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, 0.6); }
+      .qr-box { width: min(92vw, 380px); padding: 1.4rem 1.2rem 1.1rem; border-radius: 20px; background: var(--c-card); border: 1px solid var(--c-line); display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5); }
+      .qr-tit { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; }
+      .qr-img { width: 100%; max-width: 260px; aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
+      .qr-img svg { width: 100%; height: 100%; display: block; }
+      .qr-attesa { color: #0c2a30; font-size: 1.5rem; }
+      .qr-tot { font-size: 1.6rem; font-weight: 800; }
+      .qr-stato { font-weight: 700; color: var(--c-muted); }
+      .qr-stato.is-ok { color: #2e9e6b; }
+      .qr-nota { font-size: 0.8rem; line-height: 1.4; color: var(--c-muted); }
+      .qr-chiudi { margin-top: 0.3rem; min-height: 44px; padding: 0 1.4rem; border-radius: 999px; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); font: inherit; font-weight: 700; cursor: pointer; }
+      /* ---------- un tavolo, un ticket (26/10/2026) ---------- */
+      .grp-lista { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.9rem; }
+      .grp-ord { border: 1px solid var(--c-line); border-radius: 12px; overflow: hidden; }
+      .grp-testa {
+        width: 100%; display: grid; grid-template-columns: 1fr auto auto; grid-template-rows: auto auto;
+        column-gap: 0.6rem; row-gap: 0.2rem; align-items: center; text-align: left;
+        padding: 0.65rem 0.8rem; border: none; cursor: pointer; font: inherit; color: var(--c-text);
+        background: color-mix(in srgb, var(--c-bg) 35%, var(--c-card));
+      }
+      .grp-n { font-weight: 800; white-space: nowrap; }
+      .grp-tot { grid-column: 2; font-weight: 800; white-space: nowrap; justify-self: end; }
+      .grp-meta { grid-column: 1; grid-row: 2; font-size: 0.8rem; color: var(--c-muted); white-space: nowrap; }
+      .grp-stato { grid-column: 2; grid-row: 2; justify-self: end; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.1rem 0.5rem; border-radius: 999px; background: color-mix(in srgb, var(--c-text) 18%, transparent); white-space: nowrap; }
+      .grp-stato.is-ok { background: #4cc38a; color: #0b1f14; }
+      .grp-giu { grid-column: 3; grid-row: 1 / 3; width: 16px; height: 16px; fill: none; stroke: var(--c-muted); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+      .grp-ord.is-open .grp-giu { transform: rotate(180deg); }
+      .grp-corpo { padding: 0 0.8rem 0.8rem; }
+      .grp-corpo .items { margin-top: 0; border-top: none; }
+      .card-gruppo > .actions > .act-row { flex: 1; }
+      .card-gruppo .grp-incassa, .card-gruppo > .actions .btn-done { flex: 1; }
+      /* Tre scelte (contanti, carta, QR): piu' strette, il testo non si taglia. */
+      .act-main:has(> .btn-done:nth-child(3)) { gap: 0.4rem; }
+      .act-main:has(> .btn-done:nth-child(3)) > .btn-done { padding-left: 0.3rem; padding-right: 0.3rem; font-size: 0.92rem; letter-spacing: 0; min-width: 0; }
       .items { border-top: 1px solid var(--c-line); margin-top: 0.9rem; padding-top: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; }
       .item { display: flex; gap: 0.6rem; align-items: baseline; font-size: 1.15rem; }
       .item-qty { color: var(--c-accent); font-weight: 700; }
@@ -450,7 +485,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .act-stato .b-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .act-stato .pay-ico { display: inline-flex; }
       .act-stato svg { width: 15px; height: 15px; flex: none; }
-      .act-stato-ok { color: #2e9e6b; border-color: color-mix(in srgb, #2e9e6b 55%, transparent); }
+      /* «Prête» gia' segnato: verde pieno, scritta bianca (Enzo, 26/10/2026). */
+      .act-stato-ok { background: #2e9e6b; color: #fff; border: 1px solid transparent; }
       /* Le due scelte dell'incasso (contanti / carta) portano la stessa
          icona che poi comparira' accanto al prezzo: si sceglie guardando
          il simbolo che si rivedra' sulla card. */
@@ -520,7 +556,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          ⚠️ Il piede a destra non e' decorazione: il bottone e' in posizione
          assoluta, e senza quello spazio riservato un indirizzo email lungo
          gli finisce sotto. */
-      .contatti { position: relative; padding-right: 52px; }
+      /* ⚠️ Alto almeno quanto la stampante (+ un respiro): con una riga sola
+         (un «Walk-in» senza email ne' telefono) il bottone, ancorato in basso,
+         saliva sopra il totale (Enzo, 26/10/2026). */
+      .contatti { position: relative; padding-right: 52px; min-height: 46px; }
       /* Bottone stampante (ristampa ticket), in basso a destra nei contatti.
          ⚠️ COLORE DEL TESTO, non quello spento dei dettagli: e' un comando, e
          fra tre righe grigie un bottone grigio non si vede. Il bordo resta
@@ -1049,7 +1088,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             in cima, sopra gli ordini. Vuota = non c'e' (nessun conto aperto,
             o il conto aperto non e' acceso). */}
         <div class="grid grid-conti" id="grid-conti" hidden></div>
-        <div class="grid" id="grid"></div>
+        <div class="grid" id="grid" data-qr={pagaOnline ? "1" : undefined}></div>
         <h2 class="done-title" id="done-title" style="display:none">{t("ord.doneCancelled")}</h2>
         <div class="grid" id="grid-done"></div>
       </main>
@@ -1225,7 +1264,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE, ICONA_CARTA, ICONA_CESTINO, ICONA_OROLOGIO } from "../../lib/iconeSala";
+      import { ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE, ICONA_CARTA, ICONA_CESTINO, ICONA_OROLOGIO, ICONA_QR } from "../../lib/iconeSala";
       import { mostraToast } from "../../lib/admin/toast";
       import { collegaLogout } from "../../lib/admin/logout";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
@@ -1425,7 +1464,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          timeout la riga tornerebbe ad andare a capo. */
       const labelDiffRefund = (d: number) =>
         `<span class="db-lab">${tr("ord.refundDiff")}</span><span class="db-val">· ${euro(d)}</span>`;
-      function cardHTML(o: Order): string {
+      /* `inGruppo` (26/10/2026): il CORPO di un ordine dentro il ticket di un
+         tavolo con piu' ordini (`gruppoHTML`) — piatti, nota, barre e i gesti
+         di QUELL'ordine (ristampa, matita, cestino, Pronto). Incassare e'
+         del tavolo intero: sta in fondo al ticket del gruppo. */
+      function cardHTML(o: Order, inGruppo = false): string {
         // ⚠️ La riga finta della nota, e le righe a quantita' zero, le salta
         // `ordiniConti.ts`: era un filtro scritto a mano in nove posti, e in
         // uno (la colonna della Accueil) mancava.
@@ -1439,6 +1482,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            pagina girerebbe leggendo sempre la copia sbagliata. Lo stesso
            inciampo e’ gia’ documentato poco sotto per `incassaId`. */
         const aTavolo = alTavolo(o.service);
+        // Nel gruppo la ristampa di QUESTO ordine sta coi suoi gesti.
+        const stampaBtnTop = STAMPA_TICKET && daStampare(o.status, o.payment_method)
+          ? `<button class="btn-edit" type="button" data-id="${o.id}" data-act="print" title="${tr("ord.reprint")}" aria-label="${tr("ord.reprint")}">${ICON_PRINT}</button>`
+          : "";
         /* ⚠️ IN ALTO A SINISTRA: L’ORA, O IL TAVOLO. Non tutt’e due.
            In sala l’ora esiste (e’ quella d’arrivo) ma non dice niente a chi
            legge: nessuno viene a ritirare. Il posto buono della card e’ uno, e
@@ -1561,7 +1608,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            `ready_at`), e l'incasso dopo lo chiude. Su un ordine gia' pagato
            «Pronto» lo chiude subito, come faceva «Terminée». */
         const rigaTop = `<div class="act-row act-top">
-                 ${ritardoBtn}
+                 ${ritardoBtn}${inGruppo ? stampaBtnTop : ""}
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`;
@@ -1580,7 +1627,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const btnIncassa =
           o.status === "paid"
             ? ""
-            : `<button class="btn-incassa" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>`;
+            : `<button class="btn-incassa" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collectDo")}</span></button>`;
         const rigaMain =
           /* ⚠️ INCASSARE CHIEDE **COME**, in due tocchi.
              Prima bastava un tocco e scriveva solo lo stato: il metodo
@@ -1597,6 +1644,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ? `<div class="act-row act-main">
                  <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-cash">${ICON_COINS}<span class="b-lab">${tr("ord.payCash")}</span></button>
                  <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-card">${ICON_CARD}<span class="b-lab">${tr("ord.payCard")}</span></button>
+                 ${qrAttivo() ? `<button class="btn-done" type="button" data-ids="${o.id}" data-act="inc-qr">${ICONA_QR}<span class="b-lab">${tr("ord.payQr")}</span></button>` : ""}
                </div>`
             : o.status === "paid" || daIncassareBanco
               ? `<div class="act-row act-main">${btnPronto}${btnIncassa}</div>`
@@ -1608,7 +1656,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                  </div>`;
         const actions =
           o.status === "paid" || o.status === "pending"
-            ? `<div class="actions actions-2">${rigaTop}${rigaMain}</div>`
+            ? `<div class="actions actions-2">${rigaTop}${inGruppo && (o.status === "paid" || daIncassareBanco) ? `<div class="act-row act-main">${btnPronto}</div>` : rigaMain}</div>`
             : "";
 
         const badgeOk = o.status === "done" ? `<span class="badge-ok" title="${tr("ord.terminee")}">✓</span>` : "";
@@ -1733,6 +1781,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            ⚠️ E il commento sta QUI e non nel markup: `cardHTML` rende una
            STRINGA, e un commento in stile Astro dentro un template literal non
            e' un commento — finisce scritto nella pagina come testo. */
+        if (inGruppo) {
+          return `<div class="items">${itemsHTML}</div>${noteHTML}${diffBar}${refundBar}${diffRefundBtn}${actions}`;
+        }
         const cardCls =
           (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
           (refundBtn ? " refundable" : "") +
@@ -1771,6 +1822,97 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ${actions}
             ${rollback}
             ${cancelFoot}
+          </div>`;
+      }
+
+      /* ---------- UN TAVOLO, UN TICKET (Enzo, 26/10/2026) ----------
+         Gli ordini della stessa seduta al tavolo (`reservation_id`, non del
+         conto aperto: quello ha gia' la sua scheda) stanno in UN ticket. Un
+         ordine solo: la card di sempre. Dal secondo, ogni ordine e' un
+         accordeon («Commande 1», «Commande 2»…), uno aperto alla volta — di
+         solito l'ultimo. In testa il totale del tavolo e la ristampa di TUTTE
+         le comande; in fondo «Encaissé» per tutto quello che resta da
+         incassare, contanti o carta. */
+      /** Il pagamento online e' configurato: c'e' il terzo modo, il QR. */
+      function qrAttivo(): boolean {
+        return document.getElementById("grid")?.dataset.qr === "1";
+      }
+      /** Quale ordine e' aperto in ogni gruppo ("" = tutti chiusi). */
+      const grpAperto = new Map<string, string>();
+      /** Il gruppo che sta scegliendo contanti / carta. */
+      let incassaGrp: string | null = null;
+
+      function chiaveGruppo(o: Order): string {
+        return alTavolo(o.service) && o.reservation_id && o.payment_method !== "tab"
+          ? `r:${o.reservation_id}`
+          : `o:${o.id}`;
+      }
+      function raggruppa(lista: Order[]): Order[][] {
+        const gruppi = new Map<string, Order[]>();
+        for (const o of lista) {
+          const k = chiaveGruppo(o);
+          gruppi.set(k, [...(gruppi.get(k) ?? []), o]);
+        }
+        return [...gruppi.values()].map((g) => g.sort((a, b) => (a.created_at < b.created_at ? -1 : 1)));
+      }
+      function gruppoHTML(lista: Order[]): string {
+        if (lista.length === 1) return cardHTML(lista[0]);
+        const key = chiaveGruppo(lista[0]);
+        const ultimo = lista[lista.length - 1];
+        const aperto = grpAperto.has(key) ? grpAperto.get(key) : ultimo.id;
+        const totale = lista.reduce((n, o) => n + (Number(o.total_cents) || 0), 0);
+        const daIncassare = lista.filter((o) => o.status === "pending" && o.payment_method === "onsite");
+        const resto = daIncassare.reduce((n, o) => n + (Number(o.total_cents) || 0), 0);
+        const tag = daIncassare.length
+          ? `<span class="tag tag-pending" title="${tr("ord.toCollectHint")}">${tr("ord.toCollect")}</span>`
+          : `<span class="tag tag-paid">${tr("ord.paid")}</span>`;
+        const stampabili = lista.filter((o) => daStampare(o.status, o.payment_method)).map((o) => o.id);
+        const stampaTutti = STAMPA_TICKET && stampabili.length
+          ? `<button class="btn-print" type="button" data-act="print-grp" data-ids="${stampabili.join(",")}" title="${tr("ord.reprintAll")}" aria-label="${tr("ord.reprintAll")}">${ICON_PRINT}</button>`
+          : "";
+        const sezioni = lista.map((o, i) => {
+          const si = aperto === o.id;
+          const pronto = Boolean(o.ready_at) || o.status === "done";
+          const art = piattiVeri(o.items).reduce((n, x) => n + (Number(x.qty) || 0), 0);
+          return `
+            <div class="grp-ord${si ? " is-open" : ""}">
+              <button class="grp-testa" type="button" data-act="grp-apri" data-gid="${esc(key)}" data-id="${o.id}" aria-expanded="${si ? "true" : "false"}">
+                <span class="grp-n">${esc(tr("ord.nth").replace("{n}", String(i + 1)))}</span>
+                <span class="grp-tot">${euro(o.total_cents)}</span>
+                <span class="grp-meta">${esc(oraBrussels(o.created_at))} · ${esc(tr("ord.nArt").replace("{n}", String(art)))}</span>
+                <span class="grp-stato${pronto ? " is-ok" : ""}">${esc(pronto ? tr("ord.readyDone") : tr("ord.inKitchen"))}</span>
+                <svg class="grp-giu" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              ${si ? `<div class="grp-corpo">${cardHTML(o, true)}</div>` : ""}
+            </div>`;
+        }).join("");
+        const ids = daIncassare.map((o) => o.id).join(",");
+        const piede = !daIncassare.length
+          ? ""
+          : incassaGrp === key
+            ? `<div class="actions"><div class="act-row act-main">
+                 <button class="btn-done" type="button" data-act="grp-cash" data-ids="${ids}">${ICON_COINS}<span class="b-lab">${tr("ord.payCash")}</span></button>
+                 <button class="btn-done" type="button" data-act="grp-card" data-ids="${ids}">${ICON_CARD}<span class="b-lab">${tr("ord.payCard")}</span></button>
+                 ${qrAttivo() ? `<button class="btn-done" type="button" data-ids="${ids}" data-act="inc-qr">${ICONA_QR}<span class="b-lab">${tr("ord.payQr")}</span></button>` : ""}
+               </div></div>`
+            : `<div class="actions"><div class="act-row act-main">
+                 <button class="btn-incassa grp-incassa" type="button" data-act="grp-incassa" data-gid="${esc(key)}" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collectDo")} · ${euro(resto)}</span></button>
+               </div></div>`;
+        const langBadge = ultimo.lang ? `<span class="badge">${esc(ultimo.lang)}</span>` : "";
+        return `
+          <div class="card card-gruppo" data-id="${ultimo.id}" data-gruppo="${esc(key)}">
+            <div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.room"))}${ultimo.table_label ? ` · ${esc(ultimo.table_label)}` : ""}</span></div>
+            <div class="card-stato">${tag}</div>
+            <div class="card-top">
+              <div class="ct-left"><span class="time time-tavolo" title="${tr("ord.atTable")}">${esc(ultimo.table_label || tr("ord.room"))}</span></div>
+              <span class="ct-right"><span class="total">${euro(totale)}</span></span>
+            </div>
+            <div class="contatti">
+              <p class="name"><span class="name-ico">${ICON_USER}</span>${esc(ultimo.customer_name)}${langBadge}</p>
+              ${stampaTutti}
+            </div>
+            <div class="grp-lista">${sezioni}</div>
+            ${piede}
           </div>`;
       }
 
@@ -1933,8 +2075,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         let confirmTimer: number | undefined;
 
         function resetConfirm() {
-          const avevaIncasso = incassaId !== null || incDiffId !== null;
+          const avevaIncasso = incassaId !== null || incDiffId !== null || incassaGrp !== null;
           incassaId = null;
+          incassaGrp = null;
           incDiffId = null;
           confirmId = null;
           diffConfirmId = null;
@@ -1973,7 +2116,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             } else {
               stateEl.style.display = "none";
             }
-            gridEl.innerHTML = trovati.map(cardHTML).join("");
+            gridEl.innerHTML = trovati.map((o) => cardHTML(o)).join("");
             gridDoneEl.innerHTML = "";
             doneTitleEl.style.display = "none";
             return;
@@ -2021,8 +2164,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
           /* Una lista sola, nell'ordine di sempre: ritiro o sala lo dice il
              nastro di ogni card (`alTavolo`, la stessa regola del ticket). */
-          gridEl.innerHTML = attivi.map(cardHTML).join("");
-          gridDoneEl.innerHTML = spenti.map(cardHTML).join("");
+          // Un tavolo, un ticket: gli ordini della stessa seduta insieme.
+          gridEl.innerHTML = raggruppa(attivi).map(gruppoHTML).join("");
+          gridDoneEl.innerHTML = spenti.map((o) => cardHTML(o)).join("");
           doneTitleEl.style.display = spenti.length > 0 ? "block" : "none";
         }
 
@@ -2392,6 +2536,127 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
         }
 
+        /* LA RISTAMPA DI TUTTO IL TAVOLO (26/10/2026): ogni comanda del
+           gruppo, una dopo l'altra (mai in parallelo: la cucina le riceve
+           nell'ordine in cui sono state fatte). Un esito solo. */
+        async function ristampaTutti(ids: string[], btn: HTMLButtonElement) {
+          btn.disabled = true;
+          let errore = "";
+          try {
+            for (const id of ids) {
+              const res = await fetch("/api/admin/print-ticket", {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ id }),
+              });
+              if (!res.ok) {
+                let d: { error?: string } = {};
+                try { d = await res.json(); } catch { /* corpo vuoto */ }
+                errore = d.error || tr("err.printFailed");
+                break;
+              }
+            }
+            if (errore) ncToast(errore, true, 5000);
+            else ncToast(tr("ord.reprintOk"));
+          } catch {
+            ncToast(tr("err.network"), true, 5000);
+          } finally {
+            btn.disabled = false;
+          }
+        }
+
+        /* INCASSARE TUTTO IL TAVOLO (26/10/2026): ogni ordine ancora da
+           incassare del gruppo, col metodo scelto — la stessa chiamata di
+           «Encaissé» sulla card di un ordine, una per ordine. */
+        async function incassaTutti(ids: string[], metodo: string, btn: HTMLButtonElement) {
+          const card = btn.closest(".card");
+          card?.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          let ok = 0;
+          for (const id of ids) {
+            try {
+              const r = await fetch("/api/admin/orders", {
+                method: "PATCH",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ id, status: "paid", payment: metodo }),
+              });
+              if (!r.ok) break;
+              ok++;
+              for (const lista of [ordini, ordiniGiorno]) {
+                const ord = lista.find((o) => o.id === id);
+                if (!ord) continue;
+                ord.status = ord.ready_at ? "done" : "paid";
+                ord.payment_method = metodo;
+              }
+            } catch { break; }
+          }
+          if (ok < ids.length) ncToast(tr("ord.errShort"), true);
+          resetConfirm();
+          render();
+          firmaOrdini = "";
+          void carica(true);
+          if (giornoView) void caricaGiorno(giornoView);
+        }
+
+        /* L'INCASSO COL QR (26/10/2026): il QR del pagamento Stripe del tavolo
+           in un modale; il cliente lo inquadra col telefono. Il webhook segna
+           pagati gli ordini; qui si guarda la lista ogni 3 secondi e, quando
+           non sono piu' da incassare, il modale dice «Paiement reçu» e si
+           chiude. Chiuso a mano, il pagamento resta valido (30 minuti). */
+        async function apriQr(ids: string[]) {
+          if (!ids.length) return;
+          const fondo = document.createElement("div");
+          fondo.className = "qr-fondo";
+          fondo.innerHTML = `<div class="qr-box" role="dialog" aria-modal="true">
+              <p class="qr-tit">${esc(tr("ord.qrTitle"))}</p>
+              <div class="qr-img" id="qr-img"><span class="qr-attesa">…</span></div>
+              <p class="qr-tot" id="qr-tot"></p>
+              <p class="qr-stato" id="qr-stato">${esc(tr("ord.qrWait"))}</p>
+              <p class="qr-nota">${esc(tr("ord.qrHint"))}</p>
+              <button type="button" class="qr-chiudi" id="qr-chiudi">${esc(tr("ord.qrClose"))}</button>
+            </div>`;
+          document.body.appendChild(fondo);
+          let giro = 0;
+          const chiudi = () => { window.clearInterval(giro); fondo.remove(); };
+          fondo.addEventListener("click", (e) => { if (e.target === fondo) chiudi(); });
+          fondo.querySelector("#qr-chiudi")?.addEventListener("click", chiudi);
+          try {
+            const r = await fetch("/api/admin/qr-incasso", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ ids }),
+            });
+            const j = (await r.json().catch(() => ({}))) as { error?: string; svg?: string; totale_cents?: number };
+            if (!r.ok || !j.svg) {
+              chiudi();
+              ncToast(j.error || tr("ord.errShort"), true, 5000);
+              return;
+            }
+            const img = fondo.querySelector("#qr-img");
+            if (img) img.innerHTML = j.svg;
+            const tot = fondo.querySelector("#qr-tot");
+            if (tot) tot.textContent = euro(Number(j.totale_cents) || 0);
+          } catch {
+            chiudi();
+            ncToast(tr("err.network"), true, 5000);
+            return;
+          }
+          giro = window.setInterval(async () => {
+            if (!document.body.contains(fondo)) { window.clearInterval(giro); return; }
+            firmaOrdini = "";
+            await carica(true);
+            const ancora = ids.some((id) => {
+              const o = ordini.find((x) => x.id === id);
+              return o && o.status === "pending" && o.payment_method === "onsite";
+            });
+            if (!ancora) {
+              window.clearInterval(giro);
+              const st = fondo.querySelector("#qr-stato");
+              if (st) { st.textContent = `✓ ${tr("ord.qrPaid")}`; st.classList.add("is-ok"); }
+              window.setTimeout(chiudi, 2500);
+            }
+          }, 3000);
+        }
+
         /* ---------- RITARDARE UN ORDINE ----------
            ⚠️ L'ora nuova la calcola il SERVER e la rende indietro: qui si
            mostra solo una previsione. Contarla nel browser e rimetterla nella
@@ -2480,6 +2745,39 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
           if (!btn || btn.disabled) return;
           const id = btn.dataset.id ?? "";
+
+          // ---- Il ticket del tavolo con piu' ordini (26/10/2026) ----
+          if (btn.dataset.act === "grp-apri") {
+            const gid = btn.dataset.gid ?? "";
+            grpAperto.set(gid, btn.getAttribute("aria-expanded") === "true" ? "" : id);
+            render();
+            return;
+          }
+          if (btn.dataset.act === "print-grp") {
+            void ristampaTutti((btn.dataset.ids ?? "").split(",").filter(Boolean), btn);
+            return;
+          }
+          if (btn.dataset.act === "grp-incassa") {
+            resetConfirm();
+            incassaGrp = btn.dataset.gid ?? null;
+            render();
+            confirmTimer = window.setTimeout(resetConfirm, 6000);
+            return;
+          }
+          if (btn.dataset.act === "inc-qr") {
+            incassaId = null;
+            incassaGrp = null;
+            if (confirmTimer) clearTimeout(confirmTimer);
+            void apriQr((btn.dataset.ids ?? "").split(",").filter(Boolean));
+            render();
+            return;
+          }
+          if (btn.dataset.act === "grp-cash" || btn.dataset.act === "grp-card") {
+            incassaGrp = null;
+            if (confirmTimer) clearTimeout(confirmTimer);
+            void incassaTutti((btn.dataset.ids ?? "").split(",").filter(Boolean), btn.dataset.act === "grp-cash" ? "cash" : "card", btn);
+            return;
+          }
 
           if (btn.dataset.act === "print") {
             void ristampaTicket(id, btn);

@@ -106,6 +106,9 @@ const ROTTE_DEL_MOTORE = {
   "src/pages/reservation/cancel.astro": "le email di prenotazione mandano qui: annulla col token",
   "src/pages/reservation-embed.astro": "il widget di prenotazione da mettere in un iframe",
   "src/pages/reservation-test.astro": "banco di prova del widget, per chi installa",
+  "src/pages/paiement/ok.astro":
+    "dove Stripe riporta il telefono del cliente dopo l'incasso col QR del tavolo " +
+    "(26/10/2026): l'indirizzo lo scrive il motore nella sessione, deve esistere ovunque.",
   "src/pages/table.astro":
     "la pagina del QR sul tavolo. ⚠️ E’ nel CONTRATTO perche’ il QR e’ STAMPATO: " +
     "un cartoncino plastificato su ogni tavolo vive anni, e l’indirizzo che porta deve " +
