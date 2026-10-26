@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { popupPerPagina } from "../../lib/popups";
+import { languages, defaultLang } from "../../i18n/ui";
 
 export const prerender = false;
 
@@ -9,13 +10,15 @@ function json(body: unknown): Response {
   });
 }
 
-// GET /api/popup?page=home&lang=fr|en — pubblico. Pop-up marketing attivo
+// GET /api/popup?page=home&lang=<lingua del sito> — pubblico. Pop-up marketing attivo
 // ADESSO per la pagina (default "home"), gestito dall'admin (Marketing -> Pop-up):
 // titolo, testo, immagine, bottoni, max_shows. Il limite di visualizzazioni per
 // visitatore e' applicato lato client (localStorage), come in SitePopup.astro.
 // Risposta: { active:false } oppure { active:true, popup:{...} }.
 export const GET: APIRoute = async ({ url }) => {
-  const lang = url.searchParams.get("lang") === "en" ? "en" : "fr";
+  // ⚠️ Una delle lingue del sito, altrimenti quella di base (non il francese).
+  const chiesta = String(url.searchParams.get("lang") ?? "");
+  const lang = Object.hasOwn(languages, chiesta) ? chiesta : defaultLang;
   const page = (url.searchParams.get("page") || "home").trim() || "home";
   try {
     const p = await popupPerPagina(page, lang);

@@ -7,12 +7,15 @@
 import { popupPerPagina } from "../lib/popups";
 import { SITE_PAGES } from "../config/sitePages";
 import Immagine from "./Immagine.astro";
+import { languages, defaultLang } from "../i18n/ui";
+import { linguaEPercorso, localizzaLink } from "../lib/linguaUrl";
 
-const raw = Astro.url.pathname.replace(/\/$/, "") || "/";
-const en = raw === "/en" || raw.startsWith("/en/");
-const it = raw === "/it" || raw.startsWith("/it/");
-const lingua = it ? "it" : en ? "en" : "fr";
-const path = raw.replace(/^\/(en|it)(?=\/|$)/, "") || "/";
+// ⚠️ La lingua di base e le lingue del sito le dice `i18n/ui.ts` (file del
+// cliente): nessun prefisso di lingua scritto qui. Con il francese dato per
+// scontato alla radice, un sito in inglese (450 Gradi) mostrava il pop-up
+// francese sulle pagine inglesi. Un pop-up senza titolo nella lingua della
+// pagina NON si mostra (`titoloPopup`): nessun ripiego su un'altra lingua.
+const { lingua, path } = linguaEPercorso(Astro.url.pathname, Object.keys(languages), defaultLang);
 // Mappa rotta pubblica -> chiave pagina, dalla config per-cliente.
 const MAP: Record<string, string> = Object.fromEntries(
   SITE_PAGES.map((pg) => [(pg.path ?? "/").replace(/\/$/, "") || "/", pg.k]),
@@ -20,10 +23,9 @@ const MAP: Record<string, string> = Object.fromEntries(
 const slug = MAP[path];
 const pop = slug ? await popupPerPagina(slug, lingua) : null;
 
-// Link interni localizzati sulla versione EN (/order -> /en/order)
-function localizza(url: string): string {
-  return lingua !== "fr" && url.startsWith("/") && !url.startsWith("/" + lingua) ? "/" + lingua + url : url;
-}
+// Link interni nella lingua della pagina (prefisso solo se la pagina
+// non e' nella lingua di base). La regola sta in `lib/linguaUrl`.
+const localizza = (url: string): string => localizzaLink(url, lingua, defaultLang);
 const btn1 = pop?.btn1_label && pop?.btn1_url ? { label: pop.btn1_label, url: localizza(pop.btn1_url) } : null;
 const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: localizza(pop.btn2_url) } : null;
 ---
