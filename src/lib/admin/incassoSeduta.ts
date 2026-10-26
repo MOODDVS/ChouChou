@@ -7,10 +7,8 @@
  *     `reason = 'bill'`: notifica e tavolo BLU sulla mappa). Il tavolo resta
  *     blu finche' qualcuno non incassa, da qualunque parte: Commandes
  *     (contanti, carta, QR) o il palmare.
- *  2. «Encaisser» (`incassaSeduta`): contanti o carta → gli ordini da
- *     incassare diventano pagati e la seduta si chiude subito (tavolo
- *     libero); QR (`qrSeduta`) → il QR del pagamento Stripe del tavolo, e
- *     il webhook chiude la seduta quando arriva il pagamento.
+ *  2. «Encaisser»: tutto, diviso o scelto, contanti / carta / QR — in
+ *     `pagamentiSeduta.ts`; saldato il tavolo, la seduta si chiude.
  * `chiudiSeContoChiesto`: dopo un incasso fatto ALTROVE (Commandes, QR della
  * cassa), la seduta si chiude solo se il conto era stato chiesto — se no i
  * clienti possono ancora essere a tavola.
@@ -21,9 +19,6 @@ import { letturaSala } from "./letturaSala";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
 import { stampaAddizioneTavolo } from "./addizioneTavolo";
 import { inviaPushChiamata } from "../push";
-import { creaCheckoutIncasso } from "../stripe";
-import { qrSvg } from "../qrSvg";
-import { CLIENT } from "../../config/client";
 
 interface SedutaIncasso {
   id: string;
@@ -58,7 +53,7 @@ async function sedutaDaIncassare(ambito: Ambito, tavoloId: string): Promise<Sedu
 
 /** La seduta finisce (`done`) e le richieste d'addizione dei suoi tavoli si
  *  chiudono: il tavolo torna libero e non e' piu' blu. */
-async function chiudiSeduta(ambito: Ambito, prenId: string, tavoli: string[]): Promise<void> {
+export async function chiudiSeduta(ambito: Ambito, prenId: string, tavoli: string[]): Promise<void> {
   await aggiorna("reservations", ambito, { status: "done" }).eq("id", prenId).eq("status", "seated");
   if (tavoli.length) {
     await aggiorna("table_calls", ambito, { status: "done", done_at: new Date().toISOString() })
@@ -96,59 +91,6 @@ export async function chiediContoInCassa(ambito: Ambito, tavoloId: string): Prom
     else void inviaPushChiamata({ tavolo: nomi, addizione: true }, ambito).catch(() => {});
   }
   return { ok: true, stampa: stampa.ok };
-}
-
-export type EsitoIncasso = { ok: true; totale: number } | { ok: false; errore: Errore | "salvataggio" };
-
-/** 2a. «Encaisser» in contanti o carta: tutto pagato, seduta chiusa. */
-export async function incassaSeduta(ambito: Ambito, tavoloId: string, metodo: unknown): Promise<EsitoIncasso> {
-  if (metodo !== "cash" && metodo !== "card") return { ok: false, errore: "salvataggio" };
-  const s = await sedutaDaIncassare(ambito, tavoloId);
-  if (typeof s === "string") return { ok: false, errore: s };
-  const ids = s.ordini.map((o) => o.id);
-  if (ids.length) {
-    // Gia' pronti: chiusi (come l'incasso al banco). Senza la #89 non c'e' la colonna.
-    await aggiorna("orders", ambito, { status: "done", payment_method: metodo })
-      .in("id", ids).eq("status", "pending").eq("payment_method", "onsite").not("ready_at", "is", null);
-    const r = await aggiorna("orders", ambito, { status: "paid", payment_method: metodo })
-      .in("id", ids).eq("status", "pending").eq("payment_method", "onsite");
-    if (r.error) return { ok: false, errore: "salvataggio" };
-  }
-  await chiudiSeduta(ambito, s.id, s.tavoli);
-  return { ok: true, totale: s.totale };
-}
-
-export type EsitoQr = { ok: true; svg: string; totale: number } | { ok: false; errore: Errore | "stripe" };
-
-/** 2b. «Encaisser» col QR: il pagamento Stripe del tavolo. */
-export async function qrSeduta(ambito: Ambito, tavoloId: string, base: string): Promise<EsitoQr> {
-  const s = await sedutaDaIncassare(ambito, tavoloId);
-  if (typeof s === "string") return { ok: false, errore: s };
-  if (!s.ordini.length || s.totale <= 0) return { ok: false, errore: "vuoto" };
-  const tavolo = s.ordini.map((o) => String(o.table_label ?? "").trim()).find(Boolean) ?? "";
-  try {
-    const c = await creaCheckoutIncasso({
-      ambito,
-      ordini: s.ordini.map((o) => o.id),
-      chiudiSeduta: s.id,
-      nome: `${CLIENT.nome}${tavolo ? ` · ${tavolo}` : ""}`,
-      totaleCents: s.totale,
-      successUrl: `${base}/paiement/ok`,
-      cancelUrl: `${base}/paiement/ok?annule=1`,
-    });
-    return { ok: true, svg: qrSvg(c.url), totale: s.totale };
-  } catch (e) {
-    console.error("[palmare] QR:", String((e as Error)?.message ?? e));
-    return { ok: false, errore: "stripe" };
-  }
-}
-
-/** Il palmare chiede: e' pagato? (la seduta non e' piu' da incassare) */
-export async function sedutaPagata(ambito: Ambito, tavoloId: string): Promise<boolean> {
-  const s = await sedutaDaIncassare(ambito, tavoloId);
-  if (s === "nessuno") return true; // chiusa: il webhook ha gia' fatto
-  if (typeof s === "string") return false;
-  return s.ordini.length === 0;
 }
 
 /**

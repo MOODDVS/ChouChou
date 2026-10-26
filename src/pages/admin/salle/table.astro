@@ -42,7 +42,6 @@ import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione,
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
 import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA, ICONA_CESTINO, ICONA_MONETE, ICONA_CARTA, ICONA_QR } from "../../../lib/iconeSala";
-import { pagamentoOnlineAttivo } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -61,7 +60,6 @@ let mv: ContestoSpostamento | null = null;
    modale: prima erano una decina di letture in fila. Il tempo speso sta in
    `Server-Timing` (strumenti del browser → Rete). */
 const crono = cronometro();
-let qrAttivo = false;
 try {
   const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
   const ambito = await ambitoDiRichiesta(Astro.request, staff);
@@ -73,9 +71,6 @@ try {
   if (s && !s.conto && !s.sessione) inst = await contestoInstallazione(ambito, id, lettura);
   // Occupato: il modale dell'isola (persone, «Déplacer») ha bisogno delle sale.
   else if (s) mv = await contestoSpostamento(ambito, id, lettura);
-  // Il QR per pagare al tavolo: solo se c'e' da incassare e Stripe e' pronto.
-  // ⚠️ Un errore qui non deve spegnere la scheda: senza QR restano contanti e carta.
-  if (s?.sessione?.ordini.some((o) => o.modificabile)) qrAttivo = await pagamentoOnlineAttivo(ambito).catch(() => false);
 } catch { s = null; }
 Astro.response.headers.set("Server-Timing", crono.intestazione());
 const libero = Boolean(s && !s.conto && !s.sessione);
@@ -376,7 +371,41 @@ const personeIsola = personeAdesso;
       .tb-pay-indietro { align-self: flex-start; background: none; border: none; color: var(--c-muted); font: inherit; font-size: 0.85rem; font-weight: 700; padding: 2px 4px; cursor: pointer; }
       .tb-qr-img { align-self: center; width: min(70vw, 260px); aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: #fff; }
       .tb-qr-img svg { width: 100%; height: 100%; display: block; }
-      .tb-qr-tot { text-align: center; font-size: 1.4rem; font-weight: 800; }
+      .tb-qr-testa { display: flex; justify-content: space-between; }
+      .tb-qr-testa span:last-child { color: var(--c-text); letter-spacing: 0; }
+      /* Tutto · Dividi · Scegli: la pillola dei modi, la scelta in corallo. */
+      .tb-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 999px; background: var(--c-bg); }
+      .tb-seg.is-due { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tb-seg button { height: 38px; border-radius: 999px; border: none; background: transparent; color: var(--c-muted); font: inherit; font-weight: 800; font-size: 0.9rem; cursor: pointer; }
+      .tb-seg button[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); }
+      .tb-seg button[hidden] { display: none; }
+      .tb-pay-corpo { display: flex; flex-direction: column; gap: 8px; }
+      .tb-pay-n { text-align: center; font-size: 1.4rem; }
+      .tb-pay-imp { text-align: center; font-size: 1.6rem; font-weight: 800; line-height: 1.1; }
+      .tb-pay-imp small { display: block; font-size: 0.75rem; font-weight: 700; color: var(--c-muted); }
+      .tb-quote { display: flex; flex-direction: column; gap: 6px; }
+      .tb-quota { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: var(--c-bg); border: 1px solid var(--c-line); font-weight: 800; }
+      .tb-quota .n { color: var(--c-muted); font-weight: 700; }
+      .tb-quota .e { margin-left: auto; font-variant-numeric: tabular-nums; }
+      .tb-quota.is-pagata { opacity: 0.65; }
+      .tb-quota.is-pagata .e { color: #4cc38a; }
+      .tb-quota.is-dopo { border: 2px solid var(--c-accent); }
+      .tb-quota-tag { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: #4cc38a; color: #0b1f14; }
+      .tb-quota-tag.is-corso { background: #ff9f43; color: #241200; }
+      .tb-art { display: flex; flex-direction: column; gap: 4px; max-height: 38vh; overflow-y: auto; }
+      .tb-art-r { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 10px; border-radius: 10px; border: none; background: var(--c-bg); color: var(--c-text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+      .tb-art-r .e { margin-left: auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .tb-art-r small { color: var(--c-muted); font-weight: 600; }
+      .tb-ck { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--c-line); flex: none; position: relative; }
+      .tb-art-r[aria-pressed="true"] .tb-ck { background: var(--c-accent); border-color: var(--c-accent); }
+      .tb-art-r[aria-pressed="true"] .tb-ck::after, .tb-art-r:disabled .tb-ck::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid var(--c-bg); border-width: 0 3px 3px 0; transform: rotate(45deg); }
+      .tb-art-r:disabled { opacity: 0.5; text-decoration: line-through; cursor: default; }
+      .tb-art-r:disabled .tb-ck { background: #4cc38a; border-color: #4cc38a; }
+      .tb-pay-bil { display: flex; justify-content: space-between; padding: 0 4px; font-size: 0.82rem; font-weight: 800; color: var(--c-muted); }
+      .tb-pay-bil b { color: var(--c-text); }
+      .tb-pay-bil b.v { color: #4cc38a; }
+      .tb-pay-bil:empty { display: none; }
+      .tb-pay-grid button[hidden] { display: none; }
       .tb-conto-esito { text-align: center; font-size: 0.85rem; font-weight: 700; color: #4cc38a; }
       .tb-conto-esito.is-attesa { color: var(--c-muted); }
       .tb-conto-esito.is-errore { color: #ffb59f; }
@@ -742,19 +771,34 @@ const personeIsola = personeAdesso;
                         </button>
                       )}
                     </div>
-                    <div class="tb-pay-modi" id="tb-pay-modi" hidden>
+                    {/* «Encaisser» in tre modi (26/10/2026, `pagamentiSeduta.ts`):
+                        Tutto · Dividi · Scegli, poi il metodo. Il corpo lo disegna
+                        lo script col quadro dei pagamenti del server. */}
+                    <div class="tb-pay-modi" id="tb-pay-modi" hidden
+                      data-tutto={t("sal.pay.all")} data-dividi={t("sal.pay.split")} data-scegli={t("sal.pay.choose")}
+                      data-persona={t("sal.pay.person")} data-tavolo={t("sal.pay.wholeTable")} data-scelti={t("sal.pay.chosen")}
+                      data-nessuno={t("sal.pay.chooseHint")} data-pagato={t("sal.pay.paid")} data-resta={t("sal.pay.rest")}
+                      data-cash={t("ord.payCash")} data-card={t("ord.payCard")} data-online={t("ord.payQr")}>
                       <p class="tb-pan-tit">{t("sal.tb.act.pay")}</p>
-                      <div class:list={["tb-pay-grid", { "is-tre": qrAttivo }]}>
+                      <div class="tb-seg" id="tb-pay-seg" role="group" aria-label={t("sal.tb.act.pay")}>
+                        <button type="button" data-modo="tutto" aria-pressed="true">{t("sal.pay.all")}</button>
+                        <button type="button" data-modo="dividi" aria-pressed="false">{t("sal.pay.split")}</button>
+                        <button type="button" data-modo="scegli" aria-pressed="false">{t("sal.pay.choose")}</button>
+                      </div>
+                      <div class="tb-pay-corpo" id="tb-pay-corpo"></div>
+                      <div class="tb-pay-grid is-tre" id="tb-pay-metodi">
                         <button type="button" class="tb-pay-modo" data-metodo="cash"><span set:html={ICONA_MONETE} />{t("ord.payCash")}</button>
                         <button type="button" class="tb-pay-modo" data-metodo="card"><span set:html={ICONA_CARTA} />{t("ord.payCard")}</button>
-                        {qrAttivo && <button type="button" class="tb-pay-modo" data-metodo="qr"><span set:html={ICONA_QR} />{t("ord.payQr")}</button>}
+                        <button type="button" class="tb-pay-modo" data-metodo="online"><span set:html={ICONA_QR} />{t("ord.payQr")}</button>
                       </div>
+                      <p class="tb-pay-bil" id="tb-pay-bil"></p>
                       <button type="button" class="tb-pay-indietro" id="tb-pay-indietro">← {t("sal.pay.back")}</button>
                     </div>
                     <div class="tb-pay-qr" id="tb-pay-qr" hidden>
-                      <p class="tb-pan-tit">{t("ord.qrTitle")}</p>
+                      <p class="tb-pan-tit tb-qr-testa"><span id="tb-qr-chi">{t("ord.qrTitle")}</span><span id="tb-qr-tot"></span></p>
                       <div class="tb-qr-img" id="tb-qr-img"></div>
-                      <p class="tb-qr-tot" id="tb-qr-tot"></p>
+                      <p class="tb-pay-bil" id="tb-qr-bil"></p>
+                      <button type="button" class="tb-pay-indietro" id="tb-qr-indietro">← {t("sal.pay.back")}</button>
                     </div>
                     <p class="tb-conto-esito" id="tb-conto-esito" role="status" hidden
                       data-wait={t("ord.qrWait")} data-paid={t("ord.qrPaid")} data-done={t("sal.pay.done")}></p>
@@ -800,6 +844,7 @@ const personeIsola = personeAdesso;
       // IL MODALE DEL CONTO: toccando il totale in basso (Enzo, 24/10/2026).
       import { authFresh as authC } from "../../../lib/admin/auth";
       import { importoDa } from "../../../lib/soldi";
+      import { quoteRestanti } from "../../../lib/pagamentiSedutaRegole";
       const totBtn = document.getElementById("tb-totale");
       const panConto = document.getElementById("tb-pan-conto");
       if (totBtn && panConto) {
@@ -852,47 +897,159 @@ const personeIsola = personeAdesso;
           cassa.disabled = false;
         });
 
-        // 2. Encaisser: contanti / carta subito, QR al tavolo.
-        document.getElementById("tb-incassa")?.addEventListener("click", () => { vista("modi"); dici("", "ok"); });
-        document.getElementById("tb-pay-indietro")?.addEventListener("click", (e) => { e.stopPropagation(); vista("home"); dici("", "ok"); });
+        // 2. Encaisser (26/10/2026): Tutto · Dividi · Scegli, poi il metodo.
+        const P = (modi?.dataset ?? {}) as Record<string, string>;
+        type Quadro = {
+          chiusa: boolean; persone: number; totale: number; pagato: number; inCorso: number; resto: number; libero: number;
+          parti: { chi: string; modo: string; metodo: string; importo: number; pagata: boolean }[];
+          quoteFatte: number; articoli: { key: string; nome: string; variante: string | null; prezzo: number; pagato: boolean }[];
+          scegli: boolean; qr?: boolean;
+        };
+        let q: Quadro | null = null;
+        let modo: "tutto" | "dividi" | "scegli" = "tutto";
+        let persone = 2;
+        const scelti = new Set<string>();
         let giro = 0;
-        document.querySelectorAll<HTMLButtonElement>(".tb-pay-modo").forEach((b) => b.addEventListener("click", async () => {
+        const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const corpo = document.getElementById("tb-pay-corpo");
+        const bil = document.getElementById("tb-pay-bil");
+        const metodi = [...document.querySelectorAll<HTMLButtonElement>("#tb-pay-metodi .tb-pay-modo")];
+        const bilancio = () => q && q.pagato > 0
+          ? `<span>${escP(P.pagato)} <b class="v">${soldi(q.pagato)}</b></span><span>${escP(P.resta)} <b>${soldi(q.resto)}</b></span>`
+          : "";
+        /** Le quote che restano, sul libero: l'ultima prende i centesimi. */
+        const quote = (): number[] => (q ? quoteRestanti(q.libero, persone - q.quoteFatte) : []);
+        const importo = (): number => {
+          if (!q) return 0;
+          if (modo === "tutto") return q.libero;
+          if (modo === "dividi") return quote()[0] ?? 0;
+          return q.articoli.filter((a) => scelti.has(a.key)).reduce((n, a) => n + a.prezzo, 0);
+        };
+        const disegna = () => {
+          if (!q || !corpo) return;
+          document.querySelectorAll<HTMLButtonElement>("#tb-pay-seg button").forEach((b) => {
+            b.setAttribute("aria-pressed", b.dataset.modo === modo ? "true" : "false");
+            if (b.dataset.modo === "scegli") b.hidden = !q!.scegli;
+          });
+          document.getElementById("tb-pay-seg")?.classList.toggle("is-due", !q.scegli);
+          let h = "";
+          if (modo === "tutto") {
+            // Dopo una parte pagata non e' piu' «tutto il tavolo»: e' quello che resta.
+            h = `<p class="tb-pay-imp">${soldi(q.libero)}<small>${escP(q.pagato > 0 ? P.resta : P.tavolo)}</small></p>`;
+          } else if (modo === "dividi") {
+            const fatte = q.parti.filter((p) => p.modo === "dividi");
+            const qs = quote();
+            h = `<div class="tb-passo"><button type="button" class="tb-n tb-passo-btn" data-p="-1">−</button><b class="tb-pay-n">${persone}</b><button type="button" class="tb-n tb-passo-btn" data-p="1">+</button></div><div class="tb-quote">`;
+            fatte.forEach((p, k) => {
+              h += `<div class="tb-quota is-pagata"><span class="n">${escP(P.persona.replace("{n}", String(k + 1)))}</span><span class="tb-quota-tag${p.pagata ? "" : " is-corso"}">${escP(P[p.metodo] ?? p.metodo)}${p.pagata ? " ✓" : " …"}</span><span class="e">${soldi(p.importo)}</span></div>`;
+            });
+            qs.forEach((a, k) => {
+              h += `<div class="tb-quota${k === 0 ? " is-dopo" : ""}"><span class="n">${escP(P.persona.replace("{n}", String(fatte.length + k + 1)))}</span><span class="e">${soldi(a)}</span></div>`;
+            });
+            h += `</div>`;
+          } else {
+            h = `<div class="tb-art">` + q.articoli.map((a) =>
+              `<button type="button" class="tb-art-r" data-k="${escP(a.key)}" aria-pressed="${scelti.has(a.key) ? "true" : "false"}"${a.pagato ? " disabled" : ""}><span class="tb-ck"></span><span>${escP(a.nome)}${a.variante ? ` <small>${escP(a.variante)}</small>` : ""}</span><span class="e">${soldi(a.prezzo)}</span></button>`).join("") + `</div>`;
+            const n = scelti.size;
+            h += n ? `<p class="tb-pay-imp">${soldi(importo())}<small>${escP(P.scelti.replace("{n}", String(n)))}</small></p>` : `<p class="tb-pay-imp"><small>${escP(P.nessuno)}</small></p>`;
+          }
+          corpo.innerHTML = h;
+          if (bil) bil.innerHTML = bilancio();
+          const imp = importo();
+          metodi.forEach((b) => {
+            b.disabled = imp <= 0;
+            if (b.dataset.metodo === "online") b.hidden = !q!.qr;
+          });
+          document.getElementById("tb-pay-metodi")?.classList.toggle("is-tre", Boolean(q.qr));
+        };
+        corpo?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const t = e.target as HTMLElement;
+          const passo = t.closest<HTMLButtonElement>("[data-p]");
+          if (passo && q) { persone = Math.min(50, Math.max(q.quoteFatte + 1, persone + Number(passo.dataset.p))); disegna(); return; }
+          const r = t.closest<HTMLButtonElement>(".tb-art-r");
+          if (r && !r.disabled) { const k = r.dataset.k ?? ""; if (scelti.has(k)) scelti.delete(k); else scelti.add(k); disegna(); }
+        });
+        document.getElementById("tb-pay-seg")?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const b = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-modo]");
+          if (!b) return;
+          modo = (b.dataset.modo as typeof modo) ?? "tutto";
+          disegna();
+        });
+        const carica = async (): Promise<Quadro | null> => {
+          const { ok, j } = await chiedi({ azione: "pagamenti", table: tavoloA });
+          return ok ? (j as unknown as Quadro) : null;
+        };
+        const finito = (testo: string) => {
+          dici(`✓ ${testo}`, "ok");
+          window.clearInterval(giro);
+          setTimeout(() => location.replace("/admin/salle"), 1600);
+        };
+        document.getElementById("tb-incassa")?.addEventListener("click", async () => {
+          dici("", "ok");
+          const nuovo = await carica();
+          if (!nuovo) { dici("…", "errore"); return; }
+          q = nuovo;
+          if (q.chiusa) { finito(esito?.dataset.paid ?? ""); return; }
+          persone = Math.max(q.quoteFatte + 1, q.persone || 2);
+          scelti.clear();
+          modo = "tutto";
+          vista("modi");
+          disegna();
+        });
+        document.getElementById("tb-pay-indietro")?.addEventListener("click", (e) => { e.stopPropagation(); vista("home"); dici("", "ok"); });
+        document.getElementById("tb-qr-indietro")?.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          window.clearInterval(giro);
+          dici("", "ok");
+          q = (await carica()) ?? q;
+          vista("modi");
+          disegna();
+        });
+        metodi.forEach((b) => b.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (!q || b.disabled) return;
           const metodo = b.dataset.metodo ?? "";
-          const tutti = [...document.querySelectorAll<HTMLButtonElement>(".tb-pay-modo")];
-          tutti.forEach((x) => (x.disabled = true));
+          const imp = importo();
+          const corpoReq: Record<string, unknown> = { azione: "paga", table: tavoloA, modo, metodo, n: persone, items: [...scelti] };
+          metodi.forEach((x) => (x.disabled = true));
           try {
-            if (metodo === "qr") {
-              const { ok, j } = await chiedi({ azione: "qr", table: tavoloA });
-              if (!ok || !j.svg) { dici(j.error || "Erreur", "errore"); tutti.forEach((x) => (x.disabled = false)); return; }
+            const { ok, j } = await chiedi(corpoReq);
+            const r = j as unknown as { chiusa?: boolean; quadro?: Quadro; qr?: { svg: string; importo: number }; error?: string };
+            if (!ok) { dici(r.error || "Erreur", "errore"); disegna(); return; }
+            if (r.qr) {
               const img = document.getElementById("tb-qr-img");
-              if (img) img.innerHTML = j.svg;
+              if (img) img.innerHTML = r.qr.svg;
+              const chi = document.getElementById("tb-qr-chi");
+              if (chi) chi.textContent = modo === "dividi"
+                ? P.persona.replace("{n}", String(q.quoteFatte + 1))
+                : modo === "scegli" ? P.scelti.replace("{n}", String(scelti.size)) : P.tavolo;
               const tot = document.getElementById("tb-qr-tot");
-              if (tot) tot.textContent = soldi(Number(j.totale));
+              if (tot) tot.textContent = soldi(r.qr.importo);
+              const qb = document.getElementById("tb-qr-bil");
+              if (qb) qb.innerHTML = bilancio();
               vista("qr");
               dici(esito?.dataset.wait ?? "", "attesa");
+              const prima = q.pagato;
               window.clearInterval(giro);
               giro = window.setInterval(async () => {
                 if (panConto.hidden) return;
-                try {
-                  const r = await chiedi({ azione: "qr-stato", table: tavoloA });
-                  if (r.ok && r.j.pagato) {
-                    window.clearInterval(giro);
-                    dici(`✓ ${esito?.dataset.paid ?? ""}`, "ok");
-                    setTimeout(() => location.replace("/admin/salle"), 1800);
-                  }
-                } catch { /* niente rete: al prossimo giro */ }
+                const nuovo = await carica().catch(() => null);
+                if (!nuovo) return;
+                if (nuovo.chiusa) { finito(esito?.dataset.paid ?? ""); return; }
+                if (nuovo.pagato > prima) {
+                  window.clearInterval(giro);
+                  q = nuovo; scelti.clear();
+                  dici(`✓ ${esito?.dataset.paid ?? ""}`, "ok");
+                  vista("modi"); disegna();
+                }
               }, 3000);
               return;
             }
-            const { ok, j } = await chiedi({ azione: "incassa", table: tavoloA, metodo });
-            if (ok) {
-              dici(`✓ ${(esito?.dataset.done ?? "{t}").replace("{t}", soldi(Number(j.totale)))}`, "ok");
-              setTimeout(() => location.replace("/admin/salle"), 1500);
-              return;
-            }
-            dici(j.error || "Erreur", "errore");
-          } catch { dici("…", "errore"); }
-          tutti.forEach((x) => (x.disabled = false));
+            if (r.chiusa) { finito((esito?.dataset.done ?? "{t}").replace("{t}", soldi(r.quadro?.pagato ?? imp))); return; }
+            if (r.quadro) { q = r.quadro; scelti.clear(); dici(`✓ ${soldi(imp)}`, "ok"); disegna(); }
+          } catch { dici("…", "errore"); disegna(); }
         }));
       }
     </script>
