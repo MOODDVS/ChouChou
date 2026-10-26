@@ -1151,12 +1151,30 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           badge.hidden = !perso;
           reset.hidden = !perso;
         }
+        /* ⚠️ LE MISURE (27/10/2026): base e altezza si leggono QUI, nel
+           browser, al momento della scelta, e si salvano accanto all'indirizzo
+           (`site_<…>__wh`, `lib/siteImagesRegole`). Il browser le da' gia'
+           raddrizzate secondo l'EXIF: un ritratto dal telefono resta un
+           ritratto. Cosi' il sito pubblico non scarica ogni foto per sapere
+           che forma ha. Se la lettura non riesce si salva l'immagine senza
+           misure (il sito usa le sue di ripiego), mai misure sbagliate. */
+        function misuraImmagine(url: string): Promise<string | null> {
+          return new Promise((resolve) => {
+            const im = new Image();
+            const fine = (v: string | null) => { clearTimeout(timer); im.onload = im.onerror = null; resolve(v); };
+            const timer = window.setTimeout(() => fine(null), 15000);
+            im.onload = () => fine(im.naturalWidth > 0 && im.naturalHeight > 0 ? `${im.naturalWidth}x${im.naturalHeight}` : null);
+            im.onerror = () => fine(null);
+            im.src = url;
+          });
+        }
         async function siteSalva(key: string, url: string): Promise<boolean> {
           try {
+            const wh = url ? await misuraImmagine(url) : null;
             const res = await fetch("/api/admin/site-images", {
               method: "PUT",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ key, url }),
+              body: JSON.stringify({ key, url, wh }),
             });
             return res.ok;
           } catch {
@@ -1166,11 +1184,25 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         async function siteCarica() {
           try {
             const res = await fetch("/api/admin/site-images", { headers });
-            const data = (await res.json()) as { images?: Record<string, string> };
+            const data = (await res.json()) as { images?: Record<string, string>; misure?: Record<string, string> };
             const map = data.images ?? {};
+            const misure = data.misure ?? {};
             secSite.querySelectorAll<HTMLElement>(".site-slot").forEach((slot) => {
               siteAggiorna(slot, map[slot.dataset.key ?? ""] ?? "");
             });
+            // Le foto scelte prima delle misure: si misurano ora, in
+            // silenzio, una alla volta. Il server le attacca solo se
+            // l'immagine e' ancora quella (`solo_misure`).
+            for (const [key, url] of Object.entries(map)) {
+              if (!url || misure[key]) continue;
+              const wh = await misuraImmagine(url);
+              if (!wh) continue;
+              await fetch("/api/admin/site-images", {
+                method: "PUT",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ key, url, wh, solo_misure: true }),
+              }).catch(() => null);
+            }
           } catch {
             /* silenzioso: restano i fallback */
           }
