@@ -2,7 +2,9 @@ import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { installaClienti, annullaInstallazione, spostaTavoli, cambiaPersone, estendiTavolo } from "../../../lib/admin/installaTavolo";
-import { stampaAddizioneTavolo } from "../../../lib/admin/addizioneTavolo";
+import { chiediContoInCassa, incassaSeduta, qrSeduta, sedutaPagata } from "../../../lib/admin/incassoSeduta";
+import { pagamentoOnlineAttivo } from "../../../lib/admin/sede";
+import { indirizzoPubblico } from "../../../lib/indirizzoPubblico";
 import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
 import { adminT } from "../../../i18n/admin";
 
@@ -21,8 +23,14 @@ import { adminT } from "../../../i18n/admin";
  * POST { azione: "estendi", table, minuti: 15|30|45, forza? } → { ok, fine }
  *   (23/10/2026) piu' tempo al tavolo; 409 { conflitto } se una prenotazione
  *   sugli stessi tavoli inizia nei minuti aggiunti (si conferma con forza).
- * POST { azione: "addizione", table } → { ok: true }   (24/10/2026)
- *   L'«Addition» di tutto il tavolo sulla stampante principale.
+ * POST { azione: "cassa", table } → { ok, stampa }   (26/10/2026)
+ *   «Paiement en caisse»: l'addizione sulla principale + richiesta d'addizione
+ *   (notifica, tavolo blu finche' qualcuno non incassa).
+ * POST { azione: "incassa", table, metodo: cash|card } → { ok, totale }
+ *   Tutto pagato e la seduta chiusa: il tavolo torna libero.
+ * POST { azione: "qr", table } → { ok, svg, totale }  il QR Stripe del tavolo
+ * POST { azione: "qr-stato", table } → { pagato }       il palmare guarda
+ *   (`lib/admin/incassoSeduta.ts`)
  *
  * ⚠️ E' in `API_PALMARE` (permessiRegole): l'UNICA cosa che il palmare puo'
  * chiamare. Per gli altri ruoli vale la pagina «reservations».
@@ -40,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
-  let body: { tables?: unknown; people?: unknown; azione?: unknown; table?: unknown; minuti?: unknown; forza?: unknown };
+  let body: { tables?: unknown; people?: unknown; azione?: unknown; table?: unknown; minuti?: unknown; forza?: unknown; metodo?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -74,12 +82,33 @@ export const POST: APIRoute = async ({ request }) => {
     if (e.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
     return json({ error: t("sal.mv.error") }, e.errore === "minuti" ? 400 : 500);
   }
-  if (body.azione === "addizione") {
-    const a = await stampaAddizioneTavolo(ambito, String(body.table ?? ""));
-    if (a.ok) return json({ ok: true, message: t("ord.tabPrinted") });
-    if (a.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
-    if (a.errore === "vuoto") return json({ error: t("err.tabEmpty") }, 409);
-    return json({ error: t("err.tabPrint"), motivo: a.motivo }, 409);
+  if (body.azione === "cassa") {
+    const c = await chiediContoInCassa(ambito, String(body.table ?? ""));
+    if (c.ok) return json({ ok: true, stampa: c.stampa, message: t(c.stampa ? "sal.pay.deskOk" : "sal.pay.deskNoPrint") });
+    if (c.errore === "conto") return json({ error: t("sal.tb.freeTab") }, 409);
+    if (c.errore === "vuoto") return json({ error: t("sal.pay.nothing") }, 409);
+    return json({ error: t("sal.seat.cancelNone") }, 404);
+  }
+  if (body.azione === "incassa") {
+    const c = await incassaSeduta(ambito, String(body.table ?? ""), body.metodo);
+    if (c.ok) return json({ ok: true, totale: c.totale });
+    if (c.errore === "conto") return json({ error: t("sal.tb.freeTab") }, 409);
+    if (c.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
+    return json({ error: t("err.generalSave") }, 500);
+  }
+  if (body.azione === "qr") {
+    if (!(await pagamentoOnlineAttivo(ambito))) return json({ error: t("err.qrOff") }, 409);
+    const base = indirizzoPubblico(request);
+    if (!base) return json({ error: t("err.qrOff") }, 500);
+    const q = await qrSeduta(ambito, String(body.table ?? ""), base);
+    if (q.ok) return json({ ok: true, svg: q.svg, totale: q.totale });
+    if (q.errore === "conto") return json({ error: t("sal.tb.freeTab") }, 409);
+    if (q.errore === "vuoto") return json({ error: t("sal.pay.nothing") }, 409);
+    if (q.errore === "stripe") return json({ error: t("err.qrStripe") }, 502);
+    return json({ error: t("sal.seat.cancelNone") }, 404);
+  }
+  if (body.azione === "qr-stato") {
+    return json({ pagato: await sedutaPagata(ambito, String(body.table ?? "")) });
   }
   if (body.azione === "persone") {
     const n = await cambiaPersone(ambito, String(body.table ?? ""), body.people);

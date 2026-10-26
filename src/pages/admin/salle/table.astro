@@ -41,7 +41,8 @@ import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
-import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA, ICONA_CESTINO } from "../../../lib/iconeSala";
+import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA, ICONA_CESTINO, ICONA_MONETE, ICONA_CARTA, ICONA_QR } from "../../../lib/iconeSala";
+import { pagamentoOnlineAttivo } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -60,6 +61,7 @@ let mv: ContestoSpostamento | null = null;
    modale: prima erano una decina di letture in fila. Il tempo speso sta in
    `Server-Timing` (strumenti del browser → Rete). */
 const crono = cronometro();
+let qrAttivo = false;
 try {
   const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
   const ambito = await ambitoDiRichiesta(Astro.request, staff);
@@ -71,6 +73,9 @@ try {
   if (s && !s.conto && !s.sessione) inst = await contestoInstallazione(ambito, id, lettura);
   // Occupato: il modale dell'isola (persone, «Déplacer») ha bisogno delle sale.
   else if (s) mv = await contestoSpostamento(ambito, id, lettura);
+  // Il QR per pagare al tavolo: solo se c'e' da incassare e Stripe e' pronto.
+  // ⚠️ Un errore qui non deve spegnere la scheda: senza QR restano contanti e carta.
+  if (s?.sessione?.ordini.some((o) => o.modificabile)) qrAttivo = await pagamentoOnlineAttivo(ambito).catch(() => false);
 } catch { s = null; }
 Astro.response.headers.set("Server-Timing", crono.intestazione());
 const libero = Boolean(s && !s.conto && !s.sessione);
@@ -350,7 +355,30 @@ const personeIsola = personeAdesso;
         background: var(--c-bg); border-color: var(--c-line); font-size: 1rem; font-weight: 800;
       }
       .tb-addizione:active { transform: scale(0.98); }
+      .tb-pay-home { display: flex; flex-direction: column; gap: 10px; }
+      /* ⚠️ `is-primo` ha `flex: 1`: in una colonna si schiaccerebbe. */
+      .tb-pay-home > .tb-btn { flex: none; height: 54px; }
+      .tb-pay-home[hidden], .tb-pay-modi[hidden], .tb-pay-qr[hidden] { display: none; }
+      .tb-pay-modi, .tb-pay-qr { display: flex; flex-direction: column; gap: 10px; }
+      /* I modi d'incasso: bottoni grandi da scegliere (fondo scuro), come i
+         numeri del modale; un tocco = fatto. */
+      .tb-pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .tb-pay-grid.is-tre { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .tb-pay-modo {
+        min-height: 78px; border-radius: 16px; border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text);
+        font: inherit; font-weight: 800; font-size: 0.95rem; cursor: pointer;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      }
+      .tb-pay-modo span { display: inline-flex; }
+      .tb-pay-modo svg { width: 26px; height: 26px; display: block; }
+      .tb-pay-modo:active { transform: scale(0.97); }
+      .tb-pay-modo:disabled { opacity: 0.5; }
+      .tb-pay-indietro { align-self: flex-start; background: none; border: none; color: var(--c-muted); font: inherit; font-size: 0.85rem; font-weight: 700; padding: 2px 4px; cursor: pointer; }
+      .tb-qr-img { align-self: center; width: min(70vw, 260px); aspect-ratio: 1; border-radius: 14px; overflow: hidden; background: #fff; }
+      .tb-qr-img svg { width: 100%; height: 100%; display: block; }
+      .tb-qr-tot { text-align: center; font-size: 1.4rem; font-weight: 800; }
       .tb-conto-esito { text-align: center; font-size: 0.85rem; font-weight: 700; color: #4cc38a; }
+      .tb-conto-esito.is-attesa { color: var(--c-muted); }
       .tb-conto-esito.is-errore { color: #ffb59f; }
       .tb-conto-esito[hidden] { display: none; }
       .tb-conto-ico { display: inline-flex; }
@@ -699,13 +727,37 @@ const personeIsola = personeAdesso;
               <Fragment>
                 {conOrdini && (
                   <div class="tb-pan-conto" id="tb-pan-conto" hidden>
-                    {/* Per ora SOLO «Addition» (Enzo, 24/10/2026): il ticket di
-                        tutto quello che il tavolo ha ordinato, sulla stampante
-                        principale. «Encaisser» verra' dopo. */}
-                    <button type="button" class="tb-btn tb-addizione" id="tb-addizione" data-testo={t("sal.tb.act.bill")}>
-                      <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_STAMPA} /><span class="tb-addizione-txt">{t("sal.tb.act.bill")}</span>
-                    </button>
-                    <p class="tb-conto-esito" id="tb-conto-esito" role="status" hidden></p>
+                    {/* IL CONTO (Enzo, 26/10/2026 — `lib/admin/incassoSeduta.ts`):
+                        «Paiement en caisse» = addizione in cassa + richiesta
+                        d'addizione (tavolo blu finche' qualcuno incassa);
+                        «Encaisser» = contanti / carta (pagato e tavolo libero
+                        subito) o QR (paga il cliente, il tavolo si libera da solo). */}
+                    <div class="tb-pay-home" id="tb-pay-home">
+                      <button type="button" class="tb-btn tb-addizione" id="tb-cassa">
+                        <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_STAMPA} /><span>{t("sal.pay.desk")}</span>
+                      </button>
+                      {sessione!.ordini.some((o) => o.modificabile) && (
+                        <button type="button" class="tb-btn is-primo tb-addizione" id="tb-incassa">
+                          <span class="tb-conto-ico" aria-hidden="true" set:html={ICONA_MONETE} /><span>{t("sal.tb.act.pay")}</span>
+                        </button>
+                      )}
+                    </div>
+                    <div class="tb-pay-modi" id="tb-pay-modi" hidden>
+                      <p class="tb-pan-tit">{t("sal.tb.act.pay")}</p>
+                      <div class:list={["tb-pay-grid", { "is-tre": qrAttivo }]}>
+                        <button type="button" class="tb-pay-modo" data-metodo="cash"><span set:html={ICONA_MONETE} />{t("ord.payCash")}</button>
+                        <button type="button" class="tb-pay-modo" data-metodo="card"><span set:html={ICONA_CARTA} />{t("ord.payCard")}</button>
+                        {qrAttivo && <button type="button" class="tb-pay-modo" data-metodo="qr"><span set:html={ICONA_QR} />{t("ord.payQr")}</button>}
+                      </div>
+                      <button type="button" class="tb-pay-indietro" id="tb-pay-indietro">← {t("sal.pay.back")}</button>
+                    </div>
+                    <div class="tb-pay-qr" id="tb-pay-qr" hidden>
+                      <p class="tb-pan-tit">{t("ord.qrTitle")}</p>
+                      <div class="tb-qr-img" id="tb-qr-img"></div>
+                      <p class="tb-qr-tot" id="tb-qr-tot"></p>
+                    </div>
+                    <p class="tb-conto-esito" id="tb-conto-esito" role="status" hidden
+                      data-wait={t("ord.qrWait")} data-paid={t("ord.qrPaid")} data-done={t("sal.pay.done")}></p>
                   </div>
                 )}
                 <div class="tb-riga tb-riga-una">
@@ -747,6 +799,7 @@ const personeIsola = personeAdesso;
     <script>
       // IL MODALE DEL CONTO: toccando il totale in basso (Enzo, 24/10/2026).
       import { authFresh as authC } from "../../../lib/admin/auth";
+      import { importoDa } from "../../../lib/soldi";
       const totBtn = document.getElementById("tb-totale");
       const panConto = document.getElementById("tb-pan-conto");
       if (totBtn && panConto) {
@@ -759,34 +812,88 @@ const personeIsola = personeAdesso;
           if (!panConto.hidden && !panConto.contains(e.target as Node)) apriConto(false);
         });
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") apriConto(false); });
-        // «Addition»: il ticket di tutto il tavolo sulla stampante principale.
-        const add = document.getElementById("tb-addizione") as HTMLButtonElement | null;
+        // ---- IL CONTO (26/10/2026): «Paiement en caisse» e «Encaisser» ----
         const esito = document.getElementById("tb-conto-esito");
         const tavoloA = new URLSearchParams(location.search).get("id") ?? "";
-        add?.addEventListener("click", async () => {
-          if (add.disabled) return;
-          add.disabled = true;
-          const dici = (testo: string, errore: boolean) => {
-            if (!esito) return;
-            esito.textContent = testo;
-            esito.classList.toggle("is-errore", errore);
-            esito.hidden = false;
-          };
+        const home = document.getElementById("tb-pay-home");
+        const modi = document.getElementById("tb-pay-modi");
+        const qrBox = document.getElementById("tb-pay-qr");
+        const vista = (quale: "home" | "modi" | "qr") => {
+          if (home) home.hidden = quale !== "home";
+          if (modi) modi.hidden = quale !== "modi";
+          if (qrBox) qrBox.hidden = quale !== "qr";
+        };
+        const dici = (testo: string, tipo: "ok" | "errore" | "attesa") => {
+          if (!esito) return;
+          esito.textContent = testo;
+          esito.classList.toggle("is-errore", tipo === "errore");
+          esito.classList.toggle("is-attesa", tipo === "attesa");
+          esito.hidden = !testo;
+        };
+        const chiedi = async (corpo: Record<string, unknown>) => {
+          const res = await fetch("/api/admin/salle-seat", { method: "POST", headers: await authC(), body: JSON.stringify(corpo) });
+          const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string; svg?: string; totale?: number; pagato?: boolean };
+          return { ok: res.ok, j };
+        };
+        const soldi = (c: number) => importoDa(c, document.getElementById("tb-parole")?.dataset.loc || "fr-BE");
+        // Chiudere il modale riporta alla prima scelta.
+        totBtn.addEventListener("click", () => { vista("home"); dici("", "ok"); });
+
+        // 1. Paiement en caisse: l'addizione in cassa, e il tavolo diventa blu.
+        const cassa = document.getElementById("tb-cassa") as HTMLButtonElement | null;
+        cassa?.addEventListener("click", async () => {
+          if (cassa.disabled) return;
+          cassa.disabled = true;
           try {
-            const res = await fetch("/api/admin/salle-seat", {
-              method: "POST", headers: await authC(),
-              body: JSON.stringify({ azione: "addizione", table: tavoloA }),
-            });
-            const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
-            if (res.ok) {
-              dici(j.message || "OK", false);
-              setTimeout(() => { apriConto(false); if (esito) esito.hidden = true; }, 1800);
-            } else dici(j.error || "Erreur", true);
-          } catch {
-            dici("Erreur réseau", true);
-          }
-          add.disabled = false;
+            const { ok, j } = await chiedi({ azione: "cassa", table: tavoloA });
+            if (ok) { dici(j.message || "OK", "ok"); setTimeout(() => location.reload(), 1500); return; }
+            dici(j.error || "Erreur", "errore");
+          } catch { dici("…", "errore"); }
+          cassa.disabled = false;
         });
+
+        // 2. Encaisser: contanti / carta subito, QR al tavolo.
+        document.getElementById("tb-incassa")?.addEventListener("click", () => { vista("modi"); dici("", "ok"); });
+        document.getElementById("tb-pay-indietro")?.addEventListener("click", (e) => { e.stopPropagation(); vista("home"); dici("", "ok"); });
+        let giro = 0;
+        document.querySelectorAll<HTMLButtonElement>(".tb-pay-modo").forEach((b) => b.addEventListener("click", async () => {
+          const metodo = b.dataset.metodo ?? "";
+          const tutti = [...document.querySelectorAll<HTMLButtonElement>(".tb-pay-modo")];
+          tutti.forEach((x) => (x.disabled = true));
+          try {
+            if (metodo === "qr") {
+              const { ok, j } = await chiedi({ azione: "qr", table: tavoloA });
+              if (!ok || !j.svg) { dici(j.error || "Erreur", "errore"); tutti.forEach((x) => (x.disabled = false)); return; }
+              const img = document.getElementById("tb-qr-img");
+              if (img) img.innerHTML = j.svg;
+              const tot = document.getElementById("tb-qr-tot");
+              if (tot) tot.textContent = soldi(Number(j.totale));
+              vista("qr");
+              dici(esito?.dataset.wait ?? "", "attesa");
+              window.clearInterval(giro);
+              giro = window.setInterval(async () => {
+                if (panConto.hidden) return;
+                try {
+                  const r = await chiedi({ azione: "qr-stato", table: tavoloA });
+                  if (r.ok && r.j.pagato) {
+                    window.clearInterval(giro);
+                    dici(`✓ ${esito?.dataset.paid ?? ""}`, "ok");
+                    setTimeout(() => location.replace("/admin/salle"), 1800);
+                  }
+                } catch { /* niente rete: al prossimo giro */ }
+              }, 3000);
+              return;
+            }
+            const { ok, j } = await chiedi({ azione: "incassa", table: tavoloA, metodo });
+            if (ok) {
+              dici(`✓ ${(esito?.dataset.done ?? "{t}").replace("{t}", soldi(Number(j.totale)))}`, "ok");
+              setTimeout(() => location.replace("/admin/salle"), 1500);
+              return;
+            }
+            dici(j.error || "Erreur", "errore");
+          } catch { dici("…", "errore"); }
+          tutti.forEach((x) => (x.disabled = false));
+        }));
       }
     </script>
     <script>

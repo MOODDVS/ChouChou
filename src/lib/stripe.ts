@@ -279,6 +279,8 @@ export async function creaCheckoutConto(opts: {
 export async function creaCheckoutIncasso(opts: {
   ambito: Ambito;
   ordini: string[];
+  /** Il palmare: la seduta da chiudere quando arriva il pagamento. */
+  chiudiSeduta?: string;
   nome: string;
   totaleCents: number;
   /** Dove torna il telefono del cliente: la pagina del motore `/paiement/ok`
@@ -293,7 +295,7 @@ export async function creaCheckoutIncasso(opts: {
       price_data: { currency: valutaStripe(), product_data: { name: opts.nome }, unit_amount: opts.totaleCents },
       quantity: 1,
     }],
-    metadata: { incasso_ordini: opts.ordini.join(",") },
+    metadata: { incasso_ordini: opts.ordini.join(","), ...(opts.chiudiSeduta ? { chiudi_seduta: opts.chiudiSeduta } : {}) },
     expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
     success_url: opts.successUrl,
     cancel_url: opts.cancelUrl,
