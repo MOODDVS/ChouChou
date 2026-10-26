@@ -2,6 +2,8 @@ import { DateTime } from "luxon";
 import { leggi, leggiConfig, type Ambito } from "./sede";
 import { fusoDi } from "../fuso";
 import { quadroPagamenti, type PagamentoConto } from "../contoRegole";
+import { raggruppaDaIncassare, sedutaFinita, type OrdineDaIncassare, type RigaDaIncassare, type SedutaInc } from "../daIncassareRegole";
+import { durateDelServizio } from "../pianoSalaRegole";
 
 /**
  * COSA NON E' STATO INCASSATO — per l'avviso sul tablet (ogni mezz'ora) e per
@@ -23,13 +25,7 @@ import { quadroPagamenti, type PagamentoConto } from "../contoRegole";
  * #87/#88 (conto aperto) quella parte e' vuota, e l'altra funziona lo stesso.
  */
 
-export interface OrdineDaIncassare {
-  id: string;
-  nome: string;
-  totale_cents: number;
-  tavolo: string | null;
-  creato: string;
-}
+export type { OrdineDaIncassare };
 export interface ContoDaIncassare {
   id: string;
   tavolo: string;
@@ -55,46 +51,82 @@ export async function cosaDaIncassare(
   const ora = DateTime.fromJSDate(adesso).setZone(fuso);
   const da = ora.minus({ days: 7 }).startOf("day");
   const [ordini, conti] = await Promise.all([
-    ordiniDaIncassare(ambito, da.toUTC().toISO() ?? "", ora.minus({ minutes: dopoMin }).toUTC().toISO() ?? ""),
+    ordiniDaIncassare(ambito, da.toUTC().toISO() ?? "", ora.minus({ minutes: dopoMin }).toUTC().toISO() ?? "", ora),
     contiDaIncassare(ambito, ora, da.toFormat("yyyy-MM-dd"), adesso),
   ]);
   return { ordini, conti };
 }
 
-async function ordiniDaIncassare(ambito: Ambito, daIso: string, primaDiIso: string): Promise<OrdineDaIncassare[]> {
+/* ⚠️ Un avviso per TAVOLO, non per ordine (26/10/2026): i giri della stessa
+   seduta si sommano e il pagato in parte al palmare si toglie. La regola sta
+   in `lib/daIncassareRegole.ts`. Per questo la lettura non taglia a 30
+   minuti: serve anche il giro appena ordinato, per il totale della seduta;
+   «dimenticato» si decide sul giro piu' vecchio. */
+async function ordiniDaIncassare(ambito: Ambito, daIso: string, primaDiIso: string, ora: DateTime): Promise<OrdineDaIncassare[]> {
   try {
-    const { data, error } = await leggi("orders", ambito, "id, customer_name, total_cents, table_label, created_at")
-      .eq("status", "pending")
-      .eq("payment_method", "onsite")
-      .gte("created_at", daIso)
-      .lte("created_at", primaDiIso)
-      .order("created_at", { ascending: true })
-      .limit(50);
-    if (error) {
-      // Senza la #82 non c'e' `table_label`: si riprova senza.
-      const r2 = await leggi("orders", ambito, "id, customer_name, total_cents, created_at")
+    let righe: RigaDaIncassare[] | null = null;
+    // Dal piu' ricco al piu' povero: senza la #82 non c'e' `table_label`,
+    // senza la seduta al tavolo non c'e' `reservation_id`.
+    for (const colonne of [
+      "id, customer_name, total_cents, table_label, created_at, reservation_id, service",
+      "id, customer_name, total_cents, table_label, created_at",
+      "id, customer_name, total_cents, created_at",
+    ]) {
+      const { data, error } = await leggi("orders", ambito, colonne)
         .eq("status", "pending")
         .eq("payment_method", "onsite")
         .gte("created_at", daIso)
-        .lte("created_at", primaDiIso)
         .order("created_at", { ascending: true })
-        .limit(50);
-      if (r2.error) return [];
-      return mappaOrdini(r2.data);
+        .limit(300);
+      if (!error) { righe = mappaOrdini(data); break; }
     }
-    return mappaOrdini(data);
+    if (!righe?.length) return [];
+    const sedute = [...new Set(righe.map((r) => r.reservation_id).filter((x): x is string => !!x))];
+    const pagato = new Map<string, number>();
+    // Le sedute ancora a cena non si ricordano (`sedutaFinita`). Se la
+    // lettura fallisce si torna alla sola regola dei 30 minuti.
+    let finita: ((id: string) => boolean) | undefined;
+    if (sedute.length) {
+      try {
+        const [{ data: prenRaw, error: ePren }, { valori }] = await Promise.all([
+          leggi("reservations", ambito, "id, date, heure, status, service_key, extra_minutes").in("id", sedute),
+          leggiConfig(ambito, ["reservation_services", "reservation_hold_minutes"]),
+        ]);
+        if (!ePren) {
+          const pren = new Map(((prenRaw ?? []) as unknown as (SedutaInc & { id: string })[]).map((r) => [String(r.id), r]));
+          const durate = durateDelServizio(valori.get("reservation_services"), valori.get("reservation_hold_minutes"));
+          const oggi = ora.toFormat("yyyy-MM-dd");
+          const oraMin = ora.hour * 60 + ora.minute;
+          finita = (id) => sedutaFinita(pren.get(id), durate, oggi, oraMin);
+        }
+      } catch { /* solo i 30 minuti */ }
+    }
+    if (sedute.length) {
+      const { data: pag, error } = await leggi("table_payments", ambito, "reservation_id, amount_cents")
+        .in("reservation_id", sedute)
+        .eq("status", "paid");
+      if (!error) {
+        for (const p of (pag ?? []) as unknown as { reservation_id: string; amount_cents: number }[]) {
+          const k = String(p.reservation_id);
+          pagato.set(k, (pagato.get(k) ?? 0) + (Number(p.amount_cents) || 0));
+        }
+      }
+    }
+    return raggruppaDaIncassare(righe, pagato, primaDiIso, finita).slice(0, 50);
   } catch {
     return [];
   }
 }
 
-function mappaOrdini(righe: unknown): OrdineDaIncassare[] {
+function mappaOrdini(righe: unknown): RigaDaIncassare[] {
   return ((righe ?? []) as Record<string, unknown>[]).map((o) => ({
     id: String(o.id),
     nome: String(o.customer_name ?? "").trim(),
     totale_cents: Math.max(0, Math.round(Number(o.total_cents) || 0)),
     tavolo: String(o.table_label ?? "").trim() || null,
     creato: String(o.created_at ?? ""),
+    reservation_id: o.reservation_id ? String(o.reservation_id) : null,
+    service: o.service ? String(o.service) : null,
   }));
 }
 
