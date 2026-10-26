@@ -225,7 +225,9 @@ export type EsitoSpostamento =
  * («E2»), cosi' Commandes sa dove portare i piatti. Un ticket GIA' STAMPATO
  * resta col vecchio numero (il ticket «T1 → E2» e' ancora da decidere).
  */
-export async function spostaTavoli(ambito: Ambito, tavoloId: string, idsGrezzi: unknown): Promise<EsitoSpostamento> {
+/** `personeGrezze`: le persone scelte nello STESSO modale (4 → 6 e un tavolo
+ *  in piu', Enzo 26/10/2026): si salvano insieme ai tavoli. Senza, restano. */
+export async function spostaTavoli(ambito: Ambito, tavoloId: string, idsGrezzi: unknown, personeGrezze?: unknown): Promise<EsitoSpostamento> {
   const ids = [...new Set((Array.isArray(idsGrezzi) ? idsGrezzi : []).map(String))].slice(0, 16);
   if (!ids.length || ids.some((id) => !/^[0-9a-f-]{36}$/i.test(id))) return { ok: false, errore: "tavoli" };
   const lettura = await letturaSala(ambito);
@@ -240,6 +242,11 @@ export async function spostaTavoli(ambito: Ambito, tavoloId: string, idsGrezzi: 
   const prima = tavoliDellaSeduta(seduta);
   if ([...prima].sort().join("|") === [...ids].sort().join("|")) return { ok: true };
   const campi: Record<string, unknown> = { tables: ids, zone: l.zona };
+  const persone = Math.floor(Number(personeGrezze));
+  if (personeGrezze !== undefined && personeGrezze !== null && Number.isFinite(persone) && persone >= 1 && persone <= 100) {
+    campi.people = persone;
+    if (seduta.tab_status) campi.tab_people = persone;
+  }
   if (seduta.tab_table_id && !ids.includes(seduta.tab_table_id)) campi.tab_table_id = ids[0];
   const upd = await aggiorna("reservations", ambito, campi).eq("id", seduta.id).eq("status", "seated");
   if (upd.error) {
