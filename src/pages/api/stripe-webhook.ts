@@ -1,4 +1,5 @@
 import { incassaOrdiniQr } from "../../lib/incassoQr";
+import { dopoPagamentoSeduta } from "../../lib/admin/pagamentiSeduta";
 import type { APIRoute } from "astro";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
 import Stripe from "stripe";
@@ -108,6 +109,8 @@ export const POST: APIRoute = async ({ request }) => {
             email: session.customer_details?.email ?? session.customer_email ?? null,
           });
           console.log(fatto ? `Pagamento conto ${pagamentoConto} pagato` : `Pagamento conto ${pagamentoConto} gia' processato (idempotenza)`);
+          // Una parte di un tavolo del cameriere (il palmare, 26/10/2026): saldato, si chiude.
+          if (fatto) await dopoPagamentoSeduta(ambito, pagamentoConto);
         }
       } catch (e) {
         console.error("Errore pagamento del conto:", e);

@@ -19,7 +19,14 @@
 -- Idempotente: si puo' rilanciare.
 -- ============================================================
 
+-- ⚠️ L'ELENCO E' QUELLO DI OGGI, non quello del 29/09 (26/10/2026). TUTTO.sql
+-- rilancia le migrazioni in ordine su clienti che ne hanno gia' una parte:
+-- su un cliente col conto aperto (#87) esistono gia' ordini `tab`, e un
+-- vincolo che non conosce `tab` falliva qui («violated by some row») e
+-- fermava TUTTO.sql prima di arrivare alla #87 che lo riallarga. Chi
+-- ridefinisce questo vincolo scrive SEMPRE l'elenco completo.
+
 alter table public.orders drop constraint if exists orders_payment_method_check;
 
 alter table public.orders add constraint orders_payment_method_check
-  check (payment_method in ('cash', 'card', 'link', 'onsite'));
+  check (payment_method in ('cash', 'card', 'link', 'onsite', 'tab'));
