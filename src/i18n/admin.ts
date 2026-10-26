@@ -2347,6 +2347,8 @@ const DIZIONARIO: Dizionario = {
   "ord.collect":        { fr: "✓ Encaissé", en: "✓ Collected", it: "✓ Incassato", nl: "✓ Geïnd", es: "✓ Cobrado" },
   // Il BOTTONE e' un'azione da fare, non un fatto: all'infinito (Enzo, 26/10/2026).
   "ord.collectDo":      { fr: "Encaisser", en: "Collect", it: "Incassare", nl: "Innen", es: "Cobrar" },
+  "ord.partPaid":       { fr: "Payé en partie", en: "Partly paid", it: "Pagato in parte", nl: "Deels betaald", es: "Pagado en parte" },
+  "ord.partRest":       { fr: "Reste", en: "Left", it: "Resta", nl: "Rest", es: "Resta" },
   "ord.payQr":          { fr: "QR", en: "QR", it: "QR", nl: "QR", es: "QR" },
   "ord.qrTitle":        { fr: "Scannez pour payer", en: "Scan to pay", it: "Inquadra per pagare", nl: "Scan om te betalen", es: "Escanea para pagar" },
   "ord.qrWait":         { fr: "En attente du paiement…", en: "Waiting for payment…", it: "In attesa del pagamento…", nl: "Wachten op betaling…", es: "Esperando el pago…" },

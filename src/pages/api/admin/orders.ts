@@ -312,6 +312,29 @@ export const GET: APIRoute = async ({ request, url }) => {
   const tutti = [...perId.values()].sort((a, b) =>
     String(a.pickup_time).localeCompare(String(b.pickup_time))
   );
+  /* IL PAGATO IN PARTE (26/10/2026): il palmare incassa un tavolo anche a
+     pezzi («Dividi», «Scegli»), e ogni parte e' una riga di `table_payments`.
+     Gli ordini restano «da incassare» finche' il tavolo non e' saldato: qui
+     ognuno porta quanto la sua seduta ha gia' pagato (`parziale_cents`),
+     cosi' la card lo dice e incassa solo il resto. Senza la #88: niente. */
+  const sedute = [...new Set(tutti
+    .filter((o) => o.status === "pending" && o.payment_method === "onsite" && o.reservation_id)
+    .map((o) => String(o.reservation_id)))];
+  if (sedute.length) {
+    const { data: pagRaw, error: ePag } = await leggi("table_payments", ambito, "reservation_id, amount_cents")
+      .in("reservation_id", sedute)
+      .eq("status", "paid");
+    if (!ePag) {
+      const perSeduta = new Map<string, number>();
+      for (const p of (pagRaw ?? []) as unknown as { reservation_id: string; amount_cents: number }[]) {
+        perSeduta.set(String(p.reservation_id), (perSeduta.get(String(p.reservation_id)) ?? 0) + (Number(p.amount_cents) || 0));
+      }
+      for (const o of tutti) {
+        const v = perSeduta.get(String(o.reservation_id ?? ""));
+        if (v && o.status === "pending" && o.payment_method === "onsite") o.parziale_cents = v;
+      }
+    }
+  }
   return json({ orders: tutti });
 };
 

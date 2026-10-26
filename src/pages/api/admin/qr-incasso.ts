@@ -39,13 +39,20 @@ export const POST: APIRoute = async ({ request }) => {
   const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(String))].filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   if (!ids.length || ids.length > 20) return json({ error: t("err.orderNotFound") }, 400);
   if (!(await pagamentoOnlineAttivo(ambito))) return json({ error: t("err.qrOff") }, 409);
-  const { data, error } = await leggi("orders", ambito, "id, status, payment_method, total_cents, table_label").in("id", ids);
+  const { data, error } = await leggi("orders", ambito, "id, status, payment_method, total_cents, table_label, reservation_id").in("id", ids);
   if (error) return json({ error: t("err.update") }, 500);
-  const righe = (data ?? []) as unknown as { id: string; status: string; payment_method: string | null; total_cents: number | null; table_label: string | null }[];
+  const righe = (data ?? []) as unknown as { id: string; status: string; payment_method: string | null; total_cents: number | null; table_label: string | null; reservation_id: string | null }[];
   if (righe.length !== ids.length || righe.some((o) => o.status !== "pending" || o.payment_method !== "onsite")) {
     return json({ error: t("err.qrNotDue") }, 409);
   }
-  const totale = righe.reduce((n, o) => n + Math.max(0, Math.round(Number(o.total_cents) || 0)), 0);
+  let totale = righe.reduce((n, o) => n + Math.max(0, Math.round(Number(o.total_cents) || 0)), 0);
+  /* Gia' pagato in parte dal palmare (`table_payments`, 26/10/2026): il QR
+     chiede solo il resto. Senza la #88 la lettura fallisce e non si toglie niente. */
+  const sedute = [...new Set(righe.map((o) => String(o.reservation_id ?? "")).filter(Boolean))];
+  if (sedute.length) {
+    const { data: pag, error: eP } = await leggi("table_payments", ambito, "amount_cents").in("reservation_id", sedute).eq("status", "paid");
+    if (!eP) totale -= ((pag ?? []) as unknown as { amount_cents: number }[]).reduce((n, p) => n + (Number(p.amount_cents) || 0), 0);
+  }
   if (totale <= 0) return json({ error: t("err.qrNotDue") }, 409);
   const base = indirizzoPubblico(request);
   if (!base) return json({ error: t("err.qrOff") }, 500);
