@@ -1048,7 +1048,9 @@ const personeIsola = personeAdesso;
               return;
             }
             if (r.chiusa) { finito((esito?.dataset.done ?? "{t}").replace("{t}", soldi(r.quadro?.pagato ?? imp))); return; }
-            if (r.quadro) { q = r.quadro; scelti.clear(); dici(`✓ ${soldi(imp)}`, "ok"); disegna(); }
+            // ⚠️ Il quadro dopo un pagamento non porta `qr` (lo dice solo
+            // «pagamenti»): si tiene quello di prima, se no il QR spariva.
+            if (r.quadro) { q = { ...r.quadro, qr: q.qr }; scelti.clear(); dici(`✓ ${soldi(imp)}`, "ok"); disegna(); }
           } catch { dici("…", "errore"); disegna(); }
         }));
       }

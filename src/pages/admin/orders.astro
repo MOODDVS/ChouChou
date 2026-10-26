@@ -1343,6 +1343,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         tip_cents?: number | null;
         /** #89 — «pronto» segnato prima dell'incasso (cliente gia' chiamato). */
         ready_at?: string | null;
+        /** Quanto la seduta del tavolo ha gia' pagato a pezzi dal palmare
+         *  (`table_payments`, 26/10/2026): lo stesso numero su ogni ordine
+         *  del tavolo. */
+        parziale_cents?: number;
       };
 
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
@@ -1464,6 +1468,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          timeout la riga tornerebbe ad andare a capo. */
       const labelDiffRefund = (d: number) =>
         `<span class="db-lab">${tr("ord.refundDiff")}</span><span class="db-val">· ${euro(d)}</span>`;
+      /** Le barre a tutta larghezza (differenza, rimborso, pagato in parte):
+       *  l'etichetta in un pezzo che si tronca, l'importo in uno che non cede.
+       *  Una sola: la usano la card e il ticket del tavolo. */
+      function barraHTML(cls: string, icona: string, testo: string, importo?: number, titolo?: string): string {
+        return `<div class="diff-bar ${cls}"${titolo ? ` title="${titolo}"` : ""}>` +
+          `<span class="db-lab">${icona ? `${icona} ` : ""}${testo}</span>` +
+          (importo === undefined ? "" : `<span class="db-val">· ${euro(importo)}</span>`) +
+          `</div>`;
+      }
+      /** Il tavolo pagato in parte dal palmare: «✓ Pagato in parte 17,87 € · Resta 32,13 €». */
+      function barraParzialeHTML(pagato: number, resto: number): string {
+        return barraHTML("diff-bar-paid", "✓", `${esc(tr("ord.partPaid"))} ${euro(pagato)} · ${esc(tr("ord.partRest"))}`, resto);
+      }
+
       /* `inGruppo` (26/10/2026): il CORPO di un ordine dentro il ticket di un
          tavolo con piu' ordini (`gruppoHTML`) — piatti, nota, barre e i gesti
          di QUELL'ordine (ristampa, matita, cestino, Pronto). Incassare e'
@@ -1613,6 +1631,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`;
         const daIncassareBanco = o.status === "pending" && o.payment_method === "onsite";
+        // Pagato in parte dal palmare: la barra lo dice, «Incassare» chiede il resto.
+        const parziale = daIncassareBanco ? Math.max(0, Math.round(Number(o.parziale_cents ?? 0))) : 0;
         const giaPronto = Boolean(o.ready_at);
         const btnPronto =
           o.status === "paid"
@@ -1627,7 +1647,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const btnIncassa =
           o.status === "paid"
             ? ""
-            : `<button class="btn-incassa" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collectDo")}</span></button>`;
+            : `<button class="btn-incassa" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collectDo")}${parziale > 0 ? ` · ${euro(Math.max(0, o.total_cents - parziale))}` : ""}</span></button>`;
         const rigaMain =
           /* ⚠️ INCASSARE CHIEDE **COME**, in due tocchi.
              Prima bastava un tocco e scriveva solo lo stato: il metodo
@@ -1681,11 +1701,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            qui: l'etichetta in un pezzo che si tronca, l'importo in un pezzo
            che non cede mai. Scritte a mano quattro volte, una avrebbe perso
            la divisione e sarebbe tornata ad andare a capo. */
-        const barra = (cls: string, icona: string, testo: string, importo?: number, titolo?: string) =>
-          `<div class="diff-bar ${cls}"${titolo ? ` title="${titolo}"` : ""}>` +
-          `<span class="db-lab">${icona ? `${icona} ` : ""}${testo}</span>` +
-          (importo === undefined ? "" : `<span class="db-val">· ${euro(importo)}</span>`) +
-          `</div>`;
+        const barra = barraHTML;
         const refunded = o.refunded_cents ?? 0;
         /* ⚠️ Quanto si puo' ancora rendere: la regola e' UNA, quella del
            server (`rimborsabile`). Era `totale − rimborsato`, e dopo una
@@ -1784,6 +1800,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         if (inGruppo) {
           return `<div class="items">${itemsHTML}</div>${noteHTML}${diffBar}${refundBar}${diffRefundBtn}${actions}`;
         }
+        const barraParziale = parziale > 0 ? barraParzialeHTML(parziale, Math.max(0, o.total_cents - parziale)) : "";
         const cardCls =
           (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
           (refundBtn ? " refundable" : "") +
@@ -1816,6 +1833,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             </div>
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
+            ${barraParziale}
             ${diffBar}
             ${refundBar}
             ${diffRefundBtn}
@@ -1862,7 +1880,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const aperto = grpAperto.has(key) ? grpAperto.get(key) : ultimo.id;
         const totale = lista.reduce((n, o) => n + (Number(o.total_cents) || 0), 0);
         const daIncassare = lista.filter((o) => o.status === "pending" && o.payment_method === "onsite");
-        const resto = daIncassare.reduce((n, o) => n + (Number(o.total_cents) || 0), 0);
+        // Il pagato in parte dal palmare (uguale su ogni ordine della seduta).
+        const parzialeG = Math.max(0, Math.round(Number(daIncassare[0]?.parziale_cents ?? 0)));
+        const resto = Math.max(0, daIncassare.reduce((n, o) => n + (Number(o.total_cents) || 0), 0) - parzialeG);
         const tag = daIncassare.length
           ? `<span class="tag tag-pending" title="${tr("ord.toCollectHint")}">${tr("ord.toCollect")}</span>`
           : `<span class="tag tag-paid">${tr("ord.paid")}</span>`;
@@ -1912,6 +1932,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               ${stampaTutti}
             </div>
             <div class="grp-lista">${sezioni}</div>
+            ${parzialeG > 0 ? barraParzialeHTML(parzialeG, resto) : ""}
             ${piede}
           </div>`;
       }
