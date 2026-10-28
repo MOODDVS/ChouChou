@@ -332,26 +332,65 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
       // con un tocco. La pillola accesa segue la sala che sta al centro.
       // ⚠️ La memoria e' del telefono, non della persona: e' giusto cosi',
       // il cameriere che lavora in terrazza la ritrova al prossimo avvio.
+      /* ⚠️ iPHONE E iPAD (28/10/2026): le pillole non cambiavano sala. Su
+         Safari uno `scrollTo({ behavior: "smooth" })` dentro un contenitore
+         con `scroll-snap-type: x mandatory` viene ri-agganciato subito alla
+         sala di partenza, e lo scorrimento liscio della pillola che si
+         centra interrompeva quello gia' partito. Su Chrome tutto
+         funzionava, ed e' per questo che non si era visto.
+         Adesso il passaggio lo anima la pagina: lo scatto si spegne, lo
+         scorrimento va da solo fino alla sala, lo scatto si riaccende. Mentre
+         va, gli eventi di scorrimento non cambiano la pillola accesa. E la
+         fila delle pillole si centra spostando SOLO lei, mai la pagina. */
       const CHIAVE_SALA = "mdd-palmare-sala";
       const binario = document.getElementById("pm-binario");
+      const filaSale = document.querySelector<HTMLElement>(".sal-sale");
       const pillole = [...document.querySelectorAll<HTMLButtonElement>(".sal-sala")];
       const piante = [...document.querySelectorAll<HTMLElement>(".pm-sala")];
       let corrente = 0;
+      let inViaggio = false;
+      const centraPillola = (i: number) => {
+        const b = pillole[i];
+        if (!filaSale || !b || filaSale.scrollWidth <= filaSale.clientWidth) return;
+        filaSale.scrollLeft = Math.max(0, b.offsetLeft - (filaSale.clientWidth - b.offsetWidth) / 2);
+      };
       const evidenzia = (i: number) => {
         const zona = piante[i]?.dataset.zona;
         if (!zona) return;
         corrente = i;
         pillole.forEach((b, j) => b.setAttribute("aria-pressed", j === i ? "true" : "false"));
-        pillole[i]?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+        centraPillola(i);
         try { localStorage.setItem(CHIAVE_SALA, zona); } catch { /* resta per questa visita */ }
       };
+      let animazione = 0;
       const vai = (i: number, liscio = true) => {
         if (!binario || !piante[i]) return;
-        binario.scrollTo({ left: i * binario.clientWidth, behavior: liscio ? "smooth" : "auto" });
         evidenzia(i);
+        const arrivo = i * binario.clientWidth;
+        cancelAnimationFrame(animazione);
+        binario.style.scrollSnapType = "none";
+        inViaggio = true;
+        const fine = () => {
+          binario.scrollLeft = arrivo;
+          binario.style.scrollSnapType = "";
+          inViaggio = false;
+        };
+        const partenza = binario.scrollLeft;
+        const ridotto = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if (!liscio || ridotto || Math.abs(arrivo - partenza) < 2) { fine(); return; }
+        const durata = 280;
+        const t0 = performance.now();
+        const passo = (t: number) => {
+          const k = Math.min(1, (t - t0) / durata);
+          binario.scrollLeft = partenza + (arrivo - partenza) * (1 - Math.pow(1 - k, 3));
+          if (k < 1) animazione = requestAnimationFrame(passo);
+          else fine();
+        };
+        animazione = requestAnimationFrame(passo);
       };
       pillole.forEach((b, i) => b.addEventListener("click", () => vai(i)));
       binario?.addEventListener("scroll", () => {
+        if (inViaggio) return;
         const i = Math.round(binario.scrollLeft / Math.max(1, binario.clientWidth));
         if (i !== corrente) evidenzia(i);
       }, { passive: true });
