@@ -1,11 +1,14 @@
 ---
 // PAGINA /print/etiquette — sticker 5x5 cm (sito pubblico).
-// Mostra e fa scaricare ESATTAMENTE il PDF fornito dal cliente
-// (public/print/etiquette-5x5.pdf), senza riprodurlo.
+// Mostra un'ANTEPRIMA (immagine del PDF) e fa scaricare il PDF ESATTO del
+// cliente (public/print/etiquette-5x5.pdf). Niente <object>/<iframe> PDF:
+// l'admin apre questa rotta in un suo iframe e un visualizzatore PDF annidato
+// faceva crashare Brave/Chromium. Il file scaricato resta identico, vettoriale.
 // Per l'admin (Stampa): /admin/super → Print, route /print/etiquette.
 // SOLO SITO PUBBLICO — nessun file del motore RH toccato.
 export const prerender = false;
 const PDF = "/print/etiquette-5x5.pdf";
+const IMG = "/print/etiquette-5x5.png";
 ---
 <!doctype html>
 <html lang="fr">
@@ -13,20 +16,20 @@ const PDF = "/print/etiquette-5x5.pdf";
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Comptoir Chouchou — Étiquette 5×5 (PDF)</title>
+  <title>Comptoir Chouchou — Étiquette 5×5</title>
   <style>
-    html,body{margin:0;height:100%;background:#e7e5e0;}
-    .pdf{position:fixed;inset:0;width:100%;height:100%;border:0;}
+    html,body{margin:0;min-height:100%;background:#e7e5e0;}
+    body{display:flex;align-items:center;justify-content:center;padding:18px;}
+    img.sticker{max-width:min(92vw,520px);width:100%;height:auto;display:block;
+      box-shadow:0 10px 34px rgba(53,60,78,.18);background:#fff;}
     .dl-btn{position:fixed;right:20px;bottom:20px;z-index:9;text-decoration:none;
       background:#ed2289;color:#fff;font-family:"Quicksand",system-ui,sans-serif;font-weight:700;
       font-size:15px;padding:13px 22px;border-radius:999px;box-shadow:0 8px 24px rgba(237,34,137,.4);}
-    @media print{ .dl-btn{display:none !important;} }
+    @media print{ .dl-btn{display:none !important;} body{padding:0;background:#fff;} img.sticker{box-shadow:none;max-width:100%;} }
   </style>
 </head>
 <body>
-  <object class="pdf" data={PDF} type="application/pdf">
-    <iframe class="pdf" src={PDF} title="Étiquette 5×5"></iframe>
-  </object>
+  <img class="sticker" src={IMG} alt="Étiquette 5×5 Comptoir Chouchou" />
   <a class="dl-btn" href={PDF} download="etiquette-chouchou-5x5.pdf">⬇  Télécharger le PDF</a>
 </body>
 </html>
