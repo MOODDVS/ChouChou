@@ -16,7 +16,13 @@ const { titolo } = Astro.props;
 ---
 
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+{/* ⚠️ NIENTE ZOOM NEL PALMARE (Enzo, 31/10/2026): e' un'app di lavoro, non
+    una pagina da leggere — due dita sulla mappa o un doppio tocco su un tavolo
+    non devono ingrandire niente. Diverso dal resto dell'admin e dai siti
+    (vedi `NoZoom.astro`), dove lo zoom voluto resta. Tre pezzi, perche' Safari
+    su iPhone ignora `user-scalable=no`: il viewport (Android), `touch-action:
+    manipulation` (il doppio tocco) e lo script qui sotto (le due dita). */}
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>{titolo + " — " + CLIENT.nome}</title>
 <meta name="robots" content="noindex, nofollow" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -32,6 +38,18 @@ const { titolo } = Astro.props;
     --c-line: #244a52; --c-card: #16424b; --c-accent: #cb534d;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); }
 </style>
+<script is:inline>
+  // Le due dita su iPhone e iPad: Safari ignora `user-scalable=no`, ma lascia
+  // annullare i suoi gesti. E un tocco a piu' dita che si muove non scorre.
+  (function () {
+    var no = function (e) { e.preventDefault(); };
+    document.addEventListener("gesturestart", no, { passive: false });
+    document.addEventListener("gesturechange", no, { passive: false });
+    document.addEventListener("gestureend", no, { passive: false });
+    document.addEventListener("touchmove", function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+  })();
+</script>
 <AdminHead />

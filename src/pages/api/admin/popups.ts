@@ -4,6 +4,7 @@ import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../.
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
+import { SITE_PAGES } from "../../../config/sitePages";
 export const prerender = false;
 
 
@@ -20,7 +21,14 @@ async function msg(chiave: string): Promise<string> {
 // PUT    → aggiorna (id obbligatorio; i campi presenti vengono scritti)
 // DELETE → elimina (?id=…)
 
-const PAGINE_VALIDE = ["home", "menu", "order", "ambiance", "contact", "links"];
+/* ⚠️ LE PAGINE VALIDE SONO QUELLE DEL SITO DI QUESTO CLIENTE (31/10/2026),
+   le stesse pillole che il pannello mostra (`config/sitePages.ts`, file del
+   cliente). Prima qui c'era l'elenco di fabbrica scritto a mano: le pagine
+   proprie di un sito (le tre pizzerie di 450 Gradi, «restaurant» e «team» di
+   BROS) si potevano scegliere nel pannello ma il salvataggio le buttava via
+   senza dirlo. Elenco vuoto (config rotta) → quello di fabbrica. */
+const DI_FABBRICA = ["home", "menu", "order", "ambiance", "contact", "links"];
+const PAGINE_VALIDE = SITE_PAGES.length ? SITE_PAGES.map((p) => p.k) : DI_FABBRICA;
 const KIND_VALIDI = ["always", "dates", "weekly"];
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
@@ -213,8 +221,14 @@ export const PUT: APIRoute = async ({ request }) => {
 
   const ambito = await ambitoDiRichiesta(request, staff);
 
-  // Toggle rapido attivo/spento: solo { id, active }
-  if (body.title === undefined && typeof body.active === "boolean") {
+  /* L'interruttore della lista: { id, active } e NIENT'ALTRO.
+     ⚠️ Prima la prova era «manca `title`». Ma dal multilingua il modale manda
+     `title_i18n`, non `title`: OGNI modifica di un pop-up esistente passava di
+     qui, si salvava solo l'interruttore e la risposta era «ok». Le modifiche
+     sparivano senza un errore (Educazione Napoletana, 31/10/2026). */
+  const soloInterruttore =
+    typeof body.active === "boolean" && Object.keys(body).every((k) => k === "id" || k === "active");
+  if (soloInterruttore) {
     const { error } = await aggiorna("popups", ambito, { active: body.active })
       .eq("id", body.id);
     if (error) return json({ error: await msg("err.save") }, 500);
