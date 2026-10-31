@@ -13,6 +13,9 @@ import { CLIENT } from "../../config/client";
 
 interface Props { titolo: string }
 const { titolo } = Astro.props;
+// La CSP dell'admin esegue solo gli script col nonce della richiesta
+// (middleware.ts): anche quello dello zoom qui sotto deve portarlo.
+const nonce = Astro.locals.cspNonce;
 ---
 
 <meta charset="utf-8" />
@@ -41,7 +44,7 @@ const { titolo } = Astro.props;
   html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); }
 </style>
-<script is:inline>
+<script is:inline nonce={nonce}>
   // Le due dita su iPhone e iPad: Safari ignora `user-scalable=no`, ma lascia
   // annullare i suoi gesti. E un tocco a piu' dita che si muove non scorre.
   (function () {
