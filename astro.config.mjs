@@ -4,6 +4,7 @@ import node from "@astrojs/node";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
 import { inSitemap } from "./src/lib/seo/sitemapRegole";
+import { scriptMaiInline } from "./src/lib/scriptEsterni";
 
 // https://astro.build/config
 export default defineConfig({
@@ -123,6 +124,12 @@ export default defineConfig({
   // 302 al login. Le regole stanno in `src/lib/seo/sitemapRegole.ts`.
   integrations: [react(), sitemap({ filter: inSitemap })],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
+  vite: {
+    // ⚠️ Gli script delle pagine restano FILE, mai incollati nell'HTML: la
+    // CSP dell'admin blocca uno script incollato senza nonce, in silenzio
+    // (src/lib/scriptEsterni.ts, 31/10/2026).
+    build: { assetsInlineLimit: scriptMaiInline },
+  },
   build: {
     // Inietta il CSS dei componenti direttamente nell'HTML invece di servirlo
     // come file separati che bloccano il rendering. Elimina le richieste di
