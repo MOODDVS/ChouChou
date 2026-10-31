@@ -203,7 +203,11 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
         scroll-snap-align: center; scroll-snap-stop: always;
       }
       .pm-sala > svg { display: block; width: 100%; height: 100%; }
-      .pm-area { fill: color-mix(in srgb, var(--c-text) 4%, transparent); stroke: var(--c-line); stroke-width: 3; stroke-linejoin: round; }
+      /* Il perimetro della sala (Réglages → Réservations). ⚠️ Col colore del
+         TESTO, non con `--c-line`: in un tema scuro come quello di Educazione
+         Napoletana la linea ha quasi il colore del fondo, e la sala sembrava
+         senza muri (31/10/2026). */
+      .pm-area { fill: color-mix(in srgb, var(--c-text) 5%, transparent); stroke: color-mix(in srgb, var(--c-text) 30%, transparent); stroke-width: 4; stroke-linejoin: round; }
       /* Il tavolo «spento» = libero. I colori dello stato arrivano dopo. */
       .pm-tav-forma { fill: color-mix(in srgb, var(--c-card) 70%, var(--c-bg)); stroke: color-mix(in srgb, var(--c-text) 22%, transparent); stroke-width: 2.5; }
       /* Toccare un tavolo apre la sua scheda: il tocco si vede. */
@@ -248,10 +252,11 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
       .sal-sale::-webkit-scrollbar { display: none; }
       .sal-sala {
         flex: 0 0 auto; height: var(--sal-sale-h); padding: 0 0.95rem; border-radius: 999px;
-        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+        border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text);
         font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap;
       }
-      .sal-sala[aria-pressed="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      /* La sala scelta nel colore d'accento, come ogni selezione del palmare. */
+      .sal-sala[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
 
     </style>
   </head>
@@ -374,6 +379,14 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
           binario.scrollLeft = arrivo;
           binario.style.scrollSnapType = "";
           inViaggio = false;
+          // Rete di sicurezza: se il browser non ha spostato il binario (un
+          // Safari che ignora `scrollLeft` su un contenitore con lo scatto),
+          // si porta la sala in vista direttamente, senza animazione.
+          requestAnimationFrame(() => {
+            if (Math.abs(binario.scrollLeft - arrivo) > 2) {
+              piante[i]?.scrollIntoView({ inline: "start", block: "nearest", behavior: "auto" });
+            }
+          });
         };
         const partenza = binario.scrollLeft;
         const ridotto = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
