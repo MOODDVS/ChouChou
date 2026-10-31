@@ -1,10 +1,9 @@
 /**
- * LE PILLOLE DELLE SALE SU iPHONE E iPAD (28/10/2026).
+ * LE SALE DEL PALMARE SU iPHONE E iPAD (28 e 31/10/2026).
  *
- * Su Safari lo scorrimento liscio nativo dentro un contenitore con lo scatto
- * obbligatorio non arrivava alla sala, e lo `scrollIntoView` della pillola lo
- * interrompeva. Qui si tiene fuori la ricaduta: niente scorrimento liscio
- * nativo nel binario, niente `scrollIntoView` nella pagina della mappa.
+ * Con lo scorrimento del browser (scroll-snap) le pillole non cambiavano
+ * sala su Safari, nemmeno dopo due correzioni. Dal 31/10 non scorre niente:
+ * la sala visibile e' una variabile CSS e lo swipe lo legge la pagina.
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
@@ -12,21 +11,21 @@ import { readFileSync } from "node:fs";
 
 const P = readFileSync("src/pages/admin/salle.astro", "utf8");
 const JS = P.slice(P.indexOf("<script>"), P.lastIndexOf("</script>"));
+const TESTA = readFileSync("src/components/admin/PalmareHead.astro", "utf8");
 
-test("il binario non usa lo scorrimento liscio nativo, e lo scatto si spegne durante il viaggio", () => {
-  assert.doesNotMatch(JS, /binario\.scrollTo\(\{[^}]*behavior:\s*(liscio|"smooth")/);
-  assert.match(JS, /binario\.style\.scrollSnapType = "none";/);
-  assert.match(JS, /binario\.style\.scrollSnapType = "";/);
-  assert.match(JS, /requestAnimationFrame\(passo\)/);
+test("niente scorrimento: la sala la sposta un transform, non lo scroll", () => {
+  assert.doesNotMatch(P, /scroll-snap/);
+  assert.doesNotMatch(JS, /scrollTo\(|scrollIntoView|binario\.scrollLeft/);
+  assert.match(P, /\.pm-binario \{[^}]*overflow: hidden; touch-action: pan-y;/);
+  assert.match(P, /transform: translateX\(calc\(var\(--sala, 0\) \* -100% \+ var\(--trascina, 0px\)\)\)/);
+  assert.match(JS, /binario\.style\.setProperty\("--sala", String\(i\)\)/);
 });
 
-test("la pillola si centra spostando solo la sua fila; nessuno scorrimento liscio nativo", () => {
-  // Lo scrollIntoView liscio interrompeva lo scorrimento su Safari. Resta solo
-  // la rete di sicurezza ISTANTANEA sulla sala, mai sulle pillole.
-  assert.doesNotMatch(JS, /pillole\[[^\]]*\]\??\.scrollIntoView/);
-  assert.doesNotMatch(JS, /scrollIntoView\(\{[^}]*behavior:\s*"smooth"/);
-  assert.match(JS, /piante\[i\]\?\.scrollIntoView\(\{ inline: "start", block: "nearest", behavior: "auto" \}\)/);
-  assert.match(JS, /filaSale\.scrollLeft = /);
+test("le pillole cambiano sala; lo swipe e' degli eventi pointer e non apre un tavolo", () => {
+  assert.match(JS, /pillole\.forEach\(\(b, i\) => b\.addEventListener\("click", \(\) => mostra\(i\)\)\)/);
+  assert.match(JS, /addEventListener\("pointermove"/);
+  assert.match(JS, /Math\.abs\(dx\) > 10 && Math\.abs\(dx\) > Math\.abs\(dy\)/);
+  assert.match(JS, /if \(trascinato\) \{ e\.preventDefault\(\); e\.stopPropagation\(\);/);
 });
 
 test("la sala ha i muri visibili, e la sala scelta e' nel colore d'accento", () => {
@@ -34,6 +33,8 @@ test("la sala ha i muri visibili, e la sala scelta e' nel colore d'accento", () 
   assert.match(P, /\.sal-sala\[aria-pressed="true"\] \{ background: var\(--c-accent\)/);
 });
 
-test("durante il viaggio lo scorrimento non cambia la pillola accesa", () => {
-  assert.match(JS, /addEventListener\("scroll", \(\) => \{\s*if \(inViaggio\) return;/);
+test("nel palmare niente zoom: viewport, doppio tocco, due dita", () => {
+  assert.match(TESTA, /maximum-scale=1, user-scalable=no/);
+  assert.match(TESTA, /html \{ touch-action: manipulation;/);
+  assert.match(TESTA, /addEventListener\("gesturestart", no, \{ passive: false \}\)/);
 });

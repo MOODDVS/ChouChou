@@ -188,20 +188,24 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
         flex: 1; min-height: 0; position: relative;
         padding: 0.25rem 0 calc(var(--sal-nav-bottom) + var(--sal-nav-h) + var(--sal-sale-h) + 1.4rem);
       }
-      /* LE SALE UNA ACCANTO ALL'ALTRA: si passa dall'una all'altra col dito
-         (swipe orizzontale) o con le pillole. Lo scorrimento e' quello del
-         browser, con lo scatto su ogni sala: niente gesti scritti a mano, e
-         il tocco su un tavolo resta un tocco. */
+      /* LE SALE UNA ACCANTO ALL'ALTRA, spostate da un TRANSFORM (31/10/2026).
+         ⚠️ Non piu' lo scorrimento del browser con lo scatto su ogni sala:
+         su iPhone e iPad (Safari e l'app installata) le pillole non
+         cambiavano sala, nemmeno dopo due correzioni dello scorrimento. Ora
+         non scorre niente: la sala visibile la dice `--sala`, e lo swipe lo
+         legge la pagina (eventi «pointer», `touch-action: pan-y`). Un tocco
+         su un tavolo resta un tocco: lo swipe parte solo oltre 10 px in
+         orizzontale. */
       .pm-binario {
-        height: 100%; display: flex;
-        overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain;
-        scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+        height: 100%; display: flex; overflow: hidden; touch-action: pan-y;
       }
-      .pm-binario::-webkit-scrollbar { display: none; }
       .pm-sala {
         flex: 0 0 100%; height: 100%; padding: 0 0.75rem;
-        scroll-snap-align: center; scroll-snap-stop: always;
+        transform: translateX(calc(var(--sala, 0) * -100% + var(--trascina, 0px)));
+        transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
       }
+      .pm-binario.is-fermo .pm-sala { transition: none; }
+      @media (prefers-reduced-motion: reduce) { .pm-sala { transition: none; } }
       .pm-sala > svg { display: block; width: 100%; height: 100%; }
       /* Il perimetro della sala (Réglages → Réservations). ⚠️ Col colore del
          TESTO, non con `--c-line`: in un tema scuro come quello di Educazione
@@ -332,86 +336,83 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
 
     <script>
       // ---- La sala: swipe o pillole, e il telefono se la ricorda ----
-      // Le sale stanno una accanto all'altra nel binario: lo SWIPE e' lo
-      // scorrimento del browser (scatto su ogni sala), le pillole ci portano
-      // con un tocco. La pillola accesa segue la sala che sta al centro.
-      // ⚠️ La memoria e' del telefono, non della persona: e' giusto cosi',
-      // il cameriere che lavora in terrazza la ritrova al prossimo avvio.
-      /* ⚠️ iPHONE E iPAD (28/10/2026): le pillole non cambiavano sala. Su
-         Safari uno `scrollTo({ behavior: "smooth" })` dentro un contenitore
-         con `scroll-snap-type: x mandatory` viene ri-agganciato subito alla
-         sala di partenza, e lo scorrimento liscio della pillola che si
-         centra interrompeva quello gia' partito. Su Chrome tutto
-         funzionava, ed e' per questo che non si era visto.
-         Adesso il passaggio lo anima la pagina: lo scatto si spegne, lo
-         scorrimento va da solo fino alla sala, lo scatto si riaccende. Mentre
-         va, gli eventi di scorrimento non cambiano la pillola accesa. E la
-         fila delle pillole si centra spostando SOLO lei, mai la pagina. */
+      // ⚠️ Niente scorrimento (vedi `.pm-binario`): la sala visibile e'
+      // `--sala` sul binario, e ogni sala si sposta con un transform. Il
+      // tocco su una pillola cambia una variabile: non c'e' niente che
+      // Safari possa ri-agganciare o interrompere.
+      // ⚠️ La memoria e' del telefono, non della persona: il cameriere che
+      // lavora in terrazza la ritrova al prossimo avvio.
       const CHIAVE_SALA = "mdd-palmare-sala";
       const binario = document.getElementById("pm-binario");
       const filaSale = document.querySelector<HTMLElement>(".sal-sale");
       const pillole = [...document.querySelectorAll<HTMLButtonElement>(".sal-sala")];
       const piante = [...document.querySelectorAll<HTMLElement>(".pm-sala")];
       let corrente = 0;
-      let inViaggio = false;
       const centraPillola = (i: number) => {
         const b = pillole[i];
         if (!filaSale || !b || filaSale.scrollWidth <= filaSale.clientWidth) return;
         filaSale.scrollLeft = Math.max(0, b.offsetLeft - (filaSale.clientWidth - b.offsetWidth) / 2);
       };
-      const evidenzia = (i: number) => {
-        const zona = piante[i]?.dataset.zona;
-        if (!zona) return;
+      const mostra = (i: number, anima = true) => {
+        if (!binario || !piante[i]) return;
         corrente = i;
+        binario.classList.toggle("is-fermo", !anima);
+        binario.style.setProperty("--sala", String(i));
+        binario.style.setProperty("--trascina", "0px");
         pillole.forEach((b, j) => b.setAttribute("aria-pressed", j === i ? "true" : "false"));
         centraPillola(i);
-        try { localStorage.setItem(CHIAVE_SALA, zona); } catch { /* resta per questa visita */ }
+        try { localStorage.setItem(CHIAVE_SALA, piante[i].dataset.zona ?? ""); } catch { /* resta per questa visita */ }
       };
-      let animazione = 0;
-      const vai = (i: number, liscio = true) => {
-        if (!binario || !piante[i]) return;
-        evidenzia(i);
-        const arrivo = i * binario.clientWidth;
-        cancelAnimationFrame(animazione);
-        binario.style.scrollSnapType = "none";
-        inViaggio = true;
-        const fine = () => {
-          binario.scrollLeft = arrivo;
-          binario.style.scrollSnapType = "";
-          inViaggio = false;
-          // Rete di sicurezza: se il browser non ha spostato il binario (un
-          // Safari che ignora `scrollLeft` su un contenitore con lo scatto),
-          // si porta la sala in vista direttamente, senza animazione.
-          requestAnimationFrame(() => {
-            if (Math.abs(binario.scrollLeft - arrivo) > 2) {
-              piante[i]?.scrollIntoView({ inline: "start", block: "nearest", behavior: "auto" });
-            }
-          });
-        };
-        const partenza = binario.scrollLeft;
-        const ridotto = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        if (!liscio || ridotto || Math.abs(arrivo - partenza) < 2) { fine(); return; }
-        const durata = 280;
-        const t0 = performance.now();
-        const passo = (t: number) => {
-          const k = Math.min(1, (t - t0) / durata);
-          binario.scrollLeft = partenza + (arrivo - partenza) * (1 - Math.pow(1 - k, 3));
-          if (k < 1) animazione = requestAnimationFrame(passo);
-          else fine();
-        };
-        animazione = requestAnimationFrame(passo);
+      pillole.forEach((b, i) => b.addEventListener("click", () => mostra(i)));
+
+      // Lo swipe: si segue il dito, e oltre un quinto dello schermo (al
+      // massimo 80 px) si passa alla sala accanto. Ai bordi il dito «tira»
+      // a un terzo, per dire che di la' non c'e' niente.
+      let x0 = 0, y0 = 0, inCorso = false, orizzontale = false, trascinato = false;
+      binario?.addEventListener("pointerdown", (e) => {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        x0 = e.clientX; y0 = e.clientY; inCorso = true; orizzontale = false; trascinato = false;
+      });
+      binario?.addEventListener("pointermove", (e) => {
+        if (!inCorso || !binario) return;
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (!orizzontale) {
+          if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+            orizzontale = true;
+            binario.classList.add("is-fermo");
+          } else if (Math.abs(dy) > 10) { inCorso = false; return; }
+          else return;
+        }
+        trascinato = true;
+        const bordo = (corrente === 0 && dx > 0) || (corrente === piante.length - 1 && dx < 0);
+        binario.style.setProperty("--trascina", `${bordo ? dx / 3 : dx}px`);
+      });
+      const lascia = (e: PointerEvent) => {
+        if (!inCorso || !binario) return;
+        inCorso = false;
+        if (!orizzontale) return;
+        const dx = e.clientX - x0;
+        const soglia = Math.min(80, binario.clientWidth * 0.2);
+        let i = corrente;
+        if (dx < -soglia && i < piante.length - 1) i++;
+        else if (dx > soglia && i > 0) i--;
+        mostra(i);
       };
-      pillole.forEach((b, i) => b.addEventListener("click", () => vai(i)));
-      binario?.addEventListener("scroll", () => {
-        if (inViaggio) return;
-        const i = Math.round(binario.scrollLeft / Math.max(1, binario.clientWidth));
-        if (i !== corrente) evidenzia(i);
-      }, { passive: true });
+      binario?.addEventListener("pointerup", lascia);
+      binario?.addEventListener("pointercancel", () => { if (inCorso && orizzontale) mostra(corrente); inCorso = false; });
+      // Uno swipe finito sopra un tavolo non deve aprire la sua scheda.
+      binario?.addEventListener("click", (e) => {
+        if (trascinato) { e.preventDefault(); e.stopPropagation(); trascinato = false; }
+      }, true);
+
+      let iniziale = 0;
       try {
         const ricordata = localStorage.getItem(CHIAVE_SALA);
-        const i = piante.findIndex((p) => p.dataset.zona === ricordata);
-        if (i > 0) vai(i, false);
+        const k = piante.findIndex((p) => p.dataset.zona === ricordata);
+        if (k > 0) iniziale = k;
       } catch { /* niente memoria: resta la prima */ }
+      mostra(iniziale, false);
+      requestAnimationFrame(() => binario?.classList.remove("is-fermo"));
 
       // ---- I timer dei tavoli e gli stati, sempre freschi ----
       // Ogni 30 secondi i minuti dei timer; ogni minuto, a pagina visibile,
