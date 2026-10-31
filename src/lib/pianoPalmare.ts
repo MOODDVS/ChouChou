@@ -80,6 +80,9 @@ function mappa(grezzo: unknown): Record<string, unknown> {
  * ⚠️ Una section SENZA tavoli non compare: sul palmare una sala vuota e' una
  * pillola che non porta a niente. Il perimetro da solo non basta.
  */
+/** La tela dell'editor delle piante (Réglages → Réservations): 1000×600. */
+const TELA_INTERA: [number, number][] = [[0, 0], [1000, 0], [1000, 600], [0, 600]];
+
 export function saleDelPalmare(opz: {
   righe: unknown;
   sezioni: unknown;
@@ -115,12 +118,18 @@ export function saleDelPalmare(opz: {
     .filter((z) => (perZona.get(z)?.length ?? 0) > 0)
     .map((zona) => {
       const a = aree[zona];
-      const area = Array.isArray(a) && a.length >= 3
+      /* ⚠️ SENZA PERIMETRO SALVATO, LA SALA E' TUTTA LA TELA (31/10/2026),
+         come la disegna Réglages → Réservations (`slRectDaArea`: 1000×600).
+         Il ristoratore vede il bordo nel suo editor e lo da' per fatto; il
+         palmare non disegnava niente — due sale su tre di Educazione
+         Napoletana senza muri, mentre la terza (col perimetro salvato) li
+         aveva. */
+      const area: [number, number][] = Array.isArray(a) && a.length >= 3
         ? (a as unknown[]).map((p) => {
             const q = Array.isArray(p) ? p : [0, 0];
             return [n(q[0]), n(q[1])] as [number, number];
           })
-        : null;
+        : TELA_INTERA;
       const d = decori[zona];
       const decor: DecoroPiano[] = (Array.isArray(d) ? d : [])
         .map((x) => (x ?? {}) as Record<string, unknown>)
