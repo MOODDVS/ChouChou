@@ -35,6 +35,8 @@ test("perimetro e decori della section giusta; JSON rotto = niente, mai un error
     decori: JSON.stringify({ Salle: [{ type: "wall", color: "white", x: 0, y: 0, w: 500, h: 8 }, { type: "sedia", x: 0, y: 0 }] }),
   });
   assert.equal(sale[0].area?.length, 4);
+  // Terrasse ha un perimetro rotto (un punto solo): vale la tela intera,
+  // come nell'editor di Réglages.
   assert.deepEqual(sale[0].decor.map((d) => d.type), ["wall"], "un tipo sconosciuto non si disegna");
   assert.doesNotThrow(() => saleDelPalmare({ righe: "x", sezioni: "{rotto", aree: "{rotto", decori: 3 }));
 });
@@ -83,4 +85,9 @@ test("una sala piccola non diventa enorme: misura minima, e la sala al centro", 
   assert.deepEqual([p.larghezza, p.altezza], [360, 600]);
   const [t] = p.tavoli;
   assert.deepEqual([t.x + t.w / 2, t.y + t.h / 2], [180, 300], "il tavolo sta al centro della tela");
+});
+
+test("senza perimetro salvato la sala e' la tela intera dell'editor (1000×600)", () => {
+  const sale = saleDelPalmare({ righe: [T("1", "Salle", "T1", 10, 10)], sezioni: SEZIONI, aree: "{}" });
+  assert.deepEqual(sale[0].area, [[0, 0], [1000, 0], [1000, 600], [0, 600]]);
 });
