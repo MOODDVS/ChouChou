@@ -77,7 +77,7 @@ const iniziale = (nome: string) => nome.trim().slice(0, 1).toUpperCase() || "·"
   <head>
     <PalmareHead titolo={t("sal.nav.orders")} />
     <style is:global>
-      .or { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.15rem 1rem calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 34px + 2.2rem); }
+      .or { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.15rem 1rem calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 34px + 2.6rem); }
       .or-tit { display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
       .or-vuoto { margin-top: 1rem; text-align: center; color: var(--c-muted); line-height: 1.5; }
       .or-vuoto[hidden], .or-card[hidden] { display: none; }
@@ -130,22 +130,8 @@ const iniziale = (nome: string) => nome.trim().slice(0, 1).toUpperCase() || "·"
       }
       .or-timer.is-medio { background: #ff9f43; color: #241200; }
       .or-timer.is-lungo { background: #e5484d; color: #fff; }
-      /* I filtri: pillole sopra la navigazione, come le sale nella mappa. */
-      .or-filtri {
-        position: fixed; left: 0; right: 0; z-index: 19;
-        bottom: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 0.6rem);
-        display: flex; justify-content: safe center; gap: 0.4rem;
-        padding: 0 1rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-      }
-      .or-filtri::-webkit-scrollbar { display: none; }
-      .or-filtro {
-        flex: 0 0 auto; height: 34px; padding: 0 0.6rem 0 0.95rem; border-radius: 999px; white-space: nowrap;
-        display: inline-flex; align-items: center; gap: 0.4rem;
-        border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
-        font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
-      }
-      .or-filtro b { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--c-bg); color: var(--c-text); font-size: 0.7rem; }
-      .or-filtro[aria-pressed="true"] { background: var(--c-text); color: var(--c-bg); border-color: transparent; }
+      /* I filtri: le stesse pillole delle sale nella mappa (`.pm-scelte` /
+         `.pm-scelta`, in PalmareHead). `.or-filtro` resta come gancio. */
       /* La sfumatura sotto i filtri: le card ci scivolano sotto. */
       .or-sfuma { position: fixed; left: 0; right: 0; bottom: 0; z-index: 18; height: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 60px); background: linear-gradient(transparent, var(--c-bg) 40%); pointer-events: none; }
     </style>
@@ -202,9 +188,9 @@ const iniziale = (nome: string) => nome.trim().slice(0, 1).toUpperCase() || "·"
     </main>
 
     <div class="or-sfuma" aria-hidden="true"></div>
-    <nav class="or-filtri" id="or-filtri" aria-label={t("sal.nav.orders")}>
+    <nav class="pm-scelte or-filtri" id="or-filtri" aria-label={t("sal.nav.orders")}>
       {FILTRI.map((f, i) => (
-        <button type="button" class="or-filtro" data-filtro={f.k} aria-pressed={i === 0 ? "true" : "false"}>
+        <button type="button" class="pm-scelta or-filtro" data-filtro={f.k} aria-pressed={i === 0 ? "true" : "false"}>
           {f.label}<b>{f.n}</b>
         </button>
       ))}

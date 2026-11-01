@@ -13,6 +13,9 @@ export interface CamerierePillola {
   nome: string;
   foto: string;
   iniziali: string;
+  /** L'email con cui e' entrato: nel menu della pillola, per sapere CHI e'
+   *  collegato su questo telefono (31/10/2026). */
+  email: string;
 }
 
 export async function cameriereDellaPillola(staff: StaffUser | null, ripiego = ""): Promise<CamerierePillola> {
@@ -34,5 +37,5 @@ export async function cameriereDellaPillola(staff: StaffUser | null, ripiego = "
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("") || "·";
-  return { nome, foto: String(riga?.photo_url ?? "").trim(), iniziali };
+  return { nome, foto: String(riga?.photo_url ?? "").trim(), iniziali, email: String(staff?.email ?? "").trim() };
 }
