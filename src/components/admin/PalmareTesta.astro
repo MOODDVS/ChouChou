@@ -24,11 +24,13 @@ const t = adminT(lang);
             ? <img class="sal-foto" src={cameriere.foto} alt="" />
             : <span class="sal-iniz" aria-hidden="true">{cameriere.iniziali}</span>}
           <span class="sal-chi">{cameriere.nome || CLIENT.nome}</span>
-          <span class="sal-rete" id="sal-rete" role="img" aria-label={t("sal.online")}></span>
+          <span class="sal-rete" id="sal-rete" role="img" aria-label={t("sal.online")} data-on={t("sal.online")} data-off={t("sal.offline")}></span>
           <svg class="sal-freccia" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
         </button>
         <div class="sal-menu" id="sal-menu" hidden data-cookie={COOKIE_LINGUA_PALMARE}>
-          <p class="sal-menu-rete" id="sal-menu-rete" data-on={t("sal.online")} data-off={t("sal.offline")}>{t("sal.online")}</p>
+          {/* Chi e' collegato su questo telefono (31/10/2026): l'email in una
+              pillola. La rete la dice gia' il pallino sulla pillola in alto. */}
+          {cameriere.email && <p class="sal-menu-email"><span>{cameriere.email}</span></p>}
           {/* LA LINGUA DEL CAMERIERE (23/10/2026): sul suo telefono, non per
               tutto il locale — l'admin puo' essere in italiano e lui parlare
               solo inglese. */}
@@ -85,15 +87,20 @@ const t = adminT(lang);
         /* Come il modale del tavolo: un modale ha l'ombra, il resto no. */
         box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
       }
-      .sal-menu-rete { padding: 10px 12px 8px; font-size: 0.8rem; color: var(--c-muted); }
+      .sal-menu-email { display: flex; justify-content: center; padding: 6px 0 10px; }
+      .sal-menu-email span {
+        max-width: 100%; padding: 8px 16px; border-radius: 999px;
+        border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-muted);
+        font-size: 0.85rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
       .sal-menu-tit { padding: 6px 12px 4px; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
       .sal-lingue { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding: 2px 2px 14px; }
       .sal-lingua {
-        height: 56px; border-radius: 14px; border: 1px solid var(--c-line); background: transparent;
-        color: var(--c-text); font: inherit; font-size: 1.05rem; font-weight: 800; cursor: pointer;
+        height: 56px; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-bg);
+        color: var(--c-text); font: inherit; font-size: 1.05rem; font-weight: 500; cursor: pointer;
       }
       /* La lingua scelta: il corallo dell'admin, come la voce attiva della nav. */
-      .sal-lingua[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
+      .sal-lingua[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; font-weight: 800; }
       /* Disconnetti: un bottone pieno, ROSSO come quello del cestino e di
          «Annuler» — e' un gesto che chiude, e si deve vedere. */
       .sal-esci {
@@ -140,13 +147,11 @@ const t = adminT(lang);
       // Per ora dice solo se il telefono ha la rete. Quando arriveranno gli
       // invii in coda, dira' anche se ce n'e' qualcuno che aspetta.
       const rete = document.getElementById("sal-rete");
-      const reteTesto = document.getElementById("sal-menu-rete");
       const aggiornaRete = () => {
         const on = navigator.onLine;
-        rete?.classList.toggle("is-off", !on);
-        const testo = (on ? reteTesto?.dataset.on : reteTesto?.dataset.off) ?? "";
-        rete?.setAttribute("aria-label", testo);
-        if (reteTesto) reteTesto.textContent = testo;
+        if (!rete) return;
+        rete.classList.toggle("is-off", !on);
+        rete.setAttribute("aria-label", (on ? rete.dataset.on : rete.dataset.off) ?? "");
       };
       window.addEventListener("online", aggiornaRete);
       window.addEventListener("offline", aggiornaRete);

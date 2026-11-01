@@ -13,25 +13,25 @@ const t = adminT(lang);
 // Shifts per ora solo disegno: bottoni senza destinazione, e lo dicono
 // (aria-disabled).
 const VOCI = [
-  { k: "salle", label: t("sal.nav.salle"), href: "/admin/salle",
+  { k: "salle", label: t("sal.navb.salle"), nome: t("sal.nav.salle"), href: "/admin/salle",
     ico: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>' },
-  { k: "orders", label: t("sal.nav.orders"), href: "/admin/salle/orders",
+  { k: "orders", label: t("sal.navb.orders"), nome: t("sal.nav.orders"), href: "/admin/salle/orders",
     ico: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/>' },
-  { k: "notif", label: t("sal.nav.notif"), href: "",
+  { k: "notif", label: t("sal.navb.notif"), nome: t("sal.nav.notif"), href: "",
     ico: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>' },
-  { k: "shifts", label: t("sal.nav.shifts"), href: "",
+  { k: "shifts", label: t("sal.navb.shifts"), nome: t("sal.nav.shifts"), href: "",
     ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' },
 ];
 ---
 
     <nav class="sal-nav" aria-label={t("sal.title")}>
       {VOCI.map((v) => v.href ? (
-        <a class="sal-voce" href={v.href} aria-current={v.k === attiva ? "page" : undefined}>
+        <a class="sal-voce" href={v.href} aria-label={v.nome} aria-current={v.k === attiva ? "page" : undefined}>
           <svg viewBox="0 0 24 24" aria-hidden="true" set:html={v.ico}></svg>
           {v.label}
         </a>
       ) : (
-        <button type="button" class="sal-voce" aria-disabled="true">
+        <button type="button" class="sal-voce" aria-label={v.nome} aria-disabled="true">
           <svg viewBox="0 0 24 24" aria-hidden="true" set:html={v.ico}></svg>
           {v.label}
         </button>
@@ -43,7 +43,11 @@ const VOCI = [
      spazio lasciare in fondo. */
   :root {
     --sal-nav-h: 58px;
-    --sal-nav-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    /* Distanza dal fondo dello schermo (31/10/2026, piu' in basso): dentro
+       la zona sicura dell'iPhone, 8px piu' giu' del suo inizio — la barretta
+       di Home sta tutta in fondo. Senza zona sicura (computer, Android),
+       8px. La usano la pillola e le pagine per lo spazio in fondo. */
+    --sal-nav-bottom: max(8px, calc(env(safe-area-inset-bottom) - 8px));
   }
       /* ---------- la navigazione, in basso sotto il pollice ----------
          ⚠️ La stessa pillola della barra dell'admin (`.admin-nav` in
@@ -54,7 +58,7 @@ const VOCI = [
          la', si cambia anche qui. */
       .sal-nav {
         position: fixed; left: 50%; transform: translateX(-50%); z-index: 20;
-        bottom: calc(env(safe-area-inset-bottom) + 1rem);
+        bottom: var(--sal-nav-bottom);
         display: flex; gap: 0.25rem; padding: 0.35rem;
         max-width: calc(100vw - 2rem);
         border-radius: 999px;

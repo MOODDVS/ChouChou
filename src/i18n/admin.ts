@@ -590,6 +590,14 @@ const DIZIONARIO: Dizionario = {
   "sal.or.emptyFilter": { fr: "Rien ici pour le moment.", en: "Nothing here for now.", it: "Niente qui per ora.", nl: "Hier is nu niets.", es: "Nada aquí por ahora." },
   "sal.nav.notif": { fr: "Alertes", en: "Alerts", it: "Notifiche", nl: "Meldingen", es: "Avisos" },
   "sal.nav.shifts": { fr: "Shifts", en: "Shifts", it: "Shifts", nl: "Diensten", es: "Turnos" },
+  // Le etichette CORTE della navigazione del palmare (31/10/2026), per stare
+  // sotto l'icona: al massimo 5 lettere, oltre si taglia a 5 col punto
+  // («Ordin.», «Notif.»). Il nome intero resta in `sal.nav.*` e lo legge lo
+  // screen reader (aria-label).
+  "sal.navb.salle": { fr: "Salle", en: "Floor", it: "Sala", nl: "Zaal", es: "Sala" },
+  "sal.navb.orders": { fr: "Comma.", en: "Order.", it: "Ordin.", nl: "Beste.", es: "Pedid." },
+  "sal.navb.notif": { fr: "Alert.", en: "Alert.", it: "Notif.", nl: "Meldi.", es: "Aviso." },
+  "sal.navb.shifts": { fr: "Shift.", en: "Shift.", it: "Shift.", nl: "Diens.", es: "Turno." },
   "sal.online": { fr: "Connecté au réseau", en: "Connected", it: "Connesso alla rete", nl: "Verbonden met het netwerk", es: "Conectado a la red" },
   "sal.offline": { fr: "Hors ligne", en: "Offline", it: "Fuori linea", nl: "Offline", es: "Sin conexión" },
   "sal.lang": { fr: "Ma langue", en: "My language", it: "La mia lingua", nl: "Mijn taal", es: "Mi idioma" },

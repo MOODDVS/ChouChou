@@ -30,11 +30,34 @@ test("le pillole cambiano sala; lo swipe e' degli eventi pointer e non apre un t
 
 test("la sala ha i muri visibili, e la sala scelta e' nel colore d'accento", () => {
   assert.match(P, /\.pm-area \{[^}]*stroke: color-mix\(in srgb, var\(--c-text\) 30%, transparent\)/);
-  assert.match(P, /\.sal-sala\[aria-pressed="true"\] \{ background: var\(--c-accent\)/);
+  assert.match(TESTA, /\.pm-scelta\[aria-pressed="true"\] \{ background: var\(--c-accent\)/);
+  assert.match(P, /class="pm-scelta sal-sala"/);
+});
+
+test("i filtri di Commandes sono le stesse pillole delle sale, scritte una volta", () => {
+  const O = readFileSync("src/pages/admin/salle/orders.astro", "utf8");
+  assert.match(O, /class="pm-scelte or-filtri"/);
+  assert.match(O, /class="pm-scelta or-filtro"/);
+  assert.doesNotMatch(O, /\.or-filtro\s*\{/);
+  assert.doesNotMatch(P, /\.sal-sala\s*\{/);
 });
 
 test("nel palmare niente zoom: viewport, doppio tocco, due dita", () => {
   assert.match(TESTA, /maximum-scale=1, user-scalable=no/);
   assert.match(TESTA, /html \{ touch-action: manipulation;/);
   assert.match(TESTA, /addEventListener\("gesturestart", no, \{ passive: false \}\)/);
+});
+
+test("la navigazione del palmare: etichette corte (max 5 lettere, poi il punto), piu' in basso", () => {
+  const I = readFileSync("src/i18n/admin.ts", "utf8");
+  for (const k of ["salle", "orders", "notif", "shifts"]) {
+    const riga = I.match(new RegExp(`"sal\\.navb\\.${k}": \\{([^}]*)\\}`));
+    assert.ok(riga, k);
+    for (const [, l, v] of riga[1].matchAll(/(\w+): "([^"]*)"/g)) assert.ok(v.replace(/\.$/, "").length <= 5, `${k}.${l} = ${v}`);
+  }
+  const N = readFileSync("src/components/admin/PalmareNav.astro", "utf8");
+  assert.match(N, /--sal-nav-bottom: max\(8px, calc\(env\(safe-area-inset-bottom\) - 8px\)\)/);
+  assert.match(N, /bottom: var\(--sal-nav-bottom\);/);
+  assert.match(N, /aria-label=\{v\.nome\}/);
+  assert.doesNotMatch(P, /--sal-nav-bottom:/);
 });

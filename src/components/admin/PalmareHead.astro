@@ -43,6 +43,33 @@ const nonce = Astro.locals.cspNonce;
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); }
+
+  /* ---------- LE PILLOLE DI SCELTA, sopra la navigazione (31/10/2026) ----------
+     Le sale nella mappa e i filtri di Commandes: una famiglia sola, scritta
+     una volta. `.pm-scelte` e' la fila, `.pm-scelta` il bottone, `<b>` dentro
+     il bottone un contatore. Fondo e bordo come la pillola del cameriere in
+     alto (`.sal-pillola`); la scelta (aria-pressed) nel colore d'accento. */
+  .pm-scelte {
+    position: fixed; left: 0; right: 0; z-index: 19;
+    /* 1rem sopra la navigazione (31/10/2026: era 0.6rem). */
+    bottom: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 1rem);
+    display: flex; justify-content: safe center; gap: 0.4rem;
+    padding: 0 1rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .pm-scelte::-webkit-scrollbar { display: none; }
+  .pm-scelta {
+    flex: 0 0 auto; height: 34px; padding: 0 0.95rem; border-radius: 999px; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text);
+    font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  }
+  .pm-scelta:has(> b) { padding-right: 0.6rem; }
+  .pm-scelta > b {
+    min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--c-bg); color: var(--c-text); font-size: 0.7rem;
+  }
+  .pm-scelta[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
 </style>
 <script is:inline nonce={nonce}>
   // Le due dita su iPhone e iPad: Safari ignora `user-scalable=no`, ma lascia

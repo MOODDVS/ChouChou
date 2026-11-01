@@ -170,11 +170,10 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
     <style is:global>
       /* I colori di ripiego e il reset stanno in PalmareHead. */
       :root {
-        /* L'altezza della pillola di navigazione e quella delle pillole delle
-           sale: da qui la piantina sa quanto spazio lasciare in fondo. */
-        --sal-nav-h: 58px;
+        /* L'altezza delle pillole delle sale: da qui la piantina sa quanto
+           spazio lasciare in fondo. Quelle della navigazione (--sal-nav-h,
+           --sal-nav-bottom) stanno in PalmareNav. */
         --sal-sale-h: 34px;
-        --sal-nav-bottom: calc(env(safe-area-inset-bottom) + 1rem);
       }
       body {
         /* Una schermata sola, come un'app: la piantina si adatta, la pagina
@@ -186,7 +185,13 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
       /* ---------- la piantina ---------- */
       .sal-mappa {
         flex: 1; min-height: 0; position: relative;
-        padding: 0.25rem 0 calc(var(--sal-nav-bottom) + var(--sal-nav-h) + var(--sal-sale-h) + 1.4rem);
+        /* ⚠️ `z-index: 0`: la mappa e' un piano SOTTO la pillola del cameriere
+           e il suo menu (z-index 20). Le sale si spostano con un transform,
+           e su Safari un elemento trasformato puo' finire SOPRA un sticky
+           che non ha un piano suo: il menu si apriva dietro la piantina e
+           sembrava non aprirsi (31/10/2026). */
+        z-index: 0;
+        padding: 0.25rem 0 calc(var(--sal-nav-bottom) + var(--sal-nav-h) + var(--sal-sale-h) + 1.8rem);
       }
       /* LE SALE UNA ACCANTO ALL'ALTRA, spostate da un TRANSFORM (31/10/2026).
          ⚠️ Non piu' lo scorrimento del browser con lo scatto su ogni sala:
@@ -246,21 +251,9 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
       }
       .pm-vuoto strong { color: var(--c-text); font-size: 1.05rem; }
 
-      /* ---------- le pillole delle sale, sopra la navigazione ---------- */
-      .sal-sale {
-        position: fixed; left: 0; right: 0; z-index: 19;
-        bottom: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 0.6rem);
-        display: flex; justify-content: safe center; gap: 0.4rem;
-        padding: 0 1rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
-      }
-      .sal-sale::-webkit-scrollbar { display: none; }
-      .sal-sala {
-        flex: 0 0 auto; height: var(--sal-sale-h); padding: 0 0.95rem; border-radius: 999px;
-        border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text);
-        font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap;
-      }
-      /* La sala scelta nel colore d'accento, come ogni selezione del palmare. */
-      .sal-sala[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
+      /* Le pillole delle sale: lo stile e' `.pm-scelte` / `.pm-scelta`, in
+         PalmareHead (le stesse dei filtri di Commandes). `.sal-sale` e
+         `.sal-sala` restano solo come ganci per lo script. */
 
     </style>
   </head>
@@ -324,9 +317,9 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
     </main>
 
     {piante.length > 0 && (
-      <div class="sal-sale" role="group" aria-label={t("sal.rooms")}>
+      <div class="pm-scelte sal-sale" role="group" aria-label={t("sal.rooms")}>
         {piante.map(({ i, zona }) => (
-          <button type="button" class="sal-sala" data-zona={zona} aria-pressed={i === 0 ? "true" : "false"}>{zona}</button>
+          <button type="button" class="pm-scelta sal-sala" data-zona={zona} aria-pressed={i === 0 ? "true" : "false"}>{zona}</button>
         ))}
       </div>
     )}
