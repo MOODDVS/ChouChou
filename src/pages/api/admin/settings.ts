@@ -7,7 +7,7 @@ import { scadeOrariRitiro } from "../../../lib/schedule";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
 import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
+import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
 // Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
@@ -35,6 +35,23 @@ export const prerender = false;
  *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
 async function msg(chiave: string): Promise<string> {
   return adminT(await adminLang())(chiave);
+}
+/** Lo stesso, col valore al posto di `{v}` (l'email sbagliata, il nome
+ *  della section…). Fino al 2/11/2026 questi messaggi erano scritti a mano
+ *  in francese: un admin in inglese leggeva «Couverts invalides…». */
+async function msgV(chiave: string, v: string): Promise<string> {
+  return (await msg(chiave)).replace("{v}", v);
+}
+/** Il nome di un service nella lingua dell'admin. */
+async function nomeServizioAdmin(key: string): Promise<string> {
+  const l = await adminLang();
+  const nomi = SERVIZI_WIDGET[key] as Record<string, string> | undefined;
+  return nomi?.[l] ?? nomi?.fr ?? key;
+}
+/** Il nome di un giorno (0 = domenica) nella lingua dell'admin. */
+async function nomeGiornoAdmin(d: number): Promise<string> {
+  const locale = ADMIN_LOCALE[await adminLang()] ?? "fr-BE";
+  return new Date(Date.UTC(2024, 0, 7 + d)).toLocaleDateString(locale, { weekday: "long", timeZone: "UTC" });
 }
 
 /**
@@ -418,7 +435,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   // Destinatario dell'email quotidienne (vuoto = default réservations)
   if (vuoleBriefEmail) {
     const em = String(body.daily_brief_email).trim();
-    if (em && !RE_EMAIL.test(em)) return json({ error: `Email invalide : ${em}` }, 400);
+    if (em && !RE_EMAIL.test(em)) return json({ error: await msgV("err.emailV", em) }, 400);
     const err = await scriviConfig(ambito, { daily_brief_email: em });
     if (err) return json({ error: await msg("err.save") }, 500);
   }
@@ -527,7 +544,7 @@ export const PUT: APIRoute = async ({ request }) => {
     .filter(Boolean);
   for (const e of listaEmail) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
-      return json({ error: `Email cuisine invalide : ${e}` }, 400);
+      return json({ error: await msgV("err.kitchenEmailV", e) }, 400);
     }
   }
   const email = listaEmail.join(", ");
@@ -538,7 +555,7 @@ export const PUT: APIRoute = async ({ request }) => {
     for (const k of CHIAVI_LINK) {
       const v = String((body.links as Record<string, unknown>)[k] ?? "").trim();
       if (v && !/^https?:\/\/.+/i.test(v)) {
-        return json({ error: `Lien invalide (${k}) : il doit commencer par https://` }, 400);
+        return json({ error: await msgV("err.linkHttpsV", k) }, 400);
       }
       linkPuliti.push(["link_" + k, v]);
     }
@@ -551,20 +568,20 @@ export const PUT: APIRoute = async ({ request }) => {
       const v = String((body.general as Record<string, unknown>)[k] ?? "").trim();
       if (k === "contact_emails" && v) {
         for (const e of v.split(",").map((x) => x.trim()).filter(Boolean)) {
-          if (!RE_EMAIL.test(e)) return json({ error: `Email contact invalide : ${e}` }, 400);
+          if (!RE_EMAIL.test(e)) return json({ error: await msgV("err.contactEmailV", e) }, 400);
         }
       }
       if ((k === "newsletter_from_email" || k === "public_email" || k === "contact_from_email" || k === "order_from_email") && v && !RE_EMAIL.test(v)) {
-        return json({ error: `Email invalide : ${v}` }, 400);
+        return json({ error: await msgV("err.emailV", v) }, 400);
       }
       if (k === "link_google_review" && v && !/^https?:\/\/.+/i.test(v)) {
-        return json({ error: "Lien invalide : il doit commencer par https://" }, 400);
+        return json({ error: await msgV("err.linkHttpsV", "Google") }, 400);
       }
       if (k === "timezone" && v) {
         try {
           new Intl.DateTimeFormat("en", { timeZone: v });
         } catch {
-          return json({ error: `Fuseau horaire invalide : ${v}` }, 400);
+          return json({ error: await msgV("err.timezoneV", v) }, 400);
         }
       }
       generalPulito.push([k, v]);
@@ -593,7 +610,7 @@ export const PUT: APIRoute = async ({ request }) => {
           const seats = Math.floor(Number(z.seats));
           if (!name) return json({ error: await msg("err.sectionName") }, 400);
           if (!Number.isFinite(seats) || seats < 1 || seats > 500) {
-            return json({ error: `Couverts invalides pour « ${name} » (1–500)` }, 400);
+            return json({ error: await msgV("err.sectionSeatsV", name) }, 400);
           }
           pulite.push({ name, seats });
         }
@@ -675,16 +692,16 @@ export const PUT: APIRoute = async ({ request }) => {
           const from = String((sv as { from?: unknown }).from ?? "");
           const to = String((sv as { to?: unknown }).to ?? "");
           if (!RE_ORA.test(from) || !RE_ORA.test(to) || from >= to) {
-            return json({ error: `Horaires invalides pour « ${SERVIZI_WIDGET[key].fr} »` }, 400);
+            return json({ error: await msgV("err.serviceHoursV", await nomeServizioAdmin(key)) }, 400);
           }
           // Durée d'occupation e créneau propri di ogni service
           const hold = Math.floor(Number((sv as { hold?: unknown }).hold));
           if (!Number.isFinite(hold) || hold < 15 || hold > 360) {
-            return json({ error: `${await msg("err.occupancyFor")} « ${SERVIZI_WIDGET[key].fr} »` }, 400);
+            return json({ error: `${await msg("err.occupancyFor")} « ${await nomeServizioAdmin(key)} »` }, 400);
           }
           const slot = Math.floor(Number((sv as { slot?: unknown }).slot));
           if (!Number.isFinite(slot) || slot < 10 || slot > 120) {
-            return json({ error: `${await msg("err.slotFor")} « ${SERVIZI_WIDGET[key].fr} »` }, 400);
+            return json({ error: `${await msg("err.slotFor")} « ${await nomeServizioAdmin(key)} »` }, 400);
           }
           // Giorni di applicazione (0=dim … 6=sam). Assenti/vuoti = tutti i giorni.
           const giorniRaw = (sv as { days?: unknown }).days;
@@ -696,39 +713,38 @@ export const PUT: APIRoute = async ({ request }) => {
         v = JSON.stringify(puliti);
       }
       if (k === "reservation_from_email" && v && !RE_EMAIL.test(v)) {
-        return json({ error: `Email invalide : ${v}` }, 400);
+        return json({ error: await msgV("err.emailV", v) }, 400);
       }
       if (k === "reservation_notify_email" && v) {
         for (const e of v.split(",").map((x) => x.trim()).filter(Boolean)) {
-          if (!RE_EMAIL.test(e)) return json({ error: `Email invalide : ${e}` }, 400);
+          if (!RE_EMAIL.test(e)) return json({ error: await msgV("err.emailV", e) }, 400);
         }
       }
       resaPulito.push([k, v]);
     }
   }
 
-  const NOMI = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
   const visti = new Set<number>();
   for (const g of body.days) {
     if (typeof g.day_of_week !== "number" || g.day_of_week < 0 || g.day_of_week > 6 || visti.has(g.day_of_week)) {
       return json({ error: await msg("err.dayDup") }, 400);
     }
     visti.add(g.day_of_week);
-    const nome = NOMI[g.day_of_week];
+    const nome = await nomeGiornoAdmin(g.day_of_week);
 
     if (g.lunch_active && !fasciaValida(g.lunch_open, g.lunch_close)) {
-      return json({ error: `Heures Midi invalides (${nome})` }, 400);
+      return json({ error: await msgV("err.lunchHoursV", nome) }, 400);
     }
     if (g.dinner_active && !fasciaValida(g.dinner_open, g.dinner_close)) {
-      return json({ error: `Heures Soir invalides (${nome})` }, 400);
+      return json({ error: await msgV("err.dinnerHoursV", nome) }, 400);
     }
     // Soir senza Midi non ha senso nel modello "continu/coupé"
     if (g.dinner_active && !g.lunch_active) {
-      return json({ error: `Soir sans Midi (${nome})` }, 400);
+      return json({ error: await msgV("err.dinnerNoLunchV", nome) }, 400);
     }
     // Le due fasce non devono sovrapporsi
     if (g.lunch_active && g.dinner_active && g.lunch_close! >= g.dinner_open!) {
-      return json({ error: `Midi et Soir se chevauchent (${nome})` }, 400);
+      return json({ error: await msgV("err.lunchDinnerOverlapV", nome) }, 400);
     }
   }
 
