@@ -5,7 +5,8 @@ import {
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
 import { orfaniDelPiano } from "../../../lib/pianoSalaRegole";
-import { normalizzaArea, TELA } from "../../../lib/salaForma";
+import { normalizzaArea, TELA, FORME_TAVOLO, normalizzaRotazione, manca92 } from "../../../lib/salaForma";
+import { normalizzaElemento, ELEMENTI_MAX, type Elemento } from "../../../lib/elementiSala";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -43,7 +44,16 @@ const MAX_LIAISONS = 40;
 //               middleware lo ritrasforma — il WAF blocca DELETE dai mobili)
 
 const SELECT = "id, zone, name, seats, shape, x, y, w, h";
-const FORME = ["round", "square", "rect"];
+/* Con la migrazione #92 anche la rotazione (e il pentagono tra le forme).
+   Senza, si legge come prima: ogni lettura prova la colonna nuova e, se il
+   database risponde che non c'e', riprova senza (`manca92`). */
+const SELECT_92 = SELECT + ", rotation";
+const FORME: readonly string[] = FORME_TAVOLO;
+async function conRotazione<T>(fai: (sel: string) => PromiseLike<{ data: T | null; error: { code?: string; message?: string } | null }>) {
+  const r = await fai(SELECT_92);
+  if (r.error && manca92(r.error)) return { ...(await fai(SELECT)), rotazione: false };
+  return { ...r, rotazione: true };
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -86,9 +96,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const zone = (url.searchParams.get("zone") ?? "").trim();
-  let q = leggi("restaurant_tables", ambito, SELECT).order("created_at", { ascending: true });
-  if (zone) q = q.eq("zone", zone);
-  const { data, error } = await q;
+  const { data, error, rotazione } = await conRotazione((sel) => {
+    let q = leggi("restaurant_tables", ambito, sel).order("created_at", { ascending: true });
+    if (zone) q = q.eq("zone", zone);
+    return q;
+  });
   if (error) return json({ error: await msg("err.read") }, 500);
 
   let area: number[][] | null = null;
@@ -114,7 +126,8 @@ export const GET: APIRoute = async ({ request, url }) => {
     const pr = JSON.parse(m.get("reservation_zone_priority") || "[]");
     if (Array.isArray(pr)) priority = pr.map(String).filter(Boolean);
   } catch { /* nessuna area/liaison/priorità */ }
-  return json({ tables: data ?? [], area, links, decor, plan_mode: planMode, auto_tables: autoTables, priority });
+  // `forme_92`: il database ha la #92 — l'editor mostra pentagono e rotazione.
+  return json({ tables: data ?? [], area, links, decor, plan_mode: planMode, auto_tables: autoTables, priority, forme_92: rotazione });
 };
 
 /** Aggiorna una mappa { zone: valore } in app_config. */
@@ -189,17 +202,14 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ ok: true, links });
   }
 
-  // Decor (piante / muri): { zone, decor: [{ id, type, x, y, w, h }, …] }
+  // Gli elementi (piante, muri, scale, porte…, elementiSala.ts):
+  // { zone, decor: [{ id, type, color, label, rotation, x, y, w, h }, …] }
   if ("decor" in body) {
     const grezzi = Array.isArray((body as { decor?: unknown }).decor) ? ((body as { decor: unknown[] }).decor) : [];
-    const decor: { id: string; type: string; color: string; x: number; y: number; w: number; h: number }[] = [];
-    for (const d of grezzi.slice(0, 60)) {
-      const o = (d ?? {}) as Record<string, unknown>;
-      const type = o.type === "wall" ? "wall" : o.type === "plant" ? "plant" : "";
-      if (!type) continue;
-      const id = String(o.id ?? "").slice(0, 40) || ("d" + decor.length);
-      const color = ["white", "black", "brown"].includes(String(o.color)) ? String(o.color) : "brown";
-      decor.push({ id, type, color, x: num(o.x, TELA.x0, TELA.x1, 0), y: num(o.y, TELA.y0, TELA.y1, 0), w: num(o.w, 4, TELA.x1 - TELA.x0, 40), h: num(o.h, 4, TELA.y1 - TELA.y0, 40) });
+    const decor: Elemento[] = [];
+    for (const d of grezzi.slice(0, ELEMENTI_MAX)) {
+      const e = normalizzaElemento(d, decor.length, TELA);
+      if (e) decor.push(e);
     }
     const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null, ambito);
     if (!ok) return json({ error: await msg("err.save") }, 500);
@@ -244,7 +254,8 @@ export const POST: APIRoute = async ({ request }) => {
     w: num(body.w, 20, 600, 100),
     h: num(body.h, 20, 500, 100),
   };
-  const { data, error } = await inserisci("restaurant_tables", ambito, riga).select(SELECT).single();
+  const { data, error } = await conRotazione((sel) => inserisci("restaurant_tables", ambito, riga).select(sel).single());
+  if (error && manca92(error)) return json({ error: await msg("err.tables92") }, 400);
   if (error || !data) return json({ error: await msg("err.create") }, 500);
   return json({ table: data }, 201);
 };
@@ -279,12 +290,15 @@ export const PATCH: APIRoute = async ({ request }) => {
   if ("y" in body) campi.y = num(body.y, TELA.y0, TELA.y1, 0);
   if ("w" in body) campi.w = num(body.w, 20, 600, 100);
   if ("h" in body) campi.h = num(body.h, 20, 500, 100);
+  if ("rotation" in body) campi.rotation = normalizzaRotazione(body.rotation);
   if (Object.keys(campi).length === 0) return json({ error: await msg("err.nothing") }, 400);
 
-  const { data, error } = await aggiorna("restaurant_tables", ambito, campi)
+  const { data, error } = await conRotazione((sel) => aggiorna("restaurant_tables", ambito, campi)
     .eq("id", id)
-    .select(SELECT)
-    .single();
+    .select(sel)
+    .single());
+  // Pentagono o rotazione su un database senza la #92: lo si dice.
+  if (error && manca92(error)) return json({ error: await msg("err.tables92") }, 400);
   if (error || !data) return json({ error: await msg("err.update") }, 500);
   return json({ table: data });
 };

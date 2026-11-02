@@ -140,3 +140,45 @@ export function aggiungiAngolo(punti: PuntoSala[], i: number): { punti: PuntoSal
 
 /** Il rettangolo di una sala senza perimetro: la tela di prima. */
 export const SALA_DI_SEMPRE: PuntoSala[] = [[0, 0], [1000, 0], [1000, 600], [0, 600]];
+
+// ---------------------------------------------------------------------------
+// I TAVOLI: FORME E ROTAZIONE (2/11/2026, migrazione #92)
+// ---------------------------------------------------------------------------
+
+/** Le forme di un tavolo. `pentagon` e la rotazione vogliono la #92. */
+export const FORME_TAVOLO = ["round", "square", "rect", "pentagon"] as const;
+export type FormaTavolo = (typeof FORME_TAVOLO)[number];
+
+/** La rotazione di un tavolo: gradi in senso orario, a passi di 15, 0–345. */
+export const PASSO_ROTAZIONE = 15;
+export function normalizzaRotazione(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  const passi = Math.round(n / PASSO_ROTAZIONE);
+  return (((passi * PASSO_ROTAZIONE) % 360) + 360) % 360;
+}
+
+/** Il pentagono nel suo riquadro, in frazioni (0–1): una punta in alto. */
+export const PENTAGONO: [number, number][] = [[0.5, 0], [1, 0.38], [0.82, 1], [0.18, 1], [0, 0.38]];
+
+/**
+ * I punti (attributo `points` di un <polygon>) di un pentagono largo `w` e
+ * alto `h`, centrato in (cx, cy) e girato di `gradi` in senso orario.
+ */
+export function puntiPentagono(cx: number, cy: number, w: number, h: number, gradi = 0): string {
+  const a = (gradi * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
+  return PENTAGONO.map(([u, v]) => {
+    const dx = (u - 0.5) * w, dy = (v - 0.5) * h;
+    return `${r1(cx + dx * cos - dy * sin)},${r1(cy + dx * sin + dy * cos)}`;
+  }).join(" ");
+}
+
+/**
+ * Il database non ha ancora la #92? Postgres risponde «colonna che non
+ * esiste» (42703) se si chiede `rotation`, o «controllo violato» (23514) se
+ * si scrive un pentagono col vecchio controllo.
+ */
+export function manca92(e: { code?: string; message?: string } | null | undefined): boolean {
+  if (!e) return false;
+  return e.code === "42703" || e.code === "23514" || /rotation|shape_check/i.test(e.message ?? "");
+}

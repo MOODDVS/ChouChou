@@ -28,7 +28,7 @@
  * nome, mai un errore.
  */
 import PalmareHead from "../../components/admin/PalmareHead.astro";
-import { tracciatoSala } from "../../lib/salaForma";
+import { tracciatoSala, puntiPentagono, manca92 } from "../../lib/salaForma";
 import PalmareTesta from "../../components/admin/PalmareTesta.astro";
 import PalmareNav from "../../components/admin/PalmareNav.astro";
 import { cameriereDellaPillola } from "../../lib/admin/cameriereCorrente";
@@ -38,7 +38,8 @@ import { adminT } from "../../i18n/admin";
 import { claimsDaToken } from "../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../lib/admin/sede";
 import { configInCache, cronometro, seduteConOrdini } from "../../lib/admin/letturaSala";
-import { saleDelPalmare, pianoVerticale, type SalaPalmare } from "../../lib/pianoPalmare";
+import { saleDelPalmare, pianoVerticale, type SalaPalmare, type DecoroPiano } from "../../lib/pianoPalmare";
+import { disegnoElemento, coloreElemento } from "../../lib/elementiSala";
 import { tavoliNonDisponibili } from "../../lib/salaInstallaRegole";
 import { statiTavoli, type StatoTavolo, type IconaTavolo } from "../../lib/statoTavoliRegole";
 import { contiApertiDellaSala } from "../../lib/admin/contiSala";
@@ -78,7 +79,12 @@ const leggiSale = async () => {
     fuso = await fusoDi(ambito);
     const ora = DateTime.now().setZone(fuso);
     const [{ data: righe }, valori, { data: giornoRaw }, conti, { data: chiamateRaw }, conOrdini] = await Promise.all([
-      leggi("restaurant_tables", ambito, "id, zone, name, seats, shape, x, y, w, h"),
+      // Con la #92 anche la rotazione; senza, si legge come prima.
+      (async () => {
+        const COL = "id, zone, name, seats, shape, x, y, w, h";
+        const r = await leggi("restaurant_tables", ambito, COL + ", rotation");
+        return r.error && manca92(r.error) ? await leggi("restaurant_tables", ambito, COL) : r;
+      })(),
       configInCache(ambito, ["reservation_zones", "reservation_plan_areas", "reservation_plan_decor", "reservation_hold_minutes", "reservation_services"]),
       // Oggi: chi e' seduto E chi deve arrivare (il bordo bianco, il rosso).
       leggi("reservations", ambito, "id, heure, status, tables, service_key, extra_minutes, tab_status, tab_table_id")
@@ -161,7 +167,23 @@ const min = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); retu
 const delta = (da: number, a: number) => { let d = a - da; if (d > 720) d -= 1440; if (d < -720) d += 1440; return d; };
 const testoArrivo = (hhmm: string) => `${delta(adessoMin, min(hhmm))} min`;
 const testoSforo = (s: { fine: string; prossima: string }) => `+${Math.max(0, delta(min(s.fine), adessoMin))} min · ${s.prossima}`;
-const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c", brown: "#4a4038" };
+/**
+ * UN ELEMENTO DEL PIANO (pianta, muro, scala, porta…: elementiSala.ts),
+ * col suo colore, girato attorno al centro, e l'etichetta dritta sopra.
+ * ⚠️ Su una sala girata in verticale (`ruotata`) il riquadro ha gia' larghezza
+ * e altezza scambiate: l'elemento si disegna con le misure di prima e 90° in
+ * piu' — una porta o una scala non sono simmetriche come un rettangolo.
+ */
+const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function elementoPalmare(d: DecoroPiano, ruotata: boolean): string {
+  const W = ruotata ? d.h : d.w, H = ruotata ? d.w : d.h;
+  const cx = d.x + d.w / 2, cy = d.y + d.h / 2;
+  const { svg, defs } = disegnoElemento(d.type, W, H, coloreElemento(d));
+  const giro = d.rotation + (ruotata ? 90 : 0);
+  return (defs ? `<defs>${defs}</defs>` : "") +
+    `<g transform="translate(${cx} ${cy}) rotate(${giro}) translate(${-W / 2} ${-H / 2})">${svg}</g>` +
+    (d.label ? `<text class="pm-el-lab" x="${cx}" y="${cy}">${esc(d.label)}</text>` : "");
+}
 
 ---
 
@@ -244,6 +266,9 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
       .pm-timer.is-rosso .pm-timer-fondo { fill: #fff; }
       .pm-timer.is-rosso .pm-timer-testo { fill: #c22d32; }
       /* Il legame fra i tavoli di una sola tavolata: una striscia verde sotto. */
+      /* L'etichetta di un elemento («Ingresso», «Bar»…): piccola, bianca, col bordo scuro per leggerla su ogni colore. */
+      .pm-el { pointer-events: none; }
+      .pm-el-lab { fill: #fff; font-size: 22px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; paint-order: stroke; stroke: rgba(8, 26, 30, 0.85); stroke-width: 5px; stroke-linejoin: round; }
       .pm-legame { fill: none; stroke: #2f8f61; stroke-width: 22; stroke-linecap: round; stroke-linejoin: round; }
       .pm-tav-nome { fill: var(--c-muted); font-family: var(--font-body); font-weight: 800; text-anchor: middle; dominant-baseline: central; }
       .pm-vuoto {
@@ -273,9 +298,7 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
         <div class="pm-sala" data-zona={zona}>
           <svg viewBox={`0 0 ${p.larghezza} ${p.altezza}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={zona}>
             {p.area && <path class="pm-area" d={tracciatoSala(p.area)} />}
-            {p.decor.map((d) => d.type === "plant"
-              ? <image href="/restohub/plant.svg" x={d.x} y={d.y} width={d.w} height={d.h} />
-              : <rect x={d.x} y={d.y} width={d.w} height={d.h} rx="3" fill={COLORE_MURO[d.color]} />)}
+            {p.decor.map((d) => <g class="pm-el" set:html={elementoPalmare(d, p.ruotata)} />)}
             {/* Il legame sta SOTTO i tavoli: si vede fra un tavolo e l'altro. */}
             {legami.map((punti) => <polyline class="pm-legame" points={punti} />)}
             {p.tavoli.map((tv) => {
@@ -284,9 +307,17 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
               const tw = st.sforo ? 112 : 66;
               return (
               <a class:list={["pm-tav", `is-${st.colore}`, { "is-bordo": st.bordo }]} href={`/admin/salle/table?id=${encodeURIComponent(tv.id)}`} aria-label={tv.name}>
-                {tv.shape === "round"
-                  ? <ellipse class="pm-tav-forma" cx={cx} cy={tv.y + tv.h / 2} rx={tv.w / 2} ry={tv.h / 2} />
-                  : <rect class="pm-tav-forma" x={tv.x} y={tv.y} width={tv.w} height={tv.h} rx="10" />}
+                {/* La forma gira attorno al centro (#92); il nome resta dritto.
+                    ⚠️ Il pentagono non e' simmetrico come rettangolo ed
+                    ellisse: su una sala girata (`p.ruotata`) si disegna con
+                    le misure di prima e 90° in piu'. */}
+                {tv.shape === "pentagon"
+                  ? <polygon class="pm-tav-forma" points={p.ruotata
+                      ? puntiPentagono(cx, tv.y + tv.h / 2, tv.h, tv.w, tv.rotation + 90)
+                      : puntiPentagono(cx, tv.y + tv.h / 2, tv.w, tv.h, tv.rotation)} />
+                  : tv.shape === "round"
+                  ? <ellipse class="pm-tav-forma" cx={cx} cy={tv.y + tv.h / 2} rx={tv.w / 2} ry={tv.h / 2} transform={tv.rotation ? `rotate(${tv.rotation} ${cx} ${tv.y + tv.h / 2})` : undefined} />
+                  : <rect class="pm-tav-forma" x={tv.x} y={tv.y} width={tv.w} height={tv.h} rx="10" transform={tv.rotation ? `rotate(${tv.rotation} ${cx} ${tv.y + tv.h / 2})` : undefined} />}
                 <text class="pm-tav-nome" x={cx} y={tv.y + tv.h / 2} font-size={corpoNome(tv.w, tv.h)}>{tv.name}</text>
                 {/* Le icone: bollini scuri sull'angolo in alto a destra. */}
                 {st.icone.map((ic, k) => {

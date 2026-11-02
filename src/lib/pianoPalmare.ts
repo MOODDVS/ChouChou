@@ -17,27 +17,24 @@
  * 1000×600; dal 1/11/2026 una sala puo' uscirne, e i muri possono essere
  * diagonali o curvi: vedi `salaForma.ts`).
  */
-import { normalizzaArea, puntiIngombro, type PuntoSala } from "./salaForma";
+import { normalizzaArea, puntiIngombro, normalizzaRotazione, type PuntoSala } from "./salaForma";
+import { normalizzaElemento, type Elemento } from "./elementiSala";
 
 export interface TavoloPiano {
   id: string;
   name: string;
   seats: number;
-  shape: "round" | "square" | "rect";
+  shape: "round" | "square" | "rect" | "pentagon";
+  /** Gradi in senso orario attorno al centro (0 senza la migrazione #92). */
+  rotation: number;
   x: number;
   y: number;
   w: number;
   h: number;
 }
 
-export interface DecoroPiano {
-  type: "wall" | "plant";
-  color: "white" | "black" | "brown";
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+/** Un elemento del piano (pianta, muro, scala, porta…): vedi elementiSala.ts. */
+export type DecoroPiano = Elemento;
 
 export interface SalaPalmare {
   zona: string;
@@ -105,10 +102,10 @@ export function saleDelPalmare(opz: {
     const name = String(t.name ?? "").trim();
     if (!zona || !id || !name) continue;
     if (valide.size > 0 && !valide.has(zona)) continue;
-    const forma = t.shape === "round" || t.shape === "rect" ? t.shape : "square";
+    const forma = t.shape === "round" || t.shape === "rect" || t.shape === "pentagon" ? t.shape : "square";
     const lista = perZona.get(zona) ?? [];
     lista.push({
-      id, name, seats: Math.max(0, Math.floor(n(t.seats))), shape: forma,
+      id, name, seats: Math.max(0, Math.floor(n(t.seats))), shape: forma, rotation: normalizzaRotazione(t.rotation),
       x: n(t.x), y: n(t.y), w: Math.max(1, n(t.w, 100)), h: Math.max(1, n(t.h, 100)),
     });
     perZona.set(zona, lista);
@@ -130,13 +127,8 @@ export function saleDelPalmare(opz: {
       const area: PuntoSala[] = normalizzaArea(a) ?? TELA_INTERA;
       const d = decori[zona];
       const decor: DecoroPiano[] = (Array.isArray(d) ? d : [])
-        .map((x) => (x ?? {}) as Record<string, unknown>)
-        .filter((x) => x.type === "wall" || x.type === "plant")
-        .map((x) => ({
-          type: x.type as "wall" | "plant",
-          color: x.color === "white" || x.color === "black" ? x.color : "brown",
-          x: n(x.x), y: n(x.y), w: Math.max(1, n(x.w, 40)), h: Math.max(1, n(x.h, 40)),
-        }));
+        .map((x, i) => normalizzaElemento(x, i))
+        .filter((x): x is Elemento => x !== null);
       const tavoli = (perZona.get(zona) ?? []).sort((a2, b2) => a2.name.localeCompare(b2.name, undefined, { numeric: true }));
       return { zona, tavoli, area, decor };
     });

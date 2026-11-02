@@ -45,3 +45,19 @@ test("un angolo nuovo a meta' muro: sul muro dritto e sull'arco", () => {
   assert.deepEqual(c.punti[2], [1100, 300, 50]);
   assert.deepEqual(c.punti[1], [1000, 0, 50]);
 });
+
+test("i tavoli: rotazione a passi di 15, pentagono, e la #92 che manca", async () => {
+  const { normalizzaRotazione, puntiPentagono, manca92 } = await import("../src/lib/salaForma.ts");
+  assert.equal(normalizzaRotazione(0), 0);
+  assert.equal(normalizzaRotazione(20), 15);
+  assert.equal(normalizzaRotazione(360), 0);
+  assert.equal(normalizzaRotazione(-15), 345);
+  assert.equal(normalizzaRotazione("x"), 0);
+  // dritto: la punta in alto al centro; girato di 180: la punta in basso
+  assert.equal(puntiPentagono(50, 50, 100, 100).split(" ")[0], "50,0");
+  assert.equal(puntiPentagono(50, 50, 100, 100, 180).split(" ")[0], "50,100");
+  assert.equal(manca92({ code: "42703", message: "column restaurant_tables.rotation does not exist" }), true);
+  assert.equal(manca92({ code: "23514", message: "violates check constraint" }), true);
+  assert.equal(manca92({ code: "PGRST116", message: "no rows" }), false);
+  assert.equal(manca92(null), false);
+});

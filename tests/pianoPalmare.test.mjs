@@ -101,3 +101,20 @@ test("i muri curvi arrivano al palmare: la curva resta col suo punto, e la panci
   assert.equal(p.area[1][2], 100);
   assert.equal(p.area[0].length, 2);
 });
+
+test("gli elementi arrivano al palmare con tipo, colore, etichetta e rotazione", () => {
+  const sale = saleDelPalmare({
+    righe: [{ id: "t1", zone: "Salle", name: "T1", seats: 2, shape: "square", x: 0, y: 0, w: 90, h: 90 }],
+    sezioni: JSON.stringify([{ name: "Salle" }]),
+    aree: "{}",
+    decori: JSON.stringify({ Salle: [
+      { id: "d1", type: "door", color: "wood", label: "Ingresso", rotation: 90, x: 0, y: 500, w: 80, h: 80 },
+      { id: "d2", type: "plant", color: "brown", x: 200, y: 0, w: 60, h: 60 },
+      { id: "d3", type: "astronave", x: 0, y: 0 },
+    ] }),
+  });
+  const [porta, pianta] = sale[0].decor;
+  assert.equal(sale[0].decor.length, 2);
+  assert.deepEqual([porta.type, porta.color, porta.label, porta.rotation], ["door", "wood", "Ingresso", 90]);
+  assert.equal(pianta.type, "plant");
+});

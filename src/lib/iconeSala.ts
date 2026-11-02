@@ -64,3 +64,7 @@ export const ICONA_CESTINO =
  *  arriva sul tavolo (25/10/2026). */
 export const ICONA_OROLOGIO =
   '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6.5 12 12 15.5 14"/></svg>';
+
+/** Girare (il tavolo nel piano della sala, a passi di 15°). */
+export const ICONA_RUOTA =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></svg>';
