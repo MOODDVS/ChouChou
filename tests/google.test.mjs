@@ -305,3 +305,20 @@ test("nessuna API di Google risponde piu' con la frase fissa in francese", () =>
     );
   }
 });
+
+test("la scheda Google: al Salva parte solo cio' che e' cambiato (una chiusura non porta con se' nome e indirizzo)", async () => {
+  const { campiCambiati } = await import("../src/lib/admin/googleRegole.ts");
+  const prima = { title: "BROS", addr: { lines: "Rue 1" }, phone: "1", phone2: "2", special: [] };
+  const dopo = { ...prima, addr: { lines: "Rue 1" }, special: [{ date: "2026-11-02", closed: true, a: "", b: "" }] };
+  assert.deepEqual(campiCambiati(prima, dopo, [["phone", "phone2"]]), { special: dopo.special });
+  // i due telefoni viaggiano insieme
+  assert.deepEqual(campiCambiati(prima, { ...prima, phone2: "3" }, [["phone", "phone2"]]), { phone: "1", phone2: "3" });
+  // niente di cambiato: niente da mandare
+  assert.deepEqual(campiCambiati(prima, { ...prima }), {});
+  // scheda non letta: si manda tutto, come prima
+  assert.deepEqual(campiCambiati(null, prima), prima);
+  // il Salva usa la regola, su una copia della scheda appena letta
+  const G = readFileSync("src/pages/admin/google.astro", "utf8");
+  assert.match(G, /campiCambiati\(fotoScheda, tutto, \[\["phone", "phone2"\]\]\)/);
+  assert.match(G, /fotoScheda = fotografa\(\);/);
+});
