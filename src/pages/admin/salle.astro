@@ -28,6 +28,7 @@
  * nome, mai un errore.
  */
 import PalmareHead from "../../components/admin/PalmareHead.astro";
+import { tracciatoSala } from "../../lib/salaForma";
 import PalmareTesta from "../../components/admin/PalmareTesta.astro";
 import PalmareNav from "../../components/admin/PalmareNav.astro";
 import { cameriereDellaPillola } from "../../lib/admin/cameriereCorrente";
@@ -271,7 +272,7 @@ const COLORE_MURO: Record<string, string> = { white: "#e8e4de", black: "#1c1c1c"
         {piante.map(({ zona, p, legami }) => (
         <div class="pm-sala" data-zona={zona}>
           <svg viewBox={`0 0 ${p.larghezza} ${p.altezza}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={zona}>
-            {p.area && <polygon class="pm-area" points={p.area.map(([x, y]) => `${x},${y}`).join(" ")} />}
+            {p.area && <path class="pm-area" d={tracciatoSala(p.area)} />}
             {p.decor.map((d) => d.type === "plant"
               ? <image href="/restohub/plant.svg" x={d.x} y={d.y} width={d.w} height={d.h} />
               : <rect x={d.x} y={d.y} width={d.w} height={d.h} rx="3" fill={COLORE_MURO[d.color]} />)}

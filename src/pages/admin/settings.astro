@@ -169,13 +169,26 @@ const t = adminT(lang);
       .sl-msg { color: var(--c-muted); font-size: 0.8rem; }
       .sl-msg:empty { display: none; }
       .sl-body { grid-column: 2; grid-row: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: flex-start; overflow: hidden; container-type: size; }
+      /* LA TELA RIEMPIE LO SPAZIO tra la colonna dei bottoni e quella delle
+         combinazioni (1/11/2026): prima era un riquadro 1000×600 fisso in alto
+         a sinistra. Cosa si vede dentro lo decide `slAdatta()`. */
       .sl-canvas {
-        position: relative; aspect-ratio: 1000 / 600; background: var(--c-bg);
-        width: min(100cqw, calc(100cqh * 1000 / 600)); height: auto; margin: 0;
-        border: 1px solid var(--c-line); overflow: hidden; touch-action: none;
+        position: relative; background: var(--c-bg);
+        width: 100%; height: 100%; margin: 0;
+        border: 1px solid var(--c-line); border-radius: 12px; overflow: hidden; touch-action: none;
       }
       #sl-area-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-      #sl-area-svg .sl-handle { pointer-events: all; }
+      #sl-area-svg .sl-lato, #sl-area-svg .sl-angolo, #sl-area-svg .sl-piu, #sl-area-svg .sl-curva { pointer-events: all; }
+      /* La modifica della sala: muri da scegliere, angoli, «+», curva. */
+      .sl-lato { fill: none; stroke: transparent; stroke-width: 18; cursor: pointer; vector-effect: non-scaling-stroke; }
+      .sl-lato.sel { stroke: color-mix(in srgb, var(--c-accent) 35%, transparent); }
+      .sl-angolo { fill: var(--c-accent); stroke: var(--c-bg); stroke-width: 2; cursor: grab; vector-effect: non-scaling-stroke; }
+      .sl-angolo.sel { fill: #fff; stroke: var(--c-accent); stroke-width: 3; }
+      .sl-piu { cursor: pointer; }
+      .sl-piu circle { fill: var(--c-bg); stroke: var(--c-accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+      .sl-piu path { stroke: var(--c-accent); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+      .sl-curva { fill: #fff; stroke: var(--c-accent); stroke-width: 2; cursor: move; vector-effect: non-scaling-stroke; }
+      .sl-guida { stroke: var(--c-accent); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; pointer-events: none; }
       #sl-tavoli { position: absolute; inset: 0; pointer-events: none; }
       #sl-tavoli .sl-table { pointer-events: auto; }
       #sl-tavoli .sl-decor { pointer-events: auto; }
@@ -1352,6 +1365,7 @@ const t = adminT(lang);
                     <button type="button" class="tm-ibtn del" id="sl-del" aria-label={t("set.res.deleteTable")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                   </div>
                 </div>
+                <div class="sl-edit" id="sl-forma-pop" style="display:none"><div class="sl-edit-row"></div></div>
                 <div class="sl-edit sl-decor-edit" id="sl-decor-edit" style="display:none">
                   <span id="sl-decor-lab" class="sl-decor-lab"></span>
                   <label class="sl-de-size">L <input type="number" id="sl-de-w" min="20" max="1000" step="10" /></label>
@@ -2170,6 +2184,7 @@ const t = adminT(lang);
       import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { TELA, PUNTI_MIN, PUNTI_MAX, SALA_DI_SEMPRE, normalizzaArea, tracciatoSala, tracciatoMuro, muroSala, puntiIngombro, aggiungiAngolo, type PuntoSala } from "../../lib/salaForma";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -2631,6 +2646,8 @@ const t = adminT(lang);
           void slCarica(zona);
         }
         function slChiudi() {
+          // Chiusa a meta' modifica della sala: si salva com'e', come «Termina».
+          if (slForma && slZona) { const forma = slForma; slForma = null; slFormaSel = null; void slSalvaArea(forma); }
           slZona = null;
           slSel = null;
           slOverlay.hidden = true;
@@ -2643,35 +2660,84 @@ const t = adminT(lang);
         const slAreaBtn = document.getElementById("sl-area-btn") as HTMLButtonElement;
         const slAreaDel = document.getElementById("sl-area-del") as HTMLButtonElement;
         const SL_AREA_TRASH = slAreaDel.innerHTML;
-        let slArea: number[][] | null = null; // perimetro salvato (4 angoli del rettangolo)
+        let slArea: PuntoSala[] | null = null; // perimetro salvato (null = la sala di sempre, 1000×600)
         let slLinks: string[][] = [];         // gruppi di tavoli unibili
         let slLinksOk: string[][] = [];       // ultimo stato accettato dal server
         let slLinkMode = false;
         const slLinkSel = new Set<string>();
         const slLinkBtn = document.getElementById("sl-link-btn") as HTMLButtonElement;
         const slLinksBox = document.getElementById("sl-links") as HTMLDivElement;
-        let slRect: { x: number; y: number; w: number; h: number } | null = null; // in modifica
+        let slForma: PuntoSala[] | null = null; // la sala mentre la si modifica
 
-        // La stanza È la superficie quadrettata: fondo + griglia (pattern SVG
-        // ritagliato sul rettangolo) + bordo. Fuori resta il fondo scuro.
-        const SL_DEFS = `<defs><pattern id="sl-griglia" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(150,140,132,0.4)" stroke-width="1" /></pattern></defs>`;
-        const slStanza = (r: { x: number; y: number; w: number; h: number }, modifica: boolean): string =>
-          SL_DEFS +
-          `<rect class="sl-r-base" x="0" y="0" width="1000" height="600" style="fill:var(--c-bg)" />` +
-          `<rect class="sl-r-grid" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="url(#sl-griglia)" />` +
-          `<rect class="sl-r-bordo" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="${modifica ? "var(--c-accent)" : "#b3a99e"}" stroke-width="${modifica ? "2" : "3"}"${modifica ? ' stroke-dasharray="8 5"' : ""} />`;
+        // ---- LA VISTA (1/11/2026) ----
+        // La parte della tela che si vede: tutta la sala (con tavoli e decori)
+        // ingrandita nello spazio che c'e', sempre con la forma del riquadro,
+        // cosi' un'unita' e' larga quanto alta. Tavoli e decori sono <div> in
+        // percentuale DELLA VISTA; muri e griglia stanno nell'SVG, col viewBox
+        // uguale alla vista. Si ricalcola all'apertura, quando cambia la sala
+        // e quando cambia la finestra — non mentre si trascina un tavolo, se
+        // no la sala scapperebbe da sotto il dito.
+        let slVista = { x: 0, y: 0, w: 1000, h: 600 };
+        type Riquadro = { x: number; y: number; w: number; h: number };
+        const slPct = (r: Riquadro): string =>
+          `left:${((r.x - slVista.x) / slVista.w) * 100}%;top:${((r.y - slVista.y) / slVista.h) * 100}%;width:${(r.w / slVista.w) * 100}%;height:${(r.h / slVista.h) * 100}%`;
+        const slMettiAPosto = (el: HTMLElement, r: Riquadro) => {
+          el.style.left = ((r.x - slVista.x) / slVista.w) * 100 + "%";
+          el.style.top = ((r.y - slVista.y) / slVista.h) * 100 + "%";
+          el.style.width = (r.w / slVista.w) * 100 + "%";
+          el.style.height = (r.h / slVista.h) * 100 + "%";
+        };
+        /** Pixel per unita'. */
+        const slScala = (): number => slCanvas.clientWidth / slVista.w || 1;
+        /** Il punto sotto il dito, in unita' della tela. */
+        const slUnita = (ev: PointerEvent): [number, number] => {
+          const rc = slCanvas.getBoundingClientRect();
+          return [slVista.x + ((ev.clientX - rc.left) / rc.width) * slVista.w, slVista.y + ((ev.clientY - rc.top) / rc.height) * slVista.h];
+        };
+        /** Un riquadro tenuto dentro la tela e dentro quello che si vede. */
+        const slEntro = (x: number, y: number, w: number, h: number): [number, number] => {
+          const x0 = Math.max(TELA.x0, slVista.x), x1 = Math.min(TELA.x1, slVista.x + slVista.w);
+          const y0 = Math.max(TELA.y0, slVista.y), y1 = Math.min(TELA.y1, slVista.y + slVista.h);
+          return [Math.max(x0, Math.min(x, x1 - w)), Math.max(y0, Math.min(y, y1 - h))];
+        };
+        /** L'angolo in alto a sinistra della sala: i tavoli e i decori nuovi
+         *  nascono da li', non da 0,0 (una sala puo' essere altrove). */
+        const slOrigine = (): [number, number] => {
+          const pts = slArea ?? SALA_DI_SEMPRE;
+          return [Math.min(...pts.map((q) => q[0])), Math.min(...pts.map((q) => q[1]))];
+        };
+        function slAdatta() {
+          const W = slCanvas.clientWidth, H = slCanvas.clientHeight;
+          if (!W || !H) return;
+          const xs: number[] = [], ys: number[] = [];
+          for (const [x, y] of puntiIngombro(slForma ?? slArea ?? SALA_DI_SEMPRE)) { xs.push(x); ys.push(y); }
+          for (const q of [...slTavoli, ...slDecor]) { xs.push(q.x, q.x + q.w); ys.push(q.y, q.y + q.h); }
+          // Mentre si modifica la sala, piu' aria attorno: e' li' che si tirano gli angoli.
+          const m = slForma ? 160 : 40;
+          let x = Math.min(...xs) - m, y = Math.min(...ys) - m;
+          let w = Math.max(...xs) + m - x, h = Math.max(...ys) + m - y;
+          if (w / h < W / H) { const nw = (h * W) / H; x -= (nw - w) / 2; w = nw; }
+          else { const nh = (w * H) / W; y -= (nh - h) / 2; h = nh; }
+          slVista = { x, y, w, h };
+          slAreaSvg.setAttribute("viewBox", `${x} ${y} ${w} ${h}`);
+        }
 
-        const slRectDaArea = (): { x: number; y: number; w: number; h: number } => {
-          if (!slArea || slArea.length === 0) return { x: 0, y: 0, w: 1000, h: 600 };
-          const xs = slArea.map((pt) => pt[0]);
-          const ys = slArea.map((pt) => pt[1]);
-          const x = Math.min(...xs), y = Math.min(...ys);
-          return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+        // La stanza È la superficie quadrettata: fondo (tutta la vista) +
+        // griglia ritagliata sulla forma della sala + bordo. Mentre la si
+        // modifica, una griglia lieve anche fuori, per sapere dove si tira.
+        const SL_DEFS = `<defs><pattern id="sl-griglia" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(150,140,132,0.4)" stroke-width="1" /></pattern><pattern id="sl-griglia-lieve" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(150,140,132,0.14)" stroke-width="1" /></pattern></defs>`;
+        const slStanza = (punti: PuntoSala[], modifica: boolean): string => {
+          const v = slVista, d = tracciatoSala(punti);
+          return SL_DEFS +
+            `<rect class="sl-r-base" x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}" style="fill:var(--c-bg)" />` +
+            (modifica ? `<rect x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}" fill="url(#sl-griglia-lieve)" />` : "") +
+            `<path class="sl-r-grid" d="${d}" fill="url(#sl-griglia)" />` +
+            `<path class="sl-r-bordo" d="${d}" fill="none" stroke="${modifica ? "var(--c-accent)" : "#b3a99e"}" stroke-width="${modifica ? 2 : 3}" stroke-linejoin="round" vector-effect="non-scaling-stroke"${modifica ? ' stroke-dasharray="8 5"' : ""} />`;
         };
 
         function slRenderArea() {
-          if (slRect) return; // in modifica: gestita da slRenderEdit
-          let svg = slStanza(slRectDaArea(), false);
+          if (slForma) { slRenderEdit(); return; } // in modifica: angoli, «+» e curve
+          let svg = slStanza(slArea ?? SALA_DI_SEMPRE, false);
           // Linee tratteggiate tra i tavoli di ogni liaison
           const centro = (id: string): [number, number] | null => {
             const t = slTavoli.find((x) => x.id === id);
@@ -2680,7 +2746,7 @@ const t = adminT(lang);
           for (const gruppo of slLinks) {
             const pts = gruppo.map(centro).filter(Boolean) as [number, number][];
             for (let i = 1; i < pts.length; i++) {
-              svg += `<line x1="${pts[i - 1][0]}" y1="${pts[i - 1][1]}" x2="${pts[i][0]}" y2="${pts[i][1]}" stroke-width="2.5" stroke-dasharray="4 5" opacity="0.75" style="stroke:var(--c-accent)" />`;
+              svg += `<line x1="${pts[i - 1][0]}" y1="${pts[i - 1][1]}" x2="${pts[i][0]}" y2="${pts[i][1]}" stroke-width="2.5" stroke-dasharray="4 5" opacity="0.75" vector-effect="non-scaling-stroke" style="stroke:var(--c-accent)" />`;
             }
           }
           slAreaSvg.innerHTML = svg;
@@ -2777,93 +2843,179 @@ const t = adminT(lang);
           void slSalvaLinks();
         });
 
-        const slManiglia = (edge: string, cx: number, cy: number, curs: string): string =>
-          `<rect class="sl-handle" data-edge="${edge}" x="${cx - 16}" y="${cy - 16}" width="32" height="32" rx="5" stroke-width="2" style="cursor:${curs};fill:var(--c-accent);stroke:var(--c-bg)" />`;
+        // ---- MODIFICA LA SALA: angoli, muri diagonali, muri curvi (1/11/2026) ----
+        // Gli angoli si trascinano (griglia di 25; con Maiusc liberi), il «+»
+        // a meta' di ogni muro aggiunge un angolo, e sul muro scelto un
+        // pallino si tira per curvarlo. Le regole della forma: salaForma.ts.
+        let slFormaSel: { tipo: "angolo" | "muro"; i: number } | null = null;
+        const slFormaPop = document.getElementById("sl-forma-pop") as HTMLDivElement;
+        const SL_GRIGLIA = 25;
 
         function slRenderEdit() {
-          if (!slRect) return;
-          const r = slRect;
-          slAreaSvg.innerHTML =
-            slStanza(r, true) +
-            slManiglia("top", r.x + r.w / 2, r.y, "ns-resize") +
-            slManiglia("bottom", r.x + r.w / 2, r.y + r.h, "ns-resize") +
-            slManiglia("left", r.x, r.y + r.h / 2, "ew-resize") +
-            slManiglia("right", r.x + r.w, r.y + r.h / 2, "ew-resize");
+          const p = slForma;
+          if (!p) return;
+          const k = 1 / slScala(); // un pixel, in unita': le maniglie restano grandi uguali
+          let svg = slStanza(p, true);
+          for (let i = 0; i < p.length; i++) {
+            const scelto = slFormaSel?.tipo === "muro" && slFormaSel.i === i;
+            svg += `<path class="sl-lato${scelto ? " sel" : ""}" data-muro="${i}" d="${tracciatoMuro(p, i)}" />`;
+          }
+          for (let i = 0; i < p.length; i++) {
+            const m = muroSala(p, i);
+            if (slFormaSel?.tipo === "muro" && slFormaSel.i === i) {
+              svg += `<line class="sl-guida" x1="${m.mx - m.nx * 3000}" y1="${m.my - m.ny * 3000}" x2="${m.mx + m.nx * 3000}" y2="${m.my + m.ny * 3000}" />`;
+              svg += `<circle class="sl-curva" data-curva="${i}" cx="${m.px}" cy="${m.py}" r="${9 * k}" />`;
+            } else if (p.length < PUNTI_MAX) {
+              svg += `<g class="sl-piu" data-piu="${i}"><circle cx="${m.px}" cy="${m.py}" r="${10 * k}" /><path d="M${m.px - 5 * k} ${m.py}H${m.px + 5 * k}M${m.px} ${m.py - 5 * k}V${m.py + 5 * k}" /></g>`;
+            }
+          }
+          p.forEach((q, i) => {
+            const scelto = slFormaSel?.tipo === "angolo" && slFormaSel.i === i;
+            svg += `<circle class="sl-angolo${scelto ? " sel" : ""}" data-angolo="${i}" cx="${q[0]}" cy="${q[1]}" r="${10 * k}" />`;
+          });
+          slAreaSvg.innerHTML = svg;
+          slFormaFumetto();
         }
 
-        function slAggiornaEditAttrs() {
-          const r = slRect;
-          if (!r) return;
-          slAreaSvg.querySelectorAll(".sl-r-grid, .sl-r-bordo").forEach((el) => {
-            el.setAttribute("x", String(r.x));
-            el.setAttribute("y", String(r.y));
-            el.setAttribute("width", String(r.w));
-            el.setAttribute("height", String(r.h));
-          });
-          const pos: Record<string, [number, number]> = {
-            top: [r.x + r.w / 2, r.y],
-            bottom: [r.x + r.w / 2, r.y + r.h],
-            left: [r.x, r.y + r.h / 2],
-            right: [r.x + r.w, r.y + r.h / 2],
-          };
-          slAreaSvg.querySelectorAll<SVGRectElement>(".sl-handle").forEach((hd) => {
-            const pt = pos[hd.dataset.edge ?? ""];
-            if (!pt) return;
-            hd.setAttribute("x", String(pt[0] - 16));
-            hd.setAttribute("y", String(pt[1] - 16));
-          });
+        // Il fumetto dell'angolo (toglierlo) o del muro (angolo qui, raddrizza),
+        // come quello del tavolo.
+        function slFormaFumetto() {
+          const sel = slFormaSel, p = slForma;
+          const riga = slFormaPop.firstElementChild as HTMLElement;
+          if (!sel || !p) { slFormaPop.style.display = "none"; return; }
+          let x: number, y: number, html = "";
+          if (sel.tipo === "angolo") {
+            [x, y] = p[sel.i];
+            html = `<button type="button" class="tm-ibtn del" data-fa="togli" aria-label="${tr("set.res.removeCorner")}" title="${tr("set.res.removeCorner")}"${p.length <= PUNTI_MIN ? " disabled" : ""}>${SL_AREA_TRASH}</button>`;
+          } else {
+            const m = muroSala(p, sel.i);
+            x = m.px; y = m.py;
+            if (p.length < PUNTI_MAX) html += `<button type="button" class="btn btn-sm sl-dup" data-fa="angolo">+ ${tr("set.res.addCorner")}</button>`;
+            if (m.s) html += `<button type="button" class="btn btn-sm sl-dup" data-fa="dritto">${tr("set.res.straighten")}</button>`;
+          }
+          riga.innerHTML = html;
+          slFormaPop.style.display = html ? "" : "none";
+          if (!html) return;
+          const rc = slCanvas.getBoundingClientRect();
+          const sx = rc.left + ((x - slVista.x) / slVista.w) * rc.width;
+          const sy = rc.top + ((y - slVista.y) / slVista.h) * rc.height;
+          const pw = slFormaPop.offsetWidth || 160, ph = slFormaPop.offsetHeight || 44;
+          let left = sx - pw / 2, top = sy + 18;
+          left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+          if (top + ph > window.innerHeight - 8) top = Math.max(8, sy - ph - 18);
+          slFormaPop.style.left = left + "px";
+          slFormaPop.style.top = top + "px";
         }
+        slFormaPop.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-fa]");
+          if (!b || !slForma || !slFormaSel) return;
+          const i = slFormaSel.i;
+          if (b.dataset.fa === "togli" && slForma.length > PUNTI_MIN) {
+            slForma.splice(i, 1);
+            slFormaSel = null;
+          } else if (b.dataset.fa === "angolo") {
+            const r = aggiungiAngolo(slForma, i);
+            if (r.nuovo >= 0) { slForma = r.punti; slFormaSel = { tipo: "angolo", i: r.nuovo }; }
+          } else if (b.dataset.fa === "dritto") {
+            const q = slForma[i];
+            slForma[i] = [q[0], q[1]];
+          }
+          slAdatta();
+          slRenderCanvas();
+        });
 
         function slAggiornaAreaBtn() {
-          slAreaBtn.classList.toggle("attivo", !!slRect);
-          slAreaBtn.textContent = slRect ? "✓ " + tr("set.res.finish") : slArea ? "✎ " + tr("set.res.editRoom") : "✎ " + tr("set.res.drawRoom");
-          slAreaDel.style.display = slArea && !slRect ? "" : "none";
-          slCanvas.classList.toggle("disegno", !!slRect);
+          slAreaBtn.classList.toggle("attivo", !!slForma);
+          slAreaBtn.textContent = slForma ? "✓ " + tr("set.res.finish") : slArea ? "✎ " + tr("set.res.editRoom") : "✎ " + tr("set.res.drawRoom");
+          slAreaDel.style.display = slArea && !slForma ? "" : "none";
+          slCanvas.classList.toggle("disegno", !!slForma);
+          if (!slForma) slFormaPop.style.display = "none";
+          // Come si usa, in fondo, finche' si modifica.
+          if (slForma) slMsg.textContent = tr("set.res.roomHint");
+          else if (slMsg.textContent === tr("set.res.roomHint")) slMsg.textContent = "";
         }
 
-        async function slSalvaArea(area: number[][] | null) {
+        async function slSalvaArea(area: PuntoSala[] | null) {
+          const prima = slArea;
+          slArea = area ? normalizzaArea(area) : null; // subito, senza aspettare la rete
           try {
-            const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, area }) });
-            if (!res.ok) { slMsg.textContent = tr("set.res.roomSaveErr"); return; }
-            slArea = area;
-          } catch { slMsg.textContent = tr("common.netErr"); }
-          slRenderArea();
+            const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, area: slArea }) });
+            if (!res.ok) { slArea = prima; slMsg.textContent = tr("set.res.roomSaveErr"); }
+          } catch { slArea = prima; slMsg.textContent = tr("common.netErr"); }
           slAggiornaAreaBtn();
+          slAdatta();
+          slRenderCanvas();
         }
 
         slAreaBtn.addEventListener("click", () => {
-          if (!slRect) {
-            slRect = slRectDaArea();
+          if (!slForma) {
+            slForma = (slArea ?? SALA_DI_SEMPRE).map((q) => [...q] as PuntoSala);
+            slFormaSel = null;
             slSeleziona(null);
-            slRenderEdit();
+            slAggiornaAreaBtn();
+            slAdatta();
+            slRenderCanvas();
           } else {
-            const r = slRect;
-            slRect = null;
-            void slSalvaArea([[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]);
+            const forma = slForma;
+            slForma = null;
+            slFormaSel = null;
+            void slSalvaArea(forma);
           }
-          slAggiornaAreaBtn();
         });
 
-        // Drag dei bordi del rettangolo (maniglie sui 4 lati, snap 20)
+        // Angoli, «+», muri e curve: un solo ascoltatore sull'SVG.
         slAreaSvg.addEventListener("pointerdown", (e) => {
-          const hd = (e.target as Element).closest(".sl-handle") as SVGRectElement | null;
-          if (!hd || !slRect) return;
+          if (!slForma) return;
+          const bersaglio = e.target as Element;
+          const angolo = bersaglio.closest("[data-angolo]");
+          const curva = bersaglio.closest("[data-curva]");
+          const piu = bersaglio.closest("[data-piu]");
+          const muro = bersaglio.closest("[data-muro]");
+          if (!angolo && !curva && !piu && !muro) return;
           e.preventDefault();
           e.stopPropagation();
-          const edge = hd.dataset.edge ?? "";
+          if (piu) {
+            const r = aggiungiAngolo(slForma, Number(piu.getAttribute("data-piu")));
+            if (r.nuovo >= 0) { slForma = r.punti; slFormaSel = { tipo: "angolo", i: r.nuovo }; }
+            slRenderEdit();
+            return;
+          }
+          if (muro) {
+            slFormaSel = { tipo: "muro", i: Number(muro.getAttribute("data-muro")) };
+            slRenderEdit();
+            return;
+          }
+          const suAngolo = !!angolo;
+          const i = Number(suAngolo ? angolo!.getAttribute("data-angolo") : curva!.getAttribute("data-curva"));
+          slFormaSel = { tipo: suAngolo ? "angolo" : "muro", i };
+          slRenderEdit();
           const onMove = (ev: PointerEvent) => {
-            const r = slRect;
-            if (!r) return;
-            const rc = slCanvas.getBoundingClientRect();
-            const ux = Math.round((((ev.clientX - rc.left) / rc.width) * 1000) / 20) * 20;
-            const uy = Math.round((((ev.clientY - rc.top) / rc.height) * 600) / 20) * 20;
-            if (edge === "left") { const nx = Math.min(Math.max(0, ux), r.x + r.w - 200); r.w = r.x + r.w - nx; r.x = nx; }
-            if (edge === "right") { r.w = Math.max(200, Math.min(1000 - r.x, ux - r.x)); }
-            if (edge === "top") { const ny = Math.min(Math.max(0, uy), r.y + r.h - 160); r.h = r.y + r.h - ny; r.y = ny; }
-            if (edge === "bottom") { r.h = Math.max(160, Math.min(600 - r.y, uy - r.y)); }
-            slAggiornaEditAttrs();
+            const forma = slForma;
+            if (!forma) return;
+            const [ux, uy] = slUnita(ev);
+            const q = forma[i];
+            if (suAngolo) {
+              let x = ux, y = uy;
+              if (!ev.shiftKey) { x = Math.round(x / SL_GRIGLIA) * SL_GRIGLIA; y = Math.round(y / SL_GRIGLIA) * SL_GRIGLIA; }
+              [x, y] = slEntro(x, y, 0, 0);
+              x = Math.round(x); y = Math.round(y);
+              forma[i] = q[2] ? [x, y, q[2]] : [x, y];
+            } else {
+              const m = muroSala(forma, i);
+              const lung = Math.hypot(m.bx - m.ax, m.by - m.ay);
+              let s = (ux - m.mx) * m.nx + (uy - m.my) * m.ny;
+              if (!ev.shiftKey) s = Math.round(s / 10) * 10;
+              if (Math.abs(s) < 8) s = 0;
+              s = Math.round(Math.max(-lung, Math.min(lung, s)));
+              forma[i] = s ? [q[0], q[1], s] : [q[0], q[1]];
+            }
+            slRenderEdit();
           };
-          const onUp = () => window.removeEventListener("pointermove", onMove);
+          const onUp = () => {
+            window.removeEventListener("pointermove", onMove);
+            slAdatta(); // la sala e' cambiata: si rifa' la vista, con l'aria per tirare ancora
+            slRenderCanvas();
+          };
           window.addEventListener("pointermove", onMove);
           window.addEventListener("pointerup", onUp, { once: true });
         });
@@ -2899,7 +3051,7 @@ const t = adminT(lang);
               const isSel = !!slSel && slSel.id === t.id;
               const sel = isSel || slLinkSel.has(t.id) ? " sel" : "";
               const handles = isSel ? `<span class="sl-th" data-h="nw"></span><span class="sl-th" data-h="ne"></span><span class="sl-th" data-h="sw"></span><span class="sl-th" data-h="se"></span>` : "";
-              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="left:${t.x / 10}%;top:${t.y / 6}%;width:${t.w / 10}%;height:${t.h / 6}%"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} ${tr("res.placesShort")}</i>${handles}</div>`;
+              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="${slPct(t)}"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} ${tr("res.placesShort")}</i>${handles}</div>`;
             })
             .join("") +
             slDecor
@@ -2909,7 +3061,7 @@ const t = adminT(lang);
                 const handles = isSelD ? `<span class="sl-th" data-h="nw"></span><span class="sl-th" data-h="ne"></span><span class="sl-th" data-h="sw"></span><span class="sl-th" data-h="se"></span>` : "";
                 const inner = d.type === "plant" ? `<img class="sl-plant-img" src="/restohub/plant.svg" alt="" draggable="false" />` : "";
                 const col = d.type === "wall" ? ` c-${d.color || "brown"}` : "";
-                return `<div class="sl-decor ${d.type}${col}${sel}" data-did="${d.id}" style="left:${d.x / 10}%;top:${d.y / 6}%;width:${d.w / 10}%;height:${d.h / 6}%">${inner}${handles}</div>`;
+                return `<div class="sl-decor ${d.type}${col}${sel}" data-did="${d.id}" style="${slPct(d)}">${inner}${handles}</div>`;
               })
               .join("");
         }
@@ -2972,7 +3124,7 @@ const t = adminT(lang);
             const j = await res.json();
             if (!res.ok) throw new Error();
             slTavoli = (j.tables as Tavolo[]) ?? [];
-            slArea = Array.isArray(j.area) ? (j.area as number[][]) : null;
+            slArea = normalizzaArea(j.area);
             slLinks = Array.isArray(j.links) ? (j.links as string[][]) : [];
             slLinksOk = slLinks.map((g) => [...g]);
             slDecor = Array.isArray(j.decor) ? (j.decor as Decor[]) : [];
@@ -2982,7 +3134,8 @@ const t = adminT(lang);
             slLinkSel.clear();
             slAggiornaLinkBtn();
             slRenderLinks();
-            slRect = null;
+            slForma = null;
+            slFormaSel = null;
             slAggiornaAreaBtn();
             slRenderArea();
             slMsg.textContent = slTavoli.length ? "" : tr("set.res.noTable");
@@ -2990,8 +3143,16 @@ const t = adminT(lang);
             slTavoli = [];
             slMsg.textContent = tr("set.res.loadErrMigration");
           }
+          slAdatta();
           slSeleziona(null);
         }
+        // La finestra cambia (o la modale si apre): si rifa' la vista.
+        new ResizeObserver(() => {
+          if (!slZona) return;
+          slAdatta();
+          slRenderCanvas();
+          if (slSel) slFloatEdit(slEdit, `[data-id="${slSel.id}"]`);
+        }).observe(slCanvas);
 
         slFiltri.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".sl-pill") as HTMLElement | null;
@@ -3037,7 +3198,7 @@ const t = adminT(lang);
             const type = btn.dataset.decor === "wall" ? "wall" : "plant";
             const n = slDecor.length;
             const w = type === "wall" ? 200 : 60, h = type === "wall" ? 24 : 60;
-            const d: Decor = { id: slDecorId(), type, color: "brown", x: Math.min(1000 - w, 80 + (n % 6) * 40), y: Math.min(600 - h, 80 + (n % 6) * 30), w, h };
+            const d: Decor = { id: slDecorId(), type, color: "brown", x: slOrigine()[0] + Math.min(1000 - w, 80 + (n % 6) * 40), y: slOrigine()[1] + Math.min(600 - h, 80 + (n % 6) * 30), w, h };
             slDecor.push(d);
             slDecorSelezionato(d);
             void slSalvaDecor();
@@ -3055,13 +3216,13 @@ const t = adminT(lang);
         slDeW.addEventListener("change", () => {
           if (!slDecorSel) return;
           let w = Math.round((Number(slDeW.value) || 40) / 10) * 10;
-          w = Math.min(1000 - slDecorSel.x, Math.max(20, w));
+          w = Math.min(TELA.x1 - slDecorSel.x, Math.max(20, w));
           slDeW.value = String(w); slDecorSel.w = w; slRenderCanvas(); void slSalvaDecor();
         });
         slDeH.addEventListener("change", () => {
           if (!slDecorSel) return;
           let h = Math.round((Number(slDeH.value) || 40) / 10) * 10;
-          h = Math.min(600 - slDecorSel.y, Math.max(10, h));
+          h = Math.min(TELA.y1 - slDecorSel.y, Math.max(10, h));
           slDeH.value = String(h); slDecorSel.h = h; slRenderCanvas(); void slSalvaDecor();
         });
         slDecorDel.addEventListener("click", () => {
@@ -3091,14 +3252,15 @@ const t = adminT(lang);
          * fondo: meglio un tavolo da spostare che un tavolo che non nasce.
          */
         function slPostoLibero(w: number, h: number): { x: number; y: number } {
+          const [ox, oy] = slOrigine();
           const occupato = (x: number, y: number) =>
             slTavoli.some((t) => Math.abs(t.x - x) < 40 && Math.abs(t.y - y) < 40);
           for (let i = 0; i < 20; i++) {
-            const x = Math.min(1000 - w, 40 + (i % 5) * 180);
-            const y = Math.min(600 - h, 40 + Math.floor(i / 5) * 150);
+            const x = ox + Math.min(1000 - w, 40 + (i % 5) * 180);
+            const y = oy + Math.min(600 - h, 40 + Math.floor(i / 5) * 150);
             if (!occupato(x, y)) return { x, y };
           }
-          return { x: Math.min(1000 - w, 40), y: Math.min(600 - h, 490) };
+          return { x: ox + Math.min(1000 - w, 40), y: oy + Math.min(600 - h, 490) };
         }
 
         /**
@@ -3132,7 +3294,7 @@ const t = adminT(lang);
           if (!slSel || !slZona) return;
           const src = slSel;
           const riga = { zone: slZona, name: slNomeIncrement(src.name), seats: src.seats, shape: src.shape,
-            x: Math.min(1000 - src.w, src.x + 30), y: Math.min(600 - src.h, src.y + 30), w: src.w, h: src.h };
+            x: Math.min(TELA.x1 - src.w, src.x + 30), y: Math.min(TELA.y1 - src.h, src.y + 30), w: src.w, h: src.h };
           try {
             const res = await slFetch("/api/admin/tables", { method: "POST", body: JSON.stringify(riga) });
             const j = await res.json();
@@ -3146,7 +3308,7 @@ const t = adminT(lang);
           if (!slDecorSel || !slZona) return;
           const src = slDecorSel;
           const d: Decor = { id: slDecorId(), type: src.type, color: src.color,
-            x: Math.min(1000 - src.w, src.x + 30), y: Math.min(600 - src.h, src.y + 30), w: src.w, h: src.h };
+            x: Math.min(TELA.x1 - src.w, src.x + 30), y: Math.min(TELA.y1 - src.h, src.y + 30), w: src.w, h: src.h };
           slDecor.push(d);
           slDecorSelezionato(d);
           void slSalvaDecor();
@@ -3162,7 +3324,9 @@ const t = adminT(lang);
 
         // Drag con snap (20 unità) + click per selezionare
         slCanvas.addEventListener("pointerdown", (e) => {
-          if (slRect) return; // in modifica salle: si usano solo le maniglie
+          // In modifica della sala si usano solo angoli e muri: un tocco nel
+          // vuoto toglie la scelta.
+          if (slForma) { if (slFormaSel) { slFormaSel = null; slRenderEdit(); } return; }
           // Handle di ridimensionamento del tavolo selezionato
           const elH = (e.target as HTMLElement).closest(".sl-th") as HTMLElement | null;
           if (elH && slSel) {
@@ -3170,7 +3334,7 @@ const t = adminT(lang);
             const t = slSel;
             const dir = elH.dataset.h || "se";
             const elT = elH.closest(".sl-table") as HTMLElement | null;
-            const scala = slCanvas.clientWidth / 1000;
+            const scala = slScala();
             const sx = e.clientX, sy = e.clientY, ox = t.x, oy = t.y, ow = t.w, oh = t.h;
             elH.setPointerCapture(e.pointerId);
             const onMove = (ev: PointerEvent) => {
@@ -3184,11 +3348,11 @@ const t = adminT(lang);
               h = Math.max(40, Math.min(500, h));
               let x = dir.includes("w") ? ox + ow - w : ox;
               let y = dir.includes("n") ? oy + oh - h : oy;
-              x = Math.max(0, Math.min(x, 1000 - w));
-              y = Math.max(0, Math.min(y, 600 - h));
-              w = Math.min(w, 1000 - x); h = Math.min(h, 600 - y);
+              x = Math.max(TELA.x0, Math.min(x, TELA.x1 - w));
+              y = Math.max(TELA.y0, Math.min(y, TELA.y1 - h));
+              w = Math.min(w, TELA.x1 - x); h = Math.min(h, TELA.y1 - y);
               t.x = Math.round(x); t.y = Math.round(y); t.w = Math.round(w); t.h = Math.round(h);
-              if (elT) { elT.style.left = t.x / 10 + "%"; elT.style.top = t.y / 6 + "%"; elT.style.width = t.w / 10 + "%"; elT.style.height = t.h / 6 + "%"; }
+              if (elT) slMettiAPosto(elT, t);
               slFloatEdit(slEdit, `[data-id="${t.id}"]`);
             };
             const onUp = (ev: PointerEvent) => {
@@ -3207,7 +3371,7 @@ const t = adminT(lang);
             const d = slDecorSel;
             const dir = elH.dataset.h || "se";
             const elD = elH.closest(".sl-decor") as HTMLElement | null;
-            const scala = slCanvas.clientWidth / 1000;
+            const scala = slScala();
             const sx = e.clientX, sy = e.clientY, ox = d.x, oy = d.y, ow = d.w, oh = d.h;
             elH.setPointerCapture(e.pointerId);
             const onMove = (ev: PointerEvent) => {
@@ -3221,11 +3385,11 @@ const t = adminT(lang);
               h = Math.max(20, Math.min(600, h));
               let x = dir.includes("w") ? ox + ow - w : ox;
               let y = dir.includes("n") ? oy + oh - h : oy;
-              x = Math.max(0, Math.min(x, 1000 - w));
-              y = Math.max(0, Math.min(y, 600 - h));
-              w = Math.min(w, 1000 - x); h = Math.min(h, 600 - y);
+              x = Math.max(TELA.x0, Math.min(x, TELA.x1 - w));
+              y = Math.max(TELA.y0, Math.min(y, TELA.y1 - h));
+              w = Math.min(w, TELA.x1 - x); h = Math.min(h, TELA.y1 - y);
               d.x = Math.round(x); d.y = Math.round(y); d.w = Math.round(w); d.h = Math.round(h);
-              if (elD) { elD.style.left = d.x / 10 + "%"; elD.style.top = d.y / 6 + "%"; elD.style.width = d.w / 10 + "%"; elD.style.height = d.h / 6 + "%"; }
+              if (elD) slMettiAPosto(elD, d);
               slDeW.value = String(d.w); slDeH.value = String(d.h);
               slFloatEdit(slDecorEdit, `[data-did="${d.id}"]`);
             };
@@ -3256,7 +3420,7 @@ const t = adminT(lang);
             e.preventDefault();
             const d = slDecor.find((x) => x.id === elDec.dataset.did);
             if (!d) return;
-            const scala = slCanvas.clientWidth / 1000;
+            const scala = slScala();
             const sx = e.clientX, sy = e.clientY, ox = d.x, oy = d.y;
             let mosso = false;
             elDec.setPointerCapture(e.pointerId);
@@ -3264,9 +3428,9 @@ const t = adminT(lang);
               const dx = (ev.clientX - sx) / scala, dy = (ev.clientY - sy) / scala;
               if (Math.abs(dx) + Math.abs(dy) > 6) mosso = true;
               if (!mosso) return;
-              const nx = Math.round(Math.min(1000 - d.w, Math.max(0, ox + dx)) / 20) * 20;
-              const ny = Math.round(Math.min(600 - d.h, Math.max(0, oy + dy)) / 20) * 20;
-              d.x = nx; d.y = ny; elDec.style.left = nx / 10 + "%"; elDec.style.top = ny / 6 + "%";
+              const [ex, ey] = slEntro(ox + dx, oy + dy, d.w, d.h);
+              d.x = Math.round(ex / 20) * 20; d.y = Math.round(ey / 20) * 20;
+              slMettiAPosto(elDec, d);
               if (slDecorSel && slDecorSel.id === d.id) slFloatEdit(slDecorEdit, `[data-did="${d.id}"]`);
             };
             const onUp = (ev: PointerEvent) => {
@@ -3283,7 +3447,7 @@ const t = adminT(lang);
           e.preventDefault();
           const t = slTavoli.find((x) => x.id === el.dataset.id);
           if (!t) return;
-          const scala = slCanvas.clientWidth / 1000;
+          const scala = slScala();
           const sx = e.clientX, sy = e.clientY, ox = t.x, oy = t.y;
           let mosso = false;
           el.setPointerCapture(e.pointerId);
@@ -3291,11 +3455,9 @@ const t = adminT(lang);
             const dx = (ev.clientX - sx) / scala, dy = (ev.clientY - sy) / scala;
             if (Math.abs(dx) + Math.abs(dy) > 6) mosso = true;
             if (!mosso) return;
-            const nx = Math.round(Math.min(1000 - t.w, Math.max(0, ox + dx)) / 20) * 20;
-            const ny = Math.round(Math.min(600 - t.h, Math.max(0, oy + dy)) / 20) * 20;
-            t.x = nx; t.y = ny;
-            el.style.left = nx / 10 + "%";
-            el.style.top = ny / 6 + "%";
+            const [ex, ey] = slEntro(ox + dx, oy + dy, t.w, t.h);
+            t.x = Math.round(ex / 20) * 20; t.y = Math.round(ey / 20) * 20;
+            slMettiAPosto(el, t);
             if (slSel && slSel.id === t.id) slFloatEdit(slEdit, `[data-id="${t.id}"]`);
           };
           const onUp = (ev: PointerEvent) => {

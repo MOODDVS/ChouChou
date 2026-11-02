@@ -5,6 +5,7 @@ import {
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
 import { orfaniDelPiano } from "../../../lib/pianoSalaRegole";
+import { normalizzaArea, TELA } from "../../../lib/salaForma";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -27,9 +28,12 @@ const MAX_TAVOLI_LIAISON = 16;
 const MAX_LIAISONS = 40;
 
 // Plan de salle — tavoli disegnati per ogni section (Réglages → Réservations).
-// Coordinate in unità astratte: canvas 1000×600 (lo snap è lato client).
-// L'AREA della sala (rettangolo, 4 angoli) vive in app_config
-// chiave "reservation_plan_areas": { "<zone>": [[x,y], …] }.
+// Coordinate in unità astratte: la sala di sempre e' 1000×600, ma dal
+// 1/11/2026 si puo' uscirne fino ai limiti di `TELA` (salaForma.ts). Lo snap
+// e' lato client.
+// L'AREA della sala (da 3 a 80 angoli, muri anche diagonali o curvi: vedi
+// salaForma.ts) vive in app_config, chiave "reservation_plan_areas":
+// { "<zone>": [[x,y] o [x,y,curva], …] }.
 // Le LIAISONS (gruppi di tavoli unibili) in "reservation_plan_links":
 // { "<zone>": [["id1","id2"], …] }.
 // GET ?zone=  → { tables, area, links }
@@ -195,7 +199,7 @@ export const PUT: APIRoute = async ({ request }) => {
       if (!type) continue;
       const id = String(o.id ?? "").slice(0, 40) || ("d" + decor.length);
       const color = ["white", "black", "brown"].includes(String(o.color)) ? String(o.color) : "brown";
-      decor.push({ id, type, color, x: num(o.x, 0, 1000, 0), y: num(o.y, 0, 600, 0), w: num(o.w, 4, 1000, 40), h: num(o.h, 4, 600, 40) });
+      decor.push({ id, type, color, x: num(o.x, TELA.x0, TELA.x1, 0), y: num(o.y, TELA.y0, TELA.y1, 0), w: num(o.w, 4, TELA.x1 - TELA.x0, 40), h: num(o.h, 4, TELA.y1 - TELA.y0, 40) });
     }
     const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null, ambito);
     if (!ok) return json({ error: await msg("err.save") }, 500);
@@ -204,11 +208,8 @@ export const PUT: APIRoute = async ({ request }) => {
 
   let area: number[][] | null = null;
   if (Array.isArray(body.area)) {
-    if (body.area.length < 3 || body.area.length > 80) return json({ error: await msg("err.zonePoints") }, 400);
-    area = (body.area as unknown[]).map((pt) => {
-      const p2 = Array.isArray(pt) ? pt : [0, 0];
-      return [num(p2[0], 0, 1000, 0), num(p2[1], 0, 600, 0)];
-    });
+    area = normalizzaArea(body.area);
+    if (!area) return json({ error: await msg("err.zonePoints") }, 400);
   }
 
   const ok = await salvaMappa("reservation_plan_areas", zone, area, ambito);
@@ -238,8 +239,8 @@ export const POST: APIRoute = async ({ request }) => {
     name,
     seats: num(body.seats, 1, 30, 4),
     shape,
-    x: num(body.x, 0, 1000, 40),
-    y: num(body.y, 0, 600, 40),
+    x: num(body.x, TELA.x0, TELA.x1, 40),
+    y: num(body.y, TELA.y0, TELA.y1, 40),
     w: num(body.w, 20, 600, 100),
     h: num(body.h, 20, 500, 100),
   };
@@ -274,8 +275,8 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (!FORME.includes(String(body.shape))) return json({ error: await msg("err.shape") }, 400);
     campi.shape = String(body.shape);
   }
-  if ("x" in body) campi.x = num(body.x, 0, 1000, 0);
-  if ("y" in body) campi.y = num(body.y, 0, 600, 0);
+  if ("x" in body) campi.x = num(body.x, TELA.x0, TELA.x1, 0);
+  if ("y" in body) campi.y = num(body.y, TELA.y0, TELA.y1, 0);
   if ("w" in body) campi.w = num(body.w, 20, 600, 100);
   if ("h" in body) campi.h = num(body.h, 20, 500, 100);
   if (Object.keys(campi).length === 0) return json({ error: await msg("err.nothing") }, 400);

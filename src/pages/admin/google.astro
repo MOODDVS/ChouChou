@@ -701,7 +701,7 @@ const t = adminT(lang);
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { creaDatepicker } from "../../lib/admin/datepicker";
       import { preparaFotoGoogle, GOOGLE_LATO_MIN } from "../../lib/admin/imageCompress";
-      import { stellePiene } from "../../lib/admin/googleRegole";
+      import { stellePiene, campiCambiati } from "../../lib/admin/googleRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -1404,6 +1404,9 @@ const t = adminT(lang);
             finally { if (sb) sb.disabled = false; }
           });
 
+          // La scheda com'era appena letta, nella forma del «Salva»: al
+          // salvataggio parte solo cio' che e' diverso (vedi campiCambiati).
+          let fotoScheda: ReturnType<typeof corpoScheda> | null = null;
           async function loadFiche() {
             try {
               const r = await fetch("/api/admin/google/profile", { headers: await authFresh() });
@@ -1442,6 +1445,7 @@ const t = adminT(lang);
               });
               fiSpecial = [...spGroups.values()].map((g) => ({ date: g.date, closed: g.closed, ranges: g.closed ? [] : g.ranges }));
               renderDays(); renderSpecial();
+              fotoScheda = fotografa();
             } catch { /* rete assente */ }
           }
 
@@ -1577,6 +1581,34 @@ const t = adminT(lang);
           attrEl?.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest(".attr-tri button, .attr-chip")) dirty(); });
           document.getElementById("fi-special-add")?.addEventListener("click", dirty);
 
+          /** La scheda nel modulo, nella forma che il «Salva» manda all'API. */
+          function corpoScheda() {
+            return {
+              title: nameEl?.value ?? "",
+              description: desc?.value ?? "",
+              phone: phone?.value ?? "",
+              phone2: phone2?.value ?? "",
+              website: web?.value ?? "",
+              status: statusEl?.value ?? "OPEN",
+              addr: {
+                lines: aLine?.value ?? "",
+                postalCode: aCap?.value ?? "",
+                locality: aCity?.value ?? "",
+                adminArea: aProv?.value ?? "",
+                regionCode: aCountry?.value ?? "",
+              },
+              hours: fiHours.map((g, d) => ({ d, chiuso: g.chiuso, ranges: g.ranges })),
+              special: fiSpecial.filter((sp) => sp.date).flatMap((sp) =>
+                sp.closed
+                  ? [{ date: sp.date, closed: true, a: "", b: "" }]
+                  : sp.ranges.filter((r) => r.a && r.b).map((r) => ({ date: sp.date, closed: false, a: r.a, b: r.b }))
+              ),
+            };
+          }
+          /** Una copia vera: gli orari del modulo si modificano sul posto, e una
+           *  foto che li condividesse cambierebbe con loro (niente «cambiato»). */
+          const fotografa = () => JSON.parse(JSON.stringify(corpoScheda())) as ReturnType<typeof corpoScheda>;
+
           saveBtn?.addEventListener("click", async () => {
             if (!saveBtn) return;
             if (msg) { msg.textContent = ""; msg.classList.remove("err"); }
@@ -1586,30 +1618,14 @@ const t = adminT(lang);
               if (activeSec === "attr" || activeSec === "links") {
                 await saveAttr();
               } else {
-                const body = {
-                  title: nameEl?.value ?? "",
-                  description: desc?.value ?? "",
-                  phone: phone?.value ?? "",
-                  phone2: phone2?.value ?? "",
-                  website: web?.value ?? "",
-                  status: statusEl?.value ?? "OPEN",
-                  addr: {
-                    lines: aLine?.value ?? "",
-                    postalCode: aCap?.value ?? "",
-                    locality: aCity?.value ?? "",
-                    adminArea: aProv?.value ?? "",
-                    regionCode: aCountry?.value ?? "",
-                  },
-                  hours: fiHours.map((g, d) => ({ d, chiuso: g.chiuso, ranges: g.ranges })),
-                  special: fiSpecial.filter((sp) => sp.date).flatMap((sp) =>
-                sp.closed
-                  ? [{ date: sp.date, closed: true, a: "", b: "" }]
-                  : sp.ranges.filter((r) => r.a && r.b).map((r) => ({ date: sp.date, closed: false, a: r.a, b: r.b }))
-              ),
-                };
-                const r = await fetch("/api/admin/google/profile", { method: "PUT", headers: await authFresh(), body: JSON.stringify(body) });
-                const j = await r.json();
-                if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+                const tutto = fotografa();
+                const body = campiCambiati(fotoScheda, tutto, [["phone", "phone2"]]);
+                if (Object.keys(body).length) {
+                  const r = await fetch("/api/admin/google/profile", { method: "PUT", headers: await authFresh(), body: JSON.stringify(body) });
+                  const j = await r.json();
+                  if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+                }
+                fotoScheda = tutto;
               }
               salvato();
             } catch (e) {

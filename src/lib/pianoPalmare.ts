@@ -1,9 +1,9 @@
 /**
  * LA PIANTINA SUL PALMARE — le regole, senza database (22/10/2026).
  *
- * ⚠️ Questo file non importa niente, come `pianoSalaRegole.ts`: le regole che
- * si provano davvero non devono arrivare a `db.ts`, che in vitest lancia
- * all'import.
+ * ⚠️ Questo file importa solo regole pure (`salaForma.ts`), come
+ * `pianoSalaRegole.ts`: le regole che si provano davvero non devono arrivare
+ * a `db.ts`, che in vitest lancia all'import.
  *
  * Due domande:
  *  1. QUALI SALE si mostrano, e in che ordine (`saleDelPalmare`);
@@ -13,8 +13,11 @@
  *
  * I dati sono quelli del piano di Réglages → Réservations: tavoli in
  * `restaurant_tables`, perimetro in `reservation_plan_areas`, muri e piante in
- * `reservation_plan_decor`, tutto in unita' astratte di una tela 1000×600.
+ * `reservation_plan_decor`, tutto in unita' astratte (la sala di sempre e'
+ * 1000×600; dal 1/11/2026 una sala puo' uscirne, e i muri possono essere
+ * diagonali o curvi: vedi `salaForma.ts`).
  */
+import { normalizzaArea, puntiIngombro, type PuntoSala } from "./salaForma";
 
 export interface TavoloPiano {
   id: string;
@@ -40,7 +43,7 @@ export interface SalaPalmare {
   zona: string;
   tavoli: TavoloPiano[];
   /** Il perimetro disegnato, o null se la section non ne ha. */
-  area: [number, number][] | null;
+  area: PuntoSala[] | null;
   decor: DecoroPiano[];
 }
 
@@ -81,7 +84,7 @@ function mappa(grezzo: unknown): Record<string, unknown> {
  * pillola che non porta a niente. Il perimetro da solo non basta.
  */
 /** La tela dell'editor delle piante (Réglages → Réservations): 1000×600. */
-const TELA_INTERA: [number, number][] = [[0, 0], [1000, 0], [1000, 600], [0, 600]];
+const TELA_INTERA: PuntoSala[] = [[0, 0], [1000, 0], [1000, 600], [0, 600]];
 
 export function saleDelPalmare(opz: {
   righe: unknown;
@@ -119,17 +122,12 @@ export function saleDelPalmare(opz: {
     .map((zona) => {
       const a = aree[zona];
       /* ⚠️ SENZA PERIMETRO SALVATO, LA SALA E' TUTTA LA TELA (31/10/2026),
-         come la disegna Réglages → Réservations (`slRectDaArea`: 1000×600).
+         come la disegna Réglages → Réservations (`SALA_DI_SEMPRE`: 1000×600).
          Il ristoratore vede il bordo nel suo editor e lo da' per fatto; il
          palmare non disegnava niente — due sale su tre di Educazione
          Napoletana senza muri, mentre la terza (col perimetro salvato) li
          aveva. */
-      const area: [number, number][] = Array.isArray(a) && a.length >= 3
-        ? (a as unknown[]).map((p) => {
-            const q = Array.isArray(p) ? p : [0, 0];
-            return [n(q[0]), n(q[1])] as [number, number];
-          })
-        : TELA_INTERA;
+      const area: PuntoSala[] = normalizzaArea(a) ?? TELA_INTERA;
       const d = decori[zona];
       const decor: DecoroPiano[] = (Array.isArray(d) ? d : [])
         .map((x) => (x ?? {}) as Record<string, unknown>)
@@ -151,7 +149,7 @@ export interface PianoDisegnato {
   /** Vero se la sala e' stata girata di 90° per stare in verticale. */
   ruotata: boolean;
   tavoli: TavoloPiano[];
-  area: [number, number][] | null;
+  area: PuntoSala[] | null;
   decor: DecoroPiano[];
 }
 
@@ -186,7 +184,8 @@ export function pianoVerticale(
     xs.push(t.x, t.x + t.w);
     ys.push(t.y, t.y + t.h);
   }
-  for (const [x, y] of sala.area ?? []) {
+  // Gli angoli e la pancia dei muri curvi: un arco non deve uscire dallo schermo.
+  for (const [x, y] of puntiIngombro(sala.area ?? [])) {
     xs.push(x);
     ys.push(y);
   }
@@ -226,7 +225,9 @@ export function pianoVerticale(
     altezza,
     ruotata,
     tavoli: sala.tavoli.map(rett),
-    area: sala.area ? sala.area.map(([x, y]) => punto(x, y)) : null,
+    // La curva viaggia col suo punto: una rotazione di 90° non cambia il
+    // verso del giro, quindi «fuori» resta fuori.
+    area: sala.area ? sala.area.map((p) => (p[2] ? [...punto(p[0], p[1]), p[2]] : punto(p[0], p[1])) as PuntoSala) : null,
     decor: sala.decor.map(rett),
   };
 }

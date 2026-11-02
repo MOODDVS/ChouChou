@@ -119,3 +119,36 @@ export function controllaPlaceId(v: unknown): EsitoPlaceId {
   if (/^AIza/.test(s)) return "chiave";
   return /^[A-Za-z0-9_-]+$/.test(s) ? "ok" : "formato";
 }
+
+/**
+ * SOLO I CAMPI CAMBIATI della scheda (2/11/2026).
+ *
+ * Il «Salva» della scheda mandava a Google TUTTO, ogni volta: nome,
+ * indirizzo, telefoni, sito, descrizione, stato, orari, orari speciali —
+ * anche per una sola chiusura. Nome e indirizzo sono i campi che Google
+ * verifica a mano: insieme a loro, una chiusura di BROS e' finita «in
+ * attesa, fino a 7 giorni». Ora parte solo quello che e' diverso da come la
+ * scheda e' stata letta.
+ *
+ * `prima` e' il corpo costruito subito dopo aver letto la scheda (stesse
+ * regole di `dopo`, quindi niente falsi «cambiato»); null = non letta, e
+ * allora si manda tutto come prima. I `gruppi` viaggiano insieme: i due
+ * telefoni sono un campo solo per Google (`phoneNumbers`), e mandarne uno
+ * senza l'altro cancellerebbe l'altro.
+ */
+export function campiCambiati<T extends Record<string, unknown>>(
+  prima: T | null,
+  dopo: T,
+  gruppi: (keyof T)[][] = [],
+): Partial<T> {
+  if (!prima) return { ...dopo };
+  const uguale = (k: keyof T) => JSON.stringify(prima[k]) === JSON.stringify(dopo[k]);
+  const out: Partial<T> = {};
+  for (const k of Object.keys(dopo) as (keyof T)[]) {
+    if (!uguale(k)) out[k] = dopo[k];
+  }
+  for (const g of gruppi) {
+    if (g.some((k) => k in out)) for (const k of g) out[k] = dopo[k];
+  }
+  return out;
+}
