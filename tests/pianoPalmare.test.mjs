@@ -91,3 +91,13 @@ test("senza perimetro salvato la sala e' la tela intera dell'editor (1000×600)"
   const sale = saleDelPalmare({ righe: [T("1", "Salle", "T1", 10, 10)], sezioni: SEZIONI, aree: "{}" });
   assert.deepEqual(sale[0].area, [[0, 0], [1000, 0], [1000, 600], [0, 600]]);
 });
+
+test("i muri curvi arrivano al palmare: la curva resta col suo punto, e la pancia non esce dallo schermo", () => {
+  // muro destro curvo di 100 verso fuori: la sala va fino a x=1100
+  const sala = { zona: "Salle", decor: [], tavoli: [], area: [[0, 0], [1000, 0, 100], [1000, 600], [0, 600]] };
+  const p = pianoVerticale(sala, { margine: 0, minLarghezza: 0, minAltezza: 0 });
+  assert.equal(p.ruotata, true); // 1100 di larghezza > 600 di altezza
+  assert.equal(p.altezza, 1100); // girata: la larghezza diventa altezza, pancia compresa
+  assert.equal(p.area[1][2], 100);
+  assert.equal(p.area[0].length, 2);
+});
