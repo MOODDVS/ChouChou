@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { visibilite, visibiliteDetail, sitoValido } from "../../../lib/searchConsole";
@@ -11,12 +12,6 @@ export const prerender = false;
 
 const K_SITE = "gsc_site";
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

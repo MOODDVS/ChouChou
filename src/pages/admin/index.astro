@@ -71,20 +71,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
       :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
         --c-brown: var(--c-bg);
       }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       /* minmax(0,1fr): colonne SEMPRE uguali (il contenuto largo non può
          allargare la sua colonna). grid-auto-rows + align-items:start =
@@ -532,7 +521,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          cliente a cliente, e su un tema verde la pastiglia di chiusura sarebbe
          stata verde. E' lo stesso rosso delle pastiglie di chiusura dei giorni
          speciali. */
-      .j-pil.ko { background: #ed1c24; color: #fff; }
+      .j-pil.ko { background: var(--c-ko); color: #fff; }
       /* La pastiglia NEUTRA: dice un numero, non uno stato. Il fondo e' la
          stessa formula dei piani rialzati del pannello (`color-mix` sul testo
          contro il fondo), non un grigio scritto a mano che su un tema chiaro
@@ -682,7 +671,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-tot { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
       .j-tot .big { font-family: var(--font-title); font-size: 1.75rem; line-height: 1; }
       .j-tot .d { font-size: 0.78rem; font-weight: 700; }
-      .j-tot .d.up { color: var(--c-ok-chiaro, #4fbe8c); }
+      .j-tot .d.up { color: var(--c-ok-chiaro); }
       .j-tot .d.giu { color: var(--c-accent); }
       .j-tot .q { font-size: 0.74rem; color: var(--c-muted); margin-left: auto; }
       /* I soldi resi, sotto il totale. ⚠️ `:empty` non esiste: senza rimborsi
@@ -935,7 +924,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          ⚠️ I colori restano FISSI: `--c-accent` e' il colore delle AZIONI e
          cambia da cliente a cliente — «confermata» non deve diventare blu
          perche' un ristorante ha scelto il blu. */
-      .j-badge.ok { background: #2e9e6b; color: #fff; }
+      .j-badge.ok { background: var(--c-ok); color: #fff; }
       /* L'unica legata all'accento: «in attesa» e' la riga su cui si deve
          fare qualcosa, ed e' il colore con cui il pannello chiama all'azione. */
       .j-badge.pd { background: var(--c-accent); color: var(--c-bg); }
@@ -947,7 +936,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-badge.gr,
       .j-badge.done { background: #5f7378; color: #fff; }
       .j-badge.enc { background: #5d5555; color: #fff; }
-      .j-badge.pay { background: #2e9e6b; color: #fff; }
+      .j-badge.pay { background: var(--c-ok); color: #fff; }
       /* «Fini ?» — la domanda dell'orologio: la stessa veste di `.b-fini`
          nella pagina Réservations, perche' e' la stessa domanda.
          ⚠️ Senza il battito che ha di la'. Nella pagina ce n'e' una alla
@@ -1142,11 +1131,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          e' un guasto — e' una foto disponibile, da montare da qualche parte o
          da buttare. Il rosso qui dentro vuol dire «qualcosa non va», e su
          mezza libreria avrebbe gridato tutto il giorno per niente.
-         ⚠️ `#2e9e6b` e' il verde che il pannello usa gia' per «confermata»
+         ⚠️ `var(--c-ok)` e' il verde che il pannello usa gia' per «confermata»
          nelle pastiglie di stato: pieno perche' sta SOPRA una fotografia, dove
          un fondo trasparente prende il colore di quello che c'e' sotto e una
          scritta chiara su una panna cotta non si legge piu'. */
-      .ph-b { background: #2e9e6b; color: #fff; }
+      .ph-b { background: var(--c-ok); color: #fff; }
       /* Il cestino sta sulla foto, in alto a DESTRA: e' il tondo del pannello
          in taglia piccola (`.ibtn.ibtn-sm.ibtn-danger`), con la sua guardia a
          due tocchi. Si vede solo sulle foto che non usa nessuno — e si vede

@@ -8,6 +8,7 @@ import { fusoDi } from "../../lib/fuso";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { registraCliente } from "../../lib/registraCliente";
 import { emailReviewResa } from "../../lib/notifications";
+import { emailValida } from "../../lib/emailValida";
 
 /**
  * APRIRE (O RITROVARE) LA SESSIONE DI CHI ORDINA DAL LOCALE.
@@ -137,6 +138,7 @@ export const POST: APIRoute = async ({ request }) => {
      pretenderla perderebbe ordini, e chi la lascia riceve la ricevuta. */
   const email = String(body.email ?? "").trim().toLowerCase();
   if (opz.avvisa && !email) return json({ error: "email requise" }, 400);
+  if (email && !emailValida(email)) return json({ error: "email invalide" }, 400);
 
   // ---- Si puo' ordinare adesso? ----
   const fuso = await fusoDi(ambito);

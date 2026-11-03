@@ -54,8 +54,8 @@
 /* Bottone «Fermer»: chiude/riapre le commandes online. Rosso, e non il
    corallo del marchio: e' l'unico bottone della pagina che spegne qualcosa. */
 .prep-close .m { color: var(--c-muted); }
-.prep-close:hover { border-color: #ed1c24; }
-.prep-close.closed { border-color: #ed1c24; background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
+.prep-close:hover { border-color: var(--c-ko, #ed1c24); }
+.prep-close.closed { border-color: var(--c-ko, #ed1c24); background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
 .prep-close.closed .m { color: #ff6b6b; font-weight: 700; }
 
 /* ---- DENTRO UNA RIGA DI SCELTA (Réglages: fonte degli orari, giorni,

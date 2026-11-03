@@ -1,19 +1,12 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { slotsDelMese, slotsDelGiorno } from "../../../lib/slotsApi";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
-import { adminT } from "../../../i18n/admin";
-import { adminLang } from "../../../lib/admin/adminLang";
 
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), {

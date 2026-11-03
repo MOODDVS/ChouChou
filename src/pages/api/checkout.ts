@@ -1,6 +1,7 @@
+import { quantita, RIGHE_MAX } from "../../lib/quantita";
 import type { APIRoute } from "astro";
 // Multi-sede: l'ordine nasce in un PUNTO. Segnaposto fino al pezzo 8.
-import { leggi, inserisci, aggiorna } from "../../lib/admin/sede";
+import { leggi, inserisci, aggiorna, leggiConfig } from "../../lib/admin/sede";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib/db";
@@ -13,7 +14,6 @@ import { giornoAmmesso, preavvisoDelServizio, soloOrariLiberi } from "../../lib/
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
 import { PARAM_ORDINE } from "../../lib/esitoTavoloRegole";
-import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
@@ -107,6 +107,10 @@ export const POST: APIRoute = async ({ request }) => {
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return err(400, "Carrello vuoto");
   }
+  // Audit 3/11/2026: un carrello ha un tetto, e ogni quantita' e' un intero 1–99.
+  if (body.items.length > RIGHE_MAX || body.items.some((i) => quantita(i?.qty) === null)) {
+    return err(400, "Richiesta non valida");
+  }
   /* ⚠️ QUALE SERVIZIO — si decide subito, perche' cambia cosa e' obbligatorio.
      `servizioDi` e' la regola pura: tutto cio' che non e' "table" e' da
      asporto, compreso un valore mai visto. Le righe scritte prima della #82
@@ -198,8 +202,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Servizio chiuso dall'admin (bottone "Fermer" nella pagina Commandes):
   // blocco anche lato server, per chi avesse la pagina già aperta.
-  const { data: cfgChiusura } = await appConfigEq("orders_closed", ambitoPub);
-  if (cfgChiusura?.value === "1") {
+  // ⚠️ Audit 3/11/2026: SENZA cache. La cache (30 s) e' di ogni processo, e
+  // «Fermer» la svuota solo in quello che ha ricevuto il clic: gli altri
+  // continuavano a vendere fino a mezzo minuto. Una lettura piccola, e solo
+  // quando qualcuno paga.
+  const chiusura = (await leggiConfig(ambitoPub, ["orders_closed"])).valori.get("orders_closed");
+  if (chiusura === "1") {
     return err(503, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
   }
 
@@ -377,7 +385,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!piatto || !piatto.available || piatto.sold_out === true) {
       return err(409, "Un piatto selezionato non è più disponibile");
     }
-    const qty = Math.max(1, Math.floor(richiesto.qty));
+    const qty = quantita(richiesto.qty) ?? 1;
 
     let supplemento: Supplemento = "none";
     const richiestoSuppl = richiesto.supplement;

@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { Resend } from "resend";
 import { motivoInvio } from "../../../lib/esitoEmail";
 import { supabaseAdmin } from "../../../lib/db";
@@ -8,7 +10,7 @@ import { adminLang } from "../../../lib/admin/adminLang";
 import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
 import { sedeDaScrivere, radiceDocs, type Ambito } from "../../../lib/admin/sedeRegole";
 
-import { adminT } from "../../../i18n/admin";
+import { bucketDocs, linkDocs, spostaNelPrivato } from "../../../lib/admin/bucketDocs";
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
@@ -16,12 +18,6 @@ const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Documents della pagina ADMIN (tab Documents): PDF classificati per
 // CATEGORIA in cartelle del bucket `documents` (contrat/ facture/ recu/
@@ -41,7 +37,8 @@ async function msg(chiave: string): Promise<string> {
 //      → rinomina / cambia categoria / aggiorna metadati
 // DELETE ?cat=&name= → elimina (client: POST + X-Method-Override)
 
-const BUCKET = "documents";
+// ⚠️ Il bucket non e' piu' una costante: privato (`admin_docs`, #93) se c'e',
+// altrimenti il vecchio pubblico. Vedi lib/admin/bucketDocs.ts.
 
 const CATS = ["contrat", "facture", "recu", "legal", "autre"];
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
@@ -162,12 +159,6 @@ function htmlResiliation(p: {
 </html>`;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 function thumbDi(nome: string): string {
   return `.thumb-${nome}.webp`;
@@ -301,34 +292,43 @@ export const GET: APIRoute = async ({ request }) => {
     /* senza metadati */
   }
 
+  // I file rimasti nel bucket pubblico passano nel privato (una volta sola).
+  await spostaNelPrivato(CATS.map((cat) => radice + cat));
+  const BUCKET = await bucketDocs();
+
   const documents: Record<string, unknown>[] = [];
-  for (const cat of CATS) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(BUCKET)
-      .list(radice + cat, { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
-    if (error) continue; // cartella non ancora creata
+  // Le cinque cartelle INSIEME, non una dopo l'altra.
+  const liste = await Promise.all(CATS.map((cat) => supabaseAdmin.storage
+    .from(BUCKET)
+    .list(radice + cat, { limit: 1000, sortBy: { column: "created_at", order: "desc" } })));
+  const trovati: { cat: string; f: { name: string; metadata: unknown; created_at?: string | null }; thumb: boolean }[] = [];
+  CATS.forEach((cat, i) => {
+    const { data, error } = liste[i];
+    if (error) return; // cartella non ancora creata
     const files = (data ?? []).filter((f) => !!f.name);
     const nascosti = new Set(files.filter((f) => f.name.startsWith(".")).map((f) => f.name));
-    for (const f of files) {
-      if (f.name.startsWith(".")) continue;
-      const meta = metaMap.get(`${radice}${cat}/${f.name}`);
-      documents.push({
-        cat,
-        name: f.name,
-        url: supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${cat}/${f.name}`).data.publicUrl,
-        thumb_url: nascosti.has(thumbDi(f.name))
-          ? supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${cat}/${thumbDi(f.name)}`).data.publicUrl
-          : null,
-        size: Number((f.metadata as Record<string, unknown> | null)?.size ?? 0),
-        created_at: f.created_at ?? "",
-        email: meta?.email ?? null,
-        expires: meta?.expires ?? null,
-        notice_value: meta?.notice_value ?? null,
-        notice_unit: meta?.notice_unit ?? null,
-        lang: meta?.lang ?? null,
-        resiliation_at: meta?.resiliation_at ?? null,
-      });
-    }
+    for (const f of files) if (!f.name.startsWith(".")) trovati.push({ cat, f, thumb: nascosti.has(thumbDi(f.name)) });
+  });
+  // I link tutti in UNA chiamata (firmati se il bucket e' privato).
+  const percorsi = trovati.flatMap(({ cat, f, thumb }) => [`${radice}${cat}/${f.name}`, ...(thumb ? [`${radice}${cat}/${thumbDi(f.name)}`] : [])]);
+  const firmati = await linkDocs(BUCKET, percorsi);
+  const link = new Map(percorsi.map((p, i) => [p, firmati[i]] as [string, string]));
+  for (const { cat, f, thumb } of trovati) {
+    const meta = metaMap.get(`${radice}${cat}/${f.name}`);
+    documents.push({
+      cat,
+      name: f.name,
+      url: link.get(`${radice}${cat}/${f.name}`) ?? "",
+      thumb_url: thumb ? (link.get(`${radice}${cat}/${thumbDi(f.name)}`) || null) : null,
+      size: Number((f.metadata as Record<string, unknown> | null)?.size ?? 0),
+      created_at: f.created_at ?? "",
+      email: meta?.email ?? null,
+      expires: meta?.expires ?? null,
+      notice_value: meta?.notice_value ?? null,
+      notice_unit: meta?.notice_unit ?? null,
+      lang: meta?.lang ?? null,
+      resiliation_at: meta?.resiliation_at ?? null,
+    });
   }
   documents.sort((a, b) => (String(a.created_at) < String(b.created_at) ? 1 : -1));
   return json({ documents });
@@ -451,7 +451,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     if (bytes.length === 0 || bytes.length > 512 * 1024) return json({ error: await msg("err.previewBad") }, 400);
     const { error } = await supabaseAdmin.storage
-      .from(BUCKET)
+      .from(await bucketDocs())
       .upload(`${radice}${cat}/${thumbDi(name)}`, bytes, { contentType: "image/webp", upsert: true });
     if (error) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true });
@@ -471,6 +471,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Timestamp nel nome: niente collisioni (rinominabile dopo)
   const fileName = `${Date.now()}-${nome}`;
+  const BUCKET = await bucketDocs();
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(`${radice}${cat}/${fileName}`, bytes, { contentType: "application/pdf", upsert: false });
@@ -478,7 +479,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   await salvaMeta(`${radice}${cat}/${fileName}`, metaDalBody(body, cat), ambito);
 
-  const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${cat}/${fileName}`).data.publicUrl;
+  const [url] = await linkDocs(BUCKET, [`${radice}${cat}/${fileName}`]);
   return json({ ok: true, name: fileName, url }, 201);
 };
 
@@ -506,6 +507,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   // Spostamento file (nome e/o categoria cambiati)
   let resilPrec: string | null | undefined;
+  const BUCKET = await bucketDocs();
   if (nuovaCat !== cat || nuovoNome !== name) {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)
@@ -526,7 +528,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   await salvaMeta(`${radice}${nuovaCat}/${nuovoNome}`, metaDalBody(body, nuovaCat), ambito, resilPrec);
 
-  const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${nuovaCat}/${nuovoNome}`).data.publicUrl;
+  const [url] = await linkDocs(BUCKET, [`${radice}${nuovaCat}/${nuovoNome}`]);
   return json({ ok: true, cat: nuovaCat, name: nuovoNome, url });
 };
 
@@ -540,7 +542,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const name = url.searchParams.get("name") ?? "";
   if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
 
-  const { error } = await supabaseAdmin.storage.from(BUCKET).remove([`${radice}${cat}/${name}`, `${radice}${cat}/${thumbDi(name)}`]);
+  const { error } = await supabaseAdmin.storage.from(await bucketDocs()).remove([`${radice}${cat}/${name}`, `${radice}${cat}/${thumbDi(name)}`]);
   if (error) return json({ error: await msg("err.delete") }, 500);
   try {
     await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${radice}${cat}/${name}`);

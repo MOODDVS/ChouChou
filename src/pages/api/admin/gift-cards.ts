@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, inserisci, elencoSedi, type Ambito } from "../../../lib/admin/sede";
@@ -8,17 +10,10 @@ import { datiRistorante } from "../../../lib/ristorante";
 import { emailBonCadeau, emailBonRistoratore, type BonEmail } from "../../../lib/notifications";
 import { creaCheckoutBon } from "../../../lib/stripe";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
+import { aPagine } from "../../../lib/aPagine";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // CRUD dei buoni regalo (admin Marketing → Bons cadeaux) + riscatto manuale.
 // GET    → elenco buoni (con saldo)
@@ -33,12 +28,6 @@ const ALF = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 // non esistono, e un insert che le nomina fallisce tutto. Ordine indifferente.
 const GIOVANI = ["sender_lang", "recipient_lang", "sold_at_location"] as const;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /**
  * Prefisso del codice: le 5 iniziali del nome del ristorante (Réglages →
@@ -156,14 +145,17 @@ export const GET: APIRoute = async ({ request }) => {
   // Stessa ragione della scheda cliente, che mostra la spesa dell'intero
   // gruppo. La SCRITTURA invece e' per sede: registra DOVE e' stato usato.
   let red: Riscatto[] = [];
-  const ricco = await supabaseAdmin
+  // Tutte le righe, non le prime mille (lib/aPagine.ts).
+  const ricco = await aPagine<unknown>((da, a) => supabaseAdmin
     .from("gift_card_redemptions")
     .select("gift_card_id, amount_cents, created_at, note, kind, created_by" + (multi ? ", location_id" : ""))
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id")
+    .range(da, a));
   if (ricco.error) {
     // Cliente non migrato (mancano note/kind/created_by): si torna al solo
     // conteggio, che e' sempre esistito. Meglio meno righe che zero.
-    const magro = await supabaseAdmin.from("gift_card_redemptions").select("gift_card_id");
+    const magro = await aPagine<{ gift_card_id: string }>((da, a) => supabaseAdmin.from("gift_card_redemptions").select("gift_card_id").order("id").range(da, a));
     red = ((magro.data ?? []) as { gift_card_id: string }[]).map((r) => ({
       gift_card_id: r.gift_card_id,
       amount_cents: null,
@@ -319,7 +311,8 @@ export const POST: APIRoute = async ({ request }) => {
         nomeRistorante: dati.nome,
       });
     } catch (e) {
-      return json({ error: e instanceof Error ? e.message : "Stripe indisponible" }, 502);
+      console.error("[gift-cards] stripe:", e instanceof Error ? e.message : e);
+      return json({ error: await msg("err.stripeDown") }, 502);
     }
     await supabaseAdmin.from("gift_cards").update({ stripe_session_id: url }).eq("id", card.id);
     await emailBonCadeau({ ...(card as unknown as BonEmail), pay_url: url, paid: false }, "offrant", offr, amb);

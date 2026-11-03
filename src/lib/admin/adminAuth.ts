@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
-import { chiaveApi, palmarePuoChiamare } from "./permessiRegole";
+import { chiaveApi, palmarePuoChiamare, puoChiamareApi } from "./permessiRegole";
 
 // Helper di autenticazione per gli endpoint admin (/api/admin/*).
 // Verifica che la richiesta arrivi da uno staff autenticato, leggendo il
@@ -57,7 +57,7 @@ const BOOTSTRAP_EMAILS = new Set(
     .filter(Boolean),
 );
 
-function staffAutorizzato(u: StaffUser): boolean {
+export function staffAutorizzato(u: StaffUser): boolean {
   const email = (u.email ?? "").trim().toLowerCase();
   if (email === SUPER_EMAIL_AUTH) return true; // super MOODD: sempre
   if (u.role === "super" || u.role === "admin" || u.role === "user" || u.role === "palmare") return true; // ruolo esplicito
@@ -242,9 +242,17 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
     : "";
 
   if (!token) return null;
+  const chiave = chiaveApi(new URL(request.url).pathname);
+  const metodo = request.method;
 
+  // ⚠️ La cache ricorda solo CHI e' (identita' verificata, 60 s). L'AUTORIZZAZIONE
+  // si rifa' a ogni chiamata: prima del 3/11/2026 un token in cache tornava
+  // prima del controllo del palmare, e dopo una chiamata lecita a `salle-*` lo
+  // stesso token apriva qualunque /api/admin/* per un minuto.
   const inCache = tokenVerificati.get(token);
-  if (inCache && Date.now() < inCache.scade) return inCache.user;
+  if (inCache && Date.now() < inCache.scade) {
+    return (await puoChiamare(inCache.user, chiave, metodo)) ? inCache.user : null;
+  }
 
   // 1) Percorso veloce: verifica locale (nessuna rete).
   let user = await verificaLocale(token);
@@ -262,6 +270,11 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
         (data.user.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
       employee_id:
         (data.user.app_metadata as { employee_id?: string } | undefined)?.employee_id ?? null,
+      // ⚠️ Anche le pagine, come nella verifica locale: ora decidono quali API
+      // si possono chiamare, e senza un «user» riceverebbe quelle di default.
+      pages: Array.isArray((data.user.app_metadata as { pages?: unknown } | undefined)?.pages)
+        ? ((data.user.app_metadata as { pages: unknown[] }).pages).map((x) => String(x))
+        : null,
       nome: nomeDiStaff(data.user.user_metadata),
     };
   }
@@ -269,16 +282,29 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
   // AUTORIZZAZIONE: token valido ma utente non provisionato → niente accesso.
   if (!staffAutorizzato(user)) return null;
 
-  // ⚠️ IL PALMARE (22/10/2026): solo le API della sua lista, e la decisione
-  // sta QUI oltre che nel middleware. Il middleware legge le claims in locale
-  // e, se non ci riesce, lascia passare (vedi middleware.ts); qui il ruolo
-  // arriva anche dal ripiego di rete, quindi questa e' la porta che tiene.
-  // Fuori da /api/admin la chiave e' vuota: negato anche lì.
-  if (ePalmare(user) && !palmarePuoChiamare(chiaveApi(new URL(request.url).pathname))) return null;
-
   if (tokenVerificati.size > 200) tokenVerificati.clear();
   tokenVerificati.set(token, { scade: Date.now() + CACHE_TOKEN_MS, user });
-  return user;
+  return (await puoChiamare(user, chiave, metodo)) ? user : null;
+}
+
+/**
+ * PUO' CHIAMARE QUESTA API? (3/11/2026) — la stessa regola del middleware
+ * (`puoChiamareApi`: le pagine abilitate del ruolo), decisa QUI perche' qui il
+ * ruolo c'e' sempre, anche dal ripiego di rete.
+ *
+ * ⚠️ Prima la decideva solo il middleware, leggendo il cookie `mdd_at`: ma il
+ * cookie e' scritto con `Path=/admin` e non arriva mai a /api/admin, quindi il
+ * controllo non scattava e ogni utente dello staff chiamava ogni API.
+ *
+ * Il palmare: solo le API della sua lista; fuori da /api/admin (chiave vuota)
+ * negato anche li'.
+ */
+async function puoChiamare(user: StaffUser, chiave: string, metodo: string): Promise<boolean> {
+  if (ePalmare(user)) return palmarePuoChiamare(chiave);
+  if (!chiave) return true;
+  // Import al momento: `permessi.ts` importa questo file.
+  const { contestoDiStaff } = await import("./permessi");
+  return puoChiamareApi(chiave, await contestoDiStaff(user), metodo);
 }
 
 /**

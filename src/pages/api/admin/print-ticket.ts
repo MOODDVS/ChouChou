@@ -1,9 +1,8 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
 import { accodaTicket } from "../../../lib/stampaCoda";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 
 /**
  * RISTAMPARE IL TICKET DI UN ORDINE.
@@ -32,9 +31,6 @@ export const prerender = false;
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 /** Il motivo tecnico → la frase per chi ha premuto. ⚠️ Ogni ramo ha la SUA:
  *  «non ha funzionato» manda a chiamare noi, «la stampante non e' configurata»

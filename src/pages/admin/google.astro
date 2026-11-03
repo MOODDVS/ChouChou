@@ -25,19 +25,7 @@ const t = adminT(lang);
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style is:global>
-      :root {
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { margin: 0; padding: 0; box-sizing: border-box; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
       h1 svg { width: 20px; height: 20px; fill: var(--c-accent); }
 
@@ -242,7 +230,7 @@ const t = adminT(lang);
       .p-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
       .p-offer .p-lab { margin-top: .6rem; }
       .p-actions { display: flex; align-items: center; gap: .8rem; margin-top: .4rem; }
-      .p-msg { font-size: .8rem; color: #ff8a8f; margin-right: auto; }
+      .p-msg { font-size: .8rem; color: var(--c-ko-chiaro); margin-right: auto; }
       .p-list-tit { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: .04em; margin: 0 0 .8rem; }
       .p-card { display: flex; gap: .9rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: .8rem .95rem; margin-bottom: .7rem; }
       .p-card-img img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; display: block; }
@@ -261,7 +249,7 @@ const t = adminT(lang);
       .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .i-btn:disabled { opacity: .3; cursor: not-allowed; }
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #fff; }
       .i-del .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 .7rem; border-radius: 999px; font-size: .75rem; }
       .p-del { margin-left: auto; }
@@ -361,7 +349,7 @@ const t = adminT(lang);
          input[type=date] non lo prende piu'. */
       .fi-range input[type=time], .fi-sp input[type=time], .fi-sp .fi-sp-date { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 6px; padding: .4rem .55rem; font-size: .85rem; font-family: var(--font-body); }
       .fi-r-del, .fi-sp-del { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1.15rem; line-height: 1; }
-      .fi-r-del:hover, .fi-sp-del:hover { color: #ff8a8f; }
+      .fi-r-del:hover, .fi-sp-del:hover { color: var(--c-ko-chiaro); }
       .fi-r-add { background: none; border: 1px dashed var(--c-line); color: var(--c-muted); border-radius: 999px; padding: .25rem .8rem; font-size: .78rem; cursor: pointer; align-self: flex-start; }
       .fi-r-add:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .fi-closed { color: var(--c-muted); font-size: .85rem; font-style: italic; }
@@ -694,6 +682,7 @@ const t = adminT(lang);
 
     <AdminNav current="google" />
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
@@ -721,9 +710,6 @@ const t = adminT(lang);
         reply_time: string | null;
       };
 
-      function esc(s: string): string {
-        return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      }
       /** ⚠️ QUANTE stelle lo dice `googleRegole.stellePiene`, qui c'e' solo il
        *  disegno (le spente sono un `<span>`, non un carattere diverso).
        *  Contava da sola e TRONCAVA: 4,7 era quattro stelle qui e cinque nella
@@ -1291,7 +1277,6 @@ const t = adminT(lang);
           const updCount = () => { if (descCount && desc) descCount.textContent = String(desc.value.length); };
           desc?.addEventListener("input", updCount);
           const saveBtn = document.getElementById("fi-save") as HTMLButtonElement | null;
-          const esc = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const WD = [0, 1, 2, 3, 4, 5, 6].map((d) => tr("gg.wd" + d));
           document.getElementById("fi-filtri")?.addEventListener("click", (e) => {
             const b = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;

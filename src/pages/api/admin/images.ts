@@ -1,19 +1,13 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { SITE_IMAGE_KEYS, SITE_IMAGE_SLOTS } from "../../../config/siteImageSlots";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Bibliothèque d'images (admin → Images) : tutte le immagini caricate
 // nei bucket Storage `menu` (foto dei piatti) e `popups` (pop-up e
@@ -29,12 +23,6 @@ async function msg(chiave: string): Promise<string> {
 const BUCKETS = ["menu", "popups"] as const;
 type Bucket = (typeof BUCKETS)[number];
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /** Un utilizzo dell'immagine: etichetta leggibile + categoria.
  *  I tag Menu/Marketing derivano dall'USO, non dal bucket: un'immagine

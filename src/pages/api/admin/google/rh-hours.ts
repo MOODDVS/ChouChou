@@ -1,20 +1,14 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../../lib/admin/msgApi";
+import { json } from "../../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 // Gli orari da mandare a Google sono quelli della SCHEDA di questa sede:
 // tre punti, tre schede, tre orari.
 import { ambitoDiRichiesta, leggiOrari, leggi } from "../../../../lib/admin/sede";
 
-import { adminLang } from "../../../../lib/admin/adminLang";
-import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // GET /api/admin/google/rh-hours
 // Orari di RestoHub nel formato dell'editor Google:
@@ -23,12 +17,6 @@ async function msg(chiave: string): Promise<string> {
 //             gli intervalli di RestoHub sono espansi in singole date perché Google non
 //             gestisce intervalli multi-giorno).
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 const hhmm = (v: unknown): string => String(v ?? "").slice(0, 5);
 // d editor (0=lun..6=dom) -> settings.day_of_week (0=dom..6=sab)

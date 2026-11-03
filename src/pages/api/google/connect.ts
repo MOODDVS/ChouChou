@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { googleConfigurato, creaState, urlConsenso, scollega } from "../../../lib/googleBusiness";
@@ -9,12 +10,6 @@ export const prerender = false;
 // POST   → ritorna l'URL della schermata di consenso (il browser ci va da solo)
 // DELETE → scollega (cancella il refresh token del cliente)
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

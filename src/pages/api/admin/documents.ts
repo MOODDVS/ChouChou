@@ -1,18 +1,12 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Documents (admin → Assets → Documents) : PDF nel bucket `documents`.
 // Ogni PDF può avere un'ANTEPRIMA (prima pagina in webp) salvata come
@@ -29,12 +23,6 @@ function thumbDi(nome: string): string {
   return `.thumb-${nome}.webp`;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 function nomeValido(nome: string): boolean {
   return !!nome && !nome.includes("/") && !nome.includes("..");
@@ -65,7 +53,8 @@ export const GET: APIRoute = async ({ request }) => {
     // caricava un file vedeva il caricamento fallire senza capire perche'.
     const dettaglio = String(error.message ?? "").toLowerCase();
     if (dettaglio.includes("not found") || dettaglio.includes("does not exist")) return json({ documents: [] });
-    return json({ error: await msg("err.read"), detail: error.message ?? "" }, 500);
+    console.error("[documents] list:", error.message);
+    return json({ error: await msg("err.read") }, 500);
   }
 
   // ⚠️ `list()` restituisce anche le CARTELLE (prefissi), che non sono oggetti:

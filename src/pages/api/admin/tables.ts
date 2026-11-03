@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import {
   ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella, leggiConfig, scriviConfig, type Ambito,
 } from "../../../lib/admin/sede";
@@ -8,18 +10,11 @@ import { orfaniDelPiano } from "../../../lib/pianoSalaRegole";
 import { normalizzaArea, TELA, FORME_TAVOLO, normalizzaRotazione, manca92 } from "../../../lib/salaForma";
 import { normalizzaElemento, ELEMENTI_MAX, type Elemento } from "../../../lib/elementiSala";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { haLaPagina } from "../../../lib/admin/permessi";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 /** Tavoli massimi in UNA combinazione (liaison) e combinazioni per section.
  *  Erano 8 e 40, applicati scartando in silenzio: con tavoli da 2 il tetto
@@ -55,12 +50,6 @@ async function conRotazione<T>(fai: (sel: string) => PromiseLike<{ data: T | nul
   return { ...r, rotazione: true };
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 function num(v: unknown, min: number, max: number, fallback: number): number {
   const n = Number(v);
@@ -155,6 +144,11 @@ export const PUT: APIRoute = async ({ request }) => {
     body = await request.json();
   } catch {
     return json({ error: await msg("err.body") }, 400);
+  }
+  // ⚠️ Audit 3/11/2026: da Réservations si cambia SOLO la priorita' di
+  // riempimento; il piano e le liaisons restano di Réglages.
+  if (!("priority" in body) && !(await haLaPagina(staff, "settings"))) {
+    return json({ error: await msg("err.forbidden") }, 403);
   }
   // Priorità di riempimento: { priority: ["Interieur", "Terrasse", …] }.
   // Ordine con cui l'assegnazione tavoli riempie le sections quando il

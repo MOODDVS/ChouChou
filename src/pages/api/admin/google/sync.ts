@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { sincronizzaRecensioni, erroreGoogle } from "../../../../lib/googleBusiness";
 import { adminLang } from "../../../../lib/admin/adminLang";
@@ -10,12 +11,6 @@ export const prerender = false;
 // POST /api/admin/google/sync — tira le recensioni da Google e aggiorna la
 // cache. Chiamato da "Sincronizza ora". Puo' impiegare qualche secondo.
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

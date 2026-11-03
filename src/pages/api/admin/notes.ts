@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 import { ruoloDi } from "../../../lib/admin/superAdmin";
@@ -13,12 +15,6 @@ import { emailNotaAssegnata } from "../../../lib/notifications";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 const SELECT = "id, content, author, done, created_at, tags, done_at, done_by, due_at, repeat, assigned_to, assigned_name";
 /** Le colonne che una tabella `admin_notes` ha di sicuro, da qualunque
@@ -178,12 +174,6 @@ async function personaDaAssegnare(
   return { id: String(p.id), name: String(p.name ?? ""), email: String(p.email ?? "") };
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 // GET /api/admin/notes — tutte le note, attive prima poi le fatte, recenti in cima.
 export const GET: APIRoute = async ({ request }) => {
@@ -231,7 +221,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!puoCancellare(staff)) return nonAutorizzato();
     if (!/^[0-9a-f-]{36}$/i.test(delId)) return json({ error: await msg("err.id") }, 400);
     const { error } = await cancella("admin_notes", ambito).eq("id", delId);
-    if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
+    if (error) { console.error("[notes] delete:", error.message); return json({ error: await msg("err.delete") }, 500); }
     return json({ ok: true });
   }
 
@@ -433,6 +423,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { error } = await cancella("admin_notes", ambito).eq("id", id);
-  if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
+  if (error) { console.error("[notes] delete:", error.message); return json({ error: await msg("err.delete") }, 500); }
   return json({ ok: true });
 };

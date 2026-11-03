@@ -8,6 +8,7 @@
 import type { DateTime } from "luxon";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Ambito } from "./admin/sedeRegole";
+import { likeEsatto } from "./like";
 
 export type Lang = "fr" | "en" | "it" | "nl" | "es";
 
@@ -317,7 +318,7 @@ export async function verificaLimitiUso(
       .from("orders")
       .select("id", { count: "exact", head: true })
       .eq("status", "paid")
-      .ilike("customer_email", emailNorm);
+      .ilike("customer_email", likeEsatto(emailNorm));
     if ((count ?? 0) > 0) {
       return testiCoupon(lang).soloNuovi;
     }
@@ -330,7 +331,7 @@ export async function verificaLimitiUso(
       .select("id", { count: "exact", head: true })
       .eq("status", "paid")
       .eq("coupon_id", coupon.id)
-      .ilike("customer_email", emailNorm);
+      .ilike("customer_email", likeEsatto(emailNorm));
     if ((count ?? 0) >= coupon.per_customer_limit) {
       return testiCoupon(lang).giaUsato;
     }

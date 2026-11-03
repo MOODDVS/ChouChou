@@ -1,6 +1,9 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { haLaPagina } from "../../../lib/admin/permessi";
 import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 import { cacheDel } from "../../../lib/cache";
 import { scadeOrariRitiro } from "../../../lib/schedule";
@@ -30,12 +33,6 @@ import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 /** Lo stesso, col valore al posto di `{v}` (l'email sbagliata, il nome
  *  della section…). Fino al 2/11/2026 questi messaggi erano scritti a mano
  *  in francese: un admin in inglese leggeva «Couverts invalides…». */
@@ -190,12 +187,6 @@ const CHIAVI_RESA = [
   "reservation_notify_email", // dove arrivano le richieste
 ];
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 function minOra(s: string): number {
   const [h, m] = s.split(":").map((n) => parseInt(n, 10));
@@ -420,6 +411,12 @@ export const PATCH: APIRoute = async ({ request }) => {
   const vuoleBriefEmail = typeof body.daily_brief_email === "string";
   if (!vuoleChiusura && !vuolePrep && !vuoleBrief && !vuoleBriefOra && !vuoleBriefEmail) {
     return json({ error: await msg("err.request") }, 400);
+  }
+  // ⚠️ Audit 3/11/2026: Commandes puo' chiamare questo PATCH (preparazione e
+  // chiusura), ma la mail del mattino porta il FATTURATO: quella resta a chi
+  // ha Réglages, se no la si manderebbe a un indirizzo qualunque.
+  if ((vuoleBrief || vuoleBriefOra || vuoleBriefEmail) && !(await haLaPagina(staff, "settings"))) {
+    return json({ error: await msg("err.forbidden") }, 403);
   }
 
   // Ora d'invio dell'email quotidienne (HH:MM, fuso del ristorante)

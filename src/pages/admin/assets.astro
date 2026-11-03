@@ -37,20 +37,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
@@ -142,7 +128,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
       }
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
-      .i-del:hover:not(:disabled) { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
+      .i-del:hover:not(:disabled) { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #ffffff; }
       .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
 
       /* --- Modale modifica immagine ---
@@ -324,6 +310,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <AdminNav current="assets" />
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
@@ -372,9 +359,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       let filtro = "";
       let headers: Record<string, string> = {};
 
-      function esc(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      }
       /** I byte scritti: la riga sta in `fotoRegole.ts`, con i conti della
        *  colonna «Photos» della Accueil — stessa soglia, stesso
        *  arrotondamento, un posto solo. */

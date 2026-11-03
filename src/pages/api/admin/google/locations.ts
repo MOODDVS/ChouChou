@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
-import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
+import { msg } from "../../../../lib/admin/msgApi";
+import { json } from "../../../../lib/rispostaJson";
+import { verificaStaff, nonAutorizzato, type StaffUser } from "../../../../lib/admin/adminAuth";
 import { tokenGoogle, erroreGoogle, listaSedi, salvaLocation, locationSalvata, sincronizzaRecensioni, sedeConLaScheda } from "../../../../lib/googleBusiness";
 import { schedaValida, schedaLibera } from "../../../../lib/googleRegole";
 import { ambitoDiRiga, elencoSedi } from "../../../../lib/admin/sede";
 
-import { adminLang } from "../../../../lib/admin/adminLang";
-import { adminT } from "../../../../i18n/admin";
 /**
  * QUALE PUNTO sta scegliendo la sua scheda.
  *
@@ -17,8 +17,12 @@ import { adminT } from "../../../../i18n/admin";
  *
  * Senza parametro: installazione a sede unica, com'e' sempre stato.
  */
-async function sedeChiesta(v: unknown): Promise<{ ambito: ReturnType<typeof ambitoDiRiga>; errore?: string }> {
-  const id = String(v ?? "").trim();
+async function sedeChiesta(v: unknown, staff: StaffUser): Promise<{ ambito: ReturnType<typeof ambitoDiRiga>; errore?: string }> {
+  // ⚠️ Audit 3/11/2026: chi e' legato a una sede tocca solo la SUA scheda —
+  // senza questo, il responsabile del punto A cambiava quella del punto B.
+  const sua = staff.location_id ?? null;
+  const id = String(v ?? "").trim() || (sua ?? "");
+  if (sua && id !== sua) return { ambito: ambitoDiRiga(sua), errore: "err.locationUnknown" };
   if (!id) return { ambito: ambitoDiRiga(null) };
   const esiste = (await elencoSedi()).some((s) => s.id === id);
   if (!esiste) return { ambito: ambitoDiRiga(null), errore: "err.locationUnknown" };
@@ -28,24 +32,12 @@ async function sedeChiesta(v: unknown): Promise<{ ambito: ReturnType<typeof ambi
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // GET  /api/admin/google/locations  -> elenca tutte le schede (account × location)
 //                                       accessibili col token + la sede attuale.
 // POST /api/admin/google/locations  body { path, title } -> salva la sede scelta
 //                                       e sincronizza subito le recensioni.
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
@@ -57,8 +49,8 @@ export const GET: APIRoute = async ({ request, url }) => {
   const { token, stato } = await tokenGoogle();
   if (!token) return json({ connected: false, stato, sedi: [], current: null, error: stato === "mai" ? "" : await erroreGoogle(stato) });
 
-  const { ambito, errore } = await sedeChiesta(url.searchParams.get("sede"));
-  if (errore) return json({ error: errore }, 400);
+  const { ambito, errore } = await sedeChiesta(url.searchParams.get("sede"), staff);
+  if (errore) return json({ error: await msg(errore) }, 400);
 
   const [{ sedi, error }, current] = await Promise.all([listaSedi(token), locationSalvata(ambito)]);
   return json({ connected: true, sedi, current, error });
@@ -84,8 +76,8 @@ export const POST: APIRoute = async ({ request }) => {
   const { token: token, stato: sttoken } = await tokenGoogle();
   if (!token) return json({ error: await erroreGoogle(sttoken) }, 400);
 
-  const { ambito, errore } = await sedeChiesta(body.sede);
-  if (errore) return json({ error: errore }, 400);
+  const { ambito, errore } = await sedeChiesta(body.sede, staff);
+  if (errore) return json({ error: await msg(errore) }, 400);
 
   // ⚠️ UNA SCHEDA, UNA SEDE. Due punti sullo stesso percorso scaricano le
   // stesse recensioni, e siccome `review_id` e' la chiave primaria ogni

@@ -1,30 +1,18 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../../lib/admin/msgApi";
+import { json } from "../../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { tokenGoogle, erroreGoogle, locationSalvata, listaPost, creaPost, eliminaPost } from "../../../../lib/googleBusiness";
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
-import { adminLang } from "../../../../lib/admin/adminLang";
-import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // GET    /api/admin/google/posts              -> lista dei post pubblicati
 // POST   /api/admin/google/posts   body {...} -> crea un post (STANDARD | EVENT | OFFER)
 // DELETE /api/admin/google/posts?name=...     (via POST + X-Method-Override) -> elimina
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 const CTA_OK = new Set(["BOOK", "ORDER", "SHOP", "LEARN_MORE", "SIGN_UP", "CALL"]);
 

@@ -75,7 +75,7 @@ export function arrivoDi(ruolo: string): string {
 
 /** Dal percorso alla chiave di pagina. "" se non e' una pagina admin. */
 export function chiavePagina(pathname: string): string {
-  const p = String(pathname || "").replace(/\/+$/, "");
+  const p = percorsoDecodificato(pathname).replace(/\/+$/, "");
   if (p === "/admin") return PAGINA_HOME;
   const m = p.match(/^\/admin\/([a-z0-9-]+)/i);
   if (!m) return "";
@@ -303,10 +303,71 @@ export const API_PAGINA: Record<string, string> = {
   "documents": PAGINA_APERTA,      // chiamata dalla home: chiamante non verificato
 };
 
+/**
+ * LE ALTRE PAGINE CHE USANO UN'API (3/11/2026).
+ *
+ * Una pagina chiama anche API «di altre pagine»: Commandes legge il menu e
+ * chiude gli ordini (settings), Réservations propone i tavoli (tables) e
+ * aggiorna i clienti, la home e' fatta di tile che leggono e scrivono un po'
+ * di tutto. Finche' il controllo delle API non scattava (vedi
+ * `adminAuth.ts`, `puoChiamare`) nessuno se n'era accorto; acceso, un utente
+ * con solo Commandes non avrebbe piu' chiuso gli ordini.
+ *
+ * Qui, per ogni API, le pagine IN PIU' che la possono chiamare. Ricavate dalle
+ * chiamate vere delle pagine (prova in tests/permessi.test.mjs). Le
+ * statistiche restano solo di `stats`: il fatturato e' la ragione di tutto.
+ *
+ * `"pagina:GET"` = solo quel metodo; `"pagina"` = tutti. ⚠️ Preferire SEMPRE
+ * il metodo: `team` in scrittura crea gli accessi, e la home e' di tutti.
+ * ⚠️ La home NON c'e' per le sue tile: ogni tile esiste solo per chi ha la
+ * pagina di cui parla (e se non c'e', un 403 si legge come «niente»).
+ */
+export const API_ANCHE: Record<string, string[]> = {
+  "reservations": ["clients:GET", "settings:GET"],
+  "orders": ["clients:GET"],
+  "settings": ["orders:GET", "orders:PATCH", "home:GET"],
+  "tables": ["reservations:GET", "reservations:PUT"],
+  "clients": ["reservations:GET", "reservations:PATCH"],
+  "menu": ["orders:GET"],
+  "categories": ["marketing:GET"],
+  "images": ["menu:GET", "marketing:GET", "settings:GET", "agenda:GET", "clients:GET", "google:GET"],
+  "team": ["home:GET"],
+  "site-images": ["assets"],
+  "qr": ["settings"],
+  // La sala del palmare la usa anche chi non e' un palmare (un admin, un
+  // responsabile): le sue tre API seguono la pagina `salle`.
+  "salle-order": ["salle"],
+  "salle-tab": ["salle"],
+  "salle-seat": ["salle"],
+};
+
 /** Dal percorso al nome dell'API. "" se non e' un'API admin. */
 export function chiaveApi(pathname: string): string {
-  const m = String(pathname || "").replace(/\/+$/, "").match(/^\/api\/admin\/(.+)$/);
+  const m = percorsoDecodificato(pathname).replace(/\/+$/, "").match(/^\/api\/admin\/(.+)$/);
   return m ? m[1].toLowerCase() : "";
+}
+
+/**
+ * Il percorso COME LO LEGGE ASTRO per scegliere la pagina (audit 3/11/2026).
+ *
+ * ⚠️ Astro decodifica il percorso prima di scegliere la route: `/api/admin/st%61ts`
+ * serve `stats.ts`. Leggendo il percorso grezzo, la chiave era «st%61ts»,
+ * sconosciuta, e quindi permessa — il fatturato a chiunque. Si decodifica
+ * qui allo stesso modo; un percorso che non si decodifica resta com'e'
+ * (Astro fa lo stesso) e non corrisponde a nessuna chiave.
+ */
+export function percorsoDecodificato(pathname: string): string {
+  // Come Astro (`validateAndDecodePathname`): si decodifica finche' cambia,
+  // anche `%2573` → `%73` → `s`. Decodificare DI PIU' di Astro non apre
+  // niente: al massimo chiude una richiesta che lui manderebbe al 404.
+  let p = String(pathname || "");
+  for (let i = 0; i < 10; i++) {
+    let d: string;
+    try { d = decodeURI(p); } catch { break; }
+    if (d === p) break;
+    p = d;
+  }
+  return p;
 }
 
 /**
@@ -320,10 +381,18 @@ export function chiaveApi(pathname: string): string {
 export function puoChiamareApi(
   chiave: string,
   ctx: Parameters<typeof pagineConsentite>[0],
+  metodo = "",
 ): boolean {
   if (!chiave) return true;
   if (ctx.ruolo === "palmare") return palmarePuoChiamare(chiave);
   const pagina = API_PAGINA[chiave];
-  if (!pagina) return true;
-  return puoVederePagina(pagina, ctx);
+  // Una chiave con caratteri che nessuna API ha (`%`, spazi…) non e' «nuova»:
+  // e' un percorso manipolato. Chiusa.
+  if (!pagina) return /^[a-z0-9][a-z0-9\-/]*$/.test(chiave);
+  if (puoVederePagina(pagina, ctx)) return true;
+  const m = metodo.toUpperCase() === "HEAD" ? "GET" : metodo.toUpperCase();
+  return (API_ANCHE[chiave] ?? []).some((voce) => {
+    const [p, solo] = voce.split(":");
+    return (!solo || solo === m) && puoVederePagina(p, ctx);
+  });
 }

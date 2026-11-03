@@ -1166,6 +1166,7 @@ const personeIsola = personeAdesso;
       });
     </script>
     <script>
+      import { esc } from "../../../lib/esc";
       import { proposteInstallazione, type Proposta } from "../../../lib/salaInstallaRegole";
       import { authFresh } from "../../../lib/admin/auth";
 
@@ -1190,7 +1191,6 @@ const personeIsola = personeAdesso;
         let extra = 9;
         let scelta: Proposta | null = null;
 
-        const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
         const nomi = (p: Proposta) => p.nomi.join(" + ");
         // «Parfait» (verde) o «+1 chaise» (arancione, stretti di una sedia).
         const etichetta = (spreco: number) => spreco === 0
@@ -1304,6 +1304,7 @@ const personeIsola = personeAdesso;
       }
     </script>
     <script>
+      import { esc } from "../../../lib/esc";
       /* IL MODALE DELL'ISOLA (23/10/2026): persone e «Déplacer».
          Le proposte si calcolano qui a ogni tocco (regole pure in
          `lib/salaInstallaRegole.ts`); il server ricontrolla tutto. */
@@ -1320,7 +1321,6 @@ const personeIsola = personeAdesso;
         };
         const P = (document.getElementById("tb-parole")?.dataset ?? {}) as Record<string, string>;
         const err = document.getElementById("tb-pan-err");
-        const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
         const posti = (n: number) => (P.places ?? "").replace("{n}", String(n));
         const nomeDi = new Map(d.zone.flatMap((z) => z.tavoli.map((t) => [t.id, t.name] as const)));
         const perNome = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });

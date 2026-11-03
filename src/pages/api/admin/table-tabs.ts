@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, ambitoDiRiga, leggi, aggiorna, inserisci } from "../../../lib/admin/sede";
 import { quadroPagamenti } from "../../../lib/contoRegole";
@@ -9,8 +10,6 @@ import { inviaRicevutaConto } from "../../../lib/ricevutaConto";
 import { stripeDi } from "../../../lib/stripe";
 import { accodaAddizione } from "../../../lib/stampaCoda";
 import { CAMPI_CONTO, contiApertiDellaSala, riassumiConti, validaConto, rifiutaConto, type RigaConto } from "../../../lib/admin/contiSala";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 
 /**
  * I CONTI APERTI DELLA SALA, per il tablet (Commandes) — conto-aperto.md.
@@ -41,9 +40,6 @@ const json = (b: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

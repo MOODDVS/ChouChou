@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../../lib/rispostaJson";
 import { segretoUguale } from "../../../lib/cronAuth";
 import { eseguiDailyBrief } from "../../../lib/admin/dailyBrief";
 
@@ -13,12 +14,6 @@ export const prerender = false;
 
 const CRON_SECRET = import.meta.env.CRON_SECRET;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request, url }) => {
   if (!CRON_SECRET) return json({ error: "CRON_SECRET non configurato" }, 503);

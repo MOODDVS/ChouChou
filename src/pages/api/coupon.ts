@@ -1,3 +1,5 @@
+import { quantita } from "../../lib/quantita";
+import { json } from "../../lib/rispostaJson";
 import type { APIRoute } from "astro";
 // Multi-sede: i piatti del punto che il sito sta mostrando.
 import { leggi, ambitoPubblicoChiesto } from "../../lib/admin/sede";
@@ -31,12 +33,6 @@ interface Body {
   lang?: string;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const POST: APIRoute = async ({ request }) => {
   // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
@@ -82,7 +78,7 @@ export const POST: APIRoute = async ({ request }) => {
       price_cents: eff,
       is_promo: eff < p.price_cents,
       category: p.category,
-      qty: Math.max(1, Math.floor(it.qty)),
+      qty: quantita(it.qty) ?? 1,
     });
   }
   if (linee.length === 0) {

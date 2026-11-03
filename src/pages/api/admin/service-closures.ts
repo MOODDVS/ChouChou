@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import {
   ambitoDiRichiesta, leggi, salva, cancella, leggiConfig, scriviConfig, type Ambito,
@@ -6,17 +8,9 @@ import {
 import { fusoDi } from "../../../lib/fuso";
 import { scadeOrariRitiro } from "../../../lib/schedule";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Chiusure di servizio per giorno (admin Réservations).
 // GET    ?date=YYYY-MM-DD                → { closures: [{ service_key, reason }], permanent: [key…] }
@@ -42,12 +36,6 @@ async function leggiPermanenti(ambito: Ambito): Promise<string[]> {
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_KEY = /^[a-z_]{1,30}$/;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);

@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { leggi, tutteLeSedi, type Ambito } from "../../../lib/admin/sede";
 import {
   uniscoClienti, chiaveCliente as chiave, type RigaOrdine, type RigaResa, type RigaCliente,
@@ -7,17 +9,10 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
+import { likeEsatto } from "../../../lib/like";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Lingue valide per il cliente (stesse del widget prenotazioni).
 const LINGUE_CLI = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
@@ -31,22 +26,18 @@ const normLangCli = (v: unknown): string | null => {
 // POST → aggiunge un cliente manuale (name, email, phone).
 // Chiave cliente = email (minuscolo); fallback telefono, poi nome.
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /** Ordini per il dettaglio attività (tutti i campi utili), a pagine di 1000. */
-async function ordiniDettaglio(ambito: Ambito): Promise<
+async function ordiniDettaglio(ambito: Ambito, email = ""): Promise<
   { customer_name: string | null; customer_email: string | null; customer_phone: string | null; total_cents: number | null; created_at: string; status: string | null }[]
 > {
   const PAGINA = 1000;
   const tutti: { customer_name: string | null; customer_email: string | null; customer_phone: string | null; total_cents: number | null; created_at: string; status: string | null }[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at, status")
-      .in("status", ["paid", "done"])
+    let q = leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at, status")
+      .in("status", ["paid", "done"]);
+    if (email) q = q.ilike("customer_email", likeEsatto(email));
+    const { data, error } = await q
       .order("created_at", { ascending: false })
       .range(da, da + PAGINA - 1);
     if (error) return tutti;
@@ -57,13 +48,15 @@ async function ordiniDettaglio(ambito: Ambito): Promise<
 }
 
 /** Prenotazioni per il dettaglio attività, a pagine di 1000. */
-async function prenotazioniDettaglio(ambito: Ambito): Promise<
+async function prenotazioniDettaglio(ambito: Ambito, email = ""): Promise<
   { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; date: string; heure: string | null; people: number | null; zone: string | null; status: string | null }[]
 > {
   const PAGINA = 1000;
   const tutti: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; date: string; heure: string | null; people: number | null; zone: string | null; status: string | null }[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await leggi("reservations", ambito, "first_name, last_name, email, phone, date, heure, people, zone, status")
+    let q = leggi("reservations", ambito, "first_name, last_name, email, phone, date, heure, people, zone, status");
+    if (email) q = q.ilike("email", likeEsatto(email));
+    const { data, error } = await q
       .order("date", { ascending: false })
       .range(da, da + PAGINA - 1);
     if (error) return tutti;
@@ -161,7 +154,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   // Dettaglio: tutta l'attività (ordini + prenotazioni) di un cliente
   const activityKey = (url.searchParams.get("activity") ?? "").trim();
   if (activityKey) {
-    const [ordini, rese] = await Promise.all([ordiniDettaglio(ambito), prenotazioniDettaglio(ambito)]);
+    // ⚠️ Audit 3/11/2026: se la chiave e' un'email (quasi sempre) si leggono
+    // solo le SUE righe, non tutto lo storico. Il confronto qui sotto resta:
+    // e' lui che decide, il filtro serve solo a leggere meno.
+    const perEmail = activityKey.includes("@") ? activityKey : "";
+    const [ordini, rese] = await Promise.all([ordiniDettaglio(ambito, perEmail), prenotazioniDettaglio(ambito, perEmail)]);
     const attivita: { type: string; when: string; label: string; status: string; amount_cents: number | null }[] = [];
     for (const o of ordini) {
       const k = chiave((o.customer_email ?? "").trim(), (o.customer_phone ?? "").trim(), (o.customer_name ?? "").trim());
@@ -265,7 +262,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     const mEmail = (body.match_email ?? "").trim();
     const mPhone = (body.match_phone ?? "").trim();
     if (mEmail) {
-      const { data } = await supabaseAdmin.from("clients").select("id").ilike("email", mEmail).limit(1).maybeSingle();
+      const { data } = await supabaseAdmin.from("clients").select("id").ilike("email", likeEsatto(mEmail)).limit(1).maybeSingle();
       if (data) idRiga = data.id;
     }
     if (!idRiga && mPhone) {
@@ -357,13 +354,14 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   // ricrea e riappare (bug "serve cancellare due volte").
   let haPrenotazioni = false;
   if (email || phone) {
-    const conds: string[] = [];
-    if (email) conds.push(`email.eq.${email}`);
-    if (phone) conds.push(`phone.eq.${phone}`);
-    const { data: pr } = await leggi("reservations", ambito, "id")
-      .or(conds.join(","))
-      .limit(1);
-    haPrenotazioni = !!(pr && pr.length);
+    // ⚠️ Audit 3/11/2026: due `.eq` e non un `.or(...)` scritto col valore —
+    // il valore arriva dalla richiesta, e dentro `.or` una virgola o una
+    // parentesi diventano un filtro in piu'. Le due letture partono insieme.
+    const [perEmail, perTel] = await Promise.all([
+      email ? leggi("reservations", ambito, "id").eq("email", email).limit(1) : Promise.resolve({ data: [] }),
+      phone ? leggi("reservations", ambito, "id").eq("phone", phone).limit(1) : Promise.resolve({ data: [] }),
+    ]);
+    haPrenotazioni = !!(perEmail.data?.length || perTel.data?.length);
   }
   const haAttivita = orders > 0 || haPrenotazioni;
 

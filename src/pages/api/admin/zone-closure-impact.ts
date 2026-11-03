@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import {
   ambitoDiRichiesta, leggi, aggiorna, leggiConfig, type Ambito,
 } from "../../../lib/admin/sede";
@@ -6,17 +8,9 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailChiusuraResa, annullaEmailReview, type ResaEmail } from "../../../lib/notifications";
 import { assegnaTavoli } from "../../../lib/planSalle";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Impatto della chiusura di una SECTION (Fermeture exceptionnelle) sulle
 // prenotazioni di quel giorno, e applicazione delle decisioni:
@@ -28,12 +22,6 @@ const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 type Zone = { name: string; seats: number };
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 async function leggiSezioni(ambito: Ambito): Promise<Zone[]> {
   const { valori } = await leggiConfig(ambito, ["reservation_zones"]);

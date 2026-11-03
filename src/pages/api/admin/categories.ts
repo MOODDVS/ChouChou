@@ -1,27 +1,15 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin, scadeMenu } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 
 export const prerender = false;
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 const MAX_DEPTH = 3; // radice=0, poi -, --, --- (3 sotto-livelli)
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 type Cat = { id: string; name: string; sort_order: number; kind: string; parent_id: string | null; depth: number; name_i18n?: Record<string, string> | null };
 
@@ -248,9 +236,7 @@ export const PUT: APIRoute = async ({ request }) => {
     if (errUpd.code === "23505") return json({ error: await msg("cat.err.dup") }, 400);
     return json({ error: await msg("cat.err.update") }, 500);
   }
-  for (const u of subtreeUpdates) {
-    await supabaseAdmin.from("menu_categories").update({ depth: u.depth }).eq("id", u.id);
-  }
+  await Promise.all(subtreeUpdates.map((u) => supabaseAdmin.from("menu_categories").update({ depth: u.depth }).eq("id", u.id)));
 
   // Propaga ai piatti (nome/ordine). Il parent/kind non toccano i piatti.
   const aggiornaPiatti: Record<string, unknown> = {};

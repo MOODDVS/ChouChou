@@ -81,7 +81,9 @@ async function spedisci(cosa: string, opzioni: OpzioniEmail): Promise<EsitoEmail
   const motivo = motivoInvio(esito);
   if (motivo) {
     const o = opzioni as { from?: unknown; to?: unknown };
-    console.error(`[email] ${cosa} refusé par Resend:`, { de: o.from, a: o.to, motivo });
+    // Audit 3/11/2026: l'indirizzo del CLIENTE non va nei log, solo il dominio.
+    const dominio = (v: unknown) => (Array.isArray(v) ? v : [v]).map((x) => String(x ?? "").replace(/^[^@<]*@/, "…@")).join(", ");
+    console.error(`[email] ${cosa} refusé par Resend:`, { de: o.from, a: dominio(o.to), motivo });
   }
   return esito;
 }

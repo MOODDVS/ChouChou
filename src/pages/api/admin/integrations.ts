@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { controllaPlaceId } from "../../../lib/admin/googleRegole";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
@@ -6,17 +8,9 @@ import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { serviceAccountEmail, searchConsolePronto, sitoValido } from "../../../lib/searchConsole";
 import { statoGoogle } from "../../../lib/googleBusiness";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Integrazioni di terzi (Réglages → Integrations). SOLO super admin.
 //
@@ -44,12 +38,6 @@ const K_GSC_SITE = "gsc_site"; // Search Console : sc-domain:… ou https://…/
 const K_NL_QUOTA = "newsletter_monthly_quota"; // Newsletter incluse/mese (super admin)
 const NL_QUOTA_DEFAULT = 1000;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 async function leggi(chiavi: string[]): Promise<Record<string, string>> {
   const out: Record<string, string> = {};

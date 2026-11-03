@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin, scadeMenu } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, aggiorna, cancella, salva } from "../../../lib/admin/sede";
 import { sedeDaScrivere, type Ambito } from "../../../lib/admin/sedeRegole";
 import { applicaStato, statiDelPunto } from "../../../lib/menuStato";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 // ⚠️ Le regole del menu stanno in `menuRegole.ts`, pure e con i loro test:
 // qui c'e' solo il pezzo che parla con il database.
 import {
@@ -16,12 +16,6 @@ import {
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 const SELECT_BASE =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
@@ -79,12 +73,6 @@ async function ordineCategoria(nome: string): Promise<number | null> {
   return data ? data.sort_order : null;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /**
  * Valida i campi di un piatto in arrivo dall'admin.
@@ -467,9 +455,12 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ error: await msg("err.listIncomplete") }, 400);
   }
 
-  for (let i = 0; i < order.length; i++) {
-    const { error } = await aggiorna("menu_items", ambito, { sort_order: i + 1 }).eq("id", order[i]);
-    if (error) return json({ error: await msg("err.save") }, 500);
+  // Audit 3/11/2026: le righe INSIEME, a gruppi di 10, non una dopo l'altra
+  // (40 piatti erano 40 giri al database in fila).
+  for (let da = 0; da < order.length; da += 10) {
+    const esiti = await Promise.all(order.slice(da, da + 10).map((id, j) =>
+      aggiorna("menu_items", ambito, { sort_order: da + j + 1 }).eq("id", id)));
+    if (esiti.some((e) => e.error)) return json({ error: await msg("err.save") }, 500);
   }
   scadeMenu();
   return json({ ok: true });

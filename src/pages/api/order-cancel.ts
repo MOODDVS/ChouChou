@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../lib/rispostaJson";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
 import { leggi, aggiorna, tutteLeSedi, cercaAmbito, ambitoDiRiga } from "../../lib/admin/sede";
 import { stripeDi } from "../../lib/stripe";
@@ -15,12 +16,6 @@ export const prerender = false;
 
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 // GET ?token= → riepilogo minimo per la pagina di conferma
 export const GET: APIRoute = async ({ url }) => {

@@ -530,8 +530,82 @@ test("il ruolo palmare e' conosciuto prima di essere scritto", () => {
   const auth = readFileSync("src/lib/admin/adminAuth.ts", "utf8");
   assert.match(auth, /u\.role === "palmare"\) return true/, "staffAutorizzato rifiuta il palmare");
   // La porta che tiene anche quando il middleware non legge le claims.
-  assert.match(auth, /ePalmare\(user\) && !palmarePuoChiamare\(chiaveApi\(/, "verificaStaff non ferma il palmare");
+  assert.match(auth, /if \(ePalmare\(user\)\) return palmarePuoChiamare\(chiave\)/, "verificaStaff non ferma il palmare");
   assert.match(auth, /if \(ePalmare\(user\)\) return null;/, "verificaTokenLocale rende i dati al palmare");
   const users = readFileSync("src/pages/api/admin/users.ts", "utf8");
   assert.match(users, /const RUOLI = \["super", "admin", "user", "palmare"\]/);
+});
+
+test("le API chiamate da una pagina si aprono a chi vede quella pagina (3/11/2026)", () => {
+  // Il controllo delle API ora scatta davvero (adminAuth.ts, `puoChiamare`):
+  // una pagina che chiama un'API «di un'altra pagina» deve trovarla in
+  // API_ANCHE col suo metodo, se no un utente con solo quella pagina perde un
+  // pezzo. La home e' esclusa: le sue tile esistono solo per chi ha la pagina.
+  const PAGINE = { orders: "orders", reservations: "reservations", clients: "clients", menu: "menu", marketing: "marketing", assets: "assets", agenda: "agenda", settings: "settings", google: "google" };
+  const mancanti = [];
+  for (const [file, pagina] of Object.entries(PAGINE)) {
+    const t = readFileSync(`src/pages/admin/${file}.astro`, "utf8");
+    const ctx = { ruolo: "user", pagineUtente: [pagina], nascoste: [], tutte: [...TUTTE, "google"] };
+    for (const m of t.matchAll(/\/api\/admin\/([a-z0-9\-/]+)/g)) {
+      const api = m[1].replace(/\/+$/, "");
+      if (!(api in API_PAGINA)) continue;
+      const metodo = t.slice(m.index, m.index + 400).match(/method:\s*["'`]([A-Z]+)/)?.[1] ?? "GET";
+      if (!puoChiamareApi(api, ctx, metodo)) mancanti.push(`${file} → ${metodo} ${api}`);
+    }
+  }
+  assert.deepEqual([...new Set(mancanti)], []);
+});
+
+test("le pagine in piu' leggono, non scrivono, se non e' detto", () => {
+  const solo = (p) => ({ ruolo: "user", pagineUtente: [p], nascoste: [], tutte: TUTTE });
+  // la rubrica delle note si legge dalla home, ma gli accessi non si creano
+  assert.equal(puoChiamareApi("team", solo("orders"), "GET"), true);
+  assert.equal(puoChiamareApi("team", solo("orders"), "POST"), false);
+  assert.equal(puoChiamareApi("team", solo("orders"), "DELETE"), false);
+  // Commandes chiude gli ordini (PATCH), ma non salva tutte le impostazioni (PUT)
+  assert.equal(puoChiamareApi("settings", solo("orders"), "PATCH"), true);
+  assert.equal(puoChiamareApi("settings", solo("orders"), "PUT"), false);
+  // nessun metodo detto = nessuna pagina in piu' «a meta'»
+  assert.equal(puoChiamareApi("settings", solo("orders")), false);
+  assert.equal(puoChiamareApi("site-images", solo("assets"), "PUT"), true);
+});
+
+test("verificaStaff decide l'autorizzazione a ogni chiamata, anche col token in cache", () => {
+  const A = readFileSync("src/lib/admin/adminAuth.ts", "utf8");
+  // il ritorno dalla cache passa da puoChiamare, mai l'utente nudo
+  assert.match(A, /return \(await puoChiamare\(inCache\.user, chiave, metodo\)\) \? inCache\.user : null/);
+  assert.doesNotMatch(A, /return inCache\.user;/);
+  assert.match(A, /return \(await puoChiamare\(user, chiave, metodo\)\) \? user : null/);
+  // e il middleware legge il token delle API dall'header, non solo dal cookie /admin
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  assert.match(mw, /headers\.get\("Authorization"\)/);
+});
+
+test("un account senza ruolo non riceve i permessi di un admin (3/11/2026)", () => {
+  const P = readFileSync("src/lib/admin/permessi.ts", "utf8");
+  const corpo = P.slice(P.indexOf("export async function contestoDaToken"));
+  assert.match(corpo, /if \(!staffAutorizzato\(staff\)\)/);
+  assert.match(corpo, /pagineUtente: \[\]/);
+  const A = readFileSync("src/lib/admin/adminAuth.ts", "utf8");
+  assert.match(A, /export function staffAutorizzato/);
+  // e con un contesto cosi' non si apre niente oltre la home
+  const sterile = { ruolo: "user", pagineUtente: [], nascoste: [], tutte: [...TUTTE, "google", ...PAGINE_PALMARE] };
+  assert.match(corpo, /\.\.\.PAGINE_PALMARE\]/, "senza, la sala (pagina sconosciuta) resta aperta");
+  assert.equal(puoVederePagina("salle", sterile), false);
+  for (const p of TUTTE) assert.equal(puoVederePagina(p, sterile), false, p);
+  for (const k of Object.keys(API_PAGINA)) {
+    if (API_PAGINA[k] === PAGINA_APERTA) continue;
+    for (const m of ["POST", "PUT", "PATCH", "DELETE"]) assert.equal(puoChiamareApi(k, sterile, m), false, `${m} ${k}`);
+  }
+});
+
+test("un percorso codificato non scavalca il controllo (3/11/2026)", () => {
+  // Astro decodifica il percorso prima di scegliere la route.
+  assert.equal(chiaveApi("/api/admin/st%61ts"), "stats");
+  assert.equal(chiaveApi("/api/admin/st%2561ts"), "stats");
+  assert.equal(chiavePagina("/admin/st%61ts"), "stats");
+  const soloMenu = { ruolo: "user", pagineUtente: ["menu"], nascoste: [], tutte: TUTTE };
+  assert.equal(puoChiamareApi(chiaveApi("/api/admin/st%61ts"), soloMenu, "GET"), false);
+  assert.equal(puoChiamareApi("st%zz", soloMenu, "GET"), false, "una chiave strana non e' un'API nuova");
+  assert.equal(puoChiamareApi("api-nuova", soloMenu, "GET"), true, "un'API nuova davvero resta aperta");
 });

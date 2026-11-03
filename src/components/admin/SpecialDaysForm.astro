@@ -164,6 +164,8 @@ const piuSedi = (await sediVisibili(staffSpf)).length > 1;
 </style>
 
 <script>
+  import { esc } from "../../lib/esc";
+  import { headersVivi } from "../../lib/admin/auth";
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
   import { SERVIZI_WIDGET, nomeServizio } from "../../lib/reservationI18n";
   import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -199,9 +201,8 @@ const piuSedi = (await sediVisibili(staffSpf)).length > 1;
     const { data: sd } = await supabaseBrowser.auth.getSession();
     const token = sd.session?.access_token ?? "";
     if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = headersVivi(token);
 
-    const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
     const fmtData = (iso: string): string => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
 
     /**

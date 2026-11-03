@@ -494,6 +494,21 @@ const breve = (chiave: string): string => {
 </style>
 
 <script>
+  import { esc } from "../../lib/esc";
+  import { headersVivi } from "../../lib/admin/auth";
+
+  /* ⚠️ GLI ORDINI PAGATI, UNA LETTURA PER DUE (audit 3/11/2026): il poll dei
+     toast e il contatore della nav la chiedevano tutti e due all'apertura di
+     ogni pagina. Dentro 5 secondi la seconda riceve la stessa risposta. */
+  let pagatiInVolo: { t: number; p: Promise<any[] | null> } | null = null;
+  function ordiniPagati(headers: { readonly Authorization: string }): Promise<any[] | null> {
+    if (pagatiInVolo && Date.now() - pagatiInVolo.t < 5000) return pagatiInVolo.p;
+    const p = fetch("/api/admin/orders?recent_paid=1", { headers })
+      .then((r) => (r.ok ? r.json().then((j: { orders?: any[] }) => j.orders ?? []) : null))
+      .catch(() => null);
+    pagatiInVolo = { t: Date.now(), p };
+    return p;
+  }
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
   import { isSuperUser } from "../../lib/admin/superAdmin";
   import { variabiliTema, NOMI_VARIABILI } from "../../lib/admin/temaColori";
@@ -698,7 +713,7 @@ const breve = (chiave: string): string => {
     const { data } = await supabaseBrowser.auth.getSession();
     const token = data.session?.access_token ?? "";
     if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = headersVivi(token);
 
     // Guscio + i due strati dell'aura + la scatola colorata. Il contenuto
     // cambia a ogni notifica e va scritto in `tBox`, NON in `tEl`: scrivendo
@@ -761,7 +776,6 @@ const breve = (chiave: string): string => {
     let lastHref = "/admin/reservations";
     let tTimer: number | undefined;
 
-    const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     // ⚠️ Questi titoli erano scritti in francese dentro il codice: la barra e'
     // su OGNI pagina admin, quindi un ristoratore italiano riceveva l'unica
     // notifica che conta — un ordine nuovo — nella lingua di qualcun altro.
@@ -907,10 +921,8 @@ const breve = (chiave: string): string => {
     }
     async function pollOrdini() {
       try {
-        const res = await fetch("/api/admin/orders?recent_paid=1", { headers });
-        if (!res.ok) return;
-        const j = (await res.json()) as { orders?: any[] };
-        const ordini = (j.orders ?? []) as any[];
+        const ordini = await ordiniPagati(headers);
+        if (!ordini) return;
 
         // Primo giro: registra gli ordini GIÀ pagati come "visti", senza avvisare.
         if (!baselineOrdini) {
@@ -1063,7 +1075,7 @@ const breve = (chiave: string): string => {
     const { data } = await supabaseBrowser.auth.getSession();
     const token = data.session?.access_token ?? "";
     if (!token) return;
-    const headers = { Authorization: `Bearer ${token}` };
+    const headers = headersVivi(token);
     const navEl = document.querySelector(".admin-nav[data-current]") as HTMLElement | null;
     const current = navEl?.dataset.current ?? "";
     let bResa = 0;
@@ -1112,10 +1124,9 @@ const breve = (chiave: string): string => {
     // Commandes: per-ID (un ordine nasce pending e diventa paid dopo → il
     // confronto temporale mancherebbe la transizione). Set degli ID già visti.
     try {
-      const r = await fetch("/api/admin/orders?recent_paid=1", { headers });
-      if (r.ok) {
-        const j = (await r.json()) as { orders?: { id: string }[] };
-        const ids = (j.orders ?? []).map((o) => o.id);
+      const ordini = await ordiniPagati(headers);
+      if (ordini) {
+        const ids = ordini.map((o: { id: string }) => o.id);
         const raw = ls.get("mdd_cmd_seen_ids");
         let seen: Set<string> | null = null;
         if (raw) { try { seen = new Set(JSON.parse(raw) as string[]); } catch { seen = null; } }

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggiConfig, scriviConfig } from "../../../lib/admin/sede";
 import { linkBaseTavolo } from "../../../lib/admin/linkTavolo";
@@ -6,8 +7,6 @@ import { tavoliDiSala, opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { sceltaQr, sceltaQrDaSalvare, cartonciniScelti } from "../../../lib/qrRegole";
 import { qrSvg } from "../../../lib/qrSvg";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 
 /**
  * I CARTONCINI DA STAMPARE — il QR unico, e le sezioni e i tavoli scelti.
@@ -36,9 +35,6 @@ import { adminT } from "../../../i18n/admin";
  */
 export const prerender = false;
 
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), {

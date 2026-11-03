@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 import {
   K_PRINT_CATALOG,
   PRINT_DEFAULTS,
@@ -16,12 +16,6 @@ import { confrontaCatalogo } from "../../../lib/admin/printRegole";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Catalogo PRINT (prodotti stampabili on-demand ordinabili a MOODD).
 // STEP 1: solo lettura + salvataggio dei prezzi. Nessun ordine.
@@ -31,12 +25,6 @@ async function msg(chiave: string): Promise<string> {
 //       Include sempre `defaults` per il bottone « Réinitialiser ».
 // PUT → salvataggio (SOLO super admin): valida e fa l'upsert del JSON.
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

@@ -42,20 +42,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -110,7 +96,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
         transition: border-color 0.15s, color 0.15s;
       }
-      .np-del:hover, .np-del.confirm { border-color: #ed1c24; color: #ff8a8f; }
+      .np-del:hover, .np-del.confirm { border-color: var(--c-ko); color: var(--c-ko-chiaro); }
       /* Card di brouillons e programmate */
       .nn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.9rem; align-items: start; margin-bottom: 1.5rem; }
       .nn-card {
@@ -170,7 +156,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .i-edit { margin-left: auto; }
       .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #fff; }
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
       /* Modali: il guscio fatto a mano (.overlay / .modal / .m-close / .m-save)
@@ -305,7 +291,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       #giftcards .pop.is-pending { opacity: 0.62; }
       .gc-pay { position: absolute; top: 1.1rem; right: 1.1rem; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
       .gc-pay svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-      .gc-pay.ok { background: #2e9e6b; }
+      .gc-pay.ok { background: var(--c-ok); }
       .gc-pay.wait { background: #9b9490; }
       .gc-pay.wait svg { fill: #fff; stroke: none; }
       /* Dentro un modale: la larghezza della FINESTRA non dice quanto sia largo
@@ -984,6 +970,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
     <AdminNav current="marketing" />
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { collegaRte } from "../../lib/admin/rte";
       import { testoNudo } from "../../lib/htmlRicco";
@@ -1067,9 +1054,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       const ICO_GC_USES =
         '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
 
-      function esc(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      }
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;

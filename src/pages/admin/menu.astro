@@ -67,20 +67,6 @@ const varianti = boot.features.includes("variants");
     <style is:global>
       /* Modulo "Commandes" disattivato dal super admin: niente switch "ordinabile". */
       .no-orders .sw-cmd, .no-orders .m-toggle-cmd { display: none !important; }
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
       .t-stats { display: flex; gap: 0.45rem; flex-wrap: wrap; }
@@ -217,7 +203,7 @@ const varianti = boot.features.includes("variants");
       .i-name { font-weight: 700; display: flex; align-items: center; min-width: 0; }
       .i-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .i-badges { flex: none; display: inline-flex; gap: 0.3rem; margin-left: 0.5rem; vertical-align: middle; }
-      .i-soldout { flex: none; display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; vertical-align: middle; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
+      .i-soldout { flex: none; display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; vertical-align: middle; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-ko-chiaro); border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .i-badge { font-size: 0.82rem; line-height: 1; }
       /* Pallino col numero di varianti: corallo come le pastiglie della card
          ordine, cosi' la variante ha lo stesso colore ovunque nell'admin. */
@@ -255,7 +241,7 @@ const varianti = boot.features.includes("variants");
       .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .i-btn:disabled { opacity: 0.3; cursor: not-allowed; }
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
-      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #ffffff; }
       .i-acts { display: contents; }
       .i-del .k-ico { width: 15px; height: 15px; }
       .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
@@ -473,7 +459,7 @@ const varianti = boot.features.includes("variants");
         border-radius: 999px; padding: 0.28rem 0.75rem; font-size: 0.82rem;
       }
       .lu-chip button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
-      .lu-chip button:hover { color: #ff8a8f; }
+      .lu-chip button:hover { color: var(--c-ko-chiaro); }
       .lu-mode-row { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
       .lu-hide { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.6rem; font-size: 0.85rem; color: var(--c-muted); cursor: pointer; }
       .lu-mode { flex: 1; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.45rem 0.8rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
@@ -862,6 +848,7 @@ const varianti = boot.features.includes("variants");
     <script id="cat-std" type="application/json" is:inline set:html={catStdJson}></script>
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
@@ -923,9 +910,6 @@ const varianti = boot.features.includes("variants");
       let headers: Record<string, string> = {};
       let tabVietati: string[] = []; // tab del Menu nascosti a questo utente (Réglages MOODD)
 
-      function esc(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      }
       function effettivo(it: Item): number {
         if (!it.discount_type || !it.discount_value) return it.price_cents;
         if (it.discount_type === "fixed") return Math.min(it.price_cents, it.discount_value);

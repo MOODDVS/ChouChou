@@ -46,6 +46,7 @@
  * crediti newsletter quando il browser viene chiuso prima del ritorno.
  */
 import type { APIRoute } from "astro";
+import { json } from "../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import {
   ambitoDiRichiesta,
@@ -78,12 +79,6 @@ const GIORNI = 3;
  */
 const MAX = 40;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /**
  * L'id di sessione, da quello che c'e' scritto nella riga.

@@ -1,20 +1,14 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggiConfig } from "../../../lib/admin/sede";
 import { codicePaese } from "../../../lib/festivitaRegole";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Eventi LOCALI del ristorante (festa del quartiere, brocante, ricorrenze
 // del locale...): promemoria mostrati nella tile "Jours spéciaux" della
@@ -27,12 +21,6 @@ async function msg(chiave: string): Promise<string> {
 const CHIAVE = "custom_events";
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 interface Evento {
   date: string;
