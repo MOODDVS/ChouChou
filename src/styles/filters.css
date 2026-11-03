@@ -39,6 +39,7 @@
 .rh-filter:hover,
 .m-tab:hover { color: var(--c-text); border-color: var(--c-accent); }
 .rh-filter.is-on,
+.rh-filter.is-active,
 .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
 
 /* Separatore dentro la riga di filtri: serve quando nella stessa riga

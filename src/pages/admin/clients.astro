@@ -62,11 +62,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .fl-sep { width: 1px; align-self: stretch; background: var(--c-line); margin: 0.15rem 0.35rem; flex: 0 0 auto; }
       .fl-pill .n { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
       .fl-pill.is-on .n { color: var(--c-bg); }
-      .fl-pill {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem;
-        border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
+      /* La pillola e' quella condivisa (styles/filters.css, .rh-filter): qui
+         solo cio' che e' dei filtri clienti (icona, conteggio). */
       .fl-pill { display: inline-flex; align-items: center; justify-content: center; }
       .fl-pill svg {
         width: 15px; height: 15px; display: block; fill: none; stroke: currentColor;
@@ -74,8 +71,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       }
       .fl-pill b { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
       .fl-pill.is-on b { color: var(--c-bg); }
-      .fl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .fl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       /* Filtri estesi: in linea su desktop, a tendina (mobile) sotto la barra */
       .fl-more { display: inline-flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
       .fl-toggle { display: none; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; align-items: center; gap: 0.45rem; }
@@ -517,15 +512,15 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         </div>
         <div class="actionsbar">
           <div class="fl-filtri" id="fl-filtri">
-            <button type="button" class="fl-pill is-on" data-f="all" title={t("cli.all")}>
+            <button type="button" class="fl-pill rh-filter is-on" data-f="all" title={t("cli.all")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
             </button>
             <button type="button" class="fl-toggle" id="fl-toggle" aria-expanded="false">{t("cli.filters")} <span class="fl-toggle-n" id="fl-toggle-n"></span></button>
             <div class="fl-more" id="fl-more">
-              <button type="button" class="fl-pill" data-f="new">{t("cli.new")}</button>
-              <button type="button" class="fl-pill" data-f="noshow">{t("cli.noshow")}</button>
-              <button type="button" class="fl-pill" data-f="optin">{t("cli.optin")}</button>
-              <button type="button" class="fl-pill" data-f="optout">{t("cli.optout")}</button>
+              <button type="button" class="fl-pill rh-filter" data-f="new">{t("cli.new")}</button>
+              <button type="button" class="fl-pill rh-filter" data-f="noshow">{t("cli.noshow")}</button>
+              <button type="button" class="fl-pill rh-filter" data-f="optin">{t("cli.optin")}</button>
+              <button type="button" class="fl-pill rh-filter" data-f="optout">{t("cli.optout")}</button>
             </div>
           </div>
           <span class="ab-sep" aria-hidden="true"></span>
@@ -784,7 +779,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             .map(([code, n]) => {
               const li = LINGUE_MAP.get(code);
               const on = filtroLingua === code;
-              return `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${code}">${li ? li.flag : ""} ${code.toUpperCase()} <span class="n">${n}</span></button>`;
+              return `<button type="button" class="fl-pill rh-filter${on ? " is-on" : ""}" data-l="${code}">${li ? li.flag : ""} ${code.toUpperCase()} <span class="n">${n}</span></button>`;
             })
             .join("");
           flMoreEl.insertAdjacentHTML("beforeend", `<span class="fl-sep" aria-hidden="true"></span>${html}`);

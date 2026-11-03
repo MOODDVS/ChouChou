@@ -110,7 +110,7 @@ test("Assets: tre filtri, l'unico + la scelta salvata, filtrata sui tavoli veri"
   assert.match(leggi("src/lib/admin/sedeRegole.ts"), /orders_table_qr_sel: "sede",/);
   const as = nudo("src/pages/admin/assets.astro");
   // Filtri, non tutto in uno: si vede un gruppo per volta, e si stampa quello.
-  assert.match(as, /<div class="tabs tabs-sub" id="qr-filtri">/);
+  assert.match(as, /<div class="tabs tabs-sub rh-filters" id="qr-filtri">/);
   assert.match(as, /qrGriglia\.innerHTML = carteDelFiltro\(\)\.map/);
   assert.match(as, /let carte = carteDelFiltro\(\)\.map\(\(x\) => x\.c\);/);
   // Un filtro senza QR non compare.

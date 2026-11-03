@@ -125,14 +125,8 @@ const varianti = boot.features.includes("variants");
         flex: 1; min-width: 0; scrollbar-width: none;
       }
       .tabs::-webkit-scrollbar { display: none; }
-      .tab {
-        flex-shrink: 0; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-size: 0.82rem; letter-spacing: 0;
-        padding: 0.4rem 1rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
-      .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      /* La pillola e' quella condivisa (styles/filters.css, .rh-filter): qui
+         solo cio' che e' delle sezioni (conteggio, sottosezioni). */
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
       .tab .k-ico { width: 13px; height: 13px; margin-right: 0.35rem; vertical-align: -2px; }
       .tab.is-sub { border-style: dashed; border-color: color-mix(in srgb, var(--c-accent) 45%, var(--c-line)); background: color-mix(in srgb, var(--c-accent) 8%, transparent); font-size: 0.78rem; padding-left: 0.7rem; }
@@ -1090,7 +1084,7 @@ const varianti = boot.features.includes("variants");
               const sub = d > 0 ? " is-sub" : "";
               const arrow = d > 0 ? `<span class="tab-arrow">${"\u21B3".repeat(d)}</span>` : "";
               const n = totRadice.get(c.name) ?? c.count;
-              return `<button class="tab${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${n}</span></button>`;
+              return `<button class="tab rh-filter${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${n}</span></button>`;
             })
             .join("");
       }

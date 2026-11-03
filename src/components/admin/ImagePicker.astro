@@ -20,12 +20,12 @@ const t = adminT(lang);
   <div class="ip-head">
     <button type="button" class="btn" id="imgpick-add">{"+ " + t("ip.add")}</button>
     <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
-    <div class="ip-tabs" id="imgpick-tabs">
-      <button type="button" class="ip-tab is-on" data-b="">{t("ip.all")}</button>
-      <button type="button" class="ip-tab" data-b="menu">{t("nav.menu")}</button>
-      <button type="button" class="ip-tab" data-b="marketing">{t("nav.marketing")}</button>
-      <button type="button" class="ip-tab" data-b="libre">{t("ip.free")}</button>
-      <button type="button" class="ip-tab" data-b="docs" id="imgpick-tab-docs" hidden>{t("ip.docs")}</button>
+    <div class="ip-tabs rh-filters" id="imgpick-tabs">
+      <button type="button" class="ip-tab rh-filter is-on" data-b="">{t("ip.all")}</button>
+      <button type="button" class="ip-tab rh-filter" data-b="menu">{t("nav.menu")}</button>
+      <button type="button" class="ip-tab rh-filter" data-b="marketing">{t("nav.marketing")}</button>
+      <button type="button" class="ip-tab rh-filter" data-b="libre">{t("ip.free")}</button>
+      <button type="button" class="ip-tab rh-filter" data-b="docs" id="imgpick-tab-docs" hidden>{t("ip.docs")}</button>
     </div>
   </div>
   <div class="ip-body">
@@ -48,17 +48,7 @@ const t = adminT(lang);
   .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   /* Filtri: scorrono in orizzontale invece di andare a capo, cosi' la testata
      resta alta una riga sola anche quando i tab sono cinque. */
-  .ip-tabs { display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-  .ip-tabs::-webkit-scrollbar { display: none; }
-  .ip-tab {
-    flex-shrink: 0;
-    background: var(--c-card); border: 1px solid color-mix(in srgb, var(--c-text) 20%, var(--c-bg)); color: var(--c-muted);
-    font-family: var(--font-body); font-size: 0.82rem; letter-spacing: 0.03em;
-    padding: 0.35rem 0.9rem; cursor: pointer; border-radius: 999px;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-  }
-  .ip-tab:hover { color: var(--c-text); border-color: var(--c-accent); }
-  .ip-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+  /* Le pillole sono quelle condivise (styles/filters.css, .rh-filter). */
   .ip-state { color: var(--c-muted); text-align: center; padding: 1.5rem 0; }
   .ip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
   .ip-cell {
