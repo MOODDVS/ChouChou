@@ -139,6 +139,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .o-today-btn.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       /* Datepicker ATTIVO (giorno passato scelto) = corallo */
       .o-date-btn.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* «Da incassare» (3/11/2026): stesso bottone, a sinistra della ricerca.
+         C'e' solo quando qualcosa resta da incassare, su tutti i 7 giorni. */
+      .o-unpaid-btn { margin-right: 0.5rem; }
+      .o-unpaid-btn.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .o-unpaid-n {
+        display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem;
+        padding: 0 0.35rem; border-radius: 999px; background: var(--c-accent); color: var(--c-bg); font-size: 0.72rem; font-weight: 800;
+      }
+      .o-unpaid-btn.is-active .o-unpaid-n { background: var(--c-bg); color: var(--c-accent); }
       /* Label sotto il titolo: nascosta quando vuota (la data è nei bottoni) */
       .today-label:empty { display: none; margin: 0; }
       .o-search-x {
@@ -1039,6 +1048,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                 <span class="o-date-lbl" id="o-date-lbl"></span>
               </button>
             </span>
+            <button type="button" class="o-daybtn o-unpaid-btn" id="o-unpaid-btn" title={t("ord.toCollectHint")} hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>
+              {t("ord.toCollect")}<span class="o-unpaid-n" id="o-unpaid-n"></span>
+            </button>
             <span class="o-search-wrap">
               <input type="text" id="o-search" class="o-search" placeholder={t("ord.searchPh")} autocomplete="off" />
               <button type="button" class="o-search-x" id="o-search-x" aria-label={t("ord.clearSearch")} style="display:none">×</button>
@@ -1408,6 +1421,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
       // Ricerca: filtra su nome/email/tel in TUTTI gli ordini caricati (7 giorni)
       let ricerca = "";
+      /* «Da incassare»: tutti gli ordini ancora da incassare dei 7 giorni
+         caricati, non solo quelli del giorno. La notifica della nav li conta
+         su 7 giorni: senza questa vista, un ordine di ieri si cercava a mano
+         col calendario. */
+      let soloIncassare = false;
       const dataBrussels = (iso: string): string =>
         new Date(iso).toLocaleDateString(LOC, { weekday: "short", day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
 
@@ -1500,8 +1518,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            riga sotto, e scrivere «Tavolo» a chi non ne ha sarebbe una bugia
            piccola che manda a cercare un numero che non esiste. */
         const oraOTavolo = aTavolo
-          ? `<span class="time time-tavolo" title="${tr("ord.atTable")}">${esc(o.table_label || tr("ord.room"))}</span>`
-          : `<span class="time"><span class="time-ico">${ICON_CLOCK}</span>${esc(oraBrussels(o.pickup_time))}${ricerca ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>`;
+          ? `<span class="time time-tavolo" title="${tr("ord.atTable")}">${esc(o.table_label || tr("ord.room"))}${soloIncassare ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>`
+          : `<span class="time"><span class="time-ico">${ICON_CLOCK}</span>${esc(oraBrussels(o.pickup_time))}${ricerca || soloIncassare ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>`;
         /* ⚠️ NIENTE BOTTONE «RITARDA» AL TAVOLO. Sposterebbe un’ora di
            ritiro che non esiste, e manderebbe al cliente un’email che gli dice
            a che ora venire a prendere il piatto che ha davanti. */
@@ -2104,9 +2122,39 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (avevaIncasso) render();
         }
 
+        const unpaidBtn = document.getElementById("o-unpaid-btn") as HTMLButtonElement | null;
+        const unpaidN = document.getElementById("o-unpaid-n") as HTMLElement | null;
+        /** Gli ordini ancora da incassare, di tutti i giorni caricati. */
+        const nonIncassati = (): Order[] =>
+          ordini
+            .filter((o) => o.status === "pending" && o.payment_method === "onsite")
+            .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
+
         function render() {
           const oggi = new Date();
           const oggiKey = dayKeyBrussels(oggi.toISOString());
+
+          // Il bottone «Da incassare»: il numero e' quello dei TAVOLI/ordini
+          // (una seduta = una riga, come nella lista), e sparisce a zero.
+          const daInc = raggruppa(nonIncassati());
+          if (unpaidBtn) unpaidBtn.hidden = daInc.length === 0;
+          if (unpaidN) unpaidN.textContent = String(daInc.length);
+          if (!daInc.length) soloIncassare = false;
+          unpaidBtn?.classList.toggle("is-active", soloIncassare && !ricerca);
+
+          if (soloIncassare && !ricerca) {
+            oggiBtn?.classList.remove("is-active");
+            dateBtn?.classList.remove("is-active");
+            if (dateLbl) dateLbl.textContent = "";
+            labelEl.textContent = "";
+            countEl.textContent = `${daInc.length} ${tr("ord.toCollect").toLowerCase()}`;
+            delete stateEl.dataset.vuoto;
+            stateEl.style.display = "none";
+            gridEl.innerHTML = daInc.map(gruppoHTML).join("");
+            gridDoneEl.innerHTML = "";
+            doneTitleEl.style.display = "none";
+            return;
+          }
 
           // Modalità RICERCA: tutti gli ordini caricati (non solo oggi), flat
           if (ricerca) {
@@ -2210,10 +2258,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
         }
         function tornaOggi() {
-          if (!giornoView) return;
+          if (!giornoView && !soloIncassare) return;
           giornoView = "";
+          soloIncassare = false;
           render();
         }
+        unpaidBtn?.addEventListener("click", () => {
+          soloIncassare = !soloIncassare;
+          if (soloIncassare) giornoView = "";
+          render();
+        });
         async function caricaGiorno(iso: string) {
           try {
             const res = await fetch(`/api/admin/orders?date=${encodeURIComponent(iso)}`, { headers });
@@ -2221,6 +2275,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             const j = await res.json();
             ordiniGiorno = (j.orders as Order[]) ?? [];
             giornoView = iso;
+            soloIncassare = false;
             render();
           } catch (e) {
             console.error("[ordini] caricaGiorno()", e);
@@ -3103,6 +3158,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (confirmId) return;
           void carica(true);
         }
+
+        // Dalla notifica «Non ancora incassato» (AdminNav): si apre gia' sul filtro.
+        if (new URLSearchParams(location.search).get("vista") === "incassare") soloIncassare = true;
 
         // Primo render: se il server ha già fornito gli ordini (SSR, Fase 2),
         // li usiamo SUBITO senza fetch; altrimenti carichiamo come prima.
