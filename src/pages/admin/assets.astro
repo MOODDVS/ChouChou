@@ -52,22 +52,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       /* I tab scorrono quando NON ci stanno, non sotto una larghezza scelta a
          mano: quanti sono dipende dalle pagine del sito e dai moduli attivi.
          Stessa cura di agenda, marketing e della barra di navigazione. */
-      /* I tab grandi: styles/tabs.css (.rh-tabs). Qui solo i filtri sotto. */
-      .tabs-sub {
-        display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
-        margin-bottom: 1.25rem;
-      }
-      .tabs-sub::-webkit-scrollbar { display: none; }
+      /* I tab grandi: styles/tabs.css (.rh-tabs). I filtri sotto la linea sono
+         le pillole condivise (styles/filters.css, .rh-filter): qui solo il margine. */
+      .tabs-sub { margin-bottom: 1.25rem; }
       .tabs-sub .t-ico { display: none; }
-      /* Filtri: pillole più piccole, font di testo, niente maiuscole */
-      .tabs-sub .tab {
-        flex-shrink: 0; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-size: 0.82rem; letter-spacing: 0;
-        text-transform: none; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
-      .tabs-sub .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .tabs-sub .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
 
       /* --- Card documenti (PDF) --- */
@@ -183,9 +171,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         </style>
 
         <section data-tab="site">
-          <div class="tabs tabs-sub" id="site-pages">
+          <div class="tabs tabs-sub rh-filters" id="site-pages">
             {sitePages.map((p, i) => (
-              <button type="button" class={i === 0 ? "tab is-active" : "tab"} data-p={p}>{p}</button>
+              <button type="button" class={i === 0 ? "tab rh-filter is-active" : "tab rh-filter"} data-p={p}>{p}</button>
             ))}
           </div>
           <p class="site-hint">{t("as.siteHint")}</p>
@@ -213,13 +201,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         </section>
 
         <section data-tab="images" style="display:none">
-        <div class="tabs tabs-sub" id="tabs">
-          <button class="tab is-active" data-b="">{t("as.all")}<span class="n" id="n-all"></span></button>
-          <button class="tab" data-b="menu">{t("nav.menu")}<span class="n" id="n-menu"></span></button>
-          <button class="tab" data-b="marketing">{t("nav.marketing")}<span class="n" id="n-pop"></span></button>
+        <div class="tabs tabs-sub rh-filters" id="tabs">
+          <button class="tab rh-filter is-active" data-b="">{t("as.all")}<span class="n" id="n-all"></span></button>
+          <button class="tab rh-filter" data-b="menu">{t("nav.menu")}<span class="n" id="n-menu"></span></button>
+          <button class="tab rh-filter" data-b="marketing">{t("nav.marketing")}<span class="n" id="n-pop"></span></button>
           {/* Le foto montate negli slot del sito pubblico: prima erano «Libres». */}
-          <button class="tab" data-b="site">{t("as.site")}<span class="n" id="n-site"></span></button>
-          <button class="tab" data-b="libre">{t("as.free")}<span class="n" id="n-lib"></span></button>
+          <button class="tab rh-filter" data-b="site">{t("as.site")}<span class="n" id="n-site"></span></button>
+          <button class="tab rh-filter" data-b="libre">{t("as.free")}<span class="n" id="n-lib"></span></button>
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div class="grid" id="grid" style="display:none"></div>
@@ -235,10 +223,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
             Réglages › Cuisine («Générer» salva la scelta). Un filtro senza
             QR non compare. Quelli non scelti continuano a funzionare. */}
         <section data-tab="qr" style="display:none">
-          <div class="tabs tabs-sub" id="qr-filtri">
-            <button type="button" class="tab" data-qr="unico" hidden>{t("as.qrFUnico")}</button>
-            <button type="button" class="tab" data-qr="sezione" hidden>{t("as.qrFSezione")}</button>
-            <button type="button" class="tab" data-qr="tavolo" hidden>{t("as.qrFTavolo")}</button>
+          <div class="tabs tabs-sub rh-filters" id="qr-filtri">
+            <button type="button" class="tab rh-filter" data-qr="unico" hidden>{t("as.qrFUnico")}</button>
+            <button type="button" class="tab rh-filter" data-qr="sezione" hidden>{t("as.qrFSezione")}</button>
+            <button type="button" class="tab rh-filter" data-qr="tavolo" hidden>{t("as.qrFTavolo")}</button>
             {/* La stampa sulla STESSA riga dei filtri, in fondo a destra, piena
                 nel colore d'accento: stampa quelli del filtro acceso. */}
             <button type="button" class="btn btn-primary qr-stampa" id="qr-stampa" hidden>
