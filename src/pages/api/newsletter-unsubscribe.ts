@@ -2,13 +2,21 @@ import type { APIRoute } from "astro";
 import { CLIENT } from "../../config/client";
 import crypto from "node:crypto";
 import { supabaseAdmin } from "../../lib/db";
+import { esc } from "../../lib/esc";
+import { segretoUguale } from "../../lib/cronAuth";
 
 export const prerender = false;
 
-// GET /api/newsletter-unsubscribe?e=<email>&t=<token>
-// Link presente in ogni newsletter: aggiunge l'email alla lista dei
-// disiscritti e mostra una paginetta di conferma col brand.
+// /api/newsletter-unsubscribe?e=<email>&t=<token> — il link di ogni newsletter.
 // Il token HMAC impedisce di disiscrivere indirizzi altrui a caso.
+//
+// ⚠️ AUDIT 3/11/2026: il GET NON disiscrive piu'. Gli antivirus delle caselle
+// (Outlook, i filtri aziendali) aprono da soli ogni link di un'email per
+// controllarlo: con la disiscrizione sul GET, una newsletter arrivata in un
+// ufficio cancellava il cliente senza che lui avesse toccato niente.
+//   - GET  → la pagina con il bottone «Confirmer» (un modulo POST);
+//   - POST → disiscrive. E' anche il «one-click» dei programmi di posta
+//            (RFC 8058, intestazione List-Unsubscribe-Post nella newsletter).
 
 const SECRET = import.meta.env.SUPABASE_SERVICE_KEY ?? "lm-newsletter";
 
@@ -16,7 +24,12 @@ function token(email: string): string {
   return crypto.createHmac("sha256", SECRET).update(email.toLowerCase()).digest("hex").slice(0, 24);
 }
 
-function pagina(titolo: string, testo: string): Response {
+/** Il token e' quello giusto? Confronto a tempo costante. */
+function valido(email: string, t: string): boolean {
+  return !!email && !!t && segretoUguale(t, token(email));
+}
+
+function pagina(titolo: string, testo: string, modulo = ""): Response {
   const html = `<!doctype html>
 <html lang="fr">
 <head>
@@ -42,7 +55,10 @@ function pagina(titolo: string, testo: string): Response {
     a { display: inline-block; font-family: Georgia, "Times New Roman", serif; font-size: 0.85rem; font-weight: 700;
       letter-spacing: 0.16em; text-transform: uppercase; color: #fff; text-decoration: none;
       border: 2px solid rgba(255,255,255,0.9); padding: 12px 30px; transition: background .2s, color .2s; }
-    a:hover { background: #fff; color: #231f20; }
+    a:hover, button:hover { background: #fff; color: #231f20; }
+    button { font-family: Georgia, "Times New Roman", serif; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: #fff; background: transparent; border: 2px solid rgba(255,255,255,0.9);
+      padding: 12px 30px; cursor: pointer; transition: background .2s, color .2s; }
   </style>
 </head>
 <body>
@@ -50,31 +66,54 @@ function pagina(titolo: string, testo: string): Response {
     <p class="claim">${CLIENT.nome} — ${CLIENT.claim}</p>
     <h1>${titolo}</h1>
     <p>${testo}</p>
-    <a href="/">Retour à l'accueil</a>
+    ${modulo || `<a href="/">Retour à l'accueil</a>`}
   </div>
 </body>
 </html>`;
-  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return new Response(html, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
+const INVALIDO = (): Response => pagina("Lien invalide", "Ce lien de désinscription n'est pas valide ou a expiré.");
+
+/** GET: chiede la conferma, non disiscrive (vedi sopra). */
 export const GET: APIRoute = async ({ url }) => {
   const email = (url.searchParams.get("e") ?? "").trim().toLowerCase();
   const t = url.searchParams.get("t") ?? "";
+  if (!valido(email, t)) return INVALIDO();
+  const modulo = `<form method="post" action="/api/newsletter-unsubscribe">
+      <input type="hidden" name="e" value="${esc(email)}" />
+      <input type="hidden" name="t" value="${esc(t)}" />
+      <button type="submit">Confirmer</button>
+    </form>`;
+  return pagina(
+    "Se désinscrire ?",
+    `L'adresse ${esc(email)} ne recevra plus notre newsletter.`,
+    modulo,
+  );
+};
 
-  if (!email || !t || t !== token(email)) {
-    return pagina("Lien invalide", "Ce lien de désinscription n'est pas valide ou a expiré.");
-  }
+/** POST: il bottone della pagina, o il «one-click» del programma di posta. */
+export const POST: APIRoute = async ({ url, request }) => {
+  let email = (url.searchParams.get("e") ?? "").trim().toLowerCase();
+  let t = url.searchParams.get("t") ?? "";
+  try {
+    const f = await request.formData();
+    email = String(f.get("e") ?? email).trim().toLowerCase();
+    t = String(f.get("t") ?? t);
+  } catch { /* one-click senza modulo: valgono i parametri dell'indirizzo */ }
+  if (!valido(email, t)) return INVALIDO();
 
   try {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("newsletter_optout")
       .upsert({ email }, { onConflict: "email" });
+    if (error) throw error;
   } catch {
     return pagina("Oups", "Une erreur est survenue. Réessayez dans un instant.");
   }
 
   return pagina(
     "Vous êtes désinscrit",
-    `L'adresse ${email} ne recevra plus notre newsletter. À bientôt au restaurant !`
+    `L'adresse ${esc(email)} ne recevra plus notre newsletter. À bientôt au restaurant !`
   );
 };

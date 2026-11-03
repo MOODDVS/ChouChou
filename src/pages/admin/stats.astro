@@ -233,11 +233,11 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         <section class="pane2" data-pane="fin">
         <div class="rh-filters periods" id="periods">
-          <button class="rh-filter is-on" data-p="day">{t("st.pDay")}</button>
-          <button class="rh-filter" data-p="week">{t("res.week")}</button>
-          <button class="rh-filter" data-p="month">{t("res.month")}</button>
-          <button class="rh-filter" data-p="ytd">{t("st.pYear")}</button>
-          <button class="rh-filter" data-p="all">{t("ord.total")}</button>
+          <button type="button" class="rh-filter is-on" data-p="day">{t("st.pDay")}</button>
+          <button type="button" class="rh-filter" data-p="week">{t("res.week")}</button>
+          <button type="button" class="rh-filter" data-p="month">{t("res.month")}</button>
+          <button type="button" class="rh-filter" data-p="ytd">{t("st.pYear")}</button>
+          <button type="button" class="rh-filter" data-p="all">{t("ord.total")}</button>
           {piuSedi && <span class="rh-sep" aria-hidden="true"></span>}
           {piuSedi && <button class="rh-filter rh-tutte" type="button">{t("st.allLocations")}</button>}
         </div>
@@ -284,11 +284,11 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         <section class="pane2" data-pane="ggl" hidden>
           <div class="rh-filters periods" id="g-periods">
-            <button class="rh-filter" data-d="7">{t("st.days7")}</button>
-            <button class="rh-filter is-on" data-d="28">{t("st.days28")}</button>
-            <button class="rh-filter" data-d="90">{t("st.months3")}</button>
-            <button class="rh-filter" data-d="180">{t("st.months6")}</button>
-            <button class="rh-filter" data-d="365">{t("st.months12")}</button>
+            <button type="button" class="rh-filter" data-d="7">{t("st.days7")}</button>
+            <button type="button" class="rh-filter is-on" data-d="28">{t("st.days28")}</button>
+            <button type="button" class="rh-filter" data-d="90">{t("st.months3")}</button>
+            <button type="button" class="rh-filter" data-d="180">{t("st.months6")}</button>
+            <button type="button" class="rh-filter" data-d="365">{t("st.months12")}</button>
           </div>
           <div class="state" id="g-state">{t("sup.loading")}</div>
           <div class="state" id="g-empty" style="display:none">
@@ -336,12 +336,12 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         <section class="pane2" data-pane="resa" hidden>
           <div class="rh-filters periods" id="r-periods">
-            <button class="rh-filter" data-g="7">{t("st.rFil7")}</button>
-            <button class="rh-filter" data-g="15">{t("st.rFil15")}</button>
-            <button class="rh-filter is-on" data-g="30">{t("st.rFil30")}</button>
-            <button class="rh-filter" data-g="90">{t("st.rFil90")}</button>
-            <button class="rh-filter" data-g="180">{t("st.rFil180")}</button>
-            <button class="rh-filter" data-g="365">{t("st.rFil365")}</button>
+            <button type="button" class="rh-filter" data-g="7">{t("st.rFil7")}</button>
+            <button type="button" class="rh-filter" data-g="15">{t("st.rFil15")}</button>
+            <button type="button" class="rh-filter is-on" data-g="30">{t("st.rFil30")}</button>
+            <button type="button" class="rh-filter" data-g="90">{t("st.rFil90")}</button>
+            <button type="button" class="rh-filter" data-g="180">{t("st.rFil180")}</button>
+            <button type="button" class="rh-filter" data-g="365">{t("st.rFil365")}</button>
             {piuSedi && <span class="rh-sep" aria-hidden="true"></span>}
             {piuSedi && <button class="rh-filter rh-tutte" type="button">{t("st.allLocations")}</button>}
           </div>

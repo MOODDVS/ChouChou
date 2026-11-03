@@ -157,3 +157,37 @@ test("Ordini: il filtro «Da incassare» a sinistra della ricerca, aperto dalla 
   const nav = readFileSync("src/components/admin/AdminNav.astro", "utf8");
   assert.match(nav, /lastHref = "\/admin\/orders\?vista=incassare"/);
 });
+
+test("la disiscrizione: il GET chiede conferma, solo il POST disiscrive", () => {
+  const u = readFileSync("src/pages/api/newsletter-unsubscribe.ts", "utf8");
+  const get = u.slice(u.indexOf("export const GET"), u.indexOf("export const POST"));
+  assert.doesNotMatch(get, /newsletter_optout/, "un antivirus che apre il link disiscriveva il cliente");
+  assert.match(get, /<form method="post"/);
+  const post = u.slice(u.indexOf("export const POST"));
+  assert.match(post, /newsletter_optout/);
+  assert.match(u, /segretoUguale\(t, token\(email\)\)/);
+  assert.doesNotMatch(u, /\$\{email\}/, "l'email va nell'HTML solo con esc()");
+  const n = readFileSync("src/lib/newsletterSend.ts", "utf8");
+  assert.match(n, /"List-Unsubscribe-Post": "List-Unsubscribe=One-Click"/);
+  assert.equal((n.match(/headers: intestazioniDisiscrizione\(/g) ?? []).length, 2, "prova e invio vero");
+});
+
+test("ogni <button> dell'admin dice il suo type", () => {
+  // Senza `type`, dentro un <form> un bottone INVIA il modulo. Oggi nessuno
+  // ci cadeva; il primo bottone messo in un modulo ci sarebbe caduto.
+  const senza = [];
+  for (const p of tutti("src/pages/admin", [".astro"]).concat(tutti("src/components/admin", [".astro"]))) {
+    for (const m of readFileSync(p, "utf8").matchAll(/<button\b([^>]*)>/g)) if (!/type=/.test(m[1])) senza.push(`${p}: ${m[0].slice(0, 60)}`);
+  }
+  assert.deepEqual(senza, []);
+});
+
+test("la chiave dei cron solo nell'header, mai nell'indirizzo", () => {
+  // Nell'indirizzo finiva nei log del proxy e dello scheduler. Controllato il
+  // 3/11/2026 su tutti i clienti: nessun job pg_cron la passava cosi'.
+  for (const p of tutti("src/pages/api/cron", [".ts"])) {
+    const t = readFileSync(p, "utf8");
+    assert.doesNotMatch(t, /searchParams\.get\("key"\)/, p);
+    assert.match(t, /request\.headers\.get\("x-cron-key"\)/, p);
+  }
+});

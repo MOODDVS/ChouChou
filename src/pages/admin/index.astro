@@ -909,7 +909,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         font-family: var(--font-body); cursor: default;
         white-space: nowrap; height: 26px; padding: 0 0.7rem; display: inline-flex; align-items: center;
         justify-content: center; flex: none; font-weight: 700;
-        /* ⚠️ `border: 0`: quella delle prenotazioni e' un <button>, e senza
+        /* ⚠️ `border: 0`: quella delle prenotazioni e' un <button type="button">, e senza
            si teneva il bordo «outset» grigio del browser intorno alla
            pastiglia. `.fin` rimette il suo filo qui sotto. */
         border: 0; }
@@ -2173,7 +2173,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            dentro il solo comando che serve, e' un bersaglio che si preme per
            sbaglio mentre si cerca la casella.
            ⚠️ E anche quando era un link, la casella stava fuori: su un
-           `<button>` basta un `preventDefault()` per non far partire il link,
+           `<button type="button">` basta un `preventDefault()` per non far partire il link,
            ma su una CASELLA quello stesso `preventDefault()` annulla il cambio
            di stato — l'interruttore non si gira, `change` non parte, e il
            tocco non fa niente. Senza un errore da nessuna parte. */

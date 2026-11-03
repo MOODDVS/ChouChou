@@ -119,7 +119,7 @@ test("Assets: tre filtri, l'unico + la scelta salvata, filtrata sui tavoli veri"
 
 test("Assets › QR codes: si vedono, si copiano, si stampano", () => {
   const as = leggi("src/pages/admin/assets.astro");
-  assert.match(as, /<button class="tab" data-t="qr">/);
+  assert.match(as, /<button type="button" class="tab" data-t="qr">/);
   assert.match(as, /<section data-tab="qr" style="display:none">/);
   // `?tab=qr` apre direttamente la scheda.
   assert.match(as, /new URLSearchParams\(location\.search\)\.get\("tab"\)/);

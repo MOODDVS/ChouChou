@@ -97,6 +97,24 @@ export function tokenDisiscrizione(email: string): string {
   return crypto.createHmac("sha256", SECRET).update(email.toLowerCase()).digest("hex").slice(0, 24);
 }
 
+/** Il link di disiscrizione di questo indirizzo. */
+export function linkDisiscrizione(email: string): string {
+  return `${SITE_URL.replace(/\/$/, "")}/api/newsletter-unsubscribe?e=${encodeURIComponent(email)}&t=${tokenDisiscrizione(email)}`;
+}
+
+/**
+ * Le intestazioni della disiscrizione «a un clic» (RFC 8058, audit 3/11/2026).
+ * Gmail e Yahoo le chiedono a chi manda in quantita': senza, la newsletter
+ * finisce piu' facilmente nello spam. Il programma di posta mostra il suo
+ * «Se désabonner» e fa un POST al link — il nostro POST disiscrive.
+ */
+export function intestazioniDisiscrizione(email: string): Record<string, string> {
+  return {
+    "List-Unsubscribe": `<${linkDisiscrizione(email)}>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Rubrica + SEGMENTI
 // ---------------------------------------------------------------------------
@@ -232,7 +250,7 @@ export function htmlNewsletter(
   tema: TemaEmail
 ): string {
   const logo = input.logoUrl || `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
-  const unsub = `${SITE_URL.replace(/\/$/, "")}/api/newsletter-unsubscribe?e=${encodeURIComponent(input.email)}&t=${tokenDisiscrizione(input.email)}`;
+  const unsub = linkDisiscrizione(input.email);
   const img = input.image_url
     ? `<tr><td><img src="${esc(input.image_url)}" alt="" width="600" style="display:block;width:100%;max-height:280px;object-fit:cover;border:0;" /></td></tr>`
     : "";
@@ -337,6 +355,7 @@ export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise
       to: dest,
       subject: `[TEST] ${contenuto.subject}`,
       html: htmlNewsletter(dati, { ...contenuto, email: dest, logoUrl, social }, tema),
+      headers: intestazioniDisiscrizione(dest),
     });
     const motivo = motivoInvio(esito);
     if (motivo) {
@@ -396,6 +415,7 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
         to: email,
         subject: contenuto.subject,
         html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }, tema),
+        headers: intestazioniDisiscrizione(email),
       }));
       const esito = await resend.batch.send(lotto);
       // ⚠️ Lo stesso motivo del test: il client di Resend non lancia niente,
