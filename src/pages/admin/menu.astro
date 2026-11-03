@@ -681,8 +681,8 @@ const varianti = boot.features.includes("variants");
           </div>
           <span class="m-msg" id="m-msg"></span>
           <div class="m-btns">
-            <button class="md-btn" id="m-cancel">{t("common.cancel")}</button>
-            <button class="md-btn md-btn-primary" id="m-save">{t("common.save")}</button>
+            <button type="button" class="md-btn" id="m-cancel">{t("common.cancel")}</button>
+            <button type="button" class="md-btn md-btn-primary" id="m-save">{t("common.save")}</button>
           </div>
       </Fragment>
     </Modal>
@@ -696,7 +696,7 @@ const varianti = boot.features.includes("variants");
         <div class="sec-add">
           <span class="sec-kind" id="sec-kind"></span>
           <input type="text" id="sec-new" list="cat-std-list" placeholder={t("menu.newSectionPh")} maxlength="60" />
-          <button class="md-btn" id="sec-addbtn">{t("common.add")}</button>
+          <button type="button" class="md-btn" id="sec-addbtn">{t("common.add")}</button>
         </div>
         <span class="m-msg" id="sec-msg"></span>
         <div class="sec-save-row">
@@ -751,8 +751,8 @@ const varianti = boot.features.includes("variants");
         </label>
         <span class="m-msg" id="lu-msg"></span>
         <div class="m-btns">
-          <button class="md-btn" id="lu-cancel" data-md-close>{t("common.cancel")}</button>
-          <button class="md-btn md-btn-primary" id="lu-save">{t("common.save")}</button>
+          <button type="button" class="md-btn" id="lu-cancel" data-md-close>{t("common.cancel")}</button>
+          <button type="button" class="md-btn md-btn-primary" id="lu-save">{t("common.save")}</button>
         </div>
       </Fragment>
     </Modal>
@@ -809,9 +809,9 @@ const varianti = boot.features.includes("variants");
         </label>
         <span class="m-msg" id="mn-msg"></span>
         <div class="m-btns">
-          <button class="md-btn" id="mn-cancel" data-md-close>{t("common.cancel")}</button>
-          <button class="md-btn" id="mn-draft">{t("menu.saveDraft")}</button>
-          <button class="md-btn md-btn-primary" id="mn-save">{t("common.save")}</button>
+          <button type="button" class="md-btn" id="mn-cancel" data-md-close>{t("common.cancel")}</button>
+          <button type="button" class="md-btn" id="mn-draft">{t("menu.saveDraft")}</button>
+          <button type="button" class="md-btn md-btn-primary" id="mn-save">{t("common.save")}</button>
         </div>
       </Fragment>
     </Modal>
@@ -822,7 +822,7 @@ const varianti = boot.features.includes("variants");
 
     <!-- Bottoni flottanti (come Résa/Commandes/Clients) -->
     <div class="mn-float mn-float-left" id="mn-float-left">
-      <button class="mn-fab mn-fab-sec fab-pill" id="sec-btn" title={t("menu.manageSections")}>
+      <button type="button" class="mn-fab mn-fab-sec fab-pill" id="sec-btn" title={t("menu.manageSections")}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -831,7 +831,7 @@ const varianti = boot.features.includes("variants");
       </button>
     </div>
     <div class="mn-float" id="mn-float">
-      <button class="mn-fab fab-pill" id="add-btn" title={t("menu.addDish")}><span class="fab-plus">+</span>{t("menu.addDishShort")}</button>
+      <button type="button" class="mn-fab fab-pill" id="add-btn" title={t("menu.addDish")}><span class="fab-plus">+</span>{t("menu.addDishShort")}</button>
     </div>
 
     <AdminNav current="menu" />
@@ -1000,7 +1000,7 @@ const varianti = boot.features.includes("variants");
               <span class="i-sw-wrap sw-cmd"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.cmdShort")}</span></span>
               <span class="i-sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.soldShort")}</span></span>
             </span>
-            <span class="i-acts"><button class="i-btn i-edit" title="${tr("common.edit")}">✎</button><button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button></span>
+            <span class="i-acts"><button type="button" class="i-btn i-edit" title="${tr("common.edit")}">✎</button><button type="button" class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button></span>
           </div>`;
       }
 
@@ -1056,10 +1056,10 @@ const varianti = boot.features.includes("variants");
 
         const visibili = cats.filter((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0);
         (document.getElementById("k-filtri") as HTMLDivElement).innerHTML =
-          `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}${tr("tab.menu.food")}</button>` +
-          `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}${tr("tab.menu.drink")}</button>` +
-          `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>${tr("tab.menu.lunch")}</button>` +
-          `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>${tr("tab.menu.menus")}</button>`;
+          `<button type="button" class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}${tr("tab.menu.food")}</button>` +
+          `<button type="button" class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}${tr("tab.menu.drink")}</button>` +
+          `<button type="button" class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>${tr("tab.menu.lunch")}</button>` +
+          `<button type="button" class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>${tr("tab.menu.menus")}</button>`;
         // Tab vietati dal super: la pillola sparisce anche a ogni re-render
         for (const tv of tabVietati) {
           (document.getElementById("k-filtri") as HTMLDivElement).querySelector(`.kf-pill[data-kind="${tv}"]`)?.remove();
@@ -1084,7 +1084,7 @@ const varianti = boot.features.includes("variants");
               const sub = d > 0 ? " is-sub" : "";
               const arrow = d > 0 ? `<span class="tab-arrow">${"\u21B3".repeat(d)}</span>` : "";
               const n = totRadice.get(c.name) ?? c.count;
-              return `<button class="tab rh-filter${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${n}</span></button>`;
+              return `<button type="button" class="tab rh-filter${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${n}</span></button>`;
             })
             .join("");
       }
@@ -1767,7 +1767,7 @@ const varianti = boot.features.includes("variants");
             const std = trovaStd(c.name);
             // 🌐 solo per categorie personalizzate e se il sito ha più lingue
             const tradBtn = (!std && !soloUnaLingua)
-              ? `<button class="i-btn s-trad${secTradId === c.id ? " is-active" : ""}" title="${tr("menu.translations")}">🌐</button>`
+              ? `<button type="button" class="i-btn s-trad${secTradId === c.id ? " is-active" : ""}" title="${tr("menu.translations")}">🌐</button>`
               : (std ? `<span class="sec-auto" title="${tr("menu.autoTranslated")}">A</span>` : "");
             const editor = (secTradId === c.id && !std && !soloUnaLingua)
               ? `<div class="sec-trad" data-id="${c.id}">${PUB.langs.filter((l) => l !== PUB.def).map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="sec-tx" data-lang="${l}" maxlength="60" value="${esc(c.name_i18n?.[l] ?? "")}" /></div></div>`).join("")}<div class="sec-trad-act"><button type="button" class="m-cancel sec-trad-cancel">${tr("common.cancel")}</button><button type="button" class="m-save sec-trad-save" data-id="${c.id}">${tr("common.save")}</button></div></div>`
@@ -1775,19 +1775,19 @@ const varianti = boot.features.includes("variants");
             return `
           <div class="sec-row${depth > 0 ? " is-sub" : ""}" data-id="${c.id}" data-name="${esc(c.name)}" data-parent="${c.parent_id ?? ""}" data-depth="${depth}" style="padding-left:${depth * 1.4}rem">
             <span class="s-move">
-              <button class="i-btn s-mv s-up" ${fratelloPrima(i) < 0 ? "disabled" : ""} title="${tr("menu.moveUp")}" aria-label="${tr("menu.moveUp")}">${ICO_SU}</button>
-              <button class="i-btn s-mv s-down" ${fratelloDopo(i) < 0 ? "disabled" : ""} title="${tr("menu.moveDown")}" aria-label="${tr("menu.moveDown")}">${ICO_GIU}</button>
+              <button type="button" class="i-btn s-mv s-up" ${fratelloPrima(i) < 0 ? "disabled" : ""} title="${tr("menu.moveUp")}" aria-label="${tr("menu.moveUp")}">${ICO_SU}</button>
+              <button type="button" class="i-btn s-mv s-down" ${fratelloDopo(i) < 0 ? "disabled" : ""} title="${tr("menu.moveDown")}" aria-label="${tr("menu.moveDown")}">${ICO_GIU}</button>
             </span>
             ${tree}
-            <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
-            <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
+            <button type="button" class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
+            <button type="button" class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
             <input type="text" class="s-name" list="cat-std-list" value="${esc(c.name)}" maxlength="60" />
             ${tradBtn}
-            <button class="i-btn s-out" ${puoOut ? "" : "disabled"} title="${tr("menu.outdentTitle")}">⇤</button>
-            <button class="i-btn s-in" title="${tr("menu.indentTitle")}">⇥</button>
-            <button class="i-btn sec-sub-btn s-sub" ${puoSub ? "" : "disabled"} title="${tr("menu.addSubTitle")}">＋</button>
+            <button type="button" class="i-btn s-out" ${puoOut ? "" : "disabled"} title="${tr("menu.outdentTitle")}">⇤</button>
+            <button type="button" class="i-btn s-in" title="${tr("menu.indentTitle")}">⇥</button>
+            <button type="button" class="i-btn sec-sub-btn s-sub" ${puoSub ? "" : "disabled"} title="${tr("menu.addSubTitle")}">＋</button>
             <span class="sec-count">${c.count} ${c.count > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>
-            <button class="i-btn i-del s-del" ${bloccaDel ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
+            <button type="button" class="i-btn i-del s-del" ${bloccaDel ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
           </div>${editor}`;
           })
           .join("");
@@ -1801,8 +1801,8 @@ const varianti = boot.features.includes("variants");
           : "";
         secKind.innerHTML =
           parentPill +
-          `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>` +
-          `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>`;
+          `<button type="button" class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>` +
+          `<button type="button" class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>`;
         secNew.placeholder = nuovoParent ? tr("menu.newSubPh") : tr("menu.newSectionPh");
       }
 
@@ -2138,8 +2138,8 @@ const varianti = boot.features.includes("variants");
             <div class="lu-combos">${combos}</div>
             <div class="lu-actions">
               <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.active")}</span></span>
-              <button class="i-btn lu-edit" title="${tr("common.edit")}">✎</button>
-              <button class="i-btn i-del lu-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
+              <button type="button" class="i-btn lu-edit" title="${tr("common.edit")}">✎</button>
+              <button type="button" class="i-btn i-del lu-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
             </div>
           </div>`;
       }
@@ -2723,8 +2723,8 @@ const varianti = boot.features.includes("variants");
               <div class="lu-combos">${prezzo}${vino}</div>
               <div class="lu-actions">
                 <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.active")}</span></span>
-                <button class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
-                <button class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
+                <button type="button" class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
+                <button type="button" class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
               </div>
             </div>
           </div>`;

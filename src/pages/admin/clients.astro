@@ -549,13 +549,13 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         <div id="content" style="display:none">
           <div class="table">
             <div class="thead">
-              <button class="th" data-sort="name">{t("us.lname")} <span class="arrow"></span></button>
-              <button class="th" data-sort="email">{t("ord.emailLabel")} <span class="arrow"></span></button>
-              <button class="th" data-sort="phone">{t("ord.phone")} <span class="arrow"></span></button>
-              <button class="th num" data-sort="since" title={t("cli.sinceTitle")}>{t("cli.since")} <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg><span class="th-lbl">{t("cli.resaCol")}</span> <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg><span class="th-lbl">{t("nav.s.orders")}</span> <span class="arrow"></span></button>
-              <button class="th num sorted" data-sort="total">{t("ord.total")} <span class="arrow">▼</span></button>
+              <button type="button" class="th" data-sort="name">{t("us.lname")} <span class="arrow"></span></button>
+              <button type="button" class="th" data-sort="email">{t("ord.emailLabel")} <span class="arrow"></span></button>
+              <button type="button" class="th" data-sort="phone">{t("ord.phone")} <span class="arrow"></span></button>
+              <button type="button" class="th num" data-sort="since" title={t("cli.sinceTitle")}>{t("cli.since")} <span class="arrow"></span></button>
+              <button type="button" class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg><span class="th-lbl">{t("cli.resaCol")}</span> <span class="arrow"></span></button>
+              <button type="button" class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg><span class="th-lbl">{t("nav.s.orders")}</span> <span class="arrow"></span></button>
+              <button type="button" class="th num sorted" data-sort="total">{t("ord.total")} <span class="arrow">▼</span></button>
               <span class="th-act" aria-hidden="true"></span>
             </div>
             <div id="rows"></div>
@@ -1156,7 +1156,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
                 <div class="c-nums"><div class="cell c-num c-resa"><span class="c-num-ico">${ICO_RESA}</span>${c.reservations}</div>
                 <div class="cell c-num c-orders"><span class="c-num-ico">${ICO_ORD}</span>${c.orders}</div>
                 <div class="cell c-num c-total${c.total_cents ? "" : " vuoto"}"><span class="c-cash-ico">${ICO_CASH}</span>${c.total_cents ? euro(c.total_cents) : "—"}</div></div>
-                <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="${tr("common.edit")}">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="${tr("common.delete")}">${ICO_TRASH}</button></div>
+                <div class="cell c-act"><button type="button" class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="${tr("common.edit")}">${ICO_EDIT}</button><button type="button" class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="${tr("common.delete")}">${ICO_TRASH}</button></div>
               </div>`;
             })
             .join("");
