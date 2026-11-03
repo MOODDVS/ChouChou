@@ -30,7 +30,7 @@
 /* Convenzione bottoni flottanti: hover = shrink + oro più scuro (mai trasparente) */
 .save:hover:not(:disabled):not(.is-saved) { background: var(--c-hover); border-color: var(--c-hover); color: var(--c-bg); transform: scale(0.94); }
 .save:disabled { opacity: 0.5; cursor: not-allowed; }
-.save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
+.save.is-saved { background: var(--c-ok, #2e9e6b); border-color: var(--c-ok, #2e9e6b); color: #ffffff; }
 /* Tablet (incl. iPad mini landscape 1024): bottone più piccolo, come i FAB. */
 @media (min-width: 641px) and (max-width: 1024px) { .save { font-size: 0.92rem; padding: 0.5rem 1.5rem; } }
 /* Mobile: ancora più piccolo. */

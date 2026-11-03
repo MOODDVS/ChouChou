@@ -10,6 +10,7 @@ import { leggi, type Ambito } from "./sede";
 import { conRipiegoColonne, type RisultatoQuery } from "../db";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../pricing";
 import { applicaStatoSede } from "../menuStato";
+import { QTY_MAX } from "../quantita";
 
 /** Piatti per il calcolo di un ordine dello staff. Prezzi SEMPRE dal DB.
  *  Ripiega senza `variants` sui DB dove la migrazione #71 manca ancora. */
@@ -40,7 +41,9 @@ export function rigaOrdine(
   lang: string,
   ambito: Ambito,
 ): { name: string; base_name: string; variant_label?: string; price_cents: number; qty: number; variant?: string } | null {
-  const qty = Math.max(1, Math.floor(Number(rich.qty)));
+  // Audit 3/11/2026: `NaN` diventava un totale `NaN`, e nessun tetto.
+  const n = Math.floor(Number(rich.qty));
+  const qty = Number.isFinite(n) ? Math.min(QTY_MAX, Math.max(1, n)) : 1;
   let variante = null as ReturnType<typeof trovaVariante>;
   if (haVarianti(piatto.variants, ambito)) {
     variante = trovaVariante(piatto.variants, rich.variant, true, ambito);

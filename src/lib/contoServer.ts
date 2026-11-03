@@ -90,13 +90,22 @@ export async function verificaCodice(ambito: Ambito, conto: ContoRiga, codice: u
   const c = codiceLetto(codice);
   if (!c) return "illeggibile";
   const giusto = c === conto.tab_code;
-  if (!giusto || (conto.tab_fails ?? 0) !== 0) {
-    const dopo = dopoTentativo(giusto, conto.tab_fails ?? 0, conto.tab_fails_at, adesso);
-    await aggiorna("reservations", ambito, {
-      tab_fails: dopo.sbagliati,
-      tab_fails_at: dopo.ultimoSbaglio ? dopo.ultimoSbaglio.toISOString() : null,
-    }).eq("id", conto.id);
-  }
+  // ⚠️ AUDIT 3/11/2026: il contatore si scrive SOLO se nessuno l'ha cambiato
+  // nel frattempo (`tab_fails` com'era alla lettura). Prima cento tentativi
+  // mandati insieme leggevano tutti «0 sbagli» e passavano tutti: con cento
+  // codici possibili, uno era quello giusto. Ora, fra tentativi simultanei,
+  // ne vale UNO; gli altri arrivano tardi e non provano niente.
+  // Anche il tentativo giusto passa da qui: e' cosi' che non vince «per caso»
+  // in mezzo a una raffica di sbagliati.
+  const prima = conto.tab_fails ?? 0;
+  const dopo = dopoTentativo(giusto, prima, conto.tab_fails_at, adesso);
+  let q = aggiorna("reservations", ambito, {
+    tab_fails: dopo.sbagliati,
+    tab_fails_at: dopo.ultimoSbaglio ? dopo.ultimoSbaglio.toISOString() : null,
+  }).eq("id", conto.id);
+  q = conto.tab_fails == null ? q.is("tab_fails", null) : q.eq("tab_fails", prima);
+  const { data, error } = await q.select("id");
+  if (!error && (data ?? []).length === 0) return "sbagliato";
   return giusto ? "ok" : "sbagliato";
 }
 

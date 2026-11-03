@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
@@ -6,18 +8,10 @@ import { fusoDi } from "../../../lib/fuso";
 import { SEDE_UNICA } from "../../../lib/admin/sede";
 import { parseSegment } from "../../../lib/newsletterSend";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 import { pulisciHtml } from "../../../lib/htmlRicco";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Newsletter PROGRAMMATE e RICORRENTI (#39, tabella newsletter_schedule).
 // GET          → { schedules } attive (missing: true se la #39 non è lanciata)
@@ -33,12 +27,6 @@ const SELECT = "id, subject, message, image_url, btn_label, btn_url, btn2_label,
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_UUID = /^[0-9a-f-]{36}$/i;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

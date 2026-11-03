@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import {
   ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella, leggiOrari, type Ambito,
@@ -10,8 +12,7 @@ import { emailReviewResa, annullaEmailReview, emailAnnullataResa, emailNoShowRes
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
+import { likeEsatto } from "../../../lib/like";
 /** Id tavoli validi (uuid) da un body: max 8, [] -> null. */
 function tavoliDalBody(v: unknown): string[] | null {
   if (!Array.isArray(v)) return null;
@@ -35,12 +36,6 @@ function registraClienteResa(r: { first_name?: string; last_name?: string; email
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Réservations (admin) — V1 semplice.
 // GET ?date=YYYY-MM-DD → prenotazioni del giorno (tutte, ordinate per ora)
@@ -60,12 +55,6 @@ const normLang = (v: unknown): string => {
   return LINGUE_RESA.has(c) ? c : "fr";
 };
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
@@ -210,7 +199,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const campiStat = "id, date, heure, people, status, source, created_at, table_minutes, spent_cents";
     const righe = new Map<string, RigaStat>();
     if (email) {
-      const { data } = await leggi("reservations", ambito, campiStat).ilike("email", email).limit(500);
+      const { data } = await leggi("reservations", ambito, campiStat).ilike("email", likeEsatto(email)).limit(500);
       for (const r of (data ?? []) as RigaStat[]) righe.set(r.id, r);
     }
     if (phone) {

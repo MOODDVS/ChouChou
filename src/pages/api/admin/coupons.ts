@@ -1,20 +1,14 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { leggi, elencoSedi, tutteLeSedi } from "../../../lib/admin/sede";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { normalizzaCodice } from "../../../lib/coupons";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // CRUD dei codici promo (admin Marketing → Coupons).
 // GET    → elenco + numero di utilizzi (ordini paid) per coupon
@@ -51,12 +45,6 @@ interface CouponInput {
   locations?: string[] | null;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /** Intero positivo opzionale (null se vuoto/0). */
 function intPosOpz(v: unknown): number | null {

@@ -1,0 +1,22 @@
+/*
+ * LA BASE DI OGNI PAGINA ADMIN — un posto solo (audit 3/11/2026).
+ *
+ * Era copiata in testa a tredici pagine, e le copie si erano gia' separate:
+ * a Google mancava `--c-hover`, cosi' i bottoni pieni non scurivano al
+ * passaggio. Questi sono i valori di RIPIEGO: il tema scelto in Réglages
+ * arriva da AdminHead come `html:root{…}`, che vince sempre su `:root`.
+ */
+:root {
+  --c-hover: #e86a61;
+  --c-input: #0e3038;
+  --c-bg: #0c2a30;
+  --c-header: #04161b;
+  --c-text: #e9efef;
+  --c-accent: #cb534d;
+  --c-muted: #86a0a4;
+  --c-line: #244a52;
+  --c-card: #16424b;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+#app { display: none; min-height: 100vh; flex-direction: column; }

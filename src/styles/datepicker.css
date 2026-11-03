@@ -47,10 +47,10 @@
 /* Pallini di occupazione (usati solo dalla pagina Prenotazioni) */
 .dp-dot {
   position: absolute; left: 50%; transform: translateX(-50%); bottom: 3px;
-  width: 7px; height: 7px; border-radius: 50%; background: #2e9e6b; /* ≤30% */
+  width: 7px; height: 7px; border-radius: 50%; background: var(--c-ok, #2e9e6b); /* ≤30% */
 }
 .dp-dot--medio { background: var(--c-accent); } /* 31-80% */
-.dp-dot--alto { background: #ed1c24; } /* 81%+ */
+.dp-dot--alto { background: var(--c-ko, #ed1c24); } /* 81%+ */
 .dp-sel .dp-dot { background: var(--c-bg); }
 @media (pointer: coarse) {
   .dp-panel { width: 372px; }

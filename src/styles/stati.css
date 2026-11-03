@@ -87,7 +87,7 @@
   font-weight: 800;
 }
 
-.spx-b.open { background: #2e9e6b; color: #fff; }
+.spx-b.open { background: var(--c-ok, #2e9e6b); color: #fff; }
 .spx-b.closed { background: #c7443f; color: #fff; }
 /* Grigia: una festa che nessuno ha ancora deciso, o un piatto fuori dal
    sito. Rossa (.closed) = chiuso, o esaurito ma ancora a menu.

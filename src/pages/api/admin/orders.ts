@@ -1,4 +1,6 @@
 import { accodaTicket } from "../../../lib/stampaCoda";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../../lib/db";
@@ -21,27 +23,14 @@ import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrd
 // parlerebbero di «retrait» a chi aspetta il fattorino.
 import { consegnaDellOrdine, manciaDellOrdine } from "../../../lib/consegnaOrdine";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 import { rimborsabile } from "../../../lib/admin/ordiniConti";
 import { cosaDaIncassare } from "../../../lib/admin/daIncassare";
 import { chiudiSeContoChiesto } from "../../../lib/admin/incassoSeduta";
+import { likeEsatto } from "../../../lib/like";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 // GET /api/admin/orders
 // Restituisce gli ordini con ritiro da 7 giorni fa in poi:
@@ -178,7 +167,7 @@ export const GET: APIRoute = async ({ request, url }) => {
         .in("status", ["paid", "done"])
         .order("created_at", { ascending: false })
         .limit(500);
-      const { data } = mode === "email" ? await base.ilike("customer_email", val) : await base.eq("customer_phone", val);
+      const { data } = mode === "email" ? await base.ilike("customer_email", likeEsatto(val)) : await base.eq("customer_phone", val);
       for (const r of (data ?? []) as Array<{ id: string; items?: ItemJ[]; lang?: string; created_at: string }>)
         rows.set(r.id, { items: (r.items ?? []) as ItemJ[], lang: String(r.lang ?? ""), created_at: r.created_at });
     };

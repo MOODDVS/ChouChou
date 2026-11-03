@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
@@ -8,17 +10,10 @@ import { relevePunto, type BuonoDelReleve, type RiscattoDelReleve } from "../../
 import { euroPdf, pulisciPdf, hexPdf, inchiostroPdf, suFondoPdf } from "../../../lib/pdfTesto";
 import { temaEmail } from "../../../lib/temaBrand";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
+import { aPagine } from "../../../lib/aPagine";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 /**
  * RELEVE' CONTABILE DEI BUONI REGALO — PDF.
@@ -38,12 +33,6 @@ async function msg(chiave: string): Promise<string> {
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 type L = "fr" | "en" | "it" | "nl" | "es";
 const LANGS: L[] = ["fr", "en", "it", "nl", "es"];
@@ -104,8 +93,8 @@ export const GET: APIRoute = async ({ request }) => {
   const nomeDi = (id: string | null): string => (id ? (nomiSede.get(id) ?? t.senzaSede) : t.senzaSede);
 
   const [carte, riscatti] = await Promise.all([
-    supabaseAdmin.from("gift_cards").select("id, code, initial_cents, paid, payment_method, sold_at_location, created_at"),
-    supabaseAdmin.from("gift_card_redemptions").select("gift_card_id, amount_cents, kind, location_id, created_at"),
+    aPagine<any>((da, a) => supabaseAdmin.from("gift_cards").select("id, code, initial_cents, paid, payment_method, sold_at_location, created_at").order("id").range(da, a)),
+    aPagine<any>((da, a) => supabaseAdmin.from("gift_card_redemptions").select("gift_card_id, amount_cents, kind, location_id, created_at").order("id").range(da, a)),
   ]);
   if (carte.error || riscatti.error) return json({ error: await msg("err.read") }, 500);
 

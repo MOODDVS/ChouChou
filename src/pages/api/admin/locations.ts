@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
@@ -7,8 +9,7 @@ import { controllaPlaceId } from "../../../lib/admin/googleRegole";
 import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
 import { salvaConfigStampa } from "../../../lib/stampaConfig";
 import { cifra, cifraturaPronta } from "../../../lib/segreti";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
+import { bucketDocs, spostaNelPrivato } from "../../../lib/admin/bucketDocs";
 
 export const prerender = false;
 
@@ -45,14 +46,6 @@ const SELECT = "id, name, slug, image_url, sort_order, active, created_at";
 const RE_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Messaggi d'errore nella lingua dell'admin.
- *  La lingua e' globale (app_config.admin_lang) e il server la conosce gia'
- *  dalla cache di adminBoot: nessuna query in piu'. Senza questo, un admin
- *  in italiano riceveva un toast in francese — non un guasto, ma il genere
- *  di cosa che fa sembrare l'applicazione di qualcun altro. */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 /** Traduce l'errore di Postgres in qualcosa di utile, e lo SCRIVE nei log.
  *
@@ -73,12 +66,6 @@ function erroreDb(dove: string, err: { message?: string; code?: string } | null)
   return "common.saveErr";
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /** Sedi, societa' e chiavi Stripe: roba da super admin MOODD, non da cliente. */
 async function soloSuper(request: Request): Promise<null | Response> {
@@ -180,9 +167,12 @@ async function contaStorico(): Promise<Record<string, number>> {
  *  (`.thumb-…`) non si contano: seguono il loro PDF. */
 async function contaFileDocumenti(): Promise<number> {
   let n = 0;
-  for (const cat of ["contrat", "facture", "recu", "legal", "autre"]) {
+  const CATS = ["contrat", "facture", "recu", "legal", "autre"];
+  await spostaNelPrivato(CATS);
+  const BUCKET = await bucketDocs();
+  for (const cat of CATS) {
     try {
-      const { data } = await supabaseAdmin.storage.from("documents").list(cat, { limit: 1000 });
+      const { data } = await supabaseAdmin.storage.from(BUCKET).list(cat, { limit: 1000 });
       n += (data ?? []).filter((f) => f.name && f.id !== null && !f.name.startsWith(".")).length;
     } catch {
       /* cartella assente */
@@ -192,8 +182,9 @@ async function contaFileDocumenti(): Promise<number> {
 }
 
 async function spostaDocumenti(sedeId: string): Promise<number> {
-  const BUCKET = "documents";
   const CATS = ["contrat", "facture", "recu", "legal", "autre"];
+  await spostaNelPrivato(CATS);
+  const BUCKET = await bucketDocs();
   let spostati = 0;
   for (const cat of CATS) {
     try {

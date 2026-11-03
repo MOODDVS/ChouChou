@@ -73,9 +73,14 @@ test("ogni API che usa msg() la dichiara e importa adminT/adminLang", () => {
   const rotti = [];
   for (const [f, src] of SORGENTI) {
     if (!/\bawait msg\(/.test(src)) continue;
-    if (!/async function msg\(/.test(src)) rotti.push(`${f}: manca la funzione msg()`);
-    if (!/^import \{[^}]*\badminT\b/m.test(src)) rotti.push(`${f}: manca l'import di adminT`);
-    if (!/^import \{[^}]*\badminLang\b/m.test(src)) rotti.push(`${f}: manca l'import di adminLang`);
+    // Dal 3/11/2026 la funzione e' una sola, in lib/admin/msgApi.ts: o la si
+    // importa, o (vecchio modo) la si dichiara con i suoi due import.
+    const importata = /^import \{ msg \} from "[^"]*lib\/admin\/msgApi";/m.test(src);
+    if (!importata) {
+      if (!/async function msg\(/.test(src)) rotti.push(`${f}: manca la funzione msg()`);
+      if (!/^import \{[^}]*\badminT\b/m.test(src)) rotti.push(`${f}: manca l'import di adminT`);
+      if (!/^import \{[^}]*\badminLang\b/m.test(src)) rotti.push(`${f}: manca l'import di adminLang`);
+    }
     // Una `const msg` locale nasconderebbe la funzione: la chiamata diventa
     // «msg non e' una funzione», a runtime, dentro un ramo d'errore raro.
     if (/\bconst msg\b/.test(src)) rotti.push(`${f}: una const msg locale nasconde la funzione`);

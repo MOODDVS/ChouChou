@@ -81,6 +81,7 @@ const t = adminT(lang);
 </style>
 
 <script>
+  import { esc } from "../../lib/esc";
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
   import { comprimiFoto } from "../../lib/admin/imageCompress";
   import { adminT, type AdminLang } from "../../i18n/admin";
@@ -106,9 +107,6 @@ const t = adminT(lang);
   let modo: "image" | "link" = "image";
   let filtro = "";
 
-  function esc(s: string): string {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
 
   function vuoto(msg: string) {
     stateEl.style.display = "";

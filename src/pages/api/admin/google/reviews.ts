@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../../lib/admin/sede";
 
@@ -7,12 +8,6 @@ export const prerender = false;
 // GET /api/admin/google/reviews — legge la CACHE locale (istantaneo, niente
 // chiamate a Google). Ritorna stato collegamento + meta + elenco recensioni.
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

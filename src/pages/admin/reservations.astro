@@ -65,20 +65,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       /* Testata: titolo a sinistra, controlli giorno a destra (come Ordini) */
       .head-row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--c-line); }
@@ -360,8 +346,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .r-badge:hover { filter: brightness(1.25); }
       /* Menu degli stati (dal badge) */
       /* `.st-menu` e `.st-dot` stanno in styles/stati.css: li usa anche la Accueil. */
-      .r-badge.ok { background: rgba(46, 158, 107, 0.18); border: 1px solid #2e9e6b; color: #6fd0a3; }
-      .r-badge.ko { background: rgba(237, 28, 36, 0.15); border: 1px solid #ed1c24; color: #ff8a8f; }
+      .r-badge.ok { background: rgba(46, 158, 107, 0.18); border: 1px solid var(--c-ok); color: #6fd0a3; }
+      .r-badge.ko { background: rgba(237, 28, 36, 0.15); border: 1px solid var(--c-ko); color: var(--c-ko-chiaro); }
       .r-badge.ns { background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid var(--c-accent); color: var(--c-accent); }
       .r-badge.bl { background: rgba(59, 130, 246, 0.16); border: 1px solid #3b82f6; color: #8ab6ff; }
       .r-badge.gr { background: rgba(179, 172, 166, 0.12); border: 1px solid var(--c-muted); color: var(--c-muted); }
@@ -388,7 +374,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .b-annule { width: 34px; padding: 0; border-radius: 50%; background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .b-annule:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .b-annule:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #fff; }
       .b-annule.confirm { width: auto; padding: 0 0.9rem; border-radius: 999px; background: #a3320f; border-color: #a3320f; font-size: 0.75rem; }
       .b-annule .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -440,9 +426,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
       }
       .fab-serv:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
-      .fab-serv.has-closed:hover { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: #ed1c24; transform: scale(0.94); }
+      .fab-serv.has-closed:hover { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: var(--c-ko); transform: scale(0.94); }
       /* Almeno un service del giorno è chiuso */
-      .fab-serv.has-closed { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: #ed1c24; color: var(--c-accent); }
+      .fab-serv.has-closed { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: var(--c-ko); color: var(--c-accent); }
       .fab-zone { left: 5.6rem; }
       /* ≤1023px: l'isola nav è larga → FAB (destra + sinistra) sollevati sopra
          la barra per non accavallarsi (il ramo ≥1024 lo fa via JS in AdminNav). */
@@ -479,14 +465,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         margin: 0 0.35rem; flex: 0 0 auto;
       }
       .d-closed-x {
-        background: none; border: none; color: #ff8a8f; cursor: pointer;
+        background: none; border: none; color: var(--c-ko-chiaro); cursor: pointer;
         font-size: 1.05rem; line-height: 1; padding: 0 0 0 0.1rem; margin-left: 0.15rem;
       }
       .d-closed-x:hover { color: var(--c-text); }
       .d-closed-pill {
         display: inline-flex; align-items: center; gap: 0.35rem;
         height: 34px; box-sizing: border-box;
-        border: 1px solid #ed1c24; color: #ff8a8f; background: rgba(237, 28, 36, 0.12);
+        border: 1px solid var(--c-ko); color: var(--c-ko-chiaro); background: rgba(237, 28, 36, 0.12);
         border-radius: 999px; padding: 0 0.85rem; font-size: 0.8rem; white-space: nowrap;
       }
       .fab-serv svg { width: 20px; height: 20px; }
@@ -617,7 +603,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .dt-chip b { color: var(--c-text); font-weight: 700; }
       .dt-chip.gold { color: var(--c-accent); border-color: var(--c-accent); }
-      .dt-chip.warn { color: #ff8a8f; border-color: #7a3a3a; }
+      .dt-chip.warn { color: var(--c-ko-chiaro); border-color: #7a3a3a; }
       .dt-timer {
         background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px;
         padding: 0.9rem 1rem 1rem; margin-bottom: 1.1rem;
@@ -698,7 +684,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-ta-item:hover, .nm-ta-item.is-active { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
       .nm-ta-name { font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
       .nm-ta-sub { font-size: 0.76rem; color: var(--c-muted); margin-top: 1px; }
-      .nm-ta-block { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.4); border-radius: 999px; padding: 0.05rem 0.4rem; }
+      .nm-ta-block { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-ko-chiaro); border: 1px solid rgba(237,28,36,0.4); border-radius: 999px; padding: 0.05rem 0.4rem; }
       .md-box .nm-in {
         flex: 1; width: 100%; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
@@ -805,13 +791,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-slot.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-noslot { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; font-style: italic; margin: 0.3rem 0; }
       .nm-closed-note {
-        border: 1px solid #ed1c24; background: rgba(237, 28, 36, 0.1); color: #ff8a8f;
+        border: 1px solid var(--c-ko); background: rgba(237, 28, 36, 0.1); color: var(--c-ko-chiaro);
         border-radius: 8px; padding: 0.45rem 0.7rem; font-size: 0.8rem; margin-bottom: 0.5rem;
       }
       /* Icona rossa sul tab di un service chiuso al pubblico (bypass possibile) */
       .nm-tab-closed {
         width: 13px; height: 13px; margin-left: 0.45rem; flex-shrink: 0;
-        fill: none; stroke: #ed1c24; stroke-width: 2; stroke-linecap: round;
+        fill: none; stroke: var(--c-ko); stroke-width: 2; stroke-linecap: round;
       }
       .nm-stabs .nm-pill { display: inline-flex; align-items: center; justify-content: center; }
       /* Orario complet: sbarrato ma cliccabile (bypass del ristoratore) */
@@ -868,7 +854,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .rm-choice-primary:hover { filter: brightness(1.08); }
       /* Rosso, non corallo: e' distruttiva e non manda niente al cliente. */
       .rm-choice-danger { color: #ed6a5f; border-color: rgba(237, 28, 36, 0.45); }
-      .rm-choice-danger:hover { border-color: #ed1c24; background: rgba(237, 28, 36, 0.1); }
+      .rm-choice-danger:hover { border-color: var(--c-ko); background: rgba(237, 28, 36, 0.1); }
       .rm-choice-ghost { color: var(--c-muted); font-family: var(--font-body); font-size: 0.9rem; padding: 0.7rem; }
       .rm-choice-ghost:hover { color: var(--c-text); border-color: var(--c-text); }
       /* Fondo e bordo li mette gia `.md-box textarea`: qui solo la forma.
@@ -1183,6 +1169,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <script id="ssr-resa" type="application/json" is:inline set:html={ssrResaJson} data-giorno={ssrGiorno}></script>
 
     <script>
+      import { esc } from "../../lib/esc";
       import { iconaDiResa } from "../../lib/sorgenteRegole";
       import { ICONA_WALKIN, ICONA_PERSONE, ICONA_TAVOLO } from "../../lib/iconeSala";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -1309,9 +1296,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       const ICO_BIZ =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>';
 
-      function esc(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      }
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
       function toast(msg: string, tipo: "" | "ok" | "err" = "") {
@@ -1859,11 +1843,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             ssrResaOk = false;
           }
         }
-        if (!ssrResaOk) {
-          await carica();
-        } else {
-          void carica(true); // riallinea in background, silenzioso
-        }
+        // ⚠️ Audit 3/11/2026: con i dati SSR NON si rilegge subito (stessa
+        // lettura appena fatta dal server). Il poll e il ritorno sulla scheda
+        // bastano; `pageshow` copre la pagina ripresa dalla cache del browser.
+        if (!ssrResaOk) await carica();
+        window.addEventListener("pageshow", (e) => { if (e.persisted) void carica(true); });
 
         // ---- Aggiornamento live della lista ----
         // Ricarica il giorno mostrato SOLO se non stai cercando, la scheda è

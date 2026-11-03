@@ -36,6 +36,7 @@ import { CLIENT } from "../../config/client";
 import { linguaPalmare } from "../../lib/admin/linguaPalmare";
 import { adminT } from "../../i18n/admin";
 import { claimsDaToken } from "../../lib/admin/adminAuth";
+import { esc } from "../../lib/esc";
 import { ambitoDiRichiesta, leggi } from "../../lib/admin/sede";
 import { configInCache, cronometro, seduteConOrdini } from "../../lib/admin/letturaSala";
 import { saleDelPalmare, pianoVerticale, type SalaPalmare, type DecoroPiano } from "../../lib/pianoPalmare";
@@ -174,7 +175,6 @@ const testoSforo = (s: { fine: string; prossima: string }) => `+${Math.max(0, de
  * e altezza scambiate: l'elemento si disegna con le misure di prima e 90° in
  * piu' — una porta o una scala non sono simmetriche come un rettangolo.
  */
-const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 function elementoPalmare(d: DecoroPiano, ruotata: boolean): string {
   const W = ruotata ? d.h : d.w, H = ruotata ? d.w : d.h;
   const cx = d.x + d.w / 2, cy = d.y + d.h / 2;

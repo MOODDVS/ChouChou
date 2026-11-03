@@ -205,5 +205,5 @@ test("guardia · la pastiglia e' verde da uno in su, rossa a locale chiuso", () 
   assert.ok(/oggiChiuso = stato === "ignoto" \? null : stato === "chiuso"/.test(HOME),
     "lo stato arriva da `statoGiorno`, e «ignoto» non e' «chiuso»");
   assert.ok(/el\.className = n > 0 \? "j-pil" : "j-pil n"/.test(HOME), "verde da uno in su");
-  assert.ok(/\.j-pil\.ko \{ background: #ed1c24/.test(HOME), "e il rosso delle chiusure");
+  assert.ok(/\.j-pil\.ko \{ background: var\(--c-ko\)/.test(HOME), "e il rosso delle chiusure");
 });

@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../lib/rispostaJson";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { supabaseAdmin } from "../../lib/db";
 // Multi-sede. `leggi` e' gia' il nome di una variabile locale in questo
@@ -24,6 +25,7 @@ import { inviaPushResa } from "../../lib/push";
 import { ambitoDiRiga } from "../../lib/admin/sede";
 import { appConfigIn } from "../../lib/appConfigCache";
 import { sorgenteDaRef } from "../../lib/sorgenteRegole";
+import { aPagine } from "../../lib/aPagine";
 
 export const prerender = false;
 
@@ -75,12 +77,6 @@ async function programmaReview(r: {
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 function intOf(v: unknown): number {
@@ -683,7 +679,8 @@ async function verificaCreneau(
  *  i formati dei numeri variano (+32 4xx / 04xx). Gli ordini NON passano di qui. */
 async function clienteBloccato(email: string, phone: string): Promise<boolean> {
   try {
-    const { data, error } = await supabaseAdmin.from("clients").select("email, phone").eq("blocked", true).limit(500);
+    const { data, error } = await aPagine<{ email: string | null; phone: string | null }>((da, a) =>
+      supabaseAdmin.from("clients").select("email, phone").eq("blocked", true).order("id").range(da, a));
     if (error || !data) return false; // colonna assente (#32) o nessun blocco
     const em = email.trim().toLowerCase();
     const cifre = phone.replace(/\D/g, "").replace(/^0+/, "");

@@ -1,30 +1,18 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../../lib/admin/msgApi";
+import { json } from "../../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { tokenGoogle, erroreGoogle, locationSalvata, leggiAttributi, aggiornaAttributi } from "../../../../lib/googleBusiness";
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 import type { AttrType } from "../../../../lib/googleBusiness";
 
-import { adminLang } from "../../../../lib/admin/adminLang";
-import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // GET  /api/admin/google/attributes?lang=fr  -> gruppi di attributi + valori correnti
 // PUT  /api/admin/google/attributes           -> salva gli attributi modificati
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 async function preludio(request: Request) {
   const staff = await verificaStaff(request);

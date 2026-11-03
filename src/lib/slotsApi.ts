@@ -189,13 +189,20 @@ export async function giorniOrdinabili(
   const adesso = DateTime.now().setZone(fuso);
   const avanti = await giorniAvantiDi(ambito);
   const giorni: string[] = [];
+  // ⚠️ Audit 3/11/2026: tragitto e tetto delle consegne si leggono UNA volta,
+  // non a ogni giorno del ciclo (erano quattro letture per giorno). Le regole
+  // restano quelle di `preavvisoDelServizio` e `soloOrariLiberi`.
+  const ritardo = consegna ? await ritardoConsegnaDi(ambito) : 0;
+  const max = consegna ? await maxConsegneDi(ambito) : 0;
   for (let d = 0; d <= avanti; d++) {
     const ora = d === 0 ? adesso : adesso.plus({ days: d }).startOf("day");
     const cfg = await configRitiro(ora, ambito);
     if (!cfg) continue;
-    const { lunch, dinner } = calcolaSlotGiorno(ora, cfg, fuso, await preavvisoDelServizio(consegna, cfg.prep_time_minutes, ambito));
+    const preavviso = consegna ? preavvisoConsegna(cfg.prep_time_minutes, ritardo) : undefined;
+    const { lunch, dinner } = calcolaSlotGiorno(ora, cfg, fuso, preavviso);
     // Un giorno con tutti gli orari di consegna pieni non si propone.
-    const liberi = await soloOrariLiberi([...lunch, ...dinner], consegna, ambito, ora);
+    const tutti = [...lunch, ...dinner];
+    const liberi = !consegna || max <= 0 || !tutti.length ? tutti : orariLiberi(tutti, await consegnePerOrario(ambito, ora), max);
     if (liberi.length) giorni.push(ora.toFormat("yyyy-MM-dd"));
   }
   // `oggi` nel fuso del RISTORANTE: il sito scrive «Oggi»/«Domani» da qui, non

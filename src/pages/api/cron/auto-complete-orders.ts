@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { json } from "../../../lib/rispostaJson";
 // Multi-sede: il cron passa su TUTTI i punti.
 import { aggiorna, tutteLeSedi, SEDE_UNICA } from "../../../lib/admin/sede";
 import { segretoUguale } from "../../../lib/cronAuth";
@@ -19,12 +20,6 @@ export const prerender = false;
 
 const CRON_SECRET = import.meta.env.CRON_SECRET;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request, url }) => {
   // ⚠️ AGGREGATO, chiesto per nome. Il cron passa su TUTTI i punti: e' un

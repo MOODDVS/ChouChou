@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { statoQuota } from "../../../lib/admin/newsletterQuota";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 import { pulisciHtml } from "../../../lib/htmlRicco";
 import {
   parseSegment,
@@ -16,12 +16,6 @@ import {
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Newsletter (admin Marketing → Newsletter). Motore d'invio in lib/newsletterSend.
 // GET  → stato: inviate questo mese, quota, segmenti (con conteggi), storico.
@@ -32,12 +26,6 @@ async function msg(chiave: string): Promise<string> {
 //     1000 email/mese + crediti acquistati.
 // Ogni email contiene il link di disiscrizione obbligatorio.
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

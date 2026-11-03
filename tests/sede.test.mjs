@@ -1524,7 +1524,8 @@ test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
   for (const f of ["src/pages/api/checkout.ts", "src/lib/admin/caricaToday.ts"]) {
     const src = readFileSync(f, "utf8");
     assert.ok(
-      /appConfigEq\("orders_closed",\s*ambito/.test(src),
+      // checkout.ts la legge senza cache (audit 3/11/2026), con l'ambito lo stesso
+      /appConfigEq\("orders_closed",\s*ambito|leggiConfig\(ambito\w*, \["orders_closed"\]\)/.test(src),
       `${f}: la chiusura della cucina va letta con l'ambito, altrimenti il bottone «Fermer» di una sede non ferma niente`,
     );
   }
@@ -1532,7 +1533,7 @@ test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
   // sotto, leggerebbe il marchio e lascerebbe passare l'ordine.
   const co = readFileSync("src/pages/api/checkout.ts", "utf8");
   assert.ok(
-    co.indexOf("ambitoPubblicoChiesto(request)") < co.indexOf('appConfigEq("orders_closed"'),
+    co.indexOf("ambitoPubblicoChiesto(request)") < co.indexOf('["orders_closed"]'),
     "in checkout.ts l'ambito si calcola dopo il controllo di chiusura: il controllo leggerebbe il marchio",
   );
 });

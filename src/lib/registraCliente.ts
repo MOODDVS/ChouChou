@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./db";
+import { likeEsatto } from "./like";
 
 /**
  * Registra (o completa) una persona nella rubrica `clients`, come fa il
@@ -28,7 +29,7 @@ export async function registraCliente(c: {
     const { data: esistente } = await supabaseAdmin
       .from("clients")
       .select("id, name, phone, hidden")
-      .ilike("email", email)
+      .ilike("email", likeEsatto(email))
       .limit(1)
       .maybeSingle();
 

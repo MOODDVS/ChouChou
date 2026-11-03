@@ -1,21 +1,15 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuper, isSuperUser, ruoloDi, PAGINE_ADMIN } from "../../../lib/admin/superAdmin";
 import { pulisciPagine } from "../../../lib/admin/permessiRegole";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 import { nomeDiStaff } from "../../../lib/admin/adminAuth";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Utenti dell'admin (Supabase Auth) — riservato al SUPER ADMIN MOODD.
 // GET    → elenco utenti (email, creazione, ultimo accesso)
@@ -60,12 +54,6 @@ async function dipendenteDaBody(v: unknown): Promise<string | null | undefined> 
   return s;
 }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /** Solo il super admin MOODD può gestire gli accessi. */
 async function soloSuper(request: Request): Promise<{ email: string } | Response> {

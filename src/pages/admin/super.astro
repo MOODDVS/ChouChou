@@ -118,20 +118,6 @@ const prI18n = {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { margin: 0 auto; }  /* padding/flex/width dalla regola condivisa in AdminHead */
       .pane[data-pane="reglages"] .sub { max-width: none; }
@@ -206,10 +192,10 @@ const prI18n = {
         background: currentColor; opacity: 0.55;
       }
       .loc-chip.is-set {
-        color: #4fbe8c; border-color: #2e9e6b;
+        color: var(--c-ok-chiaro); border-color: var(--c-ok);
         background: rgba(46, 158, 107, 0.12);
       }
-      .loc-chip.is-set::before { background: #2e9e6b; opacity: 1; }
+      .loc-chip.is-set::before { background: var(--c-ok); opacity: 1; }
 
       /* STATO DELLA SEDE — una riga per collegamento, il pallino a sinistra.
          Erano due pastiglie affiancate; con quattro voci diventavano un muro
@@ -354,7 +340,7 @@ const prI18n = {
       #loc-overlay .md-foot { justify-content: flex-start; gap: 1.1rem; }
       #loc-overlay .md-foot .md-btn { margin-left: auto; }
       #loc-overlay .md-foot .md-btn + .md-btn { margin-left: 0; }
-      .loc-err { color: #ff8a8f; font-size: 0.85rem; align-self: center; }
+      .loc-err { color: var(--c-ko-chiaro); font-size: 0.85rem; align-self: center; }
       .loc-err:empty { display: none; }
       .pane .tema-titre { margin-top: 0; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.4rem; }
@@ -2157,9 +2143,9 @@ const prI18n = {
             usCache = j.users ?? [];
             usList.innerHTML = (j.users ?? [])
               .map((u) => `
-                <div class="us-row" data-uid="${u.id}">
-                  <span class="us-cell nom">${[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : u.role === "palmare" ? `<span class="us-tag role-user">${esc(tr("role.palmare"))}${u.employee_name ? ` · ${esc(u.employee_name)}` : ""}</span>` : '<span class="us-tag role-admin">ADMIN</span>'}</span>
-                  <span class="us-cell" title="${u.email}">${u.email}${
+                <div class="us-row" data-uid="${esc(u.id)}">
+                  <span class="us-cell nom">${esc([u.first_name, u.last_name].filter(Boolean).join(" ")) || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : u.role === "palmare" ? `<span class="us-tag role-user">${esc(tr("role.palmare"))}${u.employee_name ? ` · ${esc(u.employee_name)}` : ""}</span>` : '<span class="us-tag role-admin">ADMIN</span>'}</span>
+                  <span class="us-cell" title="${esc(u.email)}">${esc(u.email)}${
                     u.location_id ? `<span class="us-tag role-user">${esc(sedi.find((s) => s.id === u.location_id)?.name ?? "?")}</span>` : ""
                   }</span>
                   <span class="us-cell dim">${usData(u.created_at)}</span>

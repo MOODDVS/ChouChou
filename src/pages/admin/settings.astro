@@ -60,20 +60,6 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.5rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -170,18 +156,18 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
          staccati dai bottoni che aggiungono oggetti. */
       .sl-tools-sala { margin-top: auto; padding-top: 0.9rem; border-top: 1px solid var(--c-line); display: flex; flex-direction: column; align-items: stretch; gap: 0.45rem; }
       /* «Reset»: solo mentre si modifica la sala, in rosso come gli altri gesti che cancellano. */
-      .sl-reset { color: #ff8a8f; border-color: rgba(237, 28, 36, 0.45); }
+      .sl-reset { color: var(--c-ko-chiaro); border-color: rgba(237, 28, 36, 0.45); }
       .sl-reset svg { flex: none; }
       .sl-add .sl-ico { width: 18px; height: 18px; flex: none; color: var(--c-accent); }
       .sl-tot { margin-left: auto; background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-text); font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; white-space: nowrap; }
-      .sl-tot.troppo { background: rgba(237, 28, 36, 0.16); border-color: rgba(237, 28, 36, 0.45); color: #ff8a8f; }
+      .sl-tot.troppo { background: rgba(237, 28, 36, 0.16); border-color: rgba(237, 28, 36, 0.45); color: var(--c-ko-chiaro); }
       .sl-tot:empty { display: none; }
       /* L'avviso dei tavoli senza section: nasce nascosto (`hidden`) e lo
          mostra il salvataggio, solo quando ce ne sono davvero. Che `hidden`
          vinca su `.field { display: flex }` lo garantisce AdminHead per
          tutte le pagine admin — qui non si riscrive. */
       .orf-lista { margin: 0 0 .5rem; font-weight: 700; }
-      .orf-del { border-color: rgba(237, 28, 36, .45) !important; color: #ff8a8f !important; }
+      .orf-del { border-color: rgba(237, 28, 36, .45) !important; color: var(--c-ko-chiaro) !important; }
       .orf-msg:empty { display: none; }
       .sl-msg { color: var(--c-muted); font-size: 0.8rem; }
       .sl-msg:empty { display: none; }
@@ -260,7 +246,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
          d'accento spariva. Qui diventa bianco. */
       .sl-area-btn.attivo:hover:not(:disabled) { border-color: var(--c-accent); color: #fff; }
       /* Sala salvata: verde per un attimo, come il «Salva» della barra. */
-      .sl-area-btn.salvata, .sl-area-btn.salvata:hover:not(:disabled) { background: #2e9e6b; border-color: #2e9e6b; color: #fff; }
+      .sl-area-btn.salvata, .sl-area-btn.salvata:hover:not(:disabled) { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
       /* Il tavolo: il riquadro (trascinare, maniglie) e dentro LA FORMA, che
          gira (#92, 2/11/2026) mentre nome e posti restano dritti. */
       .sl-table { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--c-text); cursor: grab; user-select: none; -webkit-user-select: none; font-size: 0.7rem; line-height: 1.15; box-sizing: border-box; }
@@ -280,7 +266,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .sl-lg-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; }
       .sl-lg-nomi { flex: 1; font-size: 0.8rem; font-weight: 700; color: var(--c-accent); line-height: 1.2; }
       .sl-lg-head button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.25rem; border-radius: 999px; flex: none; }
-      .sl-lg-head button:hover { color: #ff8a8f; }
+      .sl-lg-head button:hover { color: var(--c-ko-chiaro); }
       .sl-lg-head button.armato { background: #a3320f; color: #fff; font-size: 0.68rem; padding: 0.15rem 0.5rem; }
       .sl-lg-combos { display: flex; flex-direction: column; gap: 0.3rem; }
       .sl-combo { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.35rem 0.5rem; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 7px; }
@@ -289,7 +275,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .sl-links:empty { display: none; }
       .sl-link-chip { display: inline-flex; align-items: center; gap: 0.4rem; background: color-mix(in srgb, var(--c-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-accent); font-size: 0.78rem; font-weight: 700; padding: 0.25rem 0.4rem 0.25rem 0.7rem; border-radius: 999px; }
       .sl-link-chip button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.25rem; border-radius: 999px; }
-      .sl-link-chip button:hover { color: #ff8a8f; }
+      .sl-link-chip button:hover { color: var(--c-ko-chiaro); }
       .sl-link-chip button.armato { background: #a3320f; color: #fff; font-size: 0.68rem; padding: 0.15rem 0.5rem; }
       .sl-table.lk .sl-forma { border-color: var(--c-accent); }
       .sl-edit { position: fixed; z-index: 500; display: flex; flex-direction: column; gap: 0.5rem; align-items: stretch; margin-top: 0;
@@ -322,7 +308,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .nf-row + .nf-row { border-top: 1px solid var(--c-line); }
       .nf-txt { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1 1 260px; margin-bottom: 2px; }
       .nf-txt strong { font-size: 1rem; }
-      .nf-txt strong .nf-badge { display: inline-block; background: #2e9e6b; color: #ffffff !important; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 999px; vertical-align: 2px; margin-left: 0.3rem; }
+      .nf-txt strong .nf-badge { display: inline-block; background: var(--c-ok); color: #ffffff !important; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 999px; vertical-align: 2px; margin-left: 0.3rem; }
       .nf-txt span { color: var(--c-muted); font-size: 0.84rem; line-height: 1.55; }
       /* ⚠️ Qui c'era un TERZO interruttore disegnato a mano (46x25 con la sua
          pallina), diverso dal componente e da quello della pagina menu: non
@@ -1042,10 +1028,10 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .dc-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .dc-btn .dc-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .dc-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
-      .dc-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
+      .dc-del:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #ffffff; }
       .dc-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
       .dc-warn1 { color: var(--c-accent); font-weight: 700; }
-      .dc-warn2 { color: #ff8a8f; font-weight: 700; }
+      .dc-warn2 { color: var(--c-ko-chiaro); font-weight: 700; }
       .dc-resil {
         margin-top: 1.4rem; width: 100%; background: transparent;
         border: 1px solid var(--c-line); color: var(--c-muted);
@@ -1075,7 +1061,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
          che .tm-filters ha nell'elenco della pagina. */
       #dc-cats { margin: 0; }
       /* L'errore vive nel footer, spinto a sinistra dai bottoni. */
-      .dc-err { color: #ff8a8f; font-size: 0.85rem; margin-right: auto; align-self: center; }
+      .dc-err { color: var(--c-ko-chiaro); font-size: 0.85rem; margin-right: auto; align-self: center; }
       .dc-err:empty { display: none; }
       .tm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.1rem 0 1.3rem; }
       /* Fondo PIENO e piu' scuro della .section che le ospita: da trasparenti
@@ -1140,7 +1126,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .tm-ibtn.edit { margin-left: auto; }
       .tm-ibtn.edit:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .tm-ibtn.del { background: rgba(237, 28, 36, 0.22); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .tm-ibtn.del:hover { background: rgba(237, 28, 36, 0.5); border-color: #ed1c24; }
+      .tm-ibtn.del:hover { background: rgba(237, 28, 36, 0.5); border-color: var(--c-ko); }
       .tm-ibtn.del.confirm { width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.72rem; background: #a3320f; border-color: #a3320f; white-space: nowrap; }
 
       /* --- Modali --- */
@@ -1161,7 +1147,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       #tm-overlay .md-foot .md-btn { margin-left: auto; }
       #tm-overlay .md-foot .md-btn + .md-btn { margin-left: 0; }
       /* Vuoto non deve occupare spazio, o il footer resta alto per niente. */
-      .tm-err { color: #ff8a8f; font-size: 0.85rem; align-self: center; }
+      .tm-err { color: var(--c-ko-chiaro); font-size: 0.85rem; align-self: center; }
       .tm-err:empty { display: none; }
       /* Touch (tablet/telefono): campi data/ora più grandi per le dita */
       @media (pointer: coarse) {
@@ -2231,6 +2217,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
     <AdminNav current="settings" />
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
@@ -2845,7 +2832,6 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
         }
 
         function slRenderLinks() {
-          const esc = (v: string) => v.replace(/</g, "&lt;");
           slLinksBox.innerHTML = slLinks
             .map((gruppo, i) => {
               // La liaison è una CATENA (ordine dei click = ordine fisico della

@@ -400,6 +400,7 @@ const ancora = (i: number) => `cat-${i}`;
     )}
 
     <script>
+      import { esc } from "../../../lib/esc";
       import { authFresh } from "../../../lib/admin/auth";
       import { importoDa } from "../../../lib/soldi";
 
@@ -412,7 +413,6 @@ const ancora = (i: number) => `cat-${i}`;
       if (datiEl) {
         const piatti = new Map((JSON.parse(datiEl.textContent || "[]") as Piatto[]).map((p) => [p.id, p]));
         const euro = (c: number) => importoDa(c, P.loc || "fr-BE");
-        const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
         // Il carrello: una riga per piatto + formato. La nota si scrive nel riepilogo.
         const carrello: Riga[] = [];
 

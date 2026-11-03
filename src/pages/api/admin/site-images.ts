@@ -1,30 +1,18 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { SITE_IMAGE_KEYS } from "../../../config/siteImageSlots";
 import { chiaveMisure, leggiMisure } from "../../../lib/siteImagesRegole";
 import { cacheDel } from "../../../lib/cache";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 const SLOT = new Set(SITE_IMAGE_KEYS);
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 // GET /api/admin/site-images -> { images: { <key>: url }, misure: { <key>: "1200x800" } }
 // per gli slot noti. `misure` serve all'admin per rimisurare chi non le ha.

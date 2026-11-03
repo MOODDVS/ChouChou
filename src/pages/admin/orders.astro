@@ -95,20 +95,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
       :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-        --c-red: #ed1c24;
+        --c-red: var(--c-ko);
       }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.25rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -121,7 +110,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .prep { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
       .prep .o-search-wrap { margin-right: 1.4rem; }
       .prep-lab { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--c-muted); }
-      .prep-note { text-transform: none; letter-spacing: 0; color: #2e9e6b; font-weight: 700; margin-left: 0.4rem; }
+      .prep-note { text-transform: none; letter-spacing: 0; color: var(--c-ok); font-weight: 700; margin-left: 0.4rem; }
       .prep-note.err { color: #ff6b6b; }
       /* ⚠️ Il disegno dei bottoni 15/30/45 e del «Fermer» sta in
          styles/prep.css, importato da AdminHead: lo stesso comando compare
@@ -385,7 +374,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .qr-attesa { color: #0c2a30; font-size: 1.5rem; }
       .qr-tot { font-size: 1.6rem; font-weight: 800; }
       .qr-stato { font-weight: 700; color: var(--c-muted); }
-      .qr-stato.is-ok { color: #2e9e6b; }
+      .qr-stato.is-ok { color: var(--c-ok); }
       .qr-nota { font-size: 0.8rem; line-height: 1.4; color: var(--c-muted); }
       .qr-chiudi { margin-top: 0.3rem; min-height: 44px; padding: 0 1.4rem; border-radius: 999px; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); font: inherit; font-weight: 700; cursor: pointer; }
       /* ---------- un tavolo, un ticket (26/10/2026) ---------- */
@@ -486,7 +475,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .act-stato .pay-ico { display: inline-flex; }
       .act-stato svg { width: 15px; height: 15px; flex: none; }
       /* «Prête» gia' segnato: verde pieno, scritta bianca (Enzo, 26/10/2026). */
-      .act-stato-ok { background: #2e9e6b; color: #fff; border: 1px solid transparent; }
+      .act-stato-ok { background: var(--c-ok); color: #fff; border: 1px solid transparent; }
       /* Le due scelte dell'incasso (contanti / carta) portano la stessa
          icona che poi comparira' accanto al prezzo: si sceglie guardando
          il simbolo che si rivedra' sulla card. */
@@ -510,7 +499,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .badge-ok {
         display: inline-flex; align-items: center; justify-content: center;
         width: 22px; height: 22px; border-radius: 50%;
-        background: #2e9e6b; color: #fff; font-size: 0.78rem; font-weight: 800; line-height: 1;
+        background: var(--c-ok); color: #fff; font-size: 0.78rem; font-weight: 800; line-height: 1;
       }
       /* Card annulée : ✕ blanc rond sur fond rouge, à côté du prix */
       .badge-ko {
@@ -631,7 +620,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Modale remboursement */
       /* ---- Nouvelle commande (manuale, link di pagamento) ---- */
       .tag-pending { background: #5d5555; color: #fff; border-radius: 999px; white-space: nowrap; }
-      .tag-paid { background: #2e9e6b; color: #fff; border-radius: 999px; white-space: nowrap; }
+      .tag-paid { background: var(--c-ok); color: #fff; border-radius: 999px; white-space: nowrap; }
       .btn-resend { flex: 1; border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
       .btn-resend:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
       @media (max-width: 640px) { .nc-add { bottom: calc(1.25rem + 72px); } }
@@ -852,7 +841,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Piatto finito in QUESTO punto: si vede ma non si aggiunge. Sparire
          sarebbe peggio — il ristoratore lo cercherebbe credendolo un guasto. */
       .nc-item.is-off .n, .nc-item.is-off .p { opacity: 0.45; }
-      .nc-soldout { flex: none; display: inline-flex; align-items: center; margin-left: 0.5rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
+      .nc-soldout { flex: none; display: inline-flex; align-items: center; margin-left: 0.5rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-ko-chiaro); border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .nc-item-var { padding-left: 1.6rem; border-bottom: none; }
       /* Dopo l'ULTIMA variante la linea torna piena: separa il piatto dal
          successivo. (Stessa specificita della regola dopo: conta l'ordine.) */
@@ -903,7 +892,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         color: var(--c-text) !important; border-radius: 8px;
         transition: background 0.2s ease, border-color 0.2s ease;
       }
-      .nc-cline-remove:hover { background: rgba(237, 28, 36, 0.55) !important; border-color: #ed1c24 !important; }
+      .nc-cline-remove:hover { background: rgba(237, 28, 36, 0.55) !important; border-color: var(--c-ko) !important; }
       .nc-cline-remove svg {
         width: 14px; height: 14px; fill: none; stroke: currentColor;
         stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
@@ -932,8 +921,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* L'importo non prende tutta la riga: e' un numero corto, e accanto
          deve starci «Tutto». */
       #rf-amount { flex: 0 1 170px; font-size: 1.15rem; }
-      .rf-msg { min-height: 1.1rem; font-size: 0.85rem; margin: 0.9rem 0 0; color: #ff8a8f; }
-      .rf-msg.ok { color: #2e9e6b; }
+      .rf-msg { min-height: 1.1rem; font-size: 0.85rem; margin: 0.9rem 0 0; color: var(--c-ko-chiaro); }
+      .rf-msg.ok { color: var(--c-ok); }
       .rf-msg:empty { display: none; }
 
       /* --- Sezione terminati/annullati --- */
@@ -1263,6 +1252,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     <script id="ssr-orders" type="application/json" is:inline set:html={ssrOrdersJson}></script>
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { ICONA_MATITA, ICONA_STAMPA, ICONA_MONETE, ICONA_CARTA, ICONA_CESTINO, ICONA_OROLOGIO, ICONA_QR } from "../../lib/iconeSala";
       import { mostraToast } from "../../lib/admin/toast";
@@ -1352,9 +1342,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       // Accetta anche null/undefined: un ordine creato dall'admin puo' non
       // avere email (il modale chiede nome + telefono, non l'indirizzo), e
       // `null.replace` faceva morire TUTTO il disegno della lista.
-      function esc(s: unknown): string {
-        return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      }
       /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
        *  pannello. Era la stessa funzione in cinque pagine. */
       const euro = (cents: number): string => importoDa(cents, LOC);
@@ -2661,9 +2648,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ncToast(tr("err.network"), true, 5000);
             return;
           }
+          // ⚠️ Audit 3/11/2026: la lista si ridisegna SOLO se e' cambiata (la
+          // firma resta), e con la scheda nascosta non si chiede niente. Prima
+          // ogni 3 secondi si rileggeva e ridisegnava tutta la lista.
           giro = window.setInterval(async () => {
             if (!document.body.contains(fondo)) { window.clearInterval(giro); return; }
-            firmaOrdini = "";
+            if (document.visibilityState !== "visible") return;
             await carica(true);
             const ancora = ids.some((id) => {
               const o = ordini.find((x) => x.id === id);
@@ -2675,7 +2665,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               if (st) { st.textContent = `✓ ${tr("ord.qrPaid")}`; st.classList.add("is-ok"); }
               window.setTimeout(chiudi, 2500);
             }
-          }, 3000);
+          }, 4000);
         }
 
         /* ---------- RITARDARE UN ORDINE ----------
@@ -3131,11 +3121,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ssrOk = false;
           }
         }
-        if (!ssrOk) {
-          await carica(); // nessun dato SSR → comportamento attuale
-        } else {
-          void carica(true); // già mostrato: riallinea in background, silenzioso
-        }
+        // ⚠️ Audit 3/11/2026: con i dati SSR NON si rilegge subito — erano
+        // appena usciti dalla stessa query. Ci pensano il poll (25 s), il
+        // ritorno sulla scheda e la pagina ripresa dalla cache del browser.
+        if (!ssrOk) await carica(); // nessun dato SSR → comportamento attuale
+        window.addEventListener("pageshow", (e) => { if (e.persisted) refreshLive(); });
 
         // 1) evento da AdminNav all'arrivo di un nuovo ordine pagato
         window.addEventListener("restohub:new-order", () => refreshLive());

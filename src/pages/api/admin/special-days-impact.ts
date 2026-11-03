@@ -1,21 +1,15 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { ambitoDiRichiesta, leggi, aggiorna } from "../../../lib/admin/sede";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailChiusuraResa, annullaEmailReview, type ResaEmail } from "../../../lib/notifications";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 import { fusoDi } from "../../../lib/fuso";
 import { DateTime } from "luxon";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Impatto di una CHIUSURA (jour spécial "fermé") sulle prenotazioni.
 // GET  ?from=&to=  -> prenotazioni CONFERMATE nell'intervallo (per il modale).
@@ -28,12 +22,6 @@ const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CAMPI =
   "id, location_id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);

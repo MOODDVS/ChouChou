@@ -20,6 +20,7 @@ import { importoMancia } from "../../lib/manceRegole";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
 import { prefissoLingua } from "../../lib/linguaUrl";
 import { defaultLang } from "../../i18n/ui";
+import { emailValida } from "../../lib/emailValida";
 
 /**
  * IL CONTO APERTO AL TAVOLO, dal telefono del cliente (conto-aperto.md).
@@ -163,6 +164,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     const email = String(body.email ?? "").trim().toLowerCase();
     if (opz.avvisa && !email) return json({ error: "email requise" }, 400);
+    if (email && !emailValida(email)) return json({ error: "email invalide" }, 400);
     const lang = String(body.lang ?? "fr").slice(0, 5) || "fr";
     const cfg = await configSala(adessoDt, ambito);
     const servizio = servizioInCorso(cfg, ora.toFormat("HH:mm")) ?? "";

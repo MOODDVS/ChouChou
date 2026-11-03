@@ -26,3 +26,18 @@ export async function authFresh(extra: Record<string, string> = {}): Promise<Rec
     ...extra,
   };
 }
+
+/**
+ * GLI STESSI HEADER, MA COME OGGETTO CHE NON INVECCHIA (audit 3/11/2026).
+ *
+ * Per i giri che partono da soli (i poll della nav: ordini, prenotazioni,
+ * chiamate) e per il codice che passa `{ headers }` in tanti punti. Il token
+ * si legge a ogni uso da un getter, e il rinnovo di supabase-js lo aggiorna:
+ * un tablet lasciato aperto durante il servizio continua a suonare.
+ * Prima, dopo un'ora, ogni poll tornava 401 e taceva.
+ */
+export function headersVivi(primo: string): { readonly Authorization: string } {
+  let token = primo;
+  supabaseBrowser.auth.onAuthStateChange((_e, s) => { token = s?.access_token ?? ""; });
+  return { get Authorization() { return `Bearer ${token}`; } };
+}

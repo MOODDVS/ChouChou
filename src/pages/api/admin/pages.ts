@@ -1,9 +1,10 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser, ruoloDi, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT, tabDaDipendenze } from "../../../lib/admin/superAdmin";
 import { adminT, isAdminLang, type AdminLang } from "../../../i18n/admin";
-import { adminLang } from "../../../lib/admin/adminLang";
 import { CHIAVE_ADMIN_LANG, CHIAVE_FEATURES, CHIAVE_PWA_MARCHIO, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
 import { cacheDel } from "../../../lib/cache";
 import { pagineConsentite } from "../../../lib/admin/permessiRegole";
@@ -12,12 +13,6 @@ import { contestoDiStaff } from "../../../lib/admin/permessi";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // Visibilità di pagine E tab dell'admin per gli utenti NON super (MOODD).
 // - admin_pages_hidden : array JSON di chiavi pagina (es. ["stats","marketing"])
@@ -38,12 +33,6 @@ const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
 const VALIDE = PAGINE_ADMIN.map((p) => p.key);
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

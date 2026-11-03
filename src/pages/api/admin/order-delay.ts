@@ -1,12 +1,11 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/admin/sede";
 import { ritardoAmmesso, RITARDI_MIN, alTavolo } from "../../../lib/ordiniRegole";
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
 import { emailOrdineRitardato } from "../../../lib/notifications";
 import { consegnaDellOrdine } from "../../../lib/consegnaOrdine";
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 
 /**
  * RITARDARE UN ORDINE — e dirlo al cliente.
@@ -34,9 +33,6 @@ export const prerender = false;
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

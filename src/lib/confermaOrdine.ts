@@ -51,6 +51,7 @@ import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
 import { inviaNotifiche } from "./notifications";
 import { inviaPushOrdine } from "./push";
+import { likeEsatto } from "./like";
 
 /** Quello che serve per annunciare un ordine: e' la SELECT qui sotto. */
 export interface RigaAnnuncio {
@@ -216,7 +217,7 @@ async function registraCliente(c: {
     const { data: esistente } = await supabaseAdmin
       .from("clients")
       .select("id, phone, hidden")
-      .ilike("email", email)
+      .ilike("email", likeEsatto(email))
       .limit(1)
       .maybeSingle();
 

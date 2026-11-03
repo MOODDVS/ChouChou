@@ -1,18 +1,12 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
+import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
-import { adminLang } from "../../../lib/admin/adminLang";
-import { adminT } from "../../../i18n/admin";
 export const prerender = false;
 
 
-/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
- *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
- *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
-async function msg(chiave: string): Promise<string> {
-  return adminT(await adminLang())(chiave);
-}
 
 // SET MENUS (tab « Menù » della pagina Menu admin) — menu à prix fixe.
 // GET          → { menus: [...] } (missing: true se la tabella non è creata)
@@ -31,12 +25,6 @@ function mancaColonna(err: { message?: string } | null): boolean {
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_UUID = /^[0-9a-f-]{36}$/i;
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
-}
 
 /** name_i18n / desc_i18n: { code: string } ripulito (trim, max len), scarta vuoti. */
 function pulisciI18n(v: unknown, maxLen: number): Record<string, string> | undefined {
@@ -158,7 +146,8 @@ export const POST: APIRoute = async ({ request }) => {
     ({ data, error } = await supabaseAdmin.from("set_menus").insert(riga).select(SELECT_BASE).single());
   }
   if (error || !data) {
-    return json({ error: error?.message ?? (await msg("err.migrSetMenus")) }, 500);
+    if (error) console.error("[set-menus] insert:", error.message);
+    return json({ error: await msg(error && !/does not exist|relation/i.test(error.message ?? "") ? "err.save" : "err.migrSetMenus") }, 500);
   }
   return json({ menu: data }, 201);
 };
@@ -223,7 +212,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       .select(SELECT_BASE)
       .single());
   }
-  if (error || !data) return json({ error: error?.message ?? "Modification impossible" }, 500);
+  if (error || !data) { if (error) console.error("[set-menus] update:", error.message); return json({ error: await msg("err.save") }, 500); }
   return json({ menu: data });
 };
 

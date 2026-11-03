@@ -16,6 +16,7 @@
 import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
 import { CLIENT } from "../../config/client";
 import Fonts from "../Fonts.astro";
+import "../../styles/base.css";    // la base di ogni pagina (:root, *, body, #app)
 import "../../styles/modal.css";   // guscio condiviso dei modali (.md-*)
 import "../../styles/switch.css";  // interruttore condiviso (.switch)
 import "../../styles/toast.css";   // toast condiviso (.toast)
@@ -70,7 +71,7 @@ const PLACEHOLDER_CSS =
 // giorno divergono senza che nessuno se ne accorga. `--c-barra` e' il tono
 // delle barrette dei grafici: una serie sola, un colore solo, e non il
 // corallo — quello e' il colore dell'ATTENZIONE in tutto il pannello.
-const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-barra:#4e8f9c}";
+const STATO_CSS = ":root{--c-ok:#2e9e6b;--c-ok-chiaro:#4fbe8c;--c-ko:#ed1c24;--c-ko-chiaro:#ff8a8f;--c-barra:#4e8f9c}";
 // ⚠️ `hidden` DEVE nascondere, sempre. L'attributo si appoggia alla regola
 // del browser `[hidden]{display:none}`, che e' debolissima: QUALUNQUE regola
 // nostra che dia un `display` a quell'elemento la batte, e l'elemento resta

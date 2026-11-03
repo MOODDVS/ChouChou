@@ -199,9 +199,15 @@ const authGuardAdmin = defineMiddleware(async (context, next) => {
   if (pathname.startsWith("/api/admin/")) {
     const chiave = chiaveApi(pathname);
     if (chiave) {
-      const ctx = await contestoPermessi(context.cookies.get("mdd_at")?.value ?? "");
+      // ⚠️ Il token delle API e' nell'header Authorization: il cookie `mdd_at`
+      // e' scritto con `Path=/admin` e qui non arriva (3/11/2026). La stessa
+      // regola la ridecide `verificaStaff` dentro ogni API, che ha il ruolo
+      // anche quando qui la firma non si puo' leggere in locale.
+      const auth = context.request.headers.get("Authorization") ?? "";
+      const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+      const ctx = await contestoPermessi(bearer || (context.cookies.get("mdd_at")?.value ?? ""));
       // Nessun contesto leggibile: non si blocca. Il 401 lo dara' l'API.
-      if (ctx && !puoChiamareApi(chiave, ctx)) {
+      if (ctx && !puoChiamareApi(chiave, ctx, m)) {
         return new Response(JSON.stringify({ error: "forbidden" }), {
           status: 403,
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },

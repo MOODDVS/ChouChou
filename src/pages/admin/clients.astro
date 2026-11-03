@@ -47,20 +47,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
-      :root {
-        --c-hover: #e86a61;
-        --c-input: #0e3038;
-        --c-bg: #0c2a30;
-        --c-header: #04161b;
-        --c-text: #e9efef;
-        --c-accent: #cb534d;
-        --c-muted: #86a0a4;
-        --c-line: #244a52;
-        --c-card: #16424b;
-      }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
-      #app { display: none; min-height: 100vh; flex-direction: column; }
 
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -279,16 +265,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       }
       .st-fav-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .st-fav-q { color: var(--c-accent); font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
-      .act-status.ko { border-color: #ed1c24; color: #ff8a8f; }
+      .act-status.ko { border-color: var(--c-ko); color: var(--c-ko-chiaro); }
       .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
       /* Cliente bloccato: barra rossa a sinistra (inset = nessuno spostamento) */
-      .row.is-blocked { box-shadow: inset 3px 0 0 #ed1c24; }
+      .row.is-blocked { box-shadow: inset 3px 0 0 var(--c-ko); }
       .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .c-name { font-weight: 700; }
       .c-name .c-ico { display: inline-flex; gap: 0.3rem; margin-left: 0.45rem; vertical-align: middle; }
       .c-name .c-ico svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-      .c-name .c-ico svg.ico-ns { stroke: #ed1c24; }
+      .c-name .c-ico svg.ico-ns { stroke: var(--c-ko); }
       .th-ico svg {
         width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8;
         stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 0.25rem;
@@ -306,7 +292,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .tag-ns {
         display: inline-flex; align-items: center; gap: 0.32rem; height: 17px; box-sizing: border-box;
         margin-left: 0.45rem; vertical-align: middle;
-        background: #ed1c24; color: #fff; border-radius: 999px;
+        background: var(--c-ko); color: #fff; border-radius: 999px;
         font-size: 0.58rem; font-weight: 800; letter-spacing: 0.05em;
         padding: 0 0.55rem 0 3px; line-height: 1;
       }
@@ -339,8 +325,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .ed-avatar { width: 64px; height: 64px; font-size: 1.25rem; margin-right: 0; }
       /* I bottoni d'azione sono il componente condiviso `.btn`
          (src/styles/button.css): qui non resta niente da ridisegnare. */
-      .ed-danger { border-color: #7a3a3a; color: #ff8a8f; }
-      .ed-danger:hover { background: rgba(237, 28, 36, 0.25); border-color: #ed1c24; color: #ff8a8f; }
+      .ed-danger { border-color: #7a3a3a; color: var(--c-ko-chiaro); }
+      .ed-danger:hover { background: rgba(237, 28, 36, 0.25); border-color: var(--c-ko); color: var(--c-ko-chiaro); }
       .ed-row2 {
         display: flex; justify-content: space-between; align-items: center; gap: 1rem;
         border-top: 1px solid var(--c-line); padding: 0.85rem 0; margin-top: 0.3rem;
@@ -361,13 +347,13 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         border: 1px solid currentColor; border-radius: 999px;
         padding: 0.25rem 0.75rem; margin-top: 0.45rem;
       }
-      .ed-hint.warn { color: #ff8a8f; border-color: #ed1c24; }
-      .ed-hint.ok { color: #63c495; border-color: #2e9e6b; }
+      .ed-hint.warn { color: var(--c-ko-chiaro); border-color: var(--c-ko); }
+      .ed-hint.ok { color: #63c495; border-color: var(--c-ok); }
       .ed-upl-state { color: var(--c-muted); font-size: 0.78rem; margin: 0; }
       .ed-upl-state:empty { display: none; }
       /* L'errore vive nel footer del guscio, spinto a sinistra dai bottoni.
          Vuoto non deve occupare spazio, o il footer resta alto per niente. */
-      .ed-err { color: #ff8a8f; font-size: 0.85rem; margin: 0; margin-right: auto; align-self: center; }
+      .ed-err { color: var(--c-ko-chiaro); font-size: 0.85rem; margin: 0; margin-right: auto; align-self: center; }
       .ed-err:empty { display: none; }
       .ed-names { display: flex; gap: 0.8rem; }
       .ed-names .f-field { flex: 1; min-width: 0; }
@@ -379,7 +365,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       }
       .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #fff; }
       .i-del .k-ico { width: 15px; height: 15px; }
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
@@ -658,6 +644,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <script id="ssr-clients" type="application/json" is:inline set:html={ssrClientsJson}></script>
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
@@ -699,9 +686,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       type Resp = { count: number; clients: Client[] };
       type SortKey = "name" | "email" | "phone" | "lang" | "since" | "orders" | "reservations" | "total";
 
-      function esc(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      }
       /** I soldi scritti: la riga sta in `lib/soldi.ts`, una per tutto il
        *  pannello. Era la stessa funzione in cinque pagine. */
       const euro = (cents: number): string => importoDa(cents, LOC);
@@ -1218,9 +1202,15 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           render();
         });
 
+        // Audit 3/11/2026: si ridisegna quando si smette di battere (120 ms),
+        // non a ogni tasto — con qualche migliaio di clienti si sentiva.
+        let cercaTimer = 0;
         searchEl.addEventListener("input", () => {
-          filtro = searchEl.value;
-          render();
+          window.clearTimeout(cercaTimer);
+          cercaTimer = window.setTimeout(() => {
+            filtro = searchEl.value;
+            render();
+          }, 120);
         });
 
         // Cancella un cliente — conferma a 2 tocchi (come nel menu).
@@ -1359,7 +1349,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           if (c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000)
             titleEl.insertAdjacentHTML("beforeend", `<span class="act-new">${tr("cli.new")}</span>`);
           const cont: string[] = [];
-          if (c.phone) cont.push(`<span class="r-c">${ICO_TEL}<a href="tel:${c.phone.replace(/\s/g, "")}">${esc(c.phone)}</a></span>`);
+          if (c.phone) cont.push(`<span class="r-c">${ICO_TEL}<a href="tel:${esc(c.phone.replace(/\s/g, ""))}">${esc(c.phone)}</a></span>`);
           if (c.email) cont.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${esc(c.email)}">${esc(c.email)}</a></span>`);
           (document.getElementById("act-contacts") as HTMLElement).innerHTML = cont.join("");
 
