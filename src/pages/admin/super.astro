@@ -123,19 +123,9 @@ const prI18n = {
       .pane[data-pane="reglages"] .sub { max-width: none; }
 
       /* Barre d'onglets (même style que la page Admin) */
-      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin: 1.2rem 0 1.6rem; border-bottom: 1px solid var(--c-line); }
-      .t-ico {
-        width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px;
-        fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-      }
-      .tabs button {
-        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
-        padding: 0.5rem 1.2rem; background: var(--c-card); border: 1px solid var(--c-line);
-        color: var(--c-muted); border-radius: 10px; cursor: pointer;
-        transition: background 0.2s, color 0.2s, border-color 0.2s;
-      }
-      .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* I tab grandi: styles/tabs.css (.rh-tabs). Qui solo cio' che e' del
+         Super: vanno a capo invece di scorrere, e stanno piu' staccati dall'header. */
+      #sup-tabs { flex-wrap: wrap; overflow-x: visible; margin-top: 1.2rem; }
 
       /* ---- Établissements (multi-sede) ---- */
       /* Il paragrafo sopra ha margine 0: senza questo, l'etichetta della
@@ -664,7 +654,7 @@ const prI18n = {
       <AdminHeader />
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>{t("sup.title")}</h1>
-        <div class="tabs" id="sup-tabs">
+        <div class="tabs rh-tabs" id="sup-tabs">
           <button type="button" data-t="design" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5" /><circle cx="19" cy="13" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="10" cy="20" r="2.5" /><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-1.5-1-1.6-1-2.5 0-1.1.9-2 2-2h1.5A5.5 5.5 0 0 0 22 10c0-4.4-4.5-8-10-8z" /></svg>{t("sup.tab.design")}</button>
           <button type="button" data-t="sedi"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>{t("sup.tab.sedi")}</button>
           <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("sup.tab.users")}</button>

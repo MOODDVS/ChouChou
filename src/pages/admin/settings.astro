@@ -70,32 +70,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       /* I tab scorrono quando NON ci stanno, non sotto una larghezza scelta a
          mano: quanti sono dipende dai moduli attivi del cliente. Stessa cura
          di agenda, marketing, assets e della barra di navigazione. */
-      .tabs {
-        display: flex; gap: 0.5rem; flex-wrap: nowrap;
-        overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
-        scrollbar-width: none;
-        padding-bottom: 1.5rem; margin: 0 0 1.5rem; border-bottom: 1px solid var(--c-line);
-      }
-      .tabs::-webkit-scrollbar { display: none; }
-      .tabs button { flex-shrink: 0; }
-      .t-ico {
-        width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px;
-        fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
-      }
-      .tabs button {
-        font-family: var(--font-title);
-        font-size: 1.05rem;
-        letter-spacing: 0.05em;
-        padding: 0.5rem 1.2rem;
-        background: var(--c-card);
-        border: 1px solid var(--c-line);
-        color: var(--c-muted);
-        border-radius: 10px;
-        cursor: pointer;
-        transition: background 0.2s, color 0.2s, border-color 0.2s;
-      }
-      .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* I tab grandi: styles/tabs.css (.rh-tabs). */
       /* Fuori dal tab Horaire il contenuto sta su una colonna contenuta */
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
@@ -1196,7 +1171,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("nav.settings")}</h1>
 
-        <div class="tabs" id="tabs" role="tablist">
+        <div class="tabs rh-tabs" id="tabs" role="tablist">
           <button type="button" data-t="general" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("tab.settings.general")}</button>
           <button type="button" data-t="horaire"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>{t("tab.settings.horaire")}</button>
           <button type="button" data-t="reservations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><polyline points="9 15 11 17 15 13" /></svg>{t("tab.settings.reservations")}</button>
