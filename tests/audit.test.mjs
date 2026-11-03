@@ -136,3 +136,14 @@ test("da Commandes si chiudono gli ordini, ma la mail col fatturato resta di Ré
   const a = readFileSync("src/lib/admin/adminAuth.ts", "utf8");
   assert.match(a, /pages: Array\.isArray\(\(data\.user\.app_metadata/, "il ripiego di rete perdeva le pagine");
 });
+
+test("l'IP del limite di richieste e' l'ultimo dell'XFF, non quello scelto dal cliente", async () => {
+  const { ipClient } = await import("../src/lib/rateLimit.ts");
+  const r = (h) => new Request("https://x.test/", { headers: h });
+  // Hostinger (LiteSpeed), misurato il 3/11/2026 con un header falso
+  assert.equal(ipClient(r({ "x-forwarded-for": "1.2.3.4, 94.105.114.193, 1.2.3.4, 94.105.114.193,94.105.114.193", "x-real-ip": "94.105.114.193" }), "127.0.0.1"), "94.105.114.193");
+  // VPS (Caddy): un valore solo
+  assert.equal(ipClient(r({ "x-forwarded-for": "94.105.114.193" }), "127.0.0.1"), "94.105.114.193");
+  // senza header: il socket
+  assert.equal(ipClient(r({}), "10.0.0.9"), "10.0.0.9");
+});

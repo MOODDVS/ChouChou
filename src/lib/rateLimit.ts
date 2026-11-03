@@ -71,14 +71,23 @@ export function colpisci(
 }
 
 /**
- * Estrae l'IP client "reale" dietro il proxy di Hostinger.
- * X-Forwarded-For è una lista "client, proxy1, proxy2…": il primo è il client.
- * Fallback: clientAddress (IP del socket) o "sconosciuto".
+ * L'IP del cliente, come lo ha visto il NOSTRO proxy.
+ *
+ * ⚠️ AUDIT 3/11/2026, misurato con /api/ip mandando `X-Forwarded-For: 1.2.3.4`:
+ *   - VPS (Caddy): l'header del cliente si butta, resta l'IP vero, uno solo.
+ *   - Hostinger (LiteSpeed): l'header del cliente RESTA IN TESTA e il proxy
+ *     aggiunge in coda → «1.2.3.4, <vero>, 1.2.3.4, <vero>, <vero>».
+ * Prima si prendeva il PRIMO valore: su Hostinger lo sceglieva il cliente, e
+ * il limite di richieste si aggirava cambiando l'header a ogni richiesta.
+ *
+ * L'ULTIMO valore invece lo scrive sempre l'ultimo proxy, e il cliente non lo
+ * puo' toccare: vale su tutti e due. `X-Real-IP` solo se l'XFF manca (Caddy
+ * lo lascia passare com'e', quindi su Caddy non e' affidabile).
  */
 export function ipClient(request: Request, clientAddress?: string): string {
   const xff = request.headers.get("x-forwarded-for") ?? "";
-  const primo = xff.split(",")[0]?.trim();
-  if (primo) return primo;
+  const ultimo = xff.split(",").map((v) => v.trim()).filter(Boolean).pop();
+  if (ultimo) return ultimo;
   const real = request.headers.get("x-real-ip")?.trim();
   if (real) return real;
   return (clientAddress || "sconosciuto").trim();
