@@ -147,3 +147,13 @@ test("l'IP del limite di richieste e' l'ultimo dell'XFF, non quello scelto dal c
   // senza header: il socket
   assert.equal(ipClient(r({}), "10.0.0.9"), "10.0.0.9");
 });
+
+test("Ordini: il filtro «Da incassare» a sinistra della ricerca, aperto dalla notifica", () => {
+  const o = readFileSync("src/pages/admin/orders.astro", "utf8");
+  const btn = o.indexOf('id="o-unpaid-btn"');
+  assert.ok(btn > 0 && btn < o.indexOf('class="o-search-wrap"'), "il bottone sta prima del campo di ricerca");
+  assert.match(o, /o\.status === "pending" && o\.payment_method === "onsite"/);
+  assert.match(o, /get\("vista"\) === "incassare"\) soloIncassare = true/);
+  const nav = readFileSync("src/components/admin/AdminNav.astro", "utf8");
+  assert.match(nav, /lastHref = "\/admin\/orders\?vista=incassare"/);
+});
