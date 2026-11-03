@@ -133,11 +133,7 @@ const t = adminT(lang);
       .g-dist-i b { color: #f5b301; font-weight: 400; margin-right: .12rem; }
 
       /* Tab di sezione (Recensioni, e in futuro Profilo/Foto/Post) */
-      .mtabs { display: flex; gap: .4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line); }
-      .mtabs::-webkit-scrollbar { display: none; }
-      .mtab { flex-shrink: 0; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-title); font-size: 1rem; letter-spacing: .05em; padding: .5rem 1.2rem; cursor: pointer; border-radius: 10px; transition: background .15s, color .15s, border-color .15s; }
-      .mtab:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* I tab grandi: styles/tabs.css (.rh-tabs). */
       .g-tab-panel { display: block; }
       .menu-hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.3rem; }
       .menu-tit { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: .02em; margin: 0 0 .3rem; }
@@ -446,7 +442,7 @@ const t = adminT(lang);
           Google
         </h1>
 
-        <div class="mtabs" id="g-tabs">
+        <div class="mtabs rh-tabs" id="g-tabs">
           <button class="mtab is-active" data-gtab="fiche">{t("gg.tabFiche")}</button>
           <button class="mtab" data-gtab="reviews">{t("gg.tabReviews")}</button>
           <button class="mtab" data-gtab="posts">{t("gg.tabPosts")}</button>
