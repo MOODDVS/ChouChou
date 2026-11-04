@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { createPublicKey, verify as cryptoVerify } from "node:crypto";
 import { chiaveApi, palmarePuoChiamare, puoChiamareApi } from "./permessiRegole";
+import { adminLangSubito } from "./adminLang";
+import { adminT } from "../../i18n/admin";
 
 // Helper di autenticazione per gli endpoint admin (/api/admin/*).
 // Verifica che la richiesta arrivi da uno staff autenticato, leggendo il
@@ -367,9 +369,9 @@ export async function claimsDaToken(token: string): Promise<StaffUser | null> {
   }
 }
 
-/** Risposta standard 401 per richieste non autenticate. */
+/** Risposta standard 401 per richieste non autenticate, nella lingua dell'admin. */
 export function nonAutorizzato(): Response {
-  return new Response(JSON.stringify({ error: "Non autorisé" }), {
+  return new Response(JSON.stringify({ error: adminT(adminLangSubito())("err.unauthorized") }), {
     status: 401,
     headers: { "Content-Type": "application/json" },
   });

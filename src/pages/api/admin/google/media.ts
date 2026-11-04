@@ -50,7 +50,7 @@ async function handlePost(request: Request) {
     const name = String(b.name ?? "");
     if (!name.startsWith(`${p.path}/media/`)) return json({ error: await msg("err.photoBad") }, 400);
     const { ok, error } = await eliminaMedia(p.token!, name);
-    if (!ok) return json({ error: error || "Eliminazione impossibile" }, 502);
+    if (!ok) return json({ error: error || (await msg("err.delete")) }, 502);
     return json({ ok: true });
   }
 
@@ -59,7 +59,7 @@ async function handlePost(request: Request) {
   if (!/^https?:\/\//i.test(url)) return json({ error: await msg("err.photoUrl") }, 400);
   if (!CAT_OK.includes(category)) return json({ error: await msg("err.category") }, 400);
   const { ok, error } = await caricaMedia(p.token!, p.path!, url, category);
-  if (!ok) return json({ error: error || "Caricamento impossibile" }, 502);
+  if (!ok) return json({ error: error || (await msg("err.upload")) }, 502);
   return json({ ok: true });
 }
 

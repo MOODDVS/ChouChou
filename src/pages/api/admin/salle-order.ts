@@ -35,7 +35,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "requete invalide" }, 400);
+    return json({ error: adminT(await linguaPalmare(request))("err.request") }, 400);
   }
   // Chi ha preso l'ordine: il dipendente del Team, o il nome dell'utente.
   let cameriere = "";

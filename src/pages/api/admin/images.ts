@@ -214,7 +214,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const [usi, escluse] = await Promise.all([mappaUsi(), fotoTeam()]);
   const dove = usi.get(publicUrl);
   if (dove?.length) {
-    return json({ error: `Image utilisée par : ${dove.map((u) => u.label).join(", ")}` }, 409);
+    return json({ error: (await msg("err.imageInUse")).replace("{v}", dove.map((u) => u.label).join(", ")) }, 409);
   }
   if (escluse.has(publicUrl)) {
     return json({ error: await msg("err.photoContact") }, 409);

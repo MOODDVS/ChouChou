@@ -53,7 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "requete invalide" }, 400);
+    return json({ error: adminT(await linguaPalmare(request))("err.request") }, 400);
   }
   const t = adminT(await linguaPalmare(request));
   if (body.azione === "annulla") {

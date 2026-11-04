@@ -176,7 +176,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if ("links" in body) {
     const grezzi = Array.isArray((body as { links?: unknown }).links) ? ((body as { links: unknown[] }).links) : [];
     if (grezzi.length > MAX_LIAISONS) {
-      return json({ error: `Maximum ${MAX_LIAISONS} liaisons par section` }, 400);
+      return json({ error: (await msg("err.linksMax")).replace("{n}", String(MAX_LIAISONS)) }, 400);
     }
     const links: string[][] = [];
     for (const g of grezzi) {

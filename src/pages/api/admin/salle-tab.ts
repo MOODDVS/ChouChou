@@ -32,7 +32,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "requete invalide" }, 400);
+    return json({ error: adminT(await linguaPalmare(request))("err.request") }, 400);
   }
   const t = adminT(await linguaPalmare(request));
   const tavolo = String(body.table ?? "");
@@ -46,5 +46,5 @@ export const POST: APIRoute = async ({ request }) => {
     if (esito === "ok") return json({ ok: true });
     return json({ error: t(esito === "non_valido" ? "err.tabNotFound" : "sal.ord.err.save") }, esito === "non_valido" ? 409 : 500);
   }
-  return json({ error: "requete invalide" }, 400);
+  return json({ error: t("err.request") }, 400);
 };

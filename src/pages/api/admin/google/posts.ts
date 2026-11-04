@@ -105,7 +105,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const { ok, error, post } = await creaPost(p.token!, p.path!, corpo);
-  if (!ok) return json({ error: error || "Publication impossible" }, 502);
+  if (!ok) return json({ error: error || (await msg("err.send")) }, 502);
   return json({ ok: true, post });
 };
 

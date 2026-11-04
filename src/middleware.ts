@@ -3,6 +3,8 @@ import { colpisci, ipClient } from "./lib/rateLimit";
 import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
 import { contestoDaToken } from "./lib/admin/permessi";
 import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi, arrivoDi } from "./lib/admin/permessiRegole";
+import { adminLangSubito } from "./lib/admin/adminLang";
+import { adminT } from "./i18n/admin";
 
 /**
  * Host canonico: forza il www.
@@ -99,7 +101,9 @@ const rateLimit = defineMiddleware((context, next) => {
   const esito = colpisci(`${r.bucket}:${ip}`, r.max, r.finestra);
   if (!esito.ok) {
     return new Response(
-      JSON.stringify({ error: "Trop de requêtes. Réessayez dans un instant." }),
+      // L'admin nella sua lingua; il sito pubblico resta in francese (la
+      // lingua del visitatore qui non si sa ancora).
+      JSON.stringify({ error: r.bucket === "admin" ? adminT(adminLangSubito())("err.tooMany") : "Trop de requêtes. Réessayez dans un instant." }),
       {
         status: 429,
         headers: {
@@ -208,7 +212,7 @@ const authGuardAdmin = defineMiddleware(async (context, next) => {
       const ctx = await contestoPermessi(bearer || (context.cookies.get("mdd_at")?.value ?? ""));
       // Nessun contesto leggibile: non si blocca. Il 401 lo dara' l'API.
       if (ctx && !puoChiamareApi(chiave, ctx, m)) {
-        return new Response(JSON.stringify({ error: "forbidden" }), {
+        return new Response(JSON.stringify({ error: adminT(adminLangSubito())("err.forbidden") }), {
           status: 403,
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
         });

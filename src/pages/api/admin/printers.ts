@@ -81,11 +81,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   const body = (await request.json().catch(() => ({}))) as { printerId?: unknown; location_id?: unknown };
   const printerId = Number(body.printerId);
-  if (!Number.isFinite(printerId) || printerId <= 0) return json({ error: "printerId" }, 400);
+  if (!Number.isFinite(printerId) || printerId <= 0) return json({ error: adminT(await adminLang())("err.request") }, 400);
   const sede = typeof body.location_id === "string" && RE_UUID.test(body.location_id) ? body.location_id : "";
 
   const segreto = segretoProva();
-  if (!segreto) return json({ error: "segreto mancante" }, 500);
+  if (!segreto) return json({ error: adminT(await adminLang())("err.save") }, 500);
 
   const origine = indirizzoPubblico(request);
   const url = `${origine}/api/print/${firmaProva(sede, segreto)}`;

@@ -66,7 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (bytes.length === 0) return json({ error: await msg("err.fileEmpty") }, 400);
   const maxBytes = bucket === "documents" ? 10 * 1024 * 1024 : MAX_BYTES;
   if (bytes.length > maxBytes) {
-    return json({ error: bucket === "documents" ? "Fichier trop lourd (max 10 Mo)" : "Fichier trop lourd (max 4 Mo)" }, 400);
+    return json({ error: await msg(bucket === "documents" ? "err.fileTooBig10" : "err.fileTooBig4") }, 400);
   }
 
   // Nome unico: timestamp + nome pulito (niente collisioni, niente caratteri strani)

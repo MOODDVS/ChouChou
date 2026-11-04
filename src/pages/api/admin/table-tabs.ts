@@ -60,7 +60,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "requete invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   const id = String(body.id ?? "");
   const azione = String(body.azione ?? "");
@@ -185,5 +185,5 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: true });
   }
 
-  return json({ error: "action inconnue" }, 400);
+  return json({ error: await msg("err.request") }, 400);
 };
