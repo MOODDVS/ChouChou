@@ -46,6 +46,7 @@
  * crediti newsletter quando il browser viene chiuso prima del ritorno.
  */
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import {
@@ -114,7 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (error) {
     console.error("[recupero] lettura ordini in attesa fallita:", error);
-    return json({ error: "db" }, 500);
+    return json({ error: await msg("err.read") }, 500);
   }
 
   let recuperati = 0;

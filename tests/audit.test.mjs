@@ -191,3 +191,21 @@ test("la chiave dei cron solo nell'header, mai nell'indirizzo", () => {
     assert.match(t, /request\.headers\.get\("x-cron-key"\)/, p);
   }
 });
+
+test("gli errori delle API admin arrivano nella lingua dell'admin", () => {
+  // Erano scritti a mano, in francese o in italiano o grezzi («forbidden»,
+  // «requete invalide», «db»): con l'admin in inglese arrivavano cosi'.
+  const grezzi = [];
+  for (const p of tutti("src/pages/api/admin", [".ts"])) {
+    for (const m of readFileSync(p, "utf8").matchAll(/json\(\{ error: ("[^"]*"|`[^`]*`)/g)) {
+      // Una stringa composta va bene se il testo viene dal dizionario.
+      if (m[1].startsWith("`") && /\b(msg|t)\(/.test(m[1])) continue;
+      grezzi.push(`${p}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(grezzi, []);
+  const a = readFileSync("src/lib/admin/adminAuth.ts", "utf8");
+  assert.match(a, /adminT\(adminLangSubito\(\)\)\("err\.unauthorized"\)/);
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  assert.match(mw, /adminT\(adminLangSubito\(\)\)\("err\.forbidden"\)/);
+});

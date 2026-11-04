@@ -29,7 +29,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (p.err) return p.err;
   const lang = (url.searchParams.get("lang") || "fr").slice(0, 5);
   const { gruppi, error } = await leggiAttributi(p.token!, p.path!, lang);
-  if (!gruppi) return json({ error: error || "Lecture des attributs impossible" }, 502);
+  if (!gruppi) return json({ error: error || (await msg("err.read")) }, 502);
   return json({ gruppi });
 };
 

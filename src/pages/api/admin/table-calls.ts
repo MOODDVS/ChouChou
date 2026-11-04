@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { msg } from "../../../lib/admin/msgApi";
 import { DateTime } from "luxon";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, aggiorna } from "../../../lib/admin/sede";
@@ -54,7 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "requete invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   const ids = Array.isArray(body.ids)
     ? body.ids.map((x) => String(x)).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 100)
@@ -65,6 +66,6 @@ export const POST: APIRoute = async ({ request }) => {
   const { error } = await aggiorna("table_calls", ambito, { status: "done", done_at: new Date().toISOString() })
     .in("id", ids)
     .eq("status", "open");
-  if (error) return json({ error: "impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };

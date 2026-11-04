@@ -34,7 +34,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "requete invalide" }, 400);
+    return json({ error: t("err.request") }, 400);
   }
   const ids = [...new Set((Array.isArray(body.ids) ? body.ids : []).map(String))].filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   if (!ids.length || ids.length > 20) return json({ error: t("err.orderNotFound") }, 400);

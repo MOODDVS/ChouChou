@@ -131,7 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!sezioni.length) return json({ error: await msg("err.noPricedDish") }, 400);
   const menus = costruisciPayload(sezioni, lang);
   const { ok, error } = await spingiFoodMenu(p.token!, p.path!, menus);
-  if (!ok) return json({ error: error || "Sincronizzazione impossibile" }, 502);
+  if (!ok) return json({ error: error || (await msg("err.save")) }, 502);
   const tot = sezioni.reduce((n, s) => n + s.items.length, 0);
   return json({ ok: true, sezioni: sezioni.length, tot });
 };
