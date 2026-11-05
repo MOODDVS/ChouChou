@@ -40,6 +40,7 @@ export type Appartenenza = "marchio" | "sede" | "mista";
 export const CLASSIFICA: Record<string, Appartenenza> = {
   // --- del MARCHIO: condivise fra tutte le sedi ---
   app_config: "marchio",        // livello marchio; la sede sovrascrive in location_config
+  restohub_migrazioni: "marchio", // il registro delle migrazioni: e' del DATABASE, non di un punto (Intégrations → Supabase)
   settings: "marchio",          // orari del marchio; la sede sovrascrive in location_settings
   clients: "marchio",           // il cliente e' del marchio, `blocked` compreso
   menu_categories: "marchio",

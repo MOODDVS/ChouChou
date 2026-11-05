@@ -525,7 +525,62 @@ const prI18n = {
       .us-tag.role-user { background: var(--c-input); color: var(--c-text); }
       .us-tag.role-admin { background: var(--c-muted); color: var(--c-bg); }
 
-      /* --- Integrations --- */
+      /* --- Integrations: le CASELLE (5/11/2026, claude/integrazioni-piano.md) ---
+         Una per servizio: logo, nome, a cosa serve, pastiglia di stato e il
+         SEGNO in alto a destra — la sola cosa da vedere da lontano. Per ora
+         c'e' Supabase; le schede qui sotto diventeranno caselle una alla volta. */
+      .itg-gruppo { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-accent);
+        margin: 0.4rem 0 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
+      .itg-gruppo::after { content: ""; flex: 1; height: 1px; background: var(--c-line); }
+      .itg-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.9rem; margin-bottom: 1.6rem; }
+      .itg-tile { position: relative; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; color: var(--c-text);
+        padding: 1.3rem 1.1rem 1.1rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.55rem;
+        font-family: var(--font-body); transition: border-color 0.15s; }
+      .itg-tile:hover { border-color: var(--c-accent); }
+      .itg-logo { width: 64px; height: 64px; border-radius: 16px; background: #fff; display: flex; align-items: center; justify-content: center; color: #249361; }
+      .itg-logo svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      /* I loghi VERI dei servizi: pieni, nel colore del marchio, non a filo. */
+      .itg-logo.is-supabase { background: #131413; } /* il nero del marchio Supabase */
+      .itg-logo.is-supabase svg { width: 34px; height: 34px; fill: #3ecf8e; stroke: none; }
+      .itg-nome { font-family: var(--font-title); font-weight: 700; font-size: 1rem; letter-spacing: 0.02em; }
+      .itg-cosa { color: var(--c-muted); font-size: 0.78rem; line-height: 1.35; min-height: 2.1em; }
+      .itg-pill { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.22rem 0.6rem; border-radius: 999px; background: var(--c-input); color: var(--c-muted); }
+      .itg-pill.is-ok { background: color-mix(in srgb, var(--c-ok) 22%, transparent); color: var(--c-ok-chiaro); }
+      .itg-pill.is-parz { background: color-mix(in srgb, var(--c-warn) 20%, transparent); color: var(--c-warn); }
+      .itg-pill.is-no { background: color-mix(in srgb, var(--c-ko) 22%, transparent); color: var(--c-ko-chiaro); }
+      /* Il segno: ✓ verde, ! arancio (a meta'), ! corallo (non va). */
+      .itg-segno { position: absolute; top: 0.7rem; right: 0.7rem; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+      .itg-segno:empty { display: none; }
+      .itg-segno svg, .sb-ic svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+      .itg-segno.is-ok, .sb-ic.is-ok { background: var(--c-ok); }
+      .itg-segno.is-parz, .sb-ic.is-parz { background: var(--c-warn); }
+      .itg-segno.is-no, .sb-ic.is-no { background: var(--c-ko); }
+      .sb-ic.is-ignoto { background: var(--c-input); }
+      /* Il modale Supabase */
+      .sb-proj { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+      .sb-ref { flex: 1; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 8px; padding: 0.6rem 0.75rem;
+        font-family: ui-monospace, monospace; font-size: 0.84rem; letter-spacing: 0.04em; }
+      .sb-chiavi { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.8rem; align-items: center; background: var(--c-input);
+        border: 1px solid var(--c-line); border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 0.4rem; }
+      .sb-k { font-family: ui-monospace, monospace; font-size: 0.8rem; overflow-wrap: anywhere; }
+      .sb-v { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-ok-chiaro); white-space: nowrap; }
+      .sb-v.is-no { color: var(--c-ko-chiaro); }
+      .sb-nota { color: var(--c-muted); font-size: 0.76rem; line-height: 1.45; margin: 0.35rem 0 1rem; }
+      .sb-nota.is-no { color: var(--c-ko-chiaro); }
+      .sb-controlli { list-style: none; border: 1px solid var(--c-line); border-radius: 12px; overflow: hidden; margin: 0 0 1rem; padding: 0; }
+      .sb-controlli li { display: grid; grid-template-columns: 28px 1fr auto; gap: 0.7rem; align-items: center; padding: 0.75rem 0.85rem; border-top: 1px solid var(--c-line); }
+      .sb-controlli li:first-child { border-top: none; }
+      .sb-ic { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+      .sb-t { font-weight: 700; font-size: 0.9rem; }
+      .sb-d { color: var(--c-muted); font-size: 0.76rem; margin-top: 0.1rem; line-height: 1.4; }
+      .sb-d b { color: var(--c-text); }
+      .sb-esito { padding: 0.6rem 0.8rem; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1rem;
+        background: color-mix(in srgb, var(--c-ok) 18%, transparent); color: var(--c-ok-chiaro); }
+      .sb-esito.is-parz { background: color-mix(in srgb, var(--c-warn) 16%, transparent); color: var(--c-warn); }
+      .sb-esito.is-no { background: color-mix(in srgb, var(--c-ko) 18%, transparent); color: var(--c-ko-chiaro); }
+      .sb-quando { margin-right: auto; color: var(--c-muted); font-size: 0.76rem; }
+
+      /* --- Integrations: le schede di prima --- */
       .itg-card {
         /* ⚠️ Niente `max-width` sulla SCHEDA: su uno schermo largo lasciava
            due terzi di pagina vuoti. Il limite sta sui CAMPI qui sotto, dove
@@ -757,6 +812,20 @@ const prI18n = {
 
         <section class="pane" data-pane="integrations" hidden>
           <p class="sub">{t("itg.intro")}</p>
+
+          <!-- LE CASELLE (5/11/2026). Supabase e' la prima: controlla il
+               database del cliente e prepara quello che manca. Le chiavi
+               restano nel .env: qui si confrontano, mai si mostrano. -->
+          <p class="itg-gruppo">{t("itg.grpClient")}</p>
+          <div class="itg-griglia">
+            <button type="button" class="itg-tile" id="sb-tile">
+              <span class="itg-segno" id="sb-segno"></span>
+              <span class="itg-logo is-supabase">{/* Il logo di Supabase (simbolo ufficiale, da simple-icons, CC0) nel verde del marchio. */}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z" /></svg></span>
+              <span class="itg-nome">Supabase</span>
+              <span class="itg-cosa">{t("itg.sb.who")}</span>
+              <span class="itg-pill" id="sb-pill">{t("itg.sb.checking")}</span>
+            </button>
+          </div>
 
           <div class="itg-card">
             <div class="itg-head">
@@ -1166,6 +1235,28 @@ const prI18n = {
     <!-- Lo storico di prima del multi-sede. Compare SOLO se c'e' davvero
          qualcosa da attribuire: su un'installazione nuova non c'e', e una
          domanda che ha sempre la stessa risposta si impara a saltare. -->
+    <!-- Intégrations → Supabase: il modale della casella (lo riempie lo script qui sotto) -->
+    <Modal id="sb-overlay" title="Supabase" width="600px">
+      <p class="sb-nota">{t("itg.sb.sub")}</p>
+      <div class="sb-esito" id="sb-esito" hidden></div>
+      <span class="f-label">{t("itg.sb.project")}</span>
+      <div class="sb-proj">
+        <span class="sb-ref" id="sb-ref">—</span>
+        <a class="btn" id="sb-open" href="https://supabase.com/dashboard" target="_blank" rel="noopener">{t("itg.sb.open")}</a>
+      </div>
+      <span class="f-label">{t("itg.sb.keys")}</span>
+      <div class="sb-chiavi" id="sb-chiavi"></div>
+      <p class="sb-nota" id="sb-chiavi-nota">{t("itg.sb.keysNote")}</p>
+      <span class="f-label">{t("itg.sb.checks")}</span>
+      <ul class="sb-controlli" id="sb-controlli"></ul>
+      <p class="sb-nota" id="sb-token-nota">{t("itg.sb.tokenNote")}</p>
+      <Fragment slot="foot">
+        <span class="sb-quando" id="sb-quando"></span>
+        <button type="button" class="md-btn" id="sb-verifica">{t("common.verify")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="sb-tutto">{t("itg.sb.fixAll")}</button>
+      </Fragment>
+    </Modal>
+
     <Modal id="st-overlay" title={t("loc.st.title")} width="560px">
       <p>{t("loc.st.intro")}</p>
       <p class="note">{t("loc.st.why")}</p>
@@ -3541,6 +3632,220 @@ const prI18n = {
 
         carica();
       }
+    </script>
+
+    <!-- ===== INTÉGRATIONS → SUPABASE (5/11/2026) =====
+         Lo stato del database e i quattro passi di «Tout préparer». Script a
+         parte: la casella non dipende dal resto della pagina, e il resto
+         della pagina non dipende da lei. -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { esc } from "../../lib/esc";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Stato = {
+        progetto: { ref: string; mascherato: string; dashboard: string };
+        chiavi: { url: string; anon: string; service: string };
+        token: boolean;
+        sito: { raggiungibile: boolean };
+        migrazioni: { livello: Livello; applicate: number; totale: number; mancanti: { numero: number; nome: string }[]; registro: boolean; baseVuota: boolean };
+        bucket: { livello: Livello; presenti: number; totale: number; mancanti: string[]; daCorreggere: string[] };
+        cron: { livello: Livello; giusti: number; totale: number; daRifare: string[]; domini: string[]; motivo: string };
+        estensioni: { livello: Livello; presenti: string[]; mancanti: string[]; motivo: string };
+        casella: { livello: Livello; daFare: number };
+      };
+      type Esito = { ok: true; fatte: number; restano: number } | { ok: false; errore: string; numero?: number; messaggio?: string };
+      type Passo = "estensioni" | "migrazioni" | "bucket" | "cron";
+
+      const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
+      const $ = (id: string) => document.getElementById(id);
+      const tile = $("sb-tile");
+      const overlay = $("sb-overlay");
+      const SEGNO: Record<string, string> = {
+        ok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>',
+        parz: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v6M12 17h.01" /></svg>',
+        no: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v6M12 17h.01" /></svg>',
+        ignoto: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17h.01" /></svg>',
+      };
+      let stato: Stato | null = null;
+      let occupato = false;
+
+      const lista = (v: string[]) => v.map((x) => `<b>${esc(x)}</b>`).join(", ");
+
+      function renderCasella() {
+        const segno = $("sb-segno");
+        const pill = $("sb-pill");
+        if (!segno || !pill) return;
+        if (!stato) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const { livello, daFare } = stato.casella;
+        segno.className = `itg-segno is-${livello}`;
+        segno.innerHTML = livello === "ignoto" ? "" : SEGNO[livello];
+        pill.className = `itg-pill is-${livello === "ignoto" ? "parz" : livello}`;
+        pill.textContent = stato.migrazioni.baseVuota ? tr("itg.sb.empty")
+          : livello === "ok" ? tr("itg.sb.ok")
+          : livello === "ignoto" ? tr("itg.sb.toCheck")
+          : daFare <= 1 ? tr("itg.sb.todo1") : tr("itg.sb.todo").replace("{n}", String(daFare));
+      }
+
+      /** Una riga dei controlli. `passo` vuoto = niente bottone. */
+      function riga(livello: Livello, titolo: string, dettaglio: string, passo: Passo | "", etichetta = ""): string {
+        const bottone = passo && (livello === "parz" || livello === "no")
+          ? `<button type="button" class="btn" data-passo="${passo}">${esc(etichetta)}</button>` : "<span></span>";
+        return `<li><span class="sb-ic is-${livello}">${SEGNO[livello]}</span><div><p class="sb-t">${esc(titolo)}</p><p class="sb-d">${dettaglio}</p></div>${bottone}</li>`;
+      }
+
+      function renderModale() {
+        if (!stato) return;
+        const s = stato;
+        const ref = $("sb-ref"); if (ref) ref.textContent = s.progetto.mascherato ? `${s.progetto.mascherato}.supabase.co` : "—";
+        const open = $("sb-open") as HTMLAnchorElement | null; if (open && s.progetto.dashboard) open.href = s.progetto.dashboard;
+
+        const v = (x: string) => x === "uguali" ? tr("itg.sb.same") : x === "diverse" ? tr("itg.sb.diff") : x === "ok" ? tr("itg.sb.accepted") : x === "rifiutata" ? tr("itg.sb.refused") : tr("itg.sb.missing");
+        const buono = (x: string) => x === "uguali" || x === "ok";
+        const chiavi = $("sb-chiavi");
+        if (chiavi) chiavi.innerHTML = [
+          ["SUPABASE_URL · PUBLIC_SUPABASE_URL", s.chiavi.url],
+          ["SUPABASE_ANON_KEY · PUBLIC_SUPABASE_ANON_KEY", s.chiavi.anon],
+          ["SUPABASE_SERVICE_KEY", s.chiavi.service],
+        ].map(([k, x]) => `<span class="sb-k">${k}</span><span class="sb-v${buono(x) ? "" : " is-no"}">${esc(v(x))}</span>`).join("");
+        const nota = $("sb-chiavi-nota");
+        const chiaviOk = buono(s.chiavi.url) && buono(s.chiavi.anon) && buono(s.chiavi.service);
+        if (nota) { nota.textContent = chiaviOk ? tr("itg.sb.keysNote") : tr("itg.sb.keysFix"); nota.className = chiaviOk ? "sb-nota" : "sb-nota is-no"; }
+
+        const m = s.migrazioni;
+        const dMig = m.baseVuota ? `<b>0 / ${m.totale}</b> · ${esc(tr("itg.sb.migEmpty"))}`
+          : !m.registro ? esc(tr("itg.sb.migNoReg"))
+          : `<b>${esc(tr("itg.sb.migDetail").replace("{a}", String(m.applicate)).replace("{t}", String(m.totale)))}</b>`
+            + (m.mancanti.length ? ` · ${tr("itg.sb.migMissing").replace("{l}", lista(m.mancanti.slice(0, 4).map((x) => `#${x.numero} (${x.nome})`)) + (m.mancanti.length > 4 ? " …" : ""))}` : "");
+        const b = s.bucket;
+        const dBucket = `<b>${esc(tr("itg.sb.storageDetail").replace("{a}", String(b.presenti)).replace("{t}", String(b.totale)))}</b>`
+          + (b.mancanti.length ? ` · ${tr("itg.sb.storageMissing").replace("{l}", lista(b.mancanti))}` : "")
+          + (b.daCorreggere.length ? ` · ${tr("itg.sb.storageFix").replace("{l}", lista(b.daCorreggere))}` : "");
+        const c = s.cron;
+        const dCron = c.motivo === "token" ? esc(tr("itg.sb.unknown"))
+          : c.motivo === "pgcron" ? esc(tr("itg.sb.cronPg"))
+          : `<b>${esc(tr("itg.sb.cronDetail").replace("{a}", String(c.giusti)).replace("{t}", String(c.totale)))}</b>`
+            + (c.domini.length ? ` · → ${lista(c.domini)}` : "")
+            + (c.daRifare.length ? ` · ${tr("itg.sb.cronRedo").replace("{l}", lista(c.daRifare))}` : "")
+            + (c.motivo === "localhost" && c.daRifare.length ? ` · ${esc(tr("itg.sb.cronLocal"))}` : "");
+        const e = s.estensioni;
+        const dExt = e.motivo === "token" ? esc(tr("itg.sb.unknown"))
+          : e.mancanti.length ? tr("itg.sb.extMissing").replace("{l}", lista(e.mancanti)) : e.presenti.map(esc).join(" · ");
+        const conToken = s.token;
+        const controlli = $("sb-controlli");
+        if (controlli) controlli.innerHTML = [
+          riga(m.livello, tr("itg.sb.mig"), dMig, conToken ? "migrazioni" : "", tr("itg.sb.apply")),
+          riga(b.livello, tr("itg.sb.storage"), dBucket, "bucket", tr("itg.sb.create")),
+          riga(c.livello, tr("itg.sb.cron"), dCron, conToken && c.motivo !== "localhost" && c.motivo !== "pgcron" ? "cron" : "", tr("itg.sb.create")),
+          riga(e.livello, tr("itg.sb.ext"), dExt, conToken ? "estensioni" : "", tr("itg.sb.enable")),
+        ].join("");
+        const tok = $("sb-token-nota");
+        if (tok) { tok.textContent = conToken ? tr("itg.sb.tokenNote") : tr("itg.sb.noToken"); tok.className = conToken ? "sb-nota" : "sb-nota is-no"; }
+        const tutto = $("sb-tutto") as HTMLButtonElement | null;
+        if (tutto) {
+          tutto.textContent = m.baseVuota ? tr("itg.sb.prepareAll") : tr("itg.sb.fixAll");
+          // Spento se non c'e' niente che questa casella possa fare da sola:
+          // senza token restano solo gli spazi di archivio.
+          const fattibile = b.livello !== "ok" || (conToken && (m.livello !== "ok" || e.livello !== "ok" || (c.livello !== "ok" && c.motivo === "")));
+          tutto.disabled = !fattibile || occupato;
+        }
+        const quando = $("sb-quando");
+        if (quando) quando.textContent = tr("itg.sb.checkedAt").replace("{h}", new Date().toLocaleTimeString(document.documentElement.lang || "fr", { hour: "2-digit", minute: "2-digit" }));
+        if (m.baseVuota) mostraEsito("parz", tr("itg.sb.emptyHint"));
+      }
+
+      function mostraEsito(livello: "ok" | "parz" | "no" | "", testo = "") {
+        const el = $("sb-esito");
+        if (!el) return;
+        el.hidden = !livello;
+        el.className = livello ? `sb-esito is-${livello}` : "sb-esito";
+        el.textContent = testo;
+      }
+
+      function testoErrore(e: Exclude<Esito, { ok: true }>): string {
+        if (e.errore === "token") return tr("itg.sb.errToken");
+        if (e.errore === "localhost") return tr("itg.sb.errLocal");
+        if (e.errore === "segreto") return tr("itg.sb.errSecret");
+        if (e.errore === "pgcron") return tr("itg.sb.errPgcron");
+        if (e.errore === "storage") return tr("itg.sb.errStorage").replace("{m}", e.messaggio ?? "");
+        return tr("itg.sb.errSql").replace("{n}", e.numero ? ` (#${e.numero})` : "").replace("{m}", e.messaggio ?? "");
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/supabase-stato", { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+        } catch { stato = null; }
+        renderCasella();
+        renderModale();
+      }
+
+      /** Un passo. Le migrazioni tornano a pezzi: si richiama finche' ne restano. */
+      async function esegui(passo: Passo): Promise<boolean> {
+        for (;;) {
+          mostraEsito("parz", passo === "migrazioni" && stato
+            ? tr("itg.sb.migProgress").replace("{a}", String(stato.migrazioni.applicate)).replace("{t}", String(stato.migrazioni.totale))
+            : tr("itg.sb.running").replace("{p}", passo));
+          let r: { esito: Esito; stato: Stato } | null = null;
+          try {
+            const res = await fetch("/api/admin/supabase-stato", { method: "POST", headers: await authFresh(), body: JSON.stringify({ passo }) });
+            r = (await res.json().catch(() => null)) as { esito: Esito; stato: Stato } | null;
+          } catch { /* rete */ }
+          if (!r?.esito) { mostraEsito("no", tr("err.network")); return false; }
+          stato = r.stato;
+          renderCasella();
+          renderModale();
+          if (!r.esito.ok) { mostraEsito("no", testoErrore(r.esito)); return false; }
+          if (passo !== "migrazioni" || r.esito.restano <= 0) return true;
+        }
+      }
+
+      /** Un lavoro alla volta: il bottone premuto mostra l'attesa (conAttesa),
+       *  e finche' non finisce gli altri non partono. */
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          renderModale();
+        }
+      }
+
+      tile?.addEventListener("click", () => {
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        void carica();
+      });
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+      const verifica = $("sb-verifica") as HTMLButtonElement | null;
+      verifica?.addEventListener("click", () => blocca(verifica, async () => { mostraEsito(""); await carica(); }));
+      $("sb-controlli")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-passo]");
+        if (!b) return;
+        void blocca(b, async () => { if (await esegui(b.dataset.passo as Passo)) mostraEsito("ok", tr("itg.sb.done")); });
+      });
+      // «Tout préparer»: i passi nell'ordine giusto, solo quelli che servono.
+      const tuttoBtn = $("sb-tutto") as HTMLButtonElement | null;
+      tuttoBtn?.addEventListener("click", () => blocca(tuttoBtn, async () => {
+        if (!stato) await carica();
+        const ordine: Passo[] = ["estensioni", "migrazioni", "bucket", "cron"];
+        for (const p of ordine) {
+          const s = stato;
+          if (!s) return;
+          const serve = p === "estensioni" ? s.token && s.estensioni.livello !== "ok"
+            : p === "migrazioni" ? s.token && s.migrazioni.livello !== "ok"
+            : p === "bucket" ? s.bucket.livello !== "ok"
+            : s.token && s.cron.livello !== "ok" && s.cron.motivo === "";
+          if (serve && !(await esegui(p))) return;
+          if (p === "estensioni" && serve) await carica();
+        }
+        await carica();
+        mostraEsito(stato?.casella.livello === "ok" ? "ok" : "parz", stato?.casella.livello === "ok" ? tr("itg.sb.done") : tr("itg.sb.todo").replace("{n}", String(stato?.casella.daFare ?? 1)));
+      }));
+
+      void carica();
     </script>
   </body>
 </html>

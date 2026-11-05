@@ -140,6 +140,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 91 | `091_pagamenti_articoli.sql` | `items` (jsonb) su `table_payments`: quali articoli ha pagato ognuno quando il palmare incassa con «Scegli» (gli altri due modi, «Tutto» e «Dividi», non ne hanno bisogno). Senza, «Scegli» non compare. Idempotente. |
 | 92 | `092_tavoli_pentagono_rotazione.sql` | I tavoli del piano: `shape` accetta anche 'pentagon' (il vecchio controllo su `shape` si cerca e si toglie, il nome lo sceglie Postgres) e `rotation` (smallint, 0–345 a passi di 15, gradi in senso orario attorno al centro). Réglages: un bottone solo «+ Tavolo», nel tavolo rotondo / quadrato / pentagono e il bottone per girarlo. Senza, il piano funziona come prima: pentagono e rotazione non compaiono. Idempotente. |
 | 93 | `093_documenti_privati.sql` | Bucket Storage `admin_docs` PRIVATO per i documenti dell'admin (Réglages → Documents: contratti, fatture, ricevute). Si leggono solo con un link firmato che scade dopo un'ora (`lib/admin/bucketDocs.ts`). I file gia' caricati nel bucket pubblico `documents` si spostano da soli alla prima apertura della lista (stessi percorsi, i metadati non cambiano). `documents` resta pubblico per i PDF del sito (Assets → Documents). Senza, tutto come prima. Idempotente. |
+| 94 | `094_registro_migrazioni.sql` | Tabella `restohub_migrazioni` (numero, file, applicata_il): il registro delle migrazioni applicate dalla casella Supabase del super admin (Intégrations). La crea anche il codice prima di applicare; questo file serve a chi lancia `TUTTO.sql` a mano. Senza, tutto come prima: la casella dice «registre absent». Idempotente. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
@@ -152,6 +153,7 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `SUPABASE_URL` | .env + host | Supabase lato server |
 | `SUPABASE_ANON_KEY` | .env + host | Supabase lato server (letture pubbliche) |
 | `SUPABASE_SERVICE_KEY` | .env + host | Supabase service role (API admin, Storage, token HMAC disiscrizione) |
+| `SUPABASE_ACCESS_TOKEN` | .env + host (piattaforma) | Token dell'organizzazione MOODD su Supabase, uguale per tutti i clienti. Lo usa la casella Supabase di Intégrations (super admin) per migrazioni, estensioni e job pg_cron. Senza, la casella controlla e basta. |
 | `PUBLIC_SITE_URL` | .env + host | URL pubblico (logo email, link disiscrizione) |
 | `STRIPE_SECRET_KEY` | .env + host | Stripe del CLIENTE (ordini) |
 | `STRIPE_WEBHOOK_SECRET` | .env + host | Webhook `checkout.session.completed` |

@@ -1007,6 +1007,8 @@ test("un ordine non si crea nell'aggregato, e nasce sempre con la sua sede", () 
 
    Devono essere pochi, dichiarati, e con il perche' scritto accanto. */
 const AMMESSI_AGGREGATO = {
+    "src/lib/admin/supabaseStato.ts":
+      "Intégrations → Supabase chiede se il DATABASE ha le tabelle del motore: e' una domanda sul progetto, non su un punto",
     "src/pages/api/stripe-webhook.ts":
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":

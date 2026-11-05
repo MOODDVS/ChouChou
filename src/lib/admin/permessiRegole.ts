@@ -261,6 +261,7 @@ export const API_PAGINA: Record<string, string> = {
   // cerca il file sbagliato con una stampante ferma in cucina.
   "printers": "super",
   "integrations": "super",
+  "supabase-stato": "super",   // Intégrations → casella Supabase (solo super)
   "google-place": "super",
   // --- Scheda Google ----------------------------------------------------
   // "google" NON e' in PAGINE_ADMIN: oggi quella pagina non si puo' spegnere
