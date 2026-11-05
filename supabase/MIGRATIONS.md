@@ -141,6 +141,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 92 | `092_tavoli_pentagono_rotazione.sql` | I tavoli del piano: `shape` accetta anche 'pentagon' (il vecchio controllo su `shape` si cerca e si toglie, il nome lo sceglie Postgres) e `rotation` (smallint, 0–345 a passi di 15, gradi in senso orario attorno al centro). Réglages: un bottone solo «+ Tavolo», nel tavolo rotondo / quadrato / pentagono e il bottone per girarlo. Senza, il piano funziona come prima: pentagono e rotazione non compaiono. Idempotente. |
 | 93 | `093_documenti_privati.sql` | Bucket Storage `admin_docs` PRIVATO per i documenti dell'admin (Réglages → Documents: contratti, fatture, ricevute). Si leggono solo con un link firmato che scade dopo un'ora (`lib/admin/bucketDocs.ts`). I file gia' caricati nel bucket pubblico `documents` si spostano da soli alla prima apertura della lista (stessi percorsi, i metadati non cambiano). `documents` resta pubblico per i PDF del sito (Assets → Documents). Senza, tutto come prima. Idempotente. |
 | 94 | `094_registro_migrazioni.sql` | Tabella `restohub_migrazioni` (numero, file, applicata_il): il registro delle migrazioni applicate dalla casella Supabase del super admin (Intégrations). La crea anche il codice prima di applicare; questo file serve a chi lancia `TUTTO.sql` a mano. Senza, tutto come prima: la casella dice «registre absent». Idempotente. |
+| 95 | `095_resend_casella.sql` | Tabella `brand_secrets` (key, value cifrato, updated_at, updated_by): i segreti del marchio, il primo e' la chiave Resend scritta dal super admin nella casella Resend di Intégrations (cifrata con `SECRETS_KEY`). Tabella `email_counter` (month 'YYYY-MM', sent) + funzione `email_counter_bump` (solo service_role): il conteggio mensile delle email transazionali mostrato nella casella. Senza, tutto come prima: chiave dal `.env`, niente conteggio. Idempotente. |
+| 96 | `096_stripe_conti.sql` | Tabella `stripe_accounts` (location_id NULL = marchio, name, secret_key e webhook_secret CIFRATI, sort_order): i conti Stripe ALTERNATIVI aggiunti dalla casella Stripe di Intégrations, quanti se ne vuole. L'admin del ristorante sceglie su quale incassare in Réglages → Commandes (`stripe_conto_attivo` in app_config / location_config). Rimborsi e verifiche cercano la sessione su tutti i conti. Senza, tutto come prima: un conto solo. Idempotente. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
@@ -158,8 +160,8 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `STRIPE_SECRET_KEY` | .env + host | Stripe del CLIENTE (ordini) |
 | `STRIPE_WEBHOOK_SECRET` | .env + host | Webhook `checkout.session.completed` |
 | `MOODD_STRIPE_SECRET_KEY` | .env + host | Stripe MOODD (crediti newsletter) |
-| `RESEND_API_KEY` | .env + host | Invio email |
-| `RESEND_FROM` | .env + host | Mittente email (dominio verificato) |
+| `RESEND_API_KEY` | .env + host | Invio email. Ripiego: vale solo se la casella Resend (super admin → Intégrations) non ha una chiave sua (#95) |
+| `RESEND_FROM` | .env + host | Mittente email (dominio verificato). Ripiego del mittente scritto nella casella Resend |
 | `KITCHEN_EMAIL` | .env + host | Fallback email cucina (prio: app_config) |
 | `SLACK_WEBHOOK_URL` | opzionale | Notifica ordini su Slack |
 | `CRON_SECRET` | .env + host | Protegge i cron: /api/cron/daily-brief, /api/cron/newsletter, /api/cron/reservation-reminders |

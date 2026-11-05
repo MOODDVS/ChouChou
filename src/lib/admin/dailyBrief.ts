@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { resendCliente, mittenteResend, contaEmail } from "../emailResend";
 import { motivoInvio } from "../esitoEmail";
 import { DateTime } from "luxon";
 import { CLIENT } from "../../config/client";
@@ -21,11 +21,9 @@ import { datiRistorante } from "../ristorante";
 // se è il momento di inviare (toggle attivo, ora raggiunta, non ancora
 // inviata oggi — chiave app_config `daily_brief_last_sent`).
 
-const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-const RESEND_FROM = import.meta.env.RESEND_FROM;
 const SITE_URL = (import.meta.env.PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
 const LOGO_URL = `${SITE_URL}/icon-512.png`;
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+// Chiave e mittente: `emailResend.ts` (casella Resend, poi `.env`), al momento dell'invio.
 
 const esc = (t: unknown): string =>
   String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -241,7 +239,9 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
 
   const dest = (cfg.get("daily_brief_email") || cfg.get("reservation_notify_email") || "").trim();
   if (!dest) return { sent: false, reason: "nessun destinatario configurato" };
-  if (!resend || !RESEND_FROM) return { sent: false, reason: "Resend non configurato" };
+  const resend = await resendCliente();
+  const mittente = await mittenteResend();
+  if (!resend || !mittente) return { sent: false, reason: "Resend non configurato" };
 
   // ---------------- dati IERI ----------------
   const daIeri = ieri.startOf("day").toUTC().toISO() ?? "";
@@ -569,7 +569,7 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
     // rifiutato veniva segnato come inviato — e il «gia' inviata oggi» qui
     // sotto spegneva anche il tentativo del giorno.
     const esito = await resend.emails.send({
-      from: RESEND_FROM,
+      from: mittente,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: "enquiries@moodd.online",
       subject: B.subject(dataLunga),
@@ -580,6 +580,7 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
       console.error("[dailyBrief] refus\u00e9 par Resend:", motivo);
       return { sent: false, reason: motivo };
     }
+    contaEmail(1);
   } catch {
     return { sent: false, reason: "invio Resend fallito" };
   }

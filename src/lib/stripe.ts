@@ -4,7 +4,7 @@ import Stripe from "stripe";
 // scontato che sia il francese e che l'unica altra lingua sia l'inglese.
 import { defaultLang } from "../i18n/ui";
 import { prefissoLingua } from "./linguaUrl";
-import { leggiSegreto, type Ambito } from "./admin/sede";
+import { contoAttivo, contiDi, type Ambito } from "./admin/sede";
 /* ⚠️ La valuta dell'incasso NON si scrive qui. Era `"eur"` a mano in quattro
    punti, e tre su quattro e' il modo in cui un pagamento parte nella moneta
    sbagliata. Vedi `lib/valuta.ts` per cosa va verificato con Stripe prima di
@@ -32,19 +32,7 @@ import { valutaStripe } from "./valuta";
  */
 const CLIENTI = new Map<string, Stripe>();
 
-export async function stripeDi(ambito: Ambito): Promise<Stripe> {
-  const chiave = await leggiSegreto(ambito, "stripe_secret_key");
-  if (!chiave) {
-    throw new Error(
-      ambito.modo === "sede"
-        ? "Chiave Stripe mancante: mettila in Super admin > Sedi, oppure STRIPE_SECRET_KEY nel .env"
-        : "STRIPE_SECRET_KEY mancante nel file .env",
-    );
-  }
-  // ⚠️ La mappa e' indicizzata sulla CHIAVE, non sull'id della sede: cosi'
-  // una chiave ruotata produce da sola un client nuovo, senza che nessuno si
-  // ricordi di svuotare niente. (Il segreto ha gia' la sua cache da 60 s in
-  // `leggiSegreto`, quindi qui non si legge il database a ogni chiamata.)
+function clientePer(chiave: string): Stripe {
   let c = CLIENTI.get(chiave);
   if (!c) {
     if (CLIENTI.size > 20) CLIENTI.clear(); // tetto: mai crescere all'infinito
@@ -52,6 +40,65 @@ export async function stripeDi(ambito: Ambito): Promise<Stripe> {
     CLIENTI.set(chiave, c);
   }
   return c;
+}
+
+/** Il client del conto ATTIVO qui (5/11/2026: il ristoratore puo' sceglierlo
+ *  fra piu' conti). Serve a creare i pagamenti NUOVI. Per una sessione che
+ *  esiste gia' si usa `stripePerSessione`. */
+export async function stripeDi(ambito: Ambito): Promise<Stripe> {
+  const chiave = (await contoAttivo(ambito)).chiave;
+  if (!chiave) {
+    throw new Error(
+      ambito.modo === "sede"
+        ? "Chiave Stripe mancante: mettila in Super admin > Intégrations > Stripe (sede o marchio)"
+        : "Chiave Stripe mancante: mettila in Super admin > Intégrations > Stripe",
+    );
+  }
+  // ⚠️ La mappa e' indicizzata sulla CHIAVE, non sull'id della sede: cosi'
+  // una chiave ruotata produce da sola un client nuovo, senza che nessuno si
+  // ricordi di svuotare niente. (Il segreto ha gia' la sua cache da 60 s in
+  // `leggiSegreto`, quindi qui non si legge il database a ogni chiamata.)
+  return clientePer(chiave);
+}
+
+/** Su quale conto sta una sessione gia' vista: un id `cs_` e' di un conto solo. */
+const CONTO_DI_SESSIONE = new Map<string, string>();
+
+/**
+ * IL CONTO DI UNA SESSIONE GIA' CREATA — per verificarla, farla scadere,
+ * rimborsarla (5/11/2026).
+ *
+ * ⚠️ Non e' `stripeDi`: quello e' il conto attivo ADESSO, e dopo uno switch
+ * e' un altro. Una sessione vive solo sul conto che l'ha creata, e chiesta a
+ * un altro conto Stripe risponde «No such checkout.session». Quindi si prova
+ * l'attivo, poi gli altri conti di questo ambito, e ci si ricorda quale ha
+ * risposto. Con un conto solo e' esattamente come prima: una chiamata.
+ */
+export async function stripePerSessione(
+  ambito: Ambito,
+  sessionId: string,
+): Promise<{ sp: Stripe; sessione: Stripe.Checkout.Session }> {
+  const [attivo, conti] = await Promise.all([contoAttivo(ambito), contiDi(ambito)]);
+  const chiavi = [...new Set([CONTO_DI_SESSIONE.get(sessionId) ?? "", attivo.chiave, ...conti.map((c) => c.chiave)].filter(Boolean))];
+  if (!chiavi.length) throw new Error("Chiave Stripe mancante: mettila in Super admin > Intégrations > Stripe");
+  let ultimo: unknown = null;
+  for (const chiave of chiavi) {
+    try {
+      const sp = clientePer(chiave);
+      const sessione = await sp.checkout.sessions.retrieve(sessionId);
+      if (CONTO_DI_SESSIONE.size > 500) CONTO_DI_SESSIONE.clear();
+      CONTO_DI_SESSIONE.set(sessionId, chiave);
+      return { sp, sessione };
+    } catch (e) {
+      ultimo = e;
+      // Solo «non esiste su questo conto» fa provare il prossimo: un errore
+      // di rete o di chiave va detto, non coperto da un altro tentativo.
+      const codice = (e as { code?: string; statusCode?: number })?.code;
+      const stato = (e as { statusCode?: number })?.statusCode;
+      if (codice !== "resource_missing" && stato !== 404 && stato !== 401) throw e;
+    }
+  }
+  throw ultimo;
 }
 
 /** Una riga d'ordine già validata e con prezzo letto dal DB. */
@@ -302,4 +349,25 @@ export async function creaCheckoutIncasso(opts: {
   });
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return { url: session.url, id: session.id };
+}
+
+/** Il nome di un conto come lo dice Stripe (per la scelta in Réglages). Cache 10 min. */
+const NOMI_CONTO = new Map<string, { nome: string; scade: number }>();
+export async function nomeContoStripe(chiave: string): Promise<string> {
+  if (!chiave) return "";
+  const c = NOMI_CONTO.get(chiave);
+  if (c && c.scade > Date.now()) return c.nome;
+  let nome = "";
+  try {
+    const a = await Promise.race([
+      clientePer(chiave).accounts.retrieve(null),
+      new Promise<null>((r) => setTimeout(() => r(null), 4000)),
+    ]);
+    nome = a ? (a.settings?.dashboard?.display_name || a.business_profile?.name || "") : "";
+  } catch {
+    /* chiave limitata o rete: si usa il nome scritto nella casella */
+  }
+  if (NOMI_CONTO.size > 50) NOMI_CONTO.clear();
+  NOMI_CONTO.set(chiave, { nome, scade: Date.now() + 10 * 60_000 });
+  return nome;
 }

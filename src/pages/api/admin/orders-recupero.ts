@@ -55,7 +55,7 @@ import {
   leggi,
   pagamentoOnlineAttivo,
 } from "../../../lib/admin/sede";
-import { stripeDi } from "../../../lib/stripe";
+import { stripePerSessione } from "../../../lib/stripe";
 import { confermaOrdinePagato } from "../../../lib/confermaOrdine";
 
 export const prerender = false;
@@ -127,8 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
     const suo = ambitoDiRiga((o as { location_id: string | null }).location_id);
     try {
       if (!(await pagamentoOnlineAttivo(suo))) continue;
-      const stripe = await stripeDi(suo);
-      const sess = await stripe.checkout.sessions.retrieve(sid);
+      const { sessione: sess } = await stripePerSessione(suo, sid);
       if (sess.payment_status !== "paid") continue; // carrello abbandonato
       if (await confermaOrdinePagato({ orderId: o.id as string, ambito: suo, sessionId: sid })) {
         recuperati++;

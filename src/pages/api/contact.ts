@@ -5,10 +5,8 @@ import { adminLang } from "../../lib/admin/adminLang";
 import { inviaPushContatto } from "../../lib/push";
 import { ambitoPubblicoChiesto, leggiConfig, type Ambito } from "../../lib/admin/sede";
 import { CLIENT } from "../../config/client";
-import { Resend } from "resend";
+import { resendCliente, mittenteResend, contaEmail } from "../../lib/emailResend";
 
-const resend = new Resend(import.meta.env.RESEND_API_KEY);
-const FROM = (((import.meta.env.RESEND_FROM ?? "") as string).trim().replace(/^["']|["']$/g, "")) || `${CLIENT.nome} <${CLIENT.email}>`;
 const TO_FALLBACK = CLIENT.email;
 
 /** Destinatari del form: admin Réglages → Général → "Emails du formulaire
@@ -32,7 +30,7 @@ async function destinatariContact(ambito: Ambito): Promise<string[]> {
 }
 /** Mittente delle email del form: "Nome mittente <email verificata>", con nome
  *  ed email dai Reglages (email_from_name + newsletter_from_email). Fallback su
- *  FROM (RESEND_FROM / config) se non configurati. */
+ *  mittente della casella Resend / RESEND_FROM, poi sul config del cliente. */
 async function mittenteForm(ambito: Ambito): Promise<string> {
   try {
     const cfg = await leggiConfig(ambito, ["contact_from_name", "contact_from_email", "email_from_name", "public_email", "newsletter_from_email", "restaurant_name"]);
@@ -43,7 +41,7 @@ async function mittenteForm(ambito: Ambito): Promise<string> {
   } catch {
     // fallback
   }
-  return FROM;
+  return (await mittenteResend()) || `${CLIENT.nome} <${CLIENT.email}>`;
 }
 const BCC = "enquiries@moodd.online";
 
@@ -352,6 +350,11 @@ export const POST: APIRoute = async ({ request }) => {
   let copia = false;
 
   try {
+    const resend = await resendCliente();
+    if (!resend) {
+      console.error("[contact] Resend non configuré (Intégrations → Resend)");
+      return new Response(JSON.stringify({ error: "Envoi impossible" }), { status: 502 });
+    }
     // 1) Messaggio al ristorante
     const { error: errR } = await resend.emails.send({
       from,
@@ -364,6 +367,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (errR) {
       return new Response(JSON.stringify({ error: "Envoi impossible" }), { status: 502 });
     }
+    contaEmail(1);
 
     // Notifica push all'admin: qualcuno ha contattato il ristorante dal form.
     // Best-effort (come le altre notifiche): non blocca la risposta.
@@ -379,6 +383,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
     if (errC) console.error("Contact: invio ringraziamento cliente fallito:", errC);
     copia = !errC;
+    if (copia) contaEmail(1);
   } catch {
     return new Response(JSON.stringify({ error: "Envoi impossible" }), { status: 502 });
   }

@@ -780,10 +780,46 @@ async function segretoDellaSede(ambito: Ambito, chiave: string): Promise<string 
   });
 }
 
+/**
+ * Quello che c'e' scritto per il MARCHIO (`brand_secrets`, #95), gia'
+ * decifrato: la casella Stripe di Intégrations, livello «Marque». Stessi tre
+ * stati della sede: `null` nessuna riga, `""` riga illeggibile, testo.
+ *
+ * ⚠️ Chiave di cache sotto `CACHE_SEGRETO`, cosi' `scordaSegreti()` senza
+ * argomento butta anche questa.
+ */
+export async function segretoDelMarchio(chiave: string): Promise<string | null> {
+  return cacheOr<string | null>(`${CACHE_SEGRETO}:marchio:${chiave}`, async () => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("brand_secrets")
+        .select("value")
+        .eq("key", chiave)
+        .maybeSingle();
+      if (error || !data) return null; // #95 non lanciata, o niente scritto
+      return decifra(String((data as { value?: unknown }).value ?? ""));
+    } catch {
+      return null;
+    }
+  });
+}
+
+/**
+ * Il ripiego di una sede senza chiave sua — e il valore di un'installazione
+ * a sede unica: prima il MARCHIO (casella Stripe), poi l'ambiente.
+ * ⚠️ Una riga del marchio illeggibile e' un GUASTO, come per la sede: non si
+ * scende al `.env`, che puo' essere il conto di un'altra societa'.
+ */
+async function ripiegoSegreto(chiave: string): Promise<string> {
+  return scegliSegreto(await segretoDelMarchio(chiave), segretoDAmbiente(chiave), chiave);
+}
+
 export async function leggiSegreto(ambito: Ambito, chiave: string): Promise<string> {
-  if (ambito.modo !== "sede") return segretoDAmbiente(chiave);
+  if (ambito.modo !== "sede") return ripiegoSegreto(chiave);
   // La regola sta in `sedeRegole.ts`, pura e con i suoi test.
-  return scegliSegreto(await segretoDellaSede(ambito, chiave), segretoDAmbiente(chiave), chiave);
+  const suo = await segretoDellaSede(ambito, chiave);
+  if (suo === null) return ripiegoSegreto(chiave);
+  return scegliSegreto(suo, "", chiave);
 }
 
 /**
@@ -798,17 +834,125 @@ export async function fonteSegreto(ambito: Ambito, chiave: string): Promise<Font
   const suo = await segretoDellaSede(ambito, chiave);
   if (suo) return "sede";
   if (suo === "") return "nessuna"; // riga presente e illeggibile: rotta
+  const delMarchio = await segretoDelMarchio(chiave);
+  if (delMarchio) return "marchio";
+  if (delMarchio === "") return "nessuna";
   return segretoDAmbiente(chiave) ? "ambiente" : "nessuna";
 }
 
 /** Si puo' offrire un link di pagamento in questa sede? Vedi la nota lunga
  *  su `pagamentoOnlinePronto` in `sedeRegole.ts`. */
 export async function pagamentoOnlineAttivo(ambito: Ambito): Promise<boolean> {
-  const [chiave, firma] = await Promise.all([
-    fonteSegreto(ambito, "stripe_secret_key"),
-    fonteSegreto(ambito, "stripe_webhook_secret"),
-  ]);
-  return pagamentoOnlinePronto(chiave, firma);
+  // ⚠️ Del conto ATTIVO (5/11/2026): con piu' conti Stripe il ristoratore
+  // sceglie su quale incassare, ed e' quello che deve essere pronto.
+  return (await contoAttivo(ambito)).pronto;
+}
+
+// ============================================================
+// PIU' CONTI STRIPE — il ristoratore sceglie su quale incassare (5/11/2026)
+// ============================================================
+//
+// Il conto PRINCIPALE e' quello di sempre: le due chiavi della sede, del
+// marchio o del `.env` (`leggiSegreto`). Gli ALTERNATIVI stanno in
+// `stripe_accounts` (#96), uno per riga, cifrati: `location_id` NULL = del
+// marchio. Quanti se ne vuole.
+//
+// Una sede vede: il suo principale, i suoi alternativi, e — SOLO se il suo
+// principale e' ereditato — quelli del marchio. Una sede con un conto suo e'
+// un'altra societa': i conti del marchio non sono suoi.
+//
+// La scelta (`stripe_conto_attivo`, config di sede col ripiego del marchio)
+// la fa l'admin del ristorante in Réglages. Una scelta che non vale piu'
+// (conto tolto, o non di questa sede) torna al principale.
+//
+// ⚠️⚠️ I SOLDI GIA' INCASSATI restano sul conto che li ha incassati. Ogni
+// operazione su una sessione gia' creata (rimborso, scadenza, verifica)
+// cerca la sessione su TUTTI i conti di quell'ambito (`stripePerSessione`
+// in lib/stripe.ts) — mai solo sull'attivo, che dopo uno switch e' un altro.
+
+export const PRINCIPALE = "principale";
+export const K_CONTO_ATTIVO = "stripe_conto_attivo";
+
+export interface ContoStripe {
+  /** "principale" o l'uuid della riga di `stripe_accounts`. */
+  id: string;
+  /** Vuoto per il principale (il pannello lo chiama col suo nome). */
+  nome: string;
+  /** null = del marchio, altrimenti la sede. Il principale: dove sta la chiave. */
+  sede: string | null;
+  chiave: string;
+  firma: string;
+  /** Si puo' incassare: chiave e firma ci sono e vengono dallo stesso posto. */
+  pronto: boolean;
+}
+
+interface RigaConto { id: string; location_id: string | null; name: string; chiave: string; firma: string }
+
+/** Tutte le righe di `stripe_accounts`, decifrate. Senza la #96: nessuna. */
+async function righeConti(): Promise<RigaConto[]> {
+  return cacheOr<RigaConto[]>(`${CACHE_SEGRETO}:conti`, async () => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("stripe_accounts")
+        .select("id, location_id, name, secret_key, webhook_secret")
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) return [];
+      return (data ?? []).map((r) => ({
+        id: String(r.id),
+        location_id: (r.location_id as string | null) ?? null,
+        name: String(r.name ?? ""),
+        chiave: decifra(String(r.secret_key ?? "")),
+        firma: decifra(String(r.webhook_secret ?? "")),
+      }));
+    } catch {
+      return [];
+    }
+  });
+}
+
+const alternativo = (r: RigaConto): ContoStripe => ({
+  id: r.id, nome: r.name, sede: r.location_id, chiave: r.chiave, firma: r.firma, pronto: !!r.chiave && !!r.firma,
+});
+
+/** I conti che QUESTO ambito puo' usare, il principale per primo. */
+export async function contiDi(ambito: Ambito): Promise<ContoStripe[]> {
+  const [fc, ff] = await Promise.all([fonteSegreto(ambito, "stripe_secret_key"), fonteSegreto(ambito, "stripe_webhook_secret")]);
+  let chiave = "";
+  let firma = "";
+  try { chiave = await leggiSegreto(ambito, "stripe_secret_key"); } catch { /* illeggibile: non pronto */ }
+  try { firma = await leggiSegreto(ambito, "stripe_webhook_secret"); } catch { /* idem */ }
+  const idSede = ambito.modo === "sede" ? ambito.id : null;
+  const principale: ContoStripe = {
+    id: PRINCIPALE, nome: "", sede: fc === "sede" ? idSede : null, chiave, firma, pronto: pagamentoOnlinePronto(fc, ff),
+  };
+  const righe = await righeConti();
+  const suoi = idSede ? righe.filter((r) => r.location_id === idSede) : [];
+  // I conti del marchio: per il marchio stesso, e per una sede che eredita.
+  const delMarchio = !idSede || fc !== "sede" ? righe.filter((r) => r.location_id === null) : [];
+  return [principale, ...suoi.map(alternativo), ...delMarchio.map(alternativo)];
+}
+
+/** L'id scelto per questo ambito (sede → marchio), senza verificarlo. */
+export async function sceltaConto(ambito: Ambito): Promise<string> {
+  // ⚠️ In cache (60 s, come i segreti): `pagamentoOnlineAttivo` la chiede a
+  // ogni pagina d'ordine. Chi la cambia (Réglages → «Encaisser sur») chiama
+  // `scordaSegreti()`, che butta anche questa.
+  const chiave = `${CACHE_SEGRETO}:scelta:${ambito.modo === "sede" ? ambito.id : "marchio"}`;
+  return cacheOr<string>(chiave, async () => {
+    try {
+      const { valori } = await leggiConfig(ambito.modo === "sede" ? ambito : SEDE_UNICA_, [K_CONTO_ATTIVO]);
+      return valori.get(K_CONTO_ATTIVO) || PRINCIPALE;
+    } catch {
+      return PRINCIPALE;
+    }
+  });
+}
+
+/** Il conto su cui si incassa QUI adesso. Una scelta che non vale piu' = il principale. */
+export async function contoAttivo(ambito: Ambito): Promise<ContoStripe> {
+  const [conti, scelta] = await Promise.all([contiDi(ambito), sceltaConto(ambito)]);
+  return conti.find((c) => c.id === scelta) ?? conti[0];
 }
 
 /**
@@ -826,6 +970,19 @@ export async function segretiDOgniSede(
   const fuori: { ambito: Ambito; valore: string }[] = [];
   const amb = segretoDAmbiente(chiave);
   if (amb) fuori.push({ ambito: SEDE_UNICA_, valore: amb });
+  // Il marchio (casella Stripe, #95): un'installazione che ha importato le
+  // chiavi dal `.env` le ha in tutti e due i posti — si prova una volta sola.
+  const delMarchio = await segretoDelMarchio(chiave);
+  if (delMarchio && delMarchio !== amb) fuori.push({ ambito: SEDE_UNICA_, valore: delMarchio });
+  // I conti alternativi (#96): un pagamento fatto prima di uno switch arriva
+  // firmato dal conto di allora, che non e' piu' l'attivo. Si provano tutti.
+  if (chiave === "stripe_webhook_secret") {
+    for (const r of await righeConti()) {
+      if (r.firma && !fuori.some((f) => f.valore === r.firma)) {
+        fuori.push({ ambito: r.location_id ? sede_(r.location_id) : SEDE_UNICA_, valore: r.firma });
+      }
+    }
+  }
   for (const s of await elencoSedi()) {
     // ⚠️ Una sede illeggibile non ferma le altre. Qui si sta verificando la
     // firma di un evento gia' arrivato: far morire tutto vorrebbe dire che
@@ -837,8 +994,8 @@ export async function segretiDOgniSede(
       console.error(`[segreti] sede ${s.id}:`, e instanceof Error ? e.message : e);
       continue;
     }
-    // Senza riga sua `leggiSegreto` rende l'ambiente: gia' in elenco.
-    if (v && v !== amb) fuori.push({ ambito: sede_(s.id), valore: v });
+    // Senza riga sua `leggiSegreto` rende il marchio o l'ambiente: gia' in elenco.
+    if (v && !fuori.some((f) => f.valore === v)) fuori.push({ ambito: sede_(s.id), valore: v });
   }
   return fuori;
 }

@@ -247,6 +247,7 @@ export const API_PAGINA: Record<string, string> = {
   "agenda": "agenda",
   // --- Réglages ---------------------------------------------------------
   "settings": "settings",
+  "stripe-conto": "settings",   // Réglages → «Encaisser sur»: lo switch del conto Stripe (solo admin)
   "docs": "settings",
   "team": "settings",
   "tables": "settings",
@@ -262,6 +263,11 @@ export const API_PAGINA: Record<string, string> = {
   "printers": "super",
   "integrations": "super",
   "supabase-stato": "super",   // Intégrations → casella Supabase (solo super)
+  "resend": "super",           // Intégrations → casella Resend (solo super)
+  "stripe": "super",           // Intégrations → casella Stripe (solo super)
+  "google-casella": "super",   // Intégrations → casella Google Business (solo super)
+  "newsletter-casella": "super", // Intégrations → casella Newsletter (solo super)
+  "bizprint-chiavi": "super",  // Intégrations → Imprimantes: le chiavi BizPrint (solo super)
   "google-place": "super",
   // --- Scheda Google ----------------------------------------------------
   // "google" NON e' in PAGINE_ADMIN: oggi quella pagina non si puo' spegnere

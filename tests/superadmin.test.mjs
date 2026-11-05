@@ -259,10 +259,14 @@ test("ogni bottone che fa rete mostra l'attesa, e la mostra allo stesso modo", (
   // dice che sta lavorando — su rete lenta sembra che il click non sia
   // passato, e si riclicca.
   const bottoni = [
-    "gConnect", "gDisconnect", "gUnicaPick", "gPick",
-    "nlSave", "scSave", "scTest", "usAdd", "itgPrintSave",
-    "placeTest", "locSave", "saveBtn",
+    "usAdd", "itgPrintSave",
+    "locSave", "saveBtn",
   ];
+  // Le caselle di Intégrations (5/11/2026) passano da `blocca`, che e'
+  // `conAttesa` piu' «un lavoro alla volta».
+  for (const b of ["connetti", "scollega", "verifica", "salva", "scSave", "scTest", "nlSave"]) {
+    assert.match(PAGINA, new RegExp(`blocca\\(${b}, async`), `${b}: non passa da blocca/conAttesa`);
+  }
   for (const b of bottoni) {
     assert.match(
       PAGINA,
@@ -306,4 +310,15 @@ test("una pagina, una sola verita' sul token", () => {
   const lib = readFileSync("src/lib/admin/auth.ts", "utf8");
   assert.match(lib, /await supabaseBrowser\.auth\.getSession\(\)/);
   assert.doesNotMatch(lib, /^let /m, "authFresh si tiene uno stato: e' esattamente cio' che doveva togliere");
+});
+
+test("dopo una pausa il token si rinnova prima di ogni chiamata, non dopo", () => {
+  // ⚠️ 5/11/2026: «Session expired» nella casella Imprimantes dopo un Mac in
+  // stop. Ogni fetch dello script principale chiede la sessione a supabase-js
+  // (che rinnova se serve) e mette il token fresco — solo se la chiamata ne
+  // aveva uno.
+  assert.match(PAGINA, /async function fetch\(url: RequestInfo \| URL, init: RequestInit = \{\}\): Promise<Response> \{/);
+  assert.match(PAGINA, /if \(h\.has\("Authorization"\)\) \{\n\s*const \{ data \} = await supabaseBrowser\.auth\.getSession\(\);/);
+  // E le caselle hanno un SEGNO e un esito soli, in casellaUi.ts.
+  assert.doesNotMatch(PAGINA, /const SEGNO: Record<string, string> = \{/);
 });

@@ -152,3 +152,48 @@ export function campiCambiati<T extends Record<string, unknown>>(
   }
   return out;
 }
+
+/**
+ * IL LINK «LASCIA UNA RECENSIONE» DAL PLACE ID (Intégrations → Google, 5/11/2026).
+ * E' l'indirizzo ufficiale di Google: apre direttamente la finestra della
+ * recensione sulla scheda. "" se il Place ID non e' valido.
+ */
+export function linkRecensioneDaPlaceId(placeId: unknown): string {
+  const id = String(placeId ?? "").trim();
+  if (!id || controllaPlaceId(id) !== "ok") return "";
+  return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(id)}`;
+}
+
+export type LivelloG = "ok" | "parz" | "no" | "ignoto";
+
+/** Un livello (marchio o sede) come lo vede la casella Google. */
+export interface RiepilogoG {
+  id: string;
+  nome: string;
+  placeId: string;
+  placeProprio: boolean;
+  link: string;
+  linkProprio: boolean;
+  scheda: string;
+  schedaPropria: boolean;
+}
+
+/**
+ * Un livello e' «a posto» quando ha un Place ID e un link recensioni SUOI —
+ * per una sede, quelli del marchio sono di un'altra attivita'. A sede unica
+ * il marchio e' l'unico livello, e conta lui. La scheda (OAuth) non conta:
+ * e' il livello 2, e il livello 1 funziona senza.
+ */
+export function prontoG(l: RiepilogoG, conSedi: boolean): boolean {
+  if (l.id === "marchio") return !!l.placeId && !!l.link;
+  return conSedi ? l.placeProprio && !!l.placeId && !!l.link && l.linkProprio : !!l.placeId && !!l.link;
+}
+
+export function livelloGoogle(livelli: RiepilogoG[]): { livello: LivelloG; pronti: number; totale: number } {
+  const sedi = livelli.filter((l) => l.id !== "marchio");
+  const contano = sedi.length ? sedi : livelli.filter((l) => l.id === "marchio");
+  const pronti = contano.filter((l) => prontoG(l, sedi.length > 0)).length;
+  const totale = contano.length;
+  if (!totale || pronti === 0) return { livello: "no", pronti, totale };
+  return { livello: pronti < totale ? "parz" : "ok", pronti, totale };
+}

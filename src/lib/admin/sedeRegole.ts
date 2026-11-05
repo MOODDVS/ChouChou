@@ -40,6 +40,9 @@ export type Appartenenza = "marchio" | "sede" | "mista";
 export const CLASSIFICA: Record<string, Appartenenza> = {
   // --- del MARCHIO: condivise fra tutte le sedi ---
   app_config: "marchio",        // livello marchio; la sede sovrascrive in location_config
+  stripe_accounts: "mista", // i conti Stripe alternativi (#96): location_id NULL = del marchio
+  brand_secrets: "marchio", // i segreti del marchio, cifrati (#95): la chiave Resend
+  email_counter: "marchio", // il conteggio mensile delle email (#95)
   restohub_migrazioni: "marchio", // il registro delle migrazioni: e' del DATABASE, non di un punto (Intégrations → Supabase)
   settings: "marchio",          // orari del marchio; la sede sovrascrive in location_settings
   clients: "marchio",           // il cliente e' del marchio, `blocked` compreso
@@ -400,8 +403,9 @@ export function scegliSegreto(
   return letto;
 }
 
-/** Da dove viene un segreto: dalla sede, dall'ambiente, o da nessuna parte. */
-export type Fonte = "sede" | "ambiente" | "nessuna";
+/** Da dove viene un segreto: dalla sede, dal marchio (casella Stripe di
+ *  Intégrations, #95), dall'ambiente, o da nessuna parte. */
+export type Fonte = "sede" | "marchio" | "ambiente" | "nessuna";
 
 /**
  * Si puo' incassare online QUI?
@@ -635,6 +639,14 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   resa_embed: "marchio",
   newsletter_monthly_quota: "marchio", // la quota e' dell'abbonamento MOODD
   print_catalog: "marchio",            // il catalogo stampe e' di MOODD
+  // La casella Resend (Intégrations): un account, un dominio, un mittente di
+  // ripiego per l'installazione. I mittenti per flusso restano di sede.
+  // Su quale conto Stripe si incassa (#96): la sceglie l'admin del ristorante,
+  // per sede, col ripiego del marchio. Un'altra societa' = un'altra scelta.
+  stripe_conto_attivo: "sede",
+  stripe_conto_cambio: "sede", // chi l'ha cambiato e quando (JSON)
+  resend_from_name: "marchio",
+  resend_from_email: "marchio",
 };
 
 /**

@@ -5,7 +5,7 @@ import { controllaPlaceId } from "../../../lib/admin/googleRegole";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
-import { serviceAccountEmail, searchConsolePronto, sitoValido } from "../../../lib/searchConsole";
+import { serviceAccountEmail, searchConsolePronto, sitoValido, proprietaSuggerita } from "../../../lib/searchConsole";
 import { statoGoogle } from "../../../lib/googleBusiness";
 
 export const prerender = false;
@@ -79,6 +79,8 @@ export const GET: APIRoute = async ({ request }) => {
       ready: searchConsolePronto(),
       // email del robot da aggiungere in Search Console (solo super admin)
       robot: isSuperUser(staff) ? serviceAccountEmail() : "",
+      // la proprieta' da proporre a campo vuoto (casella Search Console)
+      suggerito: proprietaSuggerita(import.meta.env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL),
     },
     newsletter: {
       monthly_quota: Number.isFinite(Number(c[K_NL_QUOTA])) && c[K_NL_QUOTA] !== ""

@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
 import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/admin/sede";
-import { stripeDi } from "../../../lib/stripe";
+import { stripePerSessione } from "../../../lib/stripe";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { rimborsabile } from "../../../lib/admin/ordiniConti";
 
@@ -77,24 +77,23 @@ export const POST: APIRoute = async ({ request }) => {
   const daRimborsare = amount === null ? tetto : Math.min(amount, tetto);
   if (daRimborsare <= 0) return json({ error: await msg("err.amount") }, 400);
 
-  let motivo = "";
-  const sp = await stripeDi(await cercaAmbito("orders", id, ambito)).catch((e) => {
-    motivo = e instanceof Error ? e.message : "";
-    console.error("[refund] client Stripe:", e);
-    return null;
-  });
-  if (!sp) return json({ error: motivo || (await msg("err.stripeLocation")) }, 500);
-
-  // Recupera il payment_intent dalla sessione di checkout salvata sull'ordine.
+  // ⚠️ Il rimborso esce dal conto che HA INCASSATO, non dall'attivo: dopo
+  // uno switch sono due conti diversi. `stripePerSessione` cerca la sessione
+  // su tutti i conti di questa sede e rende quello giusto.
   let paymentIntent: string | null = null;
+  let sp: Awaited<ReturnType<typeof stripePerSessione>>["sp"];
   try {
-    const session = await sp.checkout.sessions.retrieve(ord.stripe_session_id);
+    const trovata = await stripePerSessione(await cercaAmbito("orders", id, ambito), ord.stripe_session_id);
+    sp = trovata.sp;
+    const session = trovata.sessione;
     paymentIntent =
       typeof session.payment_intent === "string"
         ? session.payment_intent
         : (session.payment_intent as { id?: string } | null)?.id ?? null;
-  } catch {
-    return json({ error: await msg("err.stripeSessionNotFound") }, 502);
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message : "";
+    console.error("[refund] sessione Stripe:", motivo);
+    return json({ error: await msg(/Chiave Stripe mancante/.test(motivo) ? "err.stripeLocation" : "err.stripeSessionNotFound") }, 502);
   }
   if (!paymentIntent) return json({ error: await msg("err.paymentNotFound") }, 400);
 

@@ -1193,6 +1193,9 @@ const SCAVALCANO = {
     "`relevePunto`, che ha i suoi test",
   "src/pages/api/admin/locations.ts":
     "e' il pannello che amministra le sedi: guardarle tutte e' il suo mestiere",
+  "src/lib/admin/stripeStato.ts":
+    "Intégrations → Stripe scrive i segreti di una sede scelta nel modale (non quella dell'header), " +
+    "come il pannello delle sedi: il livello arriva dal corpo e si verifica contro l'elenco",
   "src/pages/api/admin/push.ts":
     "onConflict su `endpoint` da solo: e' unico al mondo e non esiste un indice a due colonne",
 };

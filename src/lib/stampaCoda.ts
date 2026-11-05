@@ -56,7 +56,7 @@ export async function accodaTicket(o: {
        `o` e' il «capo» dell'invio, il suo primo ordine: la coda e' per
        ordine, e un invio e' UN ticket. */
     if (!opz.invio && !daStampare(o.status, o.payment_method)) return { accodati: 0, motivo: "stato" };
-    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    if (!(await stampaConfigurata())) return { accodati: 0, motivo: "servizio" };
 
     const ambito = ambitoDiRiga(o.location_id ?? null);
     const cfg = await leggiConfig(ambito, [...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
@@ -243,7 +243,7 @@ export async function ordiniDiInvio(ambito: ReturnType<typeof ambitoDiRiga>, inv
  */
 export async function accodaAddizione(capo: { id: string; location_id?: string | null }): Promise<EsitoCoda> {
   try {
-    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    if (!(await stampaConfigurata())) return { accodati: 0, motivo: "servizio" };
     const ambito = ambitoDiRiga(capo.location_id ?? null);
     const cfg = await leggiConfig(ambito, ["print_printer_id"]);
     const principale = idStampante(cfg.valori.get("print_printer_id"));
@@ -296,7 +296,7 @@ export async function stampaChiamata(
   d: { tavolo: string; nome: string; conto: boolean },
 ): Promise<EsitoCoda> {
   try {
-    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    if (!(await stampaConfigurata())) return { accodati: 0, motivo: "servizio" };
     const cfg = await leggiConfig(ambito, ["print_printer_id", "orders_table_call_print"]);
     if (!acceso(cfg.valori.get("orders_table_call_print"), "orders_table_call_print")) return { accodati: 0, motivo: "spenta" };
     const principale = idStampante(cfg.valori.get("print_printer_id"));
@@ -338,7 +338,7 @@ export async function stampaAnnullo(
 ): Promise<EsitoCoda> {
   try {
     if (!righe.length) return { accodati: 0, motivo: "vuoto" };
-    if (!stampaConfigurata()) return { accodati: 0, motivo: "servizio" };
+    if (!(await stampaConfigurata())) return { accodati: 0, motivo: "servizio" };
     const { count } = await leggi("print_tickets", ambito, "id", { count: "exact", head: true })
       .eq("order_id", ordineId)
       .eq("kind", "kitchen")

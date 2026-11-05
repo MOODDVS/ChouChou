@@ -7,7 +7,7 @@ import {
   chiudiSessioneConto, lasciaPagamento, pagamentiDelConto, rilasciaInviiScaduti, segnaPagato,
 } from "../../../lib/contoServer";
 import { inviaRicevutaConto } from "../../../lib/ricevutaConto";
-import { stripeDi } from "../../../lib/stripe";
+import { stripePerSessione } from "../../../lib/stripe";
 import { accodaAddizione } from "../../../lib/stampaCoda";
 import { CAMPI_CONTO, contiApertiDellaSala, riassumiConti, validaConto, rifiutaConto, type RigaConto } from "../../../lib/admin/contiSala";
 
@@ -112,8 +112,7 @@ export const POST: APIRoute = async ({ request }) => {
         let pagata = false;
         if (p.stripe_session_id) {
           try {
-            const sp = await stripeDi(suo);
-            const sess = await sp.checkout.sessions.retrieve(p.stripe_session_id);
+            const { sp, sessione: sess } = await stripePerSessione(suo, p.stripe_session_id);
             if (sess.payment_status === "paid") pagata = await segnaPagato(ambito, p.id, { sessionId: p.stripe_session_id, email: sess.customer_details?.email ?? null });
             else if (sess.status === "open") await sp.checkout.sessions.expire(p.stripe_session_id);
           } catch (e) {

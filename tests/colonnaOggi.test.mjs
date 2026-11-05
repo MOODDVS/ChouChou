@@ -286,25 +286,20 @@ test("a sede unica il Place ID ha un posto dove essere messo", () => {
   // cosa) e il blocco Google della Accueil non compare mai. Lo stesso buco,
   // lo stesso giorno, aveva colpito la scelta della scheda: il rimedio fu
   // `#g-unica`, e questo e' il suo gemello.
+  // Dal 5/11/2026 il posto e' la casella Google Business di Intégrations:
+  // a sede unica la pillola «Marque» e' l'unico livello, e il campo c'e'.
   const SUP = readFileSync("src/pages/admin/super.astro", "utf8");
-  assert.match(SUP, /id="g-place-unica"/, "a sede unica il Place ID non si puo' piu' impostare da nessuna parte");
-  assert.match(SUP, /g-place-unica[\s\S]{0,900}?id="g-place"/, "manca il campo del Place ID");
+  assert.match(SUP, /id="gb-place"/, "a sede unica il Place ID non si puo' piu' impostare da nessuna parte");
   // ⚠️ L'INVOLUCRO `.f-field` NON E' DECORAZIONE. `.f-note` ha un margine
   // NEGATIVO fatto apposta per annullare lo spazio sotto un `.f-field` e
-  // attaccarsi al campo: senza involucro quel margine non annulla niente e la
-  // frase sale SOPRA il campo. Visto su BROS appena messo il Place ID.
-  // Il pezzo di markup dal blocco alla sua nota, e dentro l'ordine giusto:
-  // involucro, campo, chiusura, e SOLO DOPO la nota.
-  const blocco = SUP.slice(SUP.indexOf('id="g-place-unica"'), SUP.indexOf('id="g-place-res"'));
-  assert.match(blocco, /<div class="f-field">[\s\S]*id="g-place"[\s\S]*<\/div>\s*<p class="f-note"\s*$/,
+  // attaccarsi al campo: senza involucro la frase sale SOPRA il campo.
+  const blocco = SUP.slice(SUP.lastIndexOf('<div class="f-field">', SUP.indexOf('id="gb-place"')), SUP.indexOf('id="gb-place-res"'));
+  assert.match(blocco, /^<div class="f-field">[\s\S]*id="gb-place"[\s\S]*<\/div>\s*<p class="f-note"\s*$/,
     "il campo del Place ID ha perso l'involucro `.f-field`: la nota qui sotto torna a salire sopra il campo");
-  assert.match(SUP, /gPlaceBox\.style\.display = sedi\.length > 0 \? "none" : "block"/,
-    "il campo non si accende piu' solo a sede unica: con piu' sedi il posto giusto e' la scheda del punto");
-  // ⚠️ Il campo deve comparire anche senza OAuth: il Place ID e' il livello 1
-  // e non dipende dal collegamento a Google Business — era proprio la
-  // confusione che su BROS faceva leggere «connesso» e non mostrare niente.
-  assert.doesNotMatch(SUP, /connected && !conSedi[\s\S]{0,200}?g-place-unica/,
-    "il campo del Place ID e' tornato a dipendere dal collegamento OAuth");
+  // ⚠️ Il campo c'e' anche senza OAuth: il Place ID e' il livello 1 e non
+  // dipende dal collegamento a Google Business.
+  const script = SUP.slice(SUP.indexOf("INTÉGRATIONS → GOOGLE BUSINESS"));
+  assert.doesNotMatch(script, /collegato[^;]{0,80}gb-place/, "il campo del Place ID e' tornato a dipendere dal collegamento OAuth");
   // ⚠️ E il server NON si mette a decidere «e' multi-sede?»: Integrations non
   // importa niente da `admin/sede` — e' la difesa strutturale per cui il
   // selettore dell'header non puo' arrivarci (vedi superadmin.test.mjs).

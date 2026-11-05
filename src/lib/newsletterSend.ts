@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { leggi, tutteLeSedi, type Ambito } from "./admin/sede";
-import { Resend } from "resend";
+import { resendCliente, mittenteResend } from "./emailResend";
 import { supabaseAdmin } from "./db";
 import { datiRistorante, type DatiRistorante } from "./ristorante";
 import { SEDE_UNICA } from "./admin/sede";
@@ -31,21 +31,18 @@ import { messaggioEmail } from "./htmlRicco";
 // - /api/cron/newsletter         (invii programmati e ricorrenti, #39)
 // Contiene rubrica + SEGMENTI, template HTML e invio a lotti con quota.
 
-const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-// RESEND_FROM: si toglie l'eventuale virgolettatura stray dell'.env (es. "Nome <mail>")
-// che Resend rifiuta con 422 "Invalid from field".
-const RESEND_FROM = ((import.meta.env.RESEND_FROM ?? "") as string).trim().replace(/^["']|["']$/g, "") || undefined;
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
 const SECRET = import.meta.env.SUPABASE_SERVICE_KEY ?? "lm-newsletter";
 
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+// La chiave e il mittente di ripiego arrivano da `emailResend.ts` (casella
+// Resend del super admin, poi `.env`), letti al momento dell'invio.
 
 // Riesportati: /api/admin/newsletter e il cron li importano da qui da sempre.
 export { parseSegment, LINGUE, GRUPPI };
 export type { LinguaNews, GruppoNews };
 
-export function resendPronto(): boolean {
-  return Boolean(resend && RESEND_FROM);
+export async function resendPronto(): Promise<boolean> {
+  return Boolean((await resendCliente()) && (await mittenteResend()));
 }
 
 function esc(s: string): string {
@@ -53,7 +50,7 @@ function esc(s: string): string {
 }
 
 /** Mittente della newsletter: admin → "Email expéditeur newsletter"
- *  (fallback su RESEND_FROM). Deve appartenere al dominio verificato su
+ *  (fallback sul mittente della casella Resend / RESEND_FROM). Deve appartenere al dominio verificato su
  *  Resend, altrimenti l'invio viene rifiutato da Resend. */
 export async function mittenteNewsletter(): Promise<string> {
   try {
@@ -73,7 +70,7 @@ export async function mittenteNewsletter(): Promise<string> {
   } catch {
     // fallback
   }
-  return RESEND_FROM as string;
+  return await mittenteResend();
 }
 
 /** Logo per l'email: brand_logo dei Réglages (fallback: versione negativa,
@@ -337,8 +334,9 @@ export type EsitoTest = { ok: true } | { ok: false; motivo: string };
  * puo' sistemare da se' (il mittente fuori dal dominio verificato).
  */
 export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise<EsitoTest> {
-  if (!resend || !RESEND_FROM) {
-    return { ok: false, motivo: "Resend non configuré (RESEND_API_KEY / RESEND_FROM)" };
+  const resend = await resendCliente();
+  if (!resend || !(await mittenteResend())) {
+    return { ok: false, motivo: "Resend non configuré (Intégrations → Resend)" };
   }
   try {
     // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
@@ -383,8 +381,9 @@ export type EsitoInvio = { ok: true; sent: number } | { ok: false; error: string
 /** Invio reale al SEGMENTO scelto, nel limite della quota (incluse + crediti).
  *  Batch Resend da 100 con pausa; il log registra sempre quanto è partito. */
 export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews, group: GruppoNews): Promise<EsitoInvio> {
-  if (!resend || !RESEND_FROM) {
-    return { ok: false, error: "Resend non configuré (RESEND_API_KEY / RESEND_FROM)", status: 500 };
+  const resend = await resendCliente();
+  if (!resend || !(await mittenteResend())) {
+    return { ok: false, error: "Resend non configuré (Intégrations → Resend)", status: 500 };
   }
   // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
   // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
