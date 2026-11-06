@@ -10,6 +10,7 @@ import ImagePicker from "../../components/admin/ImagePicker.astro";
 import "../../styles/savebar.css";
 import "../../styles/datepicker.css";
 import { CLIENT } from "../../config/client";
+import { TIPI_AZIONE } from "../../lib/admin/googleAzioniRegole";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 
@@ -285,6 +286,29 @@ const t = adminT(lang);
          controlla. La riga resta etichetta a sinistra e campo a destra, ma il
          campo si prende tutto lo spazio che avanza invece di restare una
          scatoletta con mezza pagina vuota accanto. */
+      /* I bottoni della scheda (Place Actions). Le righe riusano .attr-row,
+         i bottoni .foto-btn: qui solo quello che manca. */
+      .az-box .attr-note { margin-bottom: 1rem; }
+      .az-tipo { margin: 1rem 0 .2rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); }
+      .az-tipo:first-child { margin-top: 0; }
+      .az-cima { font-size: .8rem; color: var(--c-muted); margin: 0 0 .3rem; }
+      .az-cima.is-ok { color: var(--c-ok); }
+      .az-cima.is-warn { color: var(--c-accent); }
+      .az-row { align-items: center; }
+      .az-info { display: flex; flex-direction: column; gap: .35rem; min-width: 0; flex: 1 1 auto; }
+      .az-uri { font-size: .85rem; color: var(--c-text); overflow-wrap: anywhere; text-decoration: none; }
+      .az-uri:hover { color: var(--c-accent); }
+      .az-tags { display: flex; gap: .35rem; flex-wrap: wrap; }
+      .az-tag { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; padding: .15rem .55rem; border-radius: 999px; border: 1px solid var(--c-line); color: var(--c-muted); }
+      .az-tag.is-pref { border-color: var(--c-accent); color: var(--c-accent); }
+      .az-btns { display: flex; gap: .5rem; flex-wrap: wrap; flex-shrink: 0; }
+      .az-new { margin-top: 1.2rem; padding-top: 1.1rem; border-top: 1px solid var(--c-line); }
+      .az-new-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+      .az-new-row #az-uri { flex: 1 1 260px; min-width: 0; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .85rem; padding: .45rem .7rem; border-radius: 8px; font-family: var(--font-body); }
+      .az-new-row #az-uri:focus { outline: none; border-color: var(--c-accent); }
+      .az-pref { margin-top: .8rem; }
+      .az-new .fi-add { display: flex; width: fit-content; margin-top: 1rem; }
+      .az-prov { margin-top: .9rem; }
       .fi-sec[data-sec="links"] .attr-lab { flex: 0 0 240px; }
       .fi-sec[data-sec="links"] .attr-ctrl { flex: 1 1 auto; min-width: 0; }
       .fi-sec[data-sec="links"] .attr-urls { min-width: 0; width: 100%; }
@@ -508,6 +532,25 @@ const t = adminT(lang);
                 </div>
               </div>
               <div class="fi-sec" data-sec="links" style="display:none">
+                {/* I bottoni «Prenota» / «Ordina» (Place Actions API): agiscono
+                    SUBITO su Google, fuori dalla barra «Salva» della scheda. */}
+                <div class="fi-block az-box" id="az-box">
+                  <h3 class="fi-h3">{t("gg.azTitle")}</h3>
+                  <p class="attr-note">{t("gg.azNote")}</p>
+                  <div id="az-list"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
+                  <div class="az-new" id="az-new" hidden>
+                    <label class="p-lab" for="az-uri">{t("gg.azNew")}</label>
+                    <div class="az-new-row">
+                      <select id="az-tipo" class="attr-enum">
+                        {TIPI_AZIONE.map((tp) => <option value={tp}>{t("gg.azT." + tp)}</option>)}
+                      </select>
+                      <input type="url" id="az-uri" placeholder="https://" />
+                      <button type="button" class="foto-btn" id="az-sugg" hidden>{t("gg.azSuggest")}</button>
+                    </div>
+                    <label class="fi-day-sw az-pref"><input type="checkbox" id="az-pref" checked /> {t("gg.azPrefNew")}</label>
+                    <button type="button" class="pill sec-btn fi-add" id="az-add">+ {t("gg.azNew")}</button>
+                  </div>
+                </div>
                 <p class="attr-note">{t("gg.linksNote")}</p>
                 <div id="fi-links"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
               </div>
@@ -687,6 +730,7 @@ const t = adminT(lang);
       import { creaDatepicker } from "../../lib/admin/datepicker";
       import { preparaFotoGoogle, GOOGLE_LATO_MIN } from "../../lib/admin/imageCompress";
       import { stellePiene, campiCambiati } from "../../lib/admin/googleRegole";
+      import { TIPI_AZIONE, cimaDi, linkPrenotaSuggerito, type AzioneG } from "../../lib/admin/googleAzioniRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -1281,6 +1325,7 @@ const t = adminT(lang);
             document.querySelectorAll("#fi-filtri .rh-filter").forEach((x) => x.classList.toggle("is-on", x === b));
             document.querySelectorAll<HTMLElement>(".fi-sec").forEach((sec) => { sec.style.display = sec.dataset.sec === activeSec ? "" : "none"; });
             if ((activeSec === "attr" || activeSec === "links") && !attrLoaded) { attrLoaded = true; void loadAttr(); }
+            if (activeSec === "links" && !azLoaded) { azLoaded = true; void loadAzioni(); }
           });
 
           function renderDays() {
@@ -1538,6 +1583,109 @@ const t = adminT(lang);
             }
             attrInitial = JSON.stringify(attrModel.map(attrSnap));
           }
+
+          /* ---- I BOTTONI DELLA SCHEDA (Place Actions, 6/11/2026) ----
+             Agiscono SUBITO su Google: niente barra «Salva». Le regole
+             (chi sta in cima, quali link si possono toccare) stanno in
+             lib/admin/googleAzioniRegole.ts. */
+          type Az = AzioneG;
+          let azLoaded = false;
+          let azPagina = "/reservation-embed";
+          const azList = document.getElementById("az-list");
+          const azNew = document.getElementById("az-new");
+          const azTipo = document.getElementById("az-tipo") as HTMLSelectElement | null;
+          const azUri = document.getElementById("az-uri") as HTMLInputElement | null;
+          const azPref = document.getElementById("az-pref") as HTMLInputElement | null;
+          const azSugg = document.getElementById("az-sugg") as HTMLButtonElement | null;
+          const azAdd = document.getElementById("az-add") as HTMLButtonElement | null;
+          const azNome = (tp: string) => ((TIPI_AZIONE as readonly string[]).includes(tp) ? tr("gg.azT." + tp) : tp);
+          /** L'indirizzo del sito: quello aperto, o (da localhost) il sito della scheda. */
+          function azSito(): string {
+            if (location.protocol === "https:") return location.origin;
+            try { const u = new URL(web?.value.trim() || ""); return u.protocol === "https:" ? u.origin : ""; } catch { return ""; }
+          }
+          const azSuggerito = () => linkPrenotaSuggerito(azSito(), azPagina === "/reservation");
+          function azAggiornaSugg() {
+            if (azSugg) azSugg.hidden = !(azTipo?.value === "DINING_RESERVATION" && azSuggerito());
+          }
+          function azCima(lista: Az[], tipo: string): string {
+            const c = cimaDi(lista, tipo);
+            if (c === "nostro") return `<p class="az-cima is-ok">${esc(tr("gg.azCima.nostro"))}</p>`;
+            if (c === "fornitore" || c === "conteso") return `<p class="az-cima is-warn">${esc(tr("gg.azCima." + c))}</p>`;
+            return "";
+          }
+          function azRender(lista: Az[]) {
+            if (!azList) return;
+            if (!lista.length) { azList.innerHTML = `<p class="fi-soon">${esc(tr("gg.azEmpty"))}</p>`; return; }
+            const tipi = [...new Set(lista.map((a) => a.tipo))];
+            const righe = (a: Az) => {
+              const tag = `<span class="az-tag">${esc(tr(a.nostro ? "gg.azOurs" : "gg.azProvider"))}</span>` +
+                (a.preferito ? `<span class="az-tag is-pref">${esc(tr("gg.azPreferred"))}</span>` : "");
+              const btn = !a.modificabile ? "" :
+                (a.preferito ? "" : `<button type="button" class="foto-btn" data-az-pref="${esc(a.name)}">${esc(tr("gg.azMakePref"))}</button>`) +
+                `<button type="button" class="foto-btn del" data-az-del="${esc(a.name)}">${esc(tr("gg.fotoDelete"))}</button>`;
+              return `<div class="attr-row az-row"><div class="az-info"><a class="az-uri" href="${esc(a.uri)}" target="_blank" rel="noopener">${esc(a.uri)}</a><span class="az-tags">${tag}</span></div>${btn ? `<div class="az-btns">${btn}</div>` : ""}</div>`;
+            };
+            azList.innerHTML = tipi.map((tp) => `<p class="az-tipo">${esc(azNome(tp))}</p>${azCima(lista, tp)}${lista.filter((a) => a.tipo === tp).map(righe).join("")}`).join("") +
+              (lista.some((a) => !a.modificabile) ? `<p class="fi-warn az-prov">${esc(tr("gg.azProvNote"))}</p>` : "");
+          }
+          async function loadAzioni() {
+            if (azList) azList.innerHTML = `<p class="fi-soon">${esc(tr("gg.attrLoading"))}</p>`;
+            try {
+              const r = await fetch("/api/admin/google/azioni", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) {
+                if (azList) azList.innerHTML = `<p class="fi-soon">${esc(j.error || tr("res.connErr"))}</p>`;
+                if (azNew) azNew.hidden = true;
+                return;
+              }
+              azPagina = String(j.pagina || "/reservation-embed");
+              azRender((j.azioni || []) as Az[]);
+              if (azNew) azNew.hidden = false;
+              azAggiornaSugg();
+            } catch {
+              if (azList) azList.innerHTML = `<p class="fi-soon">${esc(tr("res.connErr"))}</p>`;
+            }
+          }
+          async function azManda(corpo: Record<string, unknown>): Promise<boolean> {
+            const r = await fetch("/api/admin/google/azioni", { method: "POST", headers: await authFresh(), body: JSON.stringify(corpo) });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) { toast(String(j.error || tr("res.connErr")), true); return false; }
+            return true;
+          }
+          azTipo?.addEventListener("change", azAggiornaSugg);
+          azSugg?.addEventListener("click", () => { if (azUri) { azUri.value = azSuggerito(); azUri.focus(); } });
+          azAdd?.addEventListener("click", async () => {
+            const uri = azUri?.value.trim() ?? "";
+            if (!/^https:\/\/\S+$/i.test(uri)) { toast(tr("err.googleActionUrl"), true); azUri?.focus(); return; }
+            await conAttesa(azAdd, async () => {
+              if (await azManda({ azione: "crea", tipo: azTipo?.value, uri, preferito: !!azPref?.checked })) {
+                toast(tr("gg.azAdded"));
+                if (azUri) azUri.value = "";
+                await loadAzioni();
+              }
+            });
+          });
+          azList?.addEventListener("click", async (e) => {
+            const pref = (e.target as HTMLElement).closest("[data-az-pref]") as HTMLButtonElement | null;
+            if (pref) {
+              await conAttesa(pref, async () => {
+                if (await azManda({ azione: "preferito", name: pref.dataset.azPref, preferito: true })) { toast(tr("gg.azSaved")); await loadAzioni(); }
+              });
+              return;
+            }
+            const del = (e.target as HTMLElement).closest("[data-az-del]") as HTMLButtonElement | null;
+            if (!del) { azList.querySelectorAll(".confirm").forEach((x) => { x.classList.remove("confirm"); x.textContent = tr("gg.fotoDelete"); }); return; }
+            if (!del.classList.contains("confirm")) {
+              azList.querySelectorAll(".confirm").forEach((x) => { x.classList.remove("confirm"); x.textContent = tr("gg.fotoDelete"); });
+              del.classList.add("confirm");
+              del.textContent = tr("gg.fotoConfirm");
+              return;
+            }
+            await conAttesa(del, async () => {
+              if (await azManda({ azione: "togli", name: del.dataset.azDel })) { toast(tr("gg.azRemoved")); await loadAzioni(); }
+            });
+          });
 
           const saveBar = document.getElementById("fi-savebar") as HTMLElement | null;
           function dirty() { saveBar?.classList.add("is-visible"); }
