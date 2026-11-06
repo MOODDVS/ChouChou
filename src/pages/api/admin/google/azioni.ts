@@ -33,16 +33,22 @@ async function preludio(request: Request) {
   return { token, location };
 }
 
-/** L'errore di Google, o quello che dice di attivare l'API. */
-async function errore(e: string) {
-  return json({ error: apiSpenta(e) ? await msg("err.googleActionsOff") : e, spenta: apiSpenta(e) }, 502);
+/** L'errore di Google in chiaro: API spenta, il motivo dai `details`, o il messaggio. */
+async function errore(e: { errore: string; codice: string }) {
+  if (apiSpenta(e.errore)) return json({ error: await msg("err.googleActionsOff"), spenta: true }, 502);
+  if (e.codice) {
+    const spiegato = await msg(`err.gaz.${e.codice}`);
+    // Una chiave senza traduzione torna uguale: si mostra il codice di Google.
+    return json({ error: spiegato !== `err.gaz.${e.codice}` ? spiegato : `${e.errore} (${e.codice})`, codice: e.codice }, 502);
+  }
+  return json({ error: e.errore }, 502);
 }
 
 export const GET: APIRoute = async ({ request }) => {
   const p = await preludio(request);
   if (p.err) return p.err;
   const r = await listaAzioni(p.token!, p.location!);
-  if (!r.ok) return errore(r.errore);
+  if (!r.ok) return errore(r);
   return json({ azioni: r.dati, pagina: PAGINA });
 };
 
@@ -59,16 +65,9 @@ export const POST: APIRoute = async ({ request }) => {
     const uri = String(b.uri ?? "").trim();
     if (!uriValido(uri)) return json({ error: await msg("err.googleActionUrl") }, 400);
     const preferito = b.preferito === true;
-    // Il preferito di prima (se e' nostro) si toglie PRIMA: uno solo per tipo.
-    if (preferito) {
-      const prima = await listaAzioni(token, location);
-      if (!prima.ok) return errore(prima.errore);
-      for (const a of prima.dati) {
-        if (a.tipo === b.tipo && a.preferito && a.modificabile) await preferisciAzione(token, a.name, false);
-      }
-    }
+    // Il preferito di prima lo toglie Google da solo (uno per tipo).
     const r = await creaAzione(token, location, String(b.tipo), uri, preferito);
-    if (!r.ok) return errore(r.errore);
+    if (!r.ok) return errore(r);
     return json({ ok: true });
   }
 
@@ -76,24 +75,18 @@ export const POST: APIRoute = async ({ request }) => {
     const name = String(b.name ?? "");
     if (!nomeDellaScheda(name, location)) return json({ error: await msg("err.request") }, 400);
     const lista = await listaAzioni(token, location);
-    if (!lista.ok) return errore(lista.errore);
+    if (!lista.ok) return errore(lista);
     const questa = lista.dati.find((a) => a.name === name);
     if (!questa) return json({ error: await msg("err.request") }, 404);
     // I link dei fornitori non si toccano da qui: Google non lo permette.
     if (!questa.modificabile) return json({ error: await msg("err.googleActionProvider") }, 409);
     if (azione === "togli") {
       const r = await togliAzione(token, name);
-      if (!r.ok) return errore(r.errore);
+      if (!r.ok) return errore(r);
       return json({ ok: true });
     }
-    const vuole = b.preferito === true;
-    if (vuole) {
-      for (const a of lista.dati) {
-        if (a.tipo === questa.tipo && a.preferito && a.modificabile && a.name !== name) await preferisciAzione(token, a.name, false);
-      }
-    }
-    const r = await preferisciAzione(token, name, vuole);
-    if (!r.ok) return errore(r.errore);
+    const r = await preferisciAzione(token, name, b.preferito === true);
+    if (!r.ok) return errore(r);
     return json({ ok: true });
   }
 

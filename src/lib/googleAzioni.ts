@@ -7,9 +7,10 @@
  * Il permesso e' lo stesso di tutto il resto (`business.manage`): i clienti
  * gia' collegati non devono ricollegarsi.
  */
-import { BASE_AZIONI, normalizza, ordina, type AzioneG } from "./admin/googleAzioniRegole";
+import { BASE_AZIONI, codiceErrore, normalizza, ordina, type AzioneG } from "./admin/googleAzioniRegole";
 
-type Esito<T> = { ok: true; dati: T } | { ok: false; errore: string };
+/** `codice`: l'ErrorCode di Google dai `details`, se c'e' (vedi codiceErrore). */
+type Esito<T> = { ok: true; dati: T } | { ok: false; errore: string; codice: string };
 
 async function chiama<T>(token: string, url: string, init: RequestInit = {}): Promise<Esito<T>> {
   try {
@@ -23,11 +24,11 @@ async function chiama<T>(token: string, url: string, init: RequestInit = {}): Pr
     try { j = txt ? JSON.parse(txt) : null; } catch { j = null; }
     if (!r.ok) {
       const m = String((j as { error?: { message?: unknown } } | null)?.error?.message ?? "");
-      return { ok: false, errore: m || `HTTP ${r.status}` };
+      return { ok: false, errore: m || `HTTP ${r.status}`, codice: codiceErrore(txt) };
     }
     return { ok: true, dati: (j ?? {}) as T };
   } catch {
-    return { ok: false, errore: "Connexion à Google impossible" };
+    return { ok: false, errore: "Connexion à Google impossible", codice: "" };
   }
 }
 
@@ -54,7 +55,12 @@ export async function creaAzione(token: string, location: string, tipo: string, 
   return r.ok ? { ok: true, dati: normalizza(r.dati) } : r;
 }
 
-/** Rende preferito (o no) un link. Il preferito di prima dello stesso tipo lo toglie chi chiama. */
+/**
+ * Rende preferito (o no) un link. Google toglie da solo il preferito di prima
+ * dello stesso tipo: «If a future request marks a different link as preferred
+ * for the same place action type, then the current preferred link will lose
+ * its preference» (riferimento PlaceActionLink).
+ */
 export async function preferisciAzione(token: string, name: string, preferito: boolean): Promise<Esito<AzioneG>> {
   const r = await chiama<Record<string, unknown>>(token, `${BASE_AZIONI}/${name}?updateMask=isPreferred`, {
     method: "PATCH",
