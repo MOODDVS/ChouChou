@@ -4,6 +4,7 @@
 // tramite supabaseBrowser. Brand-aware: nome, logo, logo negativo dai Réglages;
 // i colori dal tema salvato in localStorage (mdd_theme) applicato dallo script inline.
 import { CLIENT } from "../../config/client";
+import { SITE_IMAGE_SLOTS } from "../../config/siteImageSlots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import { supabaseAdmin } from "../../lib/db";
@@ -16,8 +17,16 @@ const t = adminT(lang);
 export const prerender = false;
 
 // Immagine login: una foto CASUALE dell'hero della home del cliente
-// (app_config site_hero_1/2/3). Se non ce n'è nessuna -> fallback random
-// tra le slide RestoHub in public/restohub/ (sempre presenti nel motore).
+// (app_config site_hero_1/2/3). Se nessuna e' stata scelta in Assets, le foto
+// che il SITO mostra davvero al loro posto (i `fallback` degli slot hero in
+// `config/siteImageSlots.ts`, file del cliente). Solo se anche quelle sono le
+// slide del motore -> slide RestoHub in public/restohub/.
+// ⚠️ 6/11/2026, visto su 450 Gradi: senza il secondo passo un cliente che non
+// ha mai toccato Assets vedeva al login le foto di RestoHub, mentre il suo
+// sito mostrava le sue.
+const HERO_DEL_SITO = SITE_IMAGE_SLOTS
+  .filter((s) => /^site_hero_\d+$/.test(s.key) && s.fallback && !s.fallback.startsWith("/restohub/"))
+  .map((s) => s.fallback as string);
 const FALLBACK_COVERS = [
   "/restohub/slide01.webp",
   "/restohub/slide02.webp",
@@ -71,7 +80,7 @@ const legalPrivacy = LEGAL.privacy[lang] ?? LEGAL.privacy.fr;
 // Solo https:// o path assoluti "/…", senza caratteri che potrebbero rompere
 // lo style inline (difesa in profondità: Astro escapizza già gli attributi).
 const COVER_OK = /^(https:\/\/[^\s"\x27()]+|\/[^\s"\x27()]*)$/;
-const pool0 = brand.heroImages.length ? brand.heroImages : FALLBACK_COVERS;
+const pool0 = brand.heroImages.length ? brand.heroImages : HERO_DEL_SITO.length ? HERO_DEL_SITO : FALLBACK_COVERS;
 const coverPool = pool0.filter((u) => COVER_OK.test(u));
 const safePool = coverPool.length ? coverPool : FALLBACK_COVERS;
 const cover = safePool[Math.floor(Math.random() * safePool.length)];
@@ -79,8 +88,13 @@ const cover = safePool[Math.floor(Math.random() * safePool.length)];
 const topLogo = "/restohub/wordmark-negative.svg";
 const badgeLogo = brand.favicon || "/favicon.svg";
 const showPayoff = true; // il payoff RestoHub accompagna sempre il logo RestoHub
-const heroTitle = brand.nome || t("login.title");
-const tabTitle = brand.nome || t("login.title");
+// ⚠️ Il nome del CLIENTE, sempre: «Area Staff» solo se non se ne sa nessuno.
+// In un gruppo il nome sta spesso nelle sedi e non nel marchio (app_config
+// vuoto): il nome di `config/client.ts` e' quello giusto per il login, che
+// e' uno per tutte le sedi.
+const nomeCliente = brand.nome || (CLIENT.nome !== "Nouveau Restaurant" ? CLIENT.nome : "");
+const heroTitle = nomeCliente || t("login.title");
+const tabTitle = nomeCliente || t("login.title");
 // Astro 7 (compilatore Rust): il binding `Astro` esiste solo se il frontmatter
 // lo nomina davvero. Il nonce va quindi letto QUI, non direttamente nell'attributo
 // del tag, altrimenti a runtime si ha «Astro is not defined».
@@ -150,7 +164,9 @@ const nonce = Astro.locals.cspNonce;
       .form-inner { width: 100%; max-width: 360px; }
       .form-h { font-family: var(--font-title); font-size: 1.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text); margin-bottom: .2rem; }
       .form-badge { display: flex; align-items: center; gap: .7rem; margin-bottom: 1.7rem; }
-      .form-badge img { width: 76px; height: 76px; object-fit: cover; border-radius: 16px; border: 1px solid var(--c-line); box-shadow: 0 6px 16px -8px rgba(0,0,0,.25); }
+      /* 56px (era 76, 6/11/2026): accanto al titolo e ai campi il logo pesava
+         piu' di tutto il resto. Niente ombra: le ombre stanno solo sui modali. */
+      .form-badge img { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; border: 1px solid var(--c-line); }
       .form-badge span { font-family: var(--font-brand); font-weight: 600; font-size: 1rem; color: var(--c-text); }
       .form-sub { color: var(--c-muted); font-size: .85rem; margin-bottom: 2rem; }
       .intro { color: var(--c-muted); font-size: .86rem; line-height: 1.55; margin: -.8rem 0 1.6rem; }
@@ -233,8 +249,8 @@ const nonce = Astro.locals.cspNonce;
         .img-legal { display: none; }
         .pane-form { flex: 1 0 auto; align-items: flex-start; padding: 0 1.4rem 2.8rem; position: relative; z-index: 2; margin-top: -16px; }
         .form-inner { text-align: center; }
-        .form-badge { justify-content: center; position: relative; z-index: 3; margin-top: -34px; margin-bottom: 1.3rem; }
-        .form-badge img { width: 76px; height: 76px; border: 3px solid #fff; box-shadow: 0 10px 26px -8px rgba(0,0,0,.45); }
+        .form-badge { justify-content: center; position: relative; z-index: 3; margin-top: -28px; margin-bottom: 1.3rem; }
+        .form-badge img { width: 60px; height: 60px; border: 3px solid #fff; }
         .form-legal { display: block; }
       }
     </style>
