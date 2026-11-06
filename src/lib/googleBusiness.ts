@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { RITORNO_UNICO, componiState, destinazione, firmaGiusta, leggiPayload, sitoDiRitorno } from "./googleRitorno";
 import { sedeDaAttribuire, campoSede, schedaValida, classificaErroreToken, type StatoGoogle } from "./googleRegole";
 export { schedaValida };
 import { supabaseAdmin } from "./db";
@@ -26,7 +27,10 @@ const SITE_URL = (import.meta.env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL
 const FIRMA = import.meta.env.SUPABASE_SERVICE_KEY ?? process.env.SUPABASE_SERVICE_KEY ?? "moodd";
 
 export const SCOPE = "https://www.googleapis.com/auth/business.manage";
-export const REDIRECT_URI = `${SITE_URL}/api/google/callback`;
+// ⚠️ Uno solo per tutti i siti (6/11/2026): Google torna su app.restohub.cloud,
+// che rimanda al sito giusto. Vedi `googleRitorno.ts`. Lo stesso valore va
+// nella richiesta di consenso E nello scambio del codice, o Google rifiuta.
+export const REDIRECT_URI = RITORNO_UNICO;
 const K_REFRESH = "google_oauth_refresh";
 
 export function googleConfigurato(): boolean {
@@ -34,32 +38,29 @@ export function googleConfigurato(): boolean {
 }
 
 // ============================================================
-// state firmato (anti-CSRF): payload.firma, valido 10 minuti
+// state firmato (anti-CSRF): payload.firmaSito.firmaApp, valido 10 minuti
 // ============================================================
 
-function firma(payload: string): string {
-  return createHmac("sha256", FIRMA).update(payload).digest("base64url");
+/** `origine` = l'Origin della richiesta di «Connetti» (per localhost). */
+export function creaState(origine: string | null = null): string {
+  return componiState(
+    { n: randomBytes(9).toString("base64url"), exp: Date.now() + 10 * 60_000, r: sitoDiRitorno(origine, SITE_URL) },
+    FIRMA,
+    CLIENT_SECRET,
+  );
 }
 
-export function creaState(): string {
-  const payload = Buffer.from(
-    JSON.stringify({ n: randomBytes(9).toString("base64url"), exp: Date.now() + 10 * 60_000 })
-  ).toString("base64url");
-  return `${payload}.${firma(payload)}`;
-}
-
+/** Al ritorno sul sito: conta la firma DEL SITO, non quella dell'app. */
 export function verificaState(state: string): boolean {
   const [payload, mac] = String(state ?? "").split(".");
-  if (!payload || !mac) return false;
-  const atteso = firma(payload);
-  if (mac.length !== atteso.length) return false;
-  if (!timingSafeEqual(Buffer.from(mac), Buffer.from(atteso))) return false;
-  try {
-    const { exp } = JSON.parse(Buffer.from(payload, "base64url").toString());
-    return typeof exp === "number" && Date.now() < exp;
-  } catch {
-    return false;
-  }
+  if (!firmaGiusta(FIRMA, payload, mac)) return false;
+  const d = leggiPayload(payload);
+  return !!d && Date.now() < d.exp;
+}
+
+/** Il passaggio di app.restohub.cloud: dove rimandare, o null. */
+export function destinazioneRitorno(state: string): string | null {
+  return destinazione(state, CLIENT_SECRET);
 }
 
 // ============================================================
