@@ -72,3 +72,16 @@ test("l'API: tutto in POST, i fornitori non si toccano, il nome si controlla", a
   const { API_PAGINA } = await import("../src/lib/admin/permessiRegole.ts");
   assert.equal(API_PAGINA["google/azioni"], "google");
 });
+
+test("il motivo vero di un rifiuto si legge dai details di Google", async () => {
+  const { codiceErrore } = await import("../src/lib/admin/googleAzioniRegole.ts");
+  const corpo = JSON.stringify({ error: { code: 400, message: "Request contains an invalid argument.", status: "INVALID_ARGUMENT",
+    details: [{ "@type": "type.googleapis.com/google.mybusiness.placeactions.v1.ValidationError", errorDetails: [{ code: 3, message: "x", errorCode: "URL_PROVIDER_NOT_ALLOWED" }] }] } });
+  assert.equal(codiceErrore(corpo), "URL_PROVIDER_NOT_ALLOWED");
+  assert.equal(codiceErrore('{"error":{"message":"Request contains an invalid argument."}}'), "");
+  const { adminT } = await import("../src/i18n/admin.ts");
+  const { CODICI_ERRORE } = await import("../src/lib/admin/googleAzioniRegole.ts");
+  for (const c of CODICI_ERRORE.filter((c) => c !== "SCALABLE_DEEP_LINK_INVALID_MULTIPLICITY")) {
+    assert.notEqual(adminT("it")(`err.gaz.${c}`), `err.gaz.${c}`, `manca la traduzione di ${c}`);
+  }
+});

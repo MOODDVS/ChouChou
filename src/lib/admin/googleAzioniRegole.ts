@@ -97,6 +97,20 @@ export function cimaDi(lista: AzioneG[], tipo: string): Cima {
   return qui.some((a) => !a.nostro) ? "conteso" : "solo-nostri";
 }
 
+/**
+ * Il motivo vero di un rifiuto. Google risponde «Request contains an invalid
+ * argument» e mette il perche' nei `details` (ErrorCode della Place Actions
+ * API): senza leggerli, lo schermo dice solo «argomento non valido».
+ */
+export const CODICI_ERRORE = [
+  "UNVERIFIED_LOCATION", "INVALID_LOCATION_CATEGORY", "INVALID_URL", "URL_PROVIDER_NOT_ALLOWED",
+  "TOO_MANY_VALUES", "DELETED_LINK", "LINK_ALREADY_EXISTS", "SCALABLE_DEEP_LINK_INVALID_MULTIPLICITY", "LINK_DOES_NOT_EXIST",
+] as const;
+export function codiceErrore(risposta: string): string {
+  const m = new RegExp(`\\b(${CODICI_ERRORE.join("|")})\\b`).exec(String(risposta ?? ""));
+  return m ? m[1] : "";
+}
+
 /** L'API non e' attivata nel progetto Google Cloud (errore 403 di Google). */
 export function apiSpenta(messaggio: string): boolean {
   return /has not been used in project|is disabled|SERVICE_DISABLED|accessNotConfigured/i.test(String(messaggio ?? ""));
