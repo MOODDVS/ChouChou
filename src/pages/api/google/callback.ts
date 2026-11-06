@@ -3,7 +3,8 @@ import { verificaState, salvaTokenDaCode } from "../../../lib/googleBusiness";
 
 export const prerender = false;
 
-// Ritorno dalla schermata di consenso Google.
+// Ritorno dalla schermata di consenso Google — passando da
+// app.restohub.cloud/api/google/ritorno, che rimanda qui (6/11/2026).
 // Non è una chiamata dell'admin ma una NAVIGAZIONE del browser: non c'è
 // il Bearer token. L'autenticità è garantita dallo `state` firmato (HMAC,
 // valido 10 minuti) creato da /api/google/connect, che solo il super admin

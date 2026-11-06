@@ -86,7 +86,12 @@ const safePool = coverPool.length ? coverPool : FALLBACK_COVERS;
 const cover = safePool[Math.floor(Math.random() * safePool.length)];
 // Logo in alto: SEMPRE il wordmark RestoHub (pagina del motore, non brand cliente).
 const topLogo = "/restohub/wordmark-negative.svg";
-const badgeLogo = brand.favicon || "/favicon.svg";
+// ⚠️ `loginBadge` (facoltativo, in `config/client.ts` del cliente): un'icona
+// apposta per questo riquadro, quando quella del favicon ha il logo troppo
+// vicino ai bordi (450 Gradi, 6/11/2026). Gli altri clienti non lo hanno e
+// restano come prima.
+const badgeCliente = String((CLIENT as { loginBadge?: unknown }).loginBadge ?? "").trim();
+const badgeLogo = badgeCliente || brand.favicon || "/favicon.svg";
 const showPayoff = true; // il payoff RestoHub accompagna sempre il logo RestoHub
 // ⚠️ Il nome del CLIENTE, sempre: «Area Staff» solo se non se ne sa nessuno.
 // In un gruppo il nome sta spesso nelle sedi e non nel marchio (app_config
@@ -164,9 +169,8 @@ const nonce = Astro.locals.cspNonce;
       .form-inner { width: 100%; max-width: 360px; }
       .form-h { font-family: var(--font-title); font-size: 1.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text); margin-bottom: .2rem; }
       .form-badge { display: flex; align-items: center; gap: .7rem; margin-bottom: 1.7rem; }
-      /* 56px (era 76, 6/11/2026): accanto al titolo e ai campi il logo pesava
-         piu' di tutto il resto. Niente ombra: le ombre stanno solo sui modali. */
-      .form-badge img { width: 56px; height: 56px; object-fit: cover; border-radius: 12px; border: 1px solid var(--c-line); }
+      /* Niente ombra: le ombre stanno solo sui modali. */
+      .form-badge img { width: 76px; height: 76px; object-fit: cover; border-radius: 16px; border: 1px solid var(--c-line); }
       .form-badge span { font-family: var(--font-brand); font-weight: 600; font-size: 1rem; color: var(--c-text); }
       .form-sub { color: var(--c-muted); font-size: .85rem; margin-bottom: 2rem; }
       .intro { color: var(--c-muted); font-size: .86rem; line-height: 1.55; margin: -.8rem 0 1.6rem; }
@@ -249,8 +253,8 @@ const nonce = Astro.locals.cspNonce;
         .img-legal { display: none; }
         .pane-form { flex: 1 0 auto; align-items: flex-start; padding: 0 1.4rem 2.8rem; position: relative; z-index: 2; margin-top: -16px; }
         .form-inner { text-align: center; }
-        .form-badge { justify-content: center; position: relative; z-index: 3; margin-top: -28px; margin-bottom: 1.3rem; }
-        .form-badge img { width: 60px; height: 60px; border: 3px solid #fff; }
+        .form-badge { justify-content: center; position: relative; z-index: 3; margin-top: -34px; margin-bottom: 1.3rem; }
+        .form-badge img { width: 76px; height: 76px; border: 3px solid #fff; }
         .form-legal { display: block; }
       }
     </style>

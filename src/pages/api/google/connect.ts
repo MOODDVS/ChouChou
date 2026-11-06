@@ -17,7 +17,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
   if (!googleConfigurato()) return json({ error: "GOOGLE_CLIENT_ID/SECRET manquants" }, 500);
 
-  return json({ ok: true, url: urlConsenso(creaState()) });
+  // L'Origin dice se l'admin e' aperto da localhost: e' li' che si torna.
+  return json({ ok: true, url: urlConsenso(creaState(request.headers.get("origin"))) });
 };
 
 export const DELETE: APIRoute = async ({ request }) => {
