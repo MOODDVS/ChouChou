@@ -1647,11 +1647,12 @@ const t = adminT(lang);
               if (azList) azList.innerHTML = `<p class="fi-soon">${esc(tr("res.connErr"))}</p>`;
             }
           }
-          async function azManda(corpo: Record<string, unknown>): Promise<boolean> {
+          /** La risposta se e' andata, `null` se no (l'errore e' gia' a schermo). */
+          async function azManda(corpo: Record<string, unknown>): Promise<{ aggiornato?: boolean } | null> {
             const r = await fetch("/api/admin/google/azioni", { method: "POST", headers: await authFresh(), body: JSON.stringify(corpo) });
             const j = await r.json().catch(() => ({}));
-            if (!r.ok) { toast(String(j.error || tr("res.connErr")), true); return false; }
-            return true;
+            if (!r.ok) { toast(String(j.error || tr("res.connErr")), true); return null; }
+            return j;
           }
           azTipo?.addEventListener("change", azAggiornaSugg);
           azSugg?.addEventListener("click", () => { if (azUri) { azUri.value = azSuggerito(); azUri.focus(); } });
@@ -1659,8 +1660,9 @@ const t = adminT(lang);
             const uri = azUri?.value.trim() ?? "";
             if (!/^https:\/\/\S+$/i.test(uri)) { toast(tr("err.googleActionUrl"), true); azUri?.focus(); return; }
             await conAttesa(azAdd, async () => {
-              if (await azManda({ azione: "crea", tipo: azTipo?.value, uri, preferito: !!azPref?.checked })) {
-                toast(tr("gg.azAdded"));
+              const esito = await azManda({ azione: "crea", tipo: azTipo?.value, uri, preferito: !!azPref?.checked });
+              if (esito) {
+                toast(tr(esito.aggiornato ? "gg.azUpdated" : "gg.azAdded"));
                 if (azUri) azUri.value = "";
                 await loadAzioni();
               }

@@ -85,3 +85,19 @@ test("il motivo vero di un rifiuto si legge dai details di Google", async () => 
     assert.notEqual(adminT("it")(`err.gaz.${c}`), `err.gaz.${c}`, `manca la traduzione di ${c}`);
   }
 });
+
+test("un link per dominio per tipo: si aggiorna il nostro invece di crearne un secondo", async () => {
+  const { dominioDi, linkDaAggiornare } = await import("../src/lib/admin/googleAzioniRegole.ts");
+  assert.equal(dominioDi("https://www.brasserieaperitivo.be/reservation?ref=google"), "brasserieaperitivo.be");
+  assert.equal(dominioDi("https://brasserieaperitivo.be/"), "brasserieaperitivo.be");
+  const lista = [
+    az({ id: "a", uri: "https://www.brasserieaperitivo.be/" }),
+    az({ id: "b", uri: "https://www.thefork.be/x", nostro: false, modificabile: false }),
+    az({ id: "c", tipo: "FOOD_TAKEOUT", uri: "https://www.brasserieaperitivo.be/order" }),
+  ];
+  assert.equal(linkDaAggiornare(lista, "DINING_RESERVATION", "https://www.brasserieaperitivo.be/reservation?ref=google")?.name.slice(-1), "a");
+  assert.equal(linkDaAggiornare(lista, "DINING_RESERVATION", "https://altro.be/r"), null);
+  assert.equal(linkDaAggiornare(lista, "DINING_RESERVATION", "https://www.thefork.be/y"), null, "un link di un fornitore non si aggiorna");
+  const api = readFileSync("src/pages/api/admin/google/azioni.ts", "utf8");
+  assert.ok(api.indexOf("linkDaAggiornare(") < api.indexOf("creaAzione(token"), "si crea senza guardare se il sito ha gia' un link");
+});

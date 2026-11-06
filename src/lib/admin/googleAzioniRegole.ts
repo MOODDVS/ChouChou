@@ -74,6 +74,30 @@ export function normalizza(r: Grezzo): AzioneG {
   };
 }
 
+/**
+ * Il dominio di un link, senza `www.`: Google accetta UN SOLO link per
+ * dominio per ogni tipo di bottone (errore SCALABLE_DEEP_LINK_INVALID_MULTIPLICITY,
+ * «there is a limit of one link per domain for each PlaceActionType»).
+ */
+export function dominioDi(uri: string): string {
+  try {
+    return new URL(String(uri ?? "").trim()).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Il link gia' sulla scheda che un link nuovo andrebbe a scontrare: stesso
+ * tipo, stesso dominio. Se e' nostro (modificabile) si AGGIORNA quello invece
+ * di crearne un secondo che Google rifiuterebbe.
+ */
+export function linkDaAggiornare(lista: AzioneG[], tipo: string, uri: string): AzioneG | null {
+  const d = dominioDi(uri);
+  if (!d) return null;
+  return lista.find((a) => a.tipo === tipo && a.modificabile && dominioDi(a.uri) === d) ?? null;
+}
+
 /** Per tipo (nell'ordine di TIPI_AZIONE, gli altri in fondo), il preferito per primo. */
 export function ordina(lista: AzioneG[]): AzioneG[] {
   const pos = (t: string) => { const i = (TIPI_AZIONE as readonly string[]).indexOf(t); return i < 0 ? 99 : i; };

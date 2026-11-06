@@ -4,8 +4,8 @@ import { json } from "../../../../lib/rispostaJson";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { tokenGoogle, erroreGoogle, locationSalvata } from "../../../../lib/googleBusiness";
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
-import { listaAzioni, creaAzione, preferisciAzione, togliAzione } from "../../../../lib/googleAzioni";
-import { apiSpenta, locationDi, nomeDellaScheda, tipoValido, uriValido } from "../../../../lib/admin/googleAzioniRegole";
+import { listaAzioni, creaAzione, aggiornaAzione, preferisciAzione, togliAzione } from "../../../../lib/googleAzioni";
+import { apiSpenta, linkDaAggiornare, locationDi, nomeDellaScheda, tipoValido, uriValido } from "../../../../lib/admin/googleAzioniRegole";
 
 export const prerender = false;
 
@@ -65,10 +65,26 @@ export const POST: APIRoute = async ({ request }) => {
     const uri = String(b.uri ?? "").trim();
     if (!uriValido(uri)) return json({ error: await msg("err.googleActionUrl") }, 400);
     const preferito = b.preferito === true;
+    // ⚠️ UN LINK PER DOMINIO PER TIPO (regola di Google): se c'e' gia' un
+    // nostro link dello stesso sito, si aggiorna lui. Crearne un secondo
+    // finirebbe in SCALABLE_DEEP_LINK_INVALID_MULTIPLICITY.
     // Il preferito di prima lo toglie Google da solo (uno per tipo).
-    const r = await creaAzione(token, location, String(b.tipo), uri, preferito);
+    const lista = await listaAzioni(token, location);
+    if (!lista.ok) return errore(lista);
+    const gia = linkDaAggiornare(lista.dati, String(b.tipo), uri);
+    // Stesso indirizzo identico: non c'e' niente da cambiare se non, forse,
+    // il preferito (un PATCH con lo stesso uri Google lo prende per un doppione).
+    if (gia && gia.uri === uri) {
+      if (!preferito || gia.preferito) return json({ ok: true, aggiornato: true });
+      const r = await preferisciAzione(token, gia.name, true);
+      if (!r.ok) return errore(r);
+      return json({ ok: true, aggiornato: true });
+    }
+    const r = gia
+      ? await aggiornaAzione(token, gia.name, uri, preferito || gia.preferito)
+      : await creaAzione(token, location, String(b.tipo), uri, preferito);
     if (!r.ok) return errore(r);
-    return json({ ok: true });
+    return json({ ok: true, aggiornato: !!gia });
   }
 
   if (azione === "preferito" || azione === "togli") {
