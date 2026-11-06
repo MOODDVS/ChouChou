@@ -58,6 +58,11 @@ const supI18n = {
     destNome: t("loc.destNome"), destCat: t("loc.destCat"), destDel: t("common.delete"),
     catVuote: t("loc.catVuote"),
     printerHint: t("loc.printerHint"), printNone: t("loc.printNone"),
+    imNoKeys: t("itg.im.noKeys"), imNoKeysHint: t("itg.im.noKeysHint"), imDown: t("itg.im.down"),
+    imFound: t("itg.im.found"), imHint: t("itg.im.hint"), imOk: t("itg.im.ok"), imOff: t("itg.im.off"),
+    imPart: t("itg.st.part"), imBrand: t("itg.st.brand"), imOwn: t("itg.st.srcOwn"),
+    imLvBrand: t("itg.im.lvBrand"), imLvOwn: t("itg.im.lvOwn"), imLvInherit: t("itg.im.lvInherit"),
+    imSrcBox: t("itg.rs.srcBox"), imSrcEnv: t("itg.rs.srcEnv"),
     printOff: t("loc.printOff"), printSent: t("loc.printSent"), printKo: t("loc.printKo"),
   },
   pageLabels: Object.fromEntries(PAGINE_ADMIN.map((p) => [p.key, t("nav." + p.key)])) as Record<string, string>,
@@ -186,6 +191,11 @@ const prI18n = {
         background: rgba(46, 158, 107, 0.12);
       }
       .loc-chip.is-set::before { background: var(--c-ok); opacity: 1; }
+      /* Resend: la chiave che vale ancora dal .env (arancio), quella che manca o non si apre (rosso). */
+      .loc-chip.is-parz { color: var(--c-warn); border-color: var(--c-warn); background: color-mix(in srgb, var(--c-warn) 12%, transparent); }
+      .loc-chip.is-parz::before { background: var(--c-warn); opacity: 1; }
+      .loc-chip.is-no { color: var(--c-ko-chiaro); border-color: var(--c-ko); background: color-mix(in srgb, var(--c-ko) 12%, transparent); }
+      .loc-chip.is-no::before { background: var(--c-ko); opacity: 1; }
 
       /* STATO DELLA SEDE — una riga per collegamento, il pallino a sinistra.
          Erano due pastiglie affiancate; con quattro voci diventavano un muro
@@ -230,7 +240,6 @@ const prI18n = {
       #loc-overlay .loc-cap { flex: 0 0 110px; max-width: 110px; }
       #loc-overlay .loc-f-nome { flex: 3 1 260px; }
       /* Campo + bottone sulla stessa riga (Place ID, scheda Google). */
-      #loc-overlay .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
       /* Una destinazione: nome, categorie, stampante, cestino.
          ⚠️ SENZA il prefisso `#loc-overlay`. Queste righe vivono in DUE
          posti — la scheda della sede e Intégrations — e col prefisso la
@@ -273,34 +282,15 @@ const prI18n = {
       .dd-c.is-presa { opacity: 0.45; cursor: not-allowed; }
       .dd-c.is-presa input { cursor: not-allowed; }
       #loc-dest-add, #itg-dest-add { margin: 0.2rem 0 0.9rem; }
+      /* La nota sotto «+ Ajouter une destination» non e' attaccata a un campo:
+         niente margine negativo della .f-note. */
+      .im-dest-nota { margin-top: 0; }
 
-      /* La scheda della stampa usa tutta la larghezza: due colonne — a
-         sinistra la stampante dell'installazione, a destra le destinazioni —
-         perche' sono due decisioni diverse e si leggono insieme. */
-      .itg-card.is-wide { max-width: none; }
-      .itg-print-grid { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 1.6rem 2.2rem; align-items: start; }
-      /* ⚠️ Una colonna di griglia non stringe il suo contenuto piu' di cosi':
-         `min-width: auto` e' il valore di partenza anche qui, e senza questa
-         riga un figlio troppo largo ESCE dalla colonna invece di andare a
-         capo — e finisce addosso alla colonna accanto. E' la seconda meta'
-         dello stesso difetto dei bottoni sovrapposti. */
-      .itg-print-grid > * { min-width: 0; }
-      @media (max-width: 1100px) { .itg-print-grid { grid-template-columns: 1fr; } }
-      .itg-print-grid .itg-niv:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-      /* Il piede di una scheda: separatore, poi il salva A DESTRA — dove si
-         finisce di leggere. ⚠️ `.us-foot` era usata da tre schede e non
-         aveva NESSUNA regola: i bottoni stavano a sinistra per difetto, non
-         per scelta. Adesso ce l'ha, e si spostano tutti insieme. */
-      .us-foot {
-        display: flex; align-items: center; justify-content: flex-end; gap: 0.8rem;
-        margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--c-line);
-      }
-      /* Il messaggio resta a sinistra: da vuoto non occupa niente. */
-      .us-foot > :not(button) { margin-right: auto; }
-      /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
-         scheda Google in Intégrations: a sede unica non esiste nessun modale
-         in cui metterlo. Stesso aspetto, non un secondo aspetto. */
-      #loc-overlay .loc-riga, #g-unica .loc-riga, #g-place-unica .loc-riga, #itg-print .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      /* ⚠️ Senza prefisso (5/11/2026): la riga «campo + bottone» e' una COSA,
+         non un posto. Col prefisso del modale ogni nuova casella di
+         Intégrations doveva ricordarsi di aggiungersi all'elenco, e quella di
+         Search Console se n'e' dimenticata: i bottoni andavano a capo. */
+      .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
       /* IL CAMPO CEDE, IL BOTTONE NO — e vale OVUNQUE viva una `.loc-riga`.
          ⚠️ IL GUASTO (09/10/2026, visto da Enzo in Intégrations): «Test de
          connexion» finiva SOTTO «+ Ajouter une destination». Non era una
@@ -321,9 +311,6 @@ const prI18n = {
          «Enregistrer» libero di schiacciarsi — lo stesso difetto, un
          centimetro piu' in la'. */
       .loc-riga > :is(.btn, .us-add) { flex: 0 0 auto; white-space: nowrap; }
-      #loc-overlay .loc-g-cur, #g-unica .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
-      #loc-overlay .loc-g-cur:empty::before, #g-unica .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
-      #loc-overlay #loc-g-list:not(:empty), #g-unica #g-unica-list:not(:empty) { margin-top: 0.6rem; }
       /* Il titolino di sezione dentro un modale non ha bisogno dello stacco
          che ha nella pagina: qui lo spazio e' prezioso. */
       #loc-overlay .itg-niv { margin: 1.1rem 0 0.6rem; padding-top: 0.8rem; }
@@ -525,46 +512,108 @@ const prI18n = {
       .us-tag.role-user { background: var(--c-input); color: var(--c-text); }
       .us-tag.role-admin { background: var(--c-muted); color: var(--c-bg); }
 
-      /* --- Integrations --- */
-      .itg-card {
-        /* ⚠️ Niente `max-width` sulla SCHEDA: su uno schermo largo lasciava
-           due terzi di pagina vuoti. Il limite sta sui CAMPI qui sotto, dove
-           serve davvero — una riga di testo lunga due metri non si legge. */
-        background: var(--c-card); border: 1px solid var(--c-line);
-        border-radius: 14px; padding: 1.5rem 1.6rem;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
-      }
-      .itg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-      .itg-titre { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.04em; margin: 0; }
-      .itg-state { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
-        background: var(--c-input); color: var(--c-text); padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
-      /* ⚠️ VERDE, non corallo. Il corallo e' il colore dell'ATTENZIONE in tutto
-         il pannello — e' lo stesso dei pallini «manca», dei bottoni di
-         pericolo, degli avvisi. Una pastiglia corallo su «CONNESSO» diceva
-         il contrario di quello che voleva dire. Il verde e' gia' quello degli
-         stati «configurato» nelle schede delle sedi: non un secondo verde,
-         lo stesso, dichiarato una volta sopra. */
-      .itg-state.ext { background: var(--c-ok); color: #fff; }
-      .itg-card select { max-width: 100%; }
-      /* ⚠️ I CAMPI, non ogni `input`. Un checkbox non e' una casella di testo:
-         con `width: 100%` le caselle delle categorie diventavano barre larghe
-         quanto la riga e il nome della categoria finiva fuori dal riquadro.
-         `field.css` esclude gli stessi tipi per la stessa ragione — li' c'e'
-         scritto, e io l'avevo riscritto senza l'esclusione. */
-      .itg-card input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
-      .itg-card textarea {
-        width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line);
-        color: var(--c-text); font-family: var(--font-body); font-size: 0.92rem;
-        padding: 0.5rem 0.7rem; border-radius: 8px;
-        /* Il campo si ferma dove si legge; la scheda no. */
-        max-width: 560px;
-      }
-      /* Dentro una riga di destinazione comandano le colonne della riga. */
-      .itg-card .dd-r input, .itg-card .dd-r select { max-width: none; }
-      .itg-card textarea { font-family: ui-monospace, monospace; font-size: 0.8rem; line-height: 1.5; resize: vertical; }
+      /* --- Integrations: le CASELLE (5/11/2026, claude/integrazioni-piano.md) ---
+         Una per servizio: logo, nome, a cosa serve, pastiglia di stato e il
+         SEGNO in alto a destra — la sola cosa da vedere da lontano. Per ora
+         c'e' Supabase; le schede qui sotto diventeranno caselle una alla volta. */
+      .itg-gruppo { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-accent);
+        margin: 0.4rem 0 0.8rem; display: flex; align-items: center; gap: 0.6rem; }
+      .itg-gruppo::after { content: ""; flex: 1; height: 1px; background: var(--c-line); }
+      .itg-griglia { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.9rem; margin-bottom: 1.6rem; }
+      .itg-tile { position: relative; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; color: var(--c-text);
+        padding: 1.3rem 1.1rem 1.1rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.55rem;
+        font-family: var(--font-body); transition: border-color 0.15s; }
+      .itg-tile:hover { border-color: var(--c-accent); }
+      .itg-logo { width: 64px; height: 64px; border-radius: 16px; background: #fff; display: flex; align-items: center; justify-content: center; color: #249361; }
+      .itg-logo svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      /* I loghi VERI dei servizi: pieni, nel colore del marchio, non a filo. */
+      .itg-logo.is-supabase { background: #131413; } /* il nero del marchio Supabase */
+      .itg-logo.is-supabase svg { width: 34px; height: 34px; fill: #3ecf8e; stroke: none; }
+      .itg-logo.is-resend { background: #000; } /* il nero del marchio Resend */
+      .itg-logo.is-resend svg { width: 28px; height: 28px; fill: #fff; stroke: none; }
+      .itg-logo.is-stripe { background: #635bff; } /* il viola del marchio Stripe */
+      .itg-logo.is-stripe svg { width: 28px; height: 28px; fill: #fff; stroke: none; }
+      .itg-logo.is-google svg { width: 30px; height: 30px; stroke: none; } /* la «G» a quattro colori: i colori stanno nei path */
+      .itg-logo.is-gsc svg { width: 32px; height: 32px; fill: #458cf5; stroke: none; } /* il blu del marchio Search Console */
+      .itg-logo.is-nl { background: var(--c-accent); color: #fff; }
+      .itg-logo.is-bizprint { overflow: hidden; background: #000; } /* il nero dell'icona BizPrint */
+      .itg-logo.is-bizprint img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .nl-barra { height: 10px; border-radius: 999px; background: var(--c-input); overflow: hidden; margin: 0.2rem 0 0.5rem; }
+      .nl-barra > span { display: block; height: 100%; width: 0; background: var(--c-ok); border-radius: inherit; }
+      .nl-barra.is-parz > span { background: var(--c-warn); }
+      .nl-barra.is-no > span { background: var(--c-ko); }
+      .nl-numeri { display: flex; justify-content: space-between; gap: 0.6rem; font-size: 0.82rem; color: var(--c-muted); margin-bottom: 0.9rem; }
+      .nl-numeri b { color: var(--c-text); }
+      .sc-dati { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+      .sc-dato { background: var(--c-input); border: 1px solid var(--c-line); border-radius: 10px; padding: 0.6rem 0.75rem; }
+      .sc-dato b { display: block; font-family: var(--font-title); font-size: 1.15rem; }
+      .sc-dato span { color: var(--c-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .gb-schede:not(:empty) { margin: -0.4rem 0 1rem; display: grid; gap: 0.4rem; }
+      .gb-scheda { text-align: left; }
+      .gb-scheda.is-on { border-color: var(--c-accent); }
+      .itg-nome { font-family: var(--font-title); font-weight: 700; font-size: 1rem; letter-spacing: 0.02em; }
+      .itg-cosa { color: var(--c-muted); font-size: 0.78rem; line-height: 1.35; min-height: 2.1em; }
+      .itg-pill { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.22rem 0.6rem; border-radius: 999px; background: var(--c-input); color: var(--c-muted); }
+      .itg-pill.is-ok { background: color-mix(in srgb, var(--c-ok) 22%, transparent); color: var(--c-ok-chiaro); }
+      .itg-pill.is-parz { background: color-mix(in srgb, var(--c-warn) 20%, transparent); color: var(--c-warn); }
+      .itg-pill.is-no { background: color-mix(in srgb, var(--c-ko) 22%, transparent); color: var(--c-ko-chiaro); }
+      /* Il segno: ✓ verde, ! arancio (a meta'), ! corallo (non va). */
+      .itg-segno { position: absolute; top: 0.7rem; right: 0.7rem; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+      .itg-segno:empty { display: none; }
+      .itg-segno svg, .sb-ic svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+      .itg-segno.is-ok, .sb-ic.is-ok { background: var(--c-ok); }
+      .itg-segno.is-parz, .sb-ic.is-parz { background: var(--c-warn); }
+      .itg-segno.is-no, .sb-ic.is-no { background: var(--c-ko); }
+      .sb-ic.is-ignoto { background: var(--c-input); }
+      /* Il modale Supabase */
+      .sb-proj { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+      .sb-ref { flex: 1; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 8px; padding: 0.6rem 0.75rem;
+        font-family: ui-monospace, monospace; font-size: 0.84rem; letter-spacing: 0.04em; }
+      .sb-chiavi { display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.8rem; align-items: center; background: var(--c-input);
+        border: 1px solid var(--c-line); border-radius: 10px; padding: 0.7rem 0.85rem; margin-bottom: 0.4rem; }
+      .sb-k { font-family: ui-monospace, monospace; font-size: 0.8rem; overflow-wrap: anywhere; }
+      .sb-v { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-ok-chiaro); white-space: nowrap; }
+      .sb-v.is-no { color: var(--c-ko-chiaro); }
+      .sb-nota { color: var(--c-muted); font-size: 0.76rem; line-height: 1.45; margin: 0.35rem 0 1rem; }
+      .sb-nota.is-no { color: var(--c-ko-chiaro); }
+      .sb-controlli { list-style: none; border: 1px solid var(--c-line); border-radius: 12px; overflow: hidden; margin: 0 0 1rem; padding: 0; }
+      .sb-controlli li { display: grid; grid-template-columns: 28px 1fr auto; gap: 0.7rem; align-items: center; padding: 0.75rem 0.85rem; border-top: 1px solid var(--c-line); }
+      .sb-controlli li:first-child { border-top: none; }
+      .sb-ic { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+      .sb-t { font-weight: 700; font-size: 0.9rem; }
+      .sb-d { color: var(--c-muted); font-size: 0.76rem; margin-top: 0.1rem; line-height: 1.4; }
+      .sb-d b { color: var(--c-text); }
+      .sb-esito { padding: 0.6rem 0.8rem; border-radius: 10px; font-size: 0.82rem; margin-bottom: 1rem;
+        background: color-mix(in srgb, var(--c-ok) 18%, transparent); color: var(--c-ok-chiaro); }
+      .sb-esito.is-parz { background: color-mix(in srgb, var(--c-warn) 16%, transparent); color: var(--c-warn); }
+      .sb-esito.is-no { background: color-mix(in srgb, var(--c-ko) 18%, transparent); color: var(--c-ko-chiaro); }
+      .sb-quando { margin-right: auto; color: var(--c-muted); font-size: 0.76rem; }
+      /* Le sezioni dei modali di Intégrations: una linea e aria fra l'una e
+         l'altra, e niente margine sotto l'ultima cosa di ogni sezione — se no
+         lo spazio sopra la linea dipende da cosa c'e' in fondo. */
+      .md-sez + .md-sez { margin-top: 1.1rem; padding-top: 1.1rem; border-top: 1px solid var(--c-line); }
+      .md-sez > :last-child { margin-bottom: 0; }
+      .md-sez-titolo { margin-bottom: 0.6rem; }
+      .md-sez .sp-pillole:not([hidden]) + .sp-spiega { margin-top: 0.6rem; }
+      /* Il modale Resend */
+      .rs-dominio.is-ok { color: var(--c-ok-chiaro); }
+      .rs-dominio.is-parz { color: var(--c-warn); }
+      .rs-dominio.is-no { color: var(--c-ko-chiaro); }
+      .rs-n { font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; text-align: right; }
+      .rs-togli { margin-right: auto; }
+      /* Il modale Stripe: le pillole dei livelli (marchio, sedi) */
+      .sp-pillole { margin-bottom: 0.6rem; }
+      .sp-spiega { margin: 0 0 1rem; }
+      .sp-conti { margin: 0.3rem 0 1rem; }
+      .sp-attivo { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin-left: 0.4rem; opacity: 0.85; }
+      .sp-punto { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 0.45rem; vertical-align: middle; background: var(--c-ko); }
+      .sp-punto.is-ok { background: var(--c-ok); }
+      .sp-modo { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; padding: 0.1rem 0.45rem; border-radius: 999px; margin-left: 0.3rem;
+        background: color-mix(in srgb, var(--c-warn) 20%, transparent); color: var(--c-warn); }
+      .sp-modo.is-live { background: color-mix(in srgb, var(--c-ok) 22%, transparent); color: var(--c-ok-chiaro); }
+
       .itg-niv { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
         color: var(--c-accent); margin: 1.6rem 0 0.2rem; padding-top: 1rem; border-top: 1px solid var(--c-line); }
-      .itg-card input:focus, .itg-card textarea:focus { outline: none; border-color: var(--c-accent); }
       .tema-row {
         display: flex; align-items: center; gap: 1rem;
         background: var(--c-card); border: 1px solid var(--c-line);
@@ -758,169 +807,67 @@ const prI18n = {
         <section class="pane" data-pane="integrations" hidden>
           <p class="sub">{t("itg.intro")}</p>
 
-          <div class="itg-card">
-            <div class="itg-head">
-              <div>
-                <h3 class="itg-titre">Google Business</h3>
-                <p class="note" style="margin:0.2rem 0 0">{t("itg.g.who")}</p>
-              </div>
-              <span class="itg-state" id="g-state">{t("itg.g.off")}</span>
-            </div>
-
-            <!-- Il Place ID (livello 1) sta nella scheda della sede: identifica
-                 UN'attivita' fisica, quindi tre pizzerie sono tre Place ID.
-                 ⚠️ A SEDE UNICA la scheda della sede non esiste, e dal
-                 15/09/2026 al 09/10/2026 il Place ID non ha avuto NESSUN
-                 posto dove essere messo: un cliente configurato in quel
-                 periodo vedeva «CONNESSO» qui sotto — che e' il livello 2,
-                 un'altra cosa — e il blocco Google della Accueil non
-                 compariva mai. E' lo stesso buco che quel giorno colpi' la
-                 scelta della scheda (vedi `#g-unica` piu' sotto), trovato su
-                 BROS. Qui il campo torna, e SOLO quando le sedi non ci
-                 sono. -->
-            <div id="g-place-unica" style="display:none">
-              {/* ⚠️ `.f-field` NON e' decorazione: `.f-note` qui sotto ha un
-                  margine NEGATIVO (-0.55rem), fatto apposta per annullare lo
-                  spazio sotto un `.f-field` e attaccarsi al campo. Senza
-                  l'involucro quel margine non annulla niente e la frase SALE
-                  SOPRA il campo — succede subito, si vede, ed e' quello che
-                  si e' visto su BROS il 09/10. Stessa ossatura del Place ID
-                  nella scheda della sede: involucro, label, riga, e la nota
-                  FUORI, subito dopo. */}
-              <div class="f-field">
-                <label class="f-label" for="g-place">Place ID</label>
-                <div class="loc-riga">
-                  <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
-                  <button type="button" id="g-place-test" class="btn">{t("common.verify")}</button>
-                  <button type="button" id="g-place-save" class="us-add">{t("common.save")}</button>
-                </div>
-              </div>
-              <p class="f-note" id="g-place-res">{t("loc.placeIdHint")}</p>
-            </div>
-
-            <p class="itg-niv">{t("itg.g.lvl2")}</p>
-            <div class="us-frow us-frow-pass">
-              <span>
-                <button type="button" id="g-connect" class="us-add" disabled>{t("itg.g.connect")}</button>
-                <button type="button" id="g-disconnect" class="btn" style="display:none;margin-left:0.5rem">{t("itg.g.disconnect")}</button>
-              </span>
-              <span class="note" id="g-oauth-note">{t("itg.g.pending")}</span>
-            </div>
-
-            <!-- La SCELTA della scheda non sta piu' qui: e' un fatto della
-                 sede e vive nel suo modale (Sedi → matita), accanto alle
-                 chiavi Stripe. Qui resta il collegamento, che e' UNO per
-                 installazione — un account Google, piu' schede. -->
-            <p class="note" id="g-sedi-rinvio" style="display:none;margin-top:0.8rem">{t("gg.pickInSede")}</p>
-
-            <!-- ⚠️ INSTALLAZIONE A SEDE UNICA. Il rinvio qui sopra manda al
-                 modale del punto, che a sede unica NON ESISTE: il 15/09/2026
-                 la scelta della scheda e' passata di la', e per quattro
-                 clienti su cinque e' diventata irraggiungibile. Il rimedio non
-                 e' creare una sede — farebbe passare un ristorante solo in
-                 multi-sede, col travaso dello storico, per un bottone.
-                 La scelta e' la stessa: l'API senza `?sede=` usa
-                 `ambitoDiRiga(null)`, cioe' SEDE_UNICA, e scrive nel marchio. -->
-            <div id="g-unica" style="display:none;margin-top:0.8rem">
-              <span class="f-label">{t("gg.pickTitle")}</span>
-              <div class="loc-riga">
-                <span class="loc-g-cur" id="g-unica-cur"></span>
-                <button type="button" id="g-unica-pick" class="btn">{t("gg.change")}</button>
-              </div>
-              <div id="g-unica-list"></div>
-            </div>
-
-            {/* ⚠️ Niente «Salva» qui: il Place ID si imposta nella scheda della
-                sede e la scelta a sede unica si salva da sola. Il bottone che
-                c'era mandava solo i campi delle PRENOTAZIONI, cioe' una
-                configurazione che non leggeva nessuno (tolta il 01/10/2026). */}
+          <!-- LE CASELLE (5/11/2026). Supabase e' la prima: controlla il
+               database del cliente e prepara quello che manca. Le chiavi
+               restano nel .env: qui si confrontano, mai si mostrano. -->
+          <p class="itg-gruppo">{t("itg.grpClient")}</p>
+          <div class="itg-griglia">
+            <button type="button" class="itg-tile" id="sb-tile">
+              <span class="itg-segno" id="sb-segno"></span>
+              <span class="itg-logo is-supabase">{/* Il logo di Supabase (simbolo ufficiale, da simple-icons, CC0) nel verde del marchio. */}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 12.05C-.33 13.427.65 15.455 2.409 15.455h9.579l.113 7.51c.014.985 1.259 1.408 1.873.636l9.262-11.653c1.093-1.375.113-3.403-1.645-3.403h-9.642z" /></svg></span>
+              <span class="itg-nome">Supabase</span>
+              <span class="itg-cosa">{t("itg.sb.who")}</span>
+              <span class="itg-pill" id="sb-pill">{t("itg.sb.checking")}</span>
+            </button>
+            <button type="button" class="itg-tile" id="rs-tile">
+              <span class="itg-segno" id="rs-segno"></span>
+              <span class="itg-logo is-resend">{/* Il logo di Resend (simbolo ufficiale di resend.com/brand, via simple-icons 16.36, CC0). */}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.679 0c4.648 0 7.413 2.765 7.413 6.434s-2.765 6.434-7.413 6.434H12.33L24 24h-8.245l-8.88-8.44c-.636-.588-.93-1.273-.93-1.86 0-.831.587-1.565 1.713-1.883l4.574-1.224c1.737-.465 2.936-1.81 2.936-3.572 0-2.153-1.761-3.4-3.939-3.4H0V0z" /></svg></span>
+              <span class="itg-nome">Resend</span>
+              <span class="itg-cosa">{t("itg.rs.who")}</span>
+              <span class="itg-pill" id="rs-pill">{t("itg.sb.checking")}</span>
+            </button>
+            <button type="button" class="itg-tile" id="sp-tile">
+              <span class="itg-segno" id="sp-segno"></span>
+              <span class="itg-logo is-stripe">{/* Il logo di Stripe (simbolo ufficiale, via simple-icons 16.36, CC0). */}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.594-7.305h.003z" /></svg></span>
+              <span class="itg-nome">Stripe</span>
+              <span class="itg-cosa">{t("itg.st.who")}</span>
+              <span class="itg-pill" id="sp-pill">{t("itg.sb.checking")}</span>
+            </button>
+            <button type="button" class="itg-tile" id="gb-tile">
+              <span class="itg-segno" id="gb-segno"></span>
+              <span class="itg-logo is-google">{/* La «G» di Google, nei suoi quattro colori. */}<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg></span>
+              <span class="itg-nome">Google Business</span>
+              <span class="itg-cosa">{t("itg.gb.who")}</span>
+              <span class="itg-pill" id="gb-pill">{t("itg.sb.checking")}</span>
+            </button>
+            <button type="button" class="itg-tile" id="sc-tile">
+              <span class="itg-segno" id="sc-segno"></span>
+              <span class="itg-logo is-gsc">{/* Il logo di Search Console (via simple-icons 16.36, CC0). */}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.548 1.156L6.832 2.872v1.682h1.716zm0 3.398v.035H6.832v-.035H3.386L0 7.844v3.577h2.826V8.94c0-.525.429-.954.954-.954h16.476c.525 0 .954.43.954.954v2.48h2.754V7.844l-3.386-3.29H17.3v.035h-1.717v-.035zm7.035 0H17.3V2.872l-1.717-1.716zM8.679 1.188V2.84h6.773V1.188zm11.471 7.07a.834.834 0 00-.132.01l-.543.002c-5.216.014-10.432-.008-15.648.01-.435-.063-.794.436-.716.883v2.264h17.812c-.016-.888.045-1.782-.034-2.666-.104-.342-.427-.502-.739-.502zm-15.422.634a.689.698 0 01.689.698.689.698 0 01-.689.697.689.698 0 01-.688-.697.689.698 0 01.688-.698zm2.134 0a.689.698 0 01.689.698.689.698 0 01-.689.697.689.698 0 01-.688-.697.689.698 0 01.688-.698zM.036 11.645v9.156c0 1.05.858 1.908 1.907 1.908h.883V11.645zm21.174 0v11.064h.882c1.05 0 1.908-.858 1.908-1.908v-9.156zM4.057 13.133v6.85h6.137v-6.85zm13.243.021v3.777l-1.708.977-1.708-.977v-3.758a4.006 4.006 0 000 7.23v2.441h3.457v-2.442a4.006 4.006 0 00-.041-7.248zm-13.243 8.26v1.43h7.925v-1.43z" /></svg></span>
+              <span class="itg-nome">Search Console</span>
+              <span class="itg-cosa">{t("itg.sc.who")}</span>
+              <span class="itg-pill" id="sc-pill">{t("itg.sb.checking")}</span>
+            </button>
+            <button type="button" class="itg-tile" id="nl-tile">
+              <span class="itg-segno" id="nl-segno"></span>
+              <span class="itg-logo is-nl">{/* Servizio di RestoHub (su Resend): l'icona del motore, nel colore dell'accento. */}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z" /><path d="M3.5 7l8.5 6 8.5-6" /><path d="M7 3.5h10" /></svg></span>
+              <span class="itg-nome">Newsletter</span>
+              <span class="itg-cosa">{t("itg.nl.whoTile")}</span>
+              <span class="itg-pill" id="nl-pill">{t("itg.sb.checking")}</span>
+            </button>
+            <button type="button" class="itg-tile" id="im-tile">
+              <span class="itg-segno" id="im-segno"></span>
+              <span class="itg-logo is-bizprint">{/* Il logo di BizPrint (icona ufficiale del plugin). */}<img src="/restohub/integrazioni/bizprint.webp" alt="" width="64" height="64" /></span>
+              <span class="itg-nome">{t("itg.im.title")}</span>
+              <span class="itg-cosa">{t("itg.im.who")}</span>
+              <span class="itg-pill" id="im-pill">{t("itg.sb.checking")}</span>
+            </button>
           </div>
 
-          <!-- IMPRESSION — la stampa dell'INSTALLAZIONE. ⚠️ Esiste per i cinque
-               clienti su sei che hanno un locale solo: la scheda della sede non
-               c'e' proprio, e senza questo non avrebbero dove configurarla. Con
-               piu' sedi resta il livello di partenza, che ogni scheda
-               sovrascrive — come Stripe e come gli orari. -->
-          <div class="itg-card is-wide" id="itg-print" style="margin-top:1rem">
-            <div class="itg-head">
-              <div>
-                <h3 class="itg-titre">{t("loc.sezStampa")}</h3>
-                <p class="note" style="margin:0.2rem 0 0">{t("itg.print.who")}</p>
-              </div>
-            </div>
+          <!-- Google Business: dal 5/11/2026 e' la casella qui sopra (Place ID,
+               link recensioni, scheda, account Google, per livello). -->
 
-            <div class="itg-print-grid" style="margin-top:1.2rem">
-              <div>
-                <p class="itg-niv">{t("loc.printer")}</p>
-                <div class="loc-riga">
-                  <select id="itg-printer" class="fld"><option value="">{t("loc.printOff")}</option></select>
-                  <button type="button" id="itg-print-test" class="btn">{t("loc.printTest")}</button>
-                </div>
-                <p class="hint" id="itg-print-res" style="margin:0.5rem 0 0">{t("loc.printerHint")}</p>
-                <div class="f-field" style="margin-top:1rem">
-                  <span class="sw-wrap"><label class="switch"><input type="checkbox" id="itg-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
-                </div>
-              </div>
-
-              <div>
-                <p class="itg-niv">{t("loc.sezDest")}</p>
-                <div id="itg-dest"></div>
-                <button type="button" id="itg-dest-add" class="btn">+ {t("loc.destAdd")}</button>
-                <p class="hint">{t("loc.destHint")}</p>
-              </div>
-            </div>
-
-            <div class="us-foot">
-              <span class="f-label" id="itg-print-msg"></span>
-              <button type="button" id="itg-print-save" class="us-add">{t("common.save")}</button>
-            </div>
-          </div>
-
-          <div class="itg-card" style="margin-top:1rem">
-            <div class="itg-head">
-              <div>
-                <h3 class="itg-titre">Search Console</h3>
-                <p class="note" style="margin:0.2rem 0 0">{t("itg.sc.who")}</p>
-              </div>
-              <span class="itg-state" id="sc-state">{t("itg.sc.off")}</span>
-            </div>
-
-            <p class="itg-niv" id="sc-robot-wrap" style="display:none">{t("itg.sc.step1")}</p>
-            <div class="us-frow us-frow-pass" id="sc-robot-row" style="display:none">
-              <input type="text" id="sc-robot" readonly autocomplete="off" />
-              <button type="button" id="sc-copy" class="btn">{t("common.copy")}</button>
-            </div>
-
-            <label class="us-lab" for="sc-site" style="margin-top:1rem">{t("itg.sc.step2")}</label>
-            <div class="us-frow us-frow-pass">
-              <input type="text" id="sc-site" placeholder="sc-domain:exemple.be" autocomplete="off" />
-              <button type="button" id="sc-test" class="btn">{t("common.verify")}</button>
-            </div>
-            <p class="note" id="sc-res" style="margin-top:0.5rem">{t("itg.sc.note")}</p>
-
-            <div class="us-foot">
-              <span class="us-err" id="sc-err"></span>
-              <button type="button" id="sc-save" class="us-add">{t("common.save")}</button>
-            </div>
-          </div>
-
-          <div class="itg-card" style="margin-top:1rem">
-            <div class="itg-head">
-              <div>
-                <h3 class="itg-titre">{t("itg.nl.title")}</h3>
-                <p class="note" style="margin:0.2rem 0 0">{t("itg.nl.who")}</p>
-              </div>
-            </div>
-
-            <label class="us-lab" for="nl-quota" style="margin-top:1rem">{t("itg.nl.quotaLabel")}</label>
-            <input type="number" id="nl-quota" min="0" step="100" placeholder="1000" autocomplete="off" />
-            <p class="note" style="margin-top:0.4rem">{t("itg.nl.note")}</p>
-
-            <div class="us-foot">
-              <span class="us-err" id="nl-err"></span>
-              <button type="button" id="nl-save" class="us-add">{t("common.save")}</button>
-            </div>
-          </div>
+          <!-- Impression: dal 5/11/2026 e' la casella «Imprimantes» in alto. -->
+          <!-- Search Console e Newsletter: dal 5/11/2026 sono caselle in alto. -->
         </section>
 
         <!-- ===== PRINT (super admin) : catalogo prodotti stampabili ordinabili a MOODD ===== -->
@@ -1085,75 +1032,34 @@ const prI18n = {
       </div>
       <p class="f-note">{t("loc.slugHint")}<br /><span class="loc-url" id="loc-url"></span></p>
 
-      <!-- PAGAMENTI — segreti: si scrivono, non si rileggono mai. Il segnale
-           accanto all'etichetta dice solo SE c'e' qualcosa, non che cosa. -->
+      <!-- PAGAMENTI — le chiavi Stripe si scrivono in Intégrations → Stripe
+           (5/11/2026), pillola di questa sede. Qui resta solo da dove vengono. -->
       <p class="itg-niv">{t("loc.sezPagamenti")}</p>
-      <div class="f-line">
-        <div class="f-field">
-          <label class="f-label" for="loc-stripe">{t("loc.stripe")} <span class="loc-chip" id="loc-stripe-stato"></span></label>
-          <input type="password" id="loc-stripe" autocomplete="new-password" />
-        </div>
-        <div class="f-field">
-          <label class="f-label" for="loc-hook">{t("loc.webhook")} <span class="loc-chip" id="loc-hook-stato"></span></label>
-          <input type="password" id="loc-hook" autocomplete="new-password" />
-        </div>
-      </div>
-      <p class="f-note">{t("loc.secretHint")}</p>
-      <p class="f-note is-avviso" id="loc-cifra" hidden>{t("loc.cifraKo")}</p>
-
-      <!-- GOOGLE — la scheda e il Place ID di QUESTO punto. L'autorizzazione
-           invece e' una sola per installazione e si fa in Integrazioni. -->
-      <p class="itg-niv">{t("loc.sezGoogle")}</p>
-      <div class="f-field">
-        <label class="f-label" for="loc-place">{t("loc.placeId")}</label>
-        <div class="loc-riga">
-          <input type="text" id="loc-place" placeholder="ChIJ…" autocomplete="off" />
-          <button type="button" id="loc-place-test" class="btn">{t("common.verify")}</button>
-        </div>
-      </div>
-      <p class="f-note" id="loc-place-res">{t("loc.placeIdHint")}</p>
-
-      <div class="f-field">
-        <label class="f-label" for="loc-greview">{t("loc.reviewUrl")}</label>
-        <input type="url" id="loc-greview" placeholder="https://g.page/r/.../review" autocomplete="off" />
-      </div>
-      <p class="f-note">{t("loc.reviewUrlHint")}</p>
-
-      <div class="f-field">
-        <span class="f-label">{t("gg.pickTitle")}</span>
-        <div class="loc-riga">
-          <span class="loc-g-cur" id="loc-g-cur"></span>
-          <button type="button" id="loc-g-pick" class="btn">{t("gg.change")}</button>
-        </div>
-        <div id="loc-g-list"></div>
-      </div>
-
-      <!-- IMPRESSION — la stampante di QUESTO punto. ⚠️ Il numero NON e' un
-           segreto come le chiavi Stripe qui sopra: si vede, e si SCEGLIE da
-           una tendina. Un numero battuto a mano e' un ticket che non esce, e
-           nessuno che sappia perche'. -->
-      <p class="itg-niv">{t("loc.sezStampa")}</p>
-      <div class="f-field">
-        <label class="f-label" for="loc-printer">{t("loc.printer")}</label>
-        <div class="loc-riga">
-          <select id="loc-printer"><option value="">{t("loc.printOff")}</option></select>
-          <button type="button" id="loc-print-test" class="btn">{t("loc.printTest")}</button>
-        </div>
-      </div>
-      <p class="f-note" id="loc-print-res">{t("loc.printerHint")}</p>
-      <div class="f-field">
-        <span class="sw-wrap"><label class="switch"><input type="checkbox" id="loc-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
-      </div>
-
-      <!-- PIU' STAMPANTI — una riga per destinazione. ⚠️ La principale qui
-           sopra non ha categorie e prende tutto il resto: e' lei che
-           impedisce a un piatto nuovo di finire da nessuna parte. -->
-      <p class="itg-niv">{t("loc.sezDest")}</p>
-      <div id="loc-dest"></div>
       <div class="loc-riga">
-        <button type="button" id="loc-dest-add" class="btn">+ {t("loc.destAdd")}</button>
+        <span class="loc-chip" id="loc-stripe-stato"></span>
+        <button type="button" class="btn" id="loc-stripe-apri">{t("loc.stripeOpen")}</button>
       </div>
-      <p class="f-note">{t("loc.destHint")}</p>
+      <p class="f-note">{t("loc.stripeMoved")}</p>
+
+      <!-- GOOGLE — Place ID, link recensioni e scheda di questo punto si
+           scrivono in Intégrations → Google Business (5/11/2026), pillola
+           di questa sede. Qui resta solo lo stato. -->
+      <p class="itg-niv">{t("loc.sezGoogle")}</p>
+      <div class="loc-riga">
+        <span class="loc-chip" id="loc-google-stato"></span>
+        <button type="button" class="btn" id="loc-google-apri">{t("loc.googleOpen")}</button>
+      </div>
+      <p class="f-note">{t("loc.googleMoved")}</p>
+
+      <!-- IMPRESSION — la stampante e le destinazioni di questo punto si
+           scelgono in Intégrations → Imprimantes (5/11/2026), pillola di
+           questa sede. Qui resta solo lo stato. -->
+      <p class="itg-niv">{t("loc.sezStampa")}</p>
+      <div class="loc-riga">
+        <span class="loc-chip" id="loc-stampa-stato"></span>
+        <button type="button" class="btn" id="loc-stampa-apri">{t("loc.printOpen")}</button>
+      </div>
+      <p class="f-note">{t("loc.printMoved")}</p>
 
       <Fragment slot="foot">
         <span class="sw-wrap"><label class="switch"><input type="checkbox" id="loc-active" checked /><span class="track"></span></label><span class="sw-lab">{t("loc.active")}</span></span>
@@ -1166,6 +1072,283 @@ const prI18n = {
     <!-- Lo storico di prima del multi-sede. Compare SOLO se c'e' davvero
          qualcosa da attribuire: su un'installazione nuova non c'e', e una
          domanda che ha sempre la stessa risposta si impara a saltare. -->
+    <!-- Intégrations → Supabase: il modale della casella (lo riempie lo script qui sotto) -->
+    <Modal id="sb-overlay" title="Supabase" width="600px">
+      <p class="sb-nota">{t("itg.sb.sub")}</p>
+      <div class="sb-esito" id="sb-esito" hidden></div>
+      <span class="f-label">{t("itg.sb.project")}</span>
+      <div class="sb-proj">
+        <span class="sb-ref" id="sb-ref">—</span>
+        <a class="btn" id="sb-open" href="https://supabase.com/dashboard" target="_blank" rel="noopener">{t("itg.sb.open")}</a>
+      </div>
+      <span class="f-label">{t("itg.sb.keys")}</span>
+      <div class="sb-chiavi" id="sb-chiavi"></div>
+      <p class="sb-nota" id="sb-chiavi-nota">{t("itg.sb.keysNote")}</p>
+      <span class="f-label">{t("itg.sb.checks")}</span>
+      <ul class="sb-controlli" id="sb-controlli"></ul>
+      <p class="sb-nota" id="sb-token-nota">{t("itg.sb.tokenNote")}</p>
+      <Fragment slot="foot">
+        <span class="sb-quando" id="sb-quando"></span>
+        <button type="button" class="md-btn" id="sb-verifica">{t("common.verify")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="sb-tutto">{t("itg.sb.fixAll")}</button>
+      </Fragment>
+    </Modal>
+
+    <!-- Le caselle di Intégrations: ogni modale e' fatto di SEZIONI
+         (`.md-sez`) separate da una linea, cosi' una nota non si attacca
+         alla sezione dopo (visto il 5/11/2026 nella casella Google). -->
+    <Modal id="rs-overlay" title="Resend" width="560px">
+      <section class="md-sez">
+        <p class="sb-nota">{t("itg.rs.sub")}</p>
+        <div class="sb-esito" id="rs-esito" hidden></div>
+      </section>
+      <section class="md-sez">
+        <!-- La chiave si scrive, non si rilegge: il campo resta vuoto, il
+             segnaposto dice quale c'e' (mascherata) e il chip da dove viene. -->
+        <div class="f-field">
+          <label class="f-label" for="rs-chiave">{t("itg.rs.key")} <span class="loc-chip" id="rs-chiave-stato"></span></label>
+          <input type="password" id="rs-chiave" autocomplete="new-password" spellcheck="false" placeholder={t("itg.rs.keyPh")} />
+        </div>
+        <p class="f-note" id="rs-chiave-nota">{t("itg.rs.keyHint")}</p>
+      </section>
+      <section class="md-sez">
+        <div class="f-line">
+          <div class="f-field">
+            <label class="f-label" for="rs-nome">{t("itg.rs.fromName")} <span class="loc-chip" id="rs-mitt-stato"></span></label>
+            <input type="text" id="rs-nome" maxlength="120" autocomplete="off" />
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="rs-email">{t("itg.rs.fromEmail")}</label>
+            <input type="email" id="rs-email" maxlength="200" autocomplete="off" />
+          </div>
+        </div>
+        <p class="f-note rs-dominio" id="rs-dominio"></p>
+        <p class="f-note">{t("itg.rs.fromHint")}</p>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("itg.rs.month")}</span>
+        <div class="sb-chiavi" id="rs-conteggi"></div>
+        <p class="sb-nota">{t("itg.rs.monthNote")}</p>
+      </section>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn rs-togli" id="rs-togli">{t("common.delete")}</button>
+        <button type="button" class="md-btn" id="rs-importa" hidden>{t("itg.rs.import")}</button>
+        <button type="button" class="md-btn" id="rs-prova">{t("itg.rs.test")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="rs-salva">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <Modal id="sp-overlay" title="Stripe" width="600px">
+      <section class="md-sez">
+        <p class="sb-nota">{t("itg.st.sub")}</p>
+        <div class="sb-esito" id="sp-esito" hidden></div>
+        <div class="m-tabs sp-pillole" id="sp-pillole" hidden></div>
+        <p class="f-note sp-spiega" id="sp-spiega" hidden></p>
+      </section>
+      <section class="md-sez">
+        <!-- I conti di questo livello: il principale e gli alternativi (#96).
+             Su quale si incassa lo sceglie il ristoratore in Réglages. -->
+        <span class="f-label md-sez-titolo">{t("itg.st.accounts")}</span>
+        <div class="m-tabs sp-conti" id="sp-conti"></div>
+        <div class="f-field" id="sp-nome-campo" hidden>
+          <label class="f-label" for="sp-nome">{t("itg.st.accName")}</label>
+          <input type="text" id="sp-nome" maxlength="60" autocomplete="off" placeholder={t("itg.st.accNamePh")} />
+        </div>
+        <!-- Si scrivono, non si rileggono: campi vuoti, il segnaposto dice
+             quale chiave c'e' (mascherata) e il chip da dove viene. -->
+        <div class="f-field">
+          <label class="f-label" for="sp-chiave">{t("itg.st.key")} <span class="loc-chip" id="sp-chiave-stato"></span></label>
+          <input type="password" id="sp-chiave" autocomplete="new-password" spellcheck="false" placeholder={t("itg.st.keyPh")} />
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="sp-firma">{t("itg.st.hook")} <span class="loc-chip" id="sp-firma-stato"></span></label>
+          <input type="password" id="sp-firma" autocomplete="new-password" spellcheck="false" placeholder={t("itg.st.hookPh")} />
+        </div>
+        <p class="f-note" id="sp-nota">{t("itg.st.keyHint")}</p>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("itg.sb.checks")}</span>
+        <ul class="sb-controlli" id="sp-controlli"></ul>
+      </section>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn rs-togli" id="sp-togli">{t("common.delete")}</button>
+        <button type="button" class="md-btn" id="sp-importa" hidden>{t("itg.rs.import")}</button>
+        <button type="button" class="md-btn" id="sp-verifica">{t("common.verify")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="sp-salva">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <Modal id="gb-overlay" title="Google Business" width="600px">
+      <section class="md-sez">
+        <p class="sb-nota">{t("itg.gb.sub")}</p>
+        <div class="sb-esito" id="gb-esito" hidden></div>
+      </section>
+      <section class="md-sez">
+        <!-- L'account Google: UNO per installazione (piu' schede sotto). -->
+        <div class="f-field">
+          <span class="f-label">{t("itg.gb.account")}</span>
+          <div class="loc-riga">
+            <span class="loc-chip" id="gb-oauth"></span>
+            <span class="loc-spacer"></span>
+            <button type="button" class="btn" id="gb-scollega" hidden>{t("itg.g.disconnect")}</button>
+            <button type="button" class="btn" id="gb-connetti">{t("itg.g.connect")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="gb-oauth-nota"></p>
+      </section>
+      <section class="md-sez">
+        <div class="m-tabs sp-pillole" id="gb-pillole" hidden></div>
+        <p class="f-note sp-spiega" id="gb-spiega" hidden></p>
+        <div class="f-field">
+          <label class="f-label" for="gb-place">Place ID <span class="loc-chip" id="gb-place-stato"></span></label>
+          <div class="loc-riga">
+            <input type="text" id="gb-place" placeholder="ChIJ…" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn" id="gb-verifica">{t("common.verify")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="gb-place-res">{t("loc.placeIdHint")}</p>
+        <div class="f-field">
+          <label class="f-label" for="gb-link">{t("loc.reviewUrl")} <span class="loc-chip" id="gb-link-stato"></span></label>
+          <div class="loc-riga">
+            <input type="url" id="gb-link" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn" id="gb-link-gen" hidden>{t("itg.gb.useGen")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="gb-link-nota">{t("itg.gb.linkHint")}</p>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("itg.sb.checks")}</span>
+        <ul class="sb-controlli" id="gb-controlli"></ul>
+        <div class="gb-schede" id="gb-schede"></div>
+      </section>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn md-btn-primary" id="gb-salva" disabled>{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <Modal id="sc-overlay" title="Search Console" width="580px">
+      <section class="md-sez">
+        <p class="sb-nota">{t("itg.sc.who")}</p>
+        <div class="sb-esito" id="sc-esito" hidden></div>
+      </section>
+      <section class="md-sez">
+        <!-- Passo 1: il robot MOODD va aggiunto come utente nella Search
+             Console del cliente. Senza, Google risponde «non trovata». -->
+        <div class="f-field">
+          <span class="f-label">{t("itg.sc.step1t")}</span>
+          <div class="loc-riga">
+            <input type="text" id="sc-robot" readonly />
+            <button type="button" class="btn" id="sc-copy">{t("common.copy")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="sc-robot-nota">{t("itg.sc.step1how")}</p>
+      </section>
+      <section class="md-sez">
+        <div class="f-field">
+          <label class="f-label" for="sc-site">{t("itg.sc.step2")}</label>
+          <div class="loc-riga">
+            <input type="text" id="sc-site" placeholder="sc-domain:exemple.be" autocomplete="off" spellcheck="false" />
+            <button type="button" class="btn" id="sc-test">{t("common.verify")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="sc-res">{t("itg.sc.note")}</p>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("itg.sb.checks")}</span>
+        <ul class="sb-controlli" id="sc-controlli"></ul>
+        <div class="sc-dati" id="sc-dati" hidden></div>
+      </section>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn md-btn-primary" id="sc-save" disabled>{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <Modal id="nl-overlay" title="Newsletter" width="580px">
+      <section class="md-sez">
+        <p class="sb-nota">{t("itg.nl.sub")}</p>
+        <div class="sb-esito" id="nl-esito" hidden></div>
+      </section>
+      <section class="md-sez">
+        <div class="f-field">
+          <label class="f-label" for="nl-quota">{t("itg.nl.quotaLabel")}</label>
+          <div class="loc-riga">
+            <input type="number" id="nl-quota" min="0" step="100" placeholder="1000" autocomplete="off" />
+          </div>
+        </div>
+        <p class="f-note">{t("itg.nl.note")}</p>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("itg.rs.month")}</span>
+        <div class="nl-barra" id="nl-barra"><span></span></div>
+        <div class="nl-numeri" id="nl-numeri"></div>
+        <div class="sc-dati" id="nl-dati"></div>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("itg.sb.checks")}</span>
+        <ul class="sb-controlli" id="nl-controlli"></ul>
+      </section>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn md-btn-primary" id="nl-save" disabled>{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <Modal id="im-overlay" title={t("itg.im.title")} width="640px">
+      <section class="md-sez">
+        <p class="sb-nota">{t("itg.im.sub")}</p>
+        <div class="sb-esito" id="im-esito" hidden></div>
+      </section>
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">BizPrint</span>
+        <!-- Le chiavi dell'applicazione BizPrint: si scrivono, non si
+             rileggono (cifrate nel database, il .env come ripiego). -->
+        <div class="f-line">
+          <div class="f-field">
+            <label class="f-label" for="im-pub">Public key <span class="loc-chip" id="im-pub-stato"></span></label>
+            <input type="password" id="im-pub" autocomplete="new-password" spellcheck="false" />
+          </div>
+          <div class="f-field">
+            <label class="f-label" for="im-sec">Secret key <span class="loc-chip" id="im-sec-stato"></span></label>
+            <input type="password" id="im-sec" autocomplete="new-password" spellcheck="false" />
+          </div>
+        </div>
+        <div class="f-field">
+          <div class="loc-riga">
+            <span class="loc-chip" id="im-bizprint"></span>
+            <span class="loc-spacer"></span>
+            <button type="button" class="btn" id="im-importa" hidden>{t("itg.rs.import")}</button>
+            <button type="button" class="btn" id="im-chiavi-salva" disabled>{t("itg.im.saveKeys")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="im-bizprint-nota"></p>
+      </section>
+      <section class="md-sez">
+        <div class="m-tabs sp-pillole" id="im-pillole" hidden></div>
+        <p class="f-note sp-spiega" id="im-spiega" hidden></p>
+        <div class="f-field">
+          <label class="f-label" for="itg-printer">{t("loc.printer")} <span class="loc-chip" id="im-printer-stato"></span></label>
+          <div class="loc-riga">
+            <select id="itg-printer" class="fld"><option value="">{t("loc.printOff")}</option></select>
+            <button type="button" id="itg-print-test" class="btn">{t("loc.printTest")}</button>
+          </div>
+        </div>
+        <p class="f-note" id="itg-print-res">{t("loc.printerHint")}</p>
+        <div class="f-field">
+          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="itg-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
+        </div>
+      </section>
+      <!-- Le destinazioni SOTTO la stampante principale, non accanto
+           (5/11/2026): una colonna sola si legge dall'alto in basso. -->
+      <section class="md-sez">
+        <span class="f-label md-sez-titolo">{t("loc.sezDest")}</span>
+        <div id="itg-dest"></div>
+        <button type="button" id="itg-dest-add" class="btn">+ {t("loc.destAdd")}</button>
+        <p class="f-note im-dest-nota">{t("loc.destHint")}</p>
+      </section>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn md-btn-primary" id="itg-print-save">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
     <Modal id="st-overlay" title={t("loc.st.title")} width="560px">
       <p>{t("loc.st.intro")}</p>
       <p class="note">{t("loc.st.why")}</p>
@@ -1194,6 +1377,7 @@ const prI18n = {
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
       import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
@@ -1259,6 +1443,29 @@ const prI18n = {
           Authorization: `Bearer ${session.access_token ?? ""}`,
           "Content-Type": "application/json",
         };
+
+        /* ⚠️ «Session expired» DOPO UNA PAUSA (5/11/2026, visto nella casella
+           Imprimantes). `headers` si aggiorna quando supabase-js rinnova il
+           token, ma dopo un Mac in stop il primo giro di chiamate parte PRIMA
+           del rinnovo, col token scaduto. Qui ogni `fetch` di questo script
+           chiede la sessione a supabase-js (che rinnova se serve) e mette il
+           token fresco nell'header — solo se la chiamata ne aveva uno: le
+           chiamate esterne restano come sono. Il nome resta `fetch`, cosi'
+           nessuna delle chiamate di questo script va cambiata. */
+        const fetchNativo = window.fetch.bind(window);
+        // eslint-disable-next-line no-shadow
+        async function fetch(url: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+          const h = new Headers(init.headers ?? {});
+          if (h.has("Authorization")) {
+            const { data } = await supabaseBrowser.auth.getSession();
+            const t = data.session?.access_token;
+            if (t) {
+              h.set("Authorization", `Bearer ${t}`);
+              headers = { ...headers, Authorization: `Bearer ${t}` };
+            }
+          }
+          return fetchNativo(url, { ...init, headers: h });
+        }
 
         // Il token Supabase SCADE (di norma dopo un'ora). Con l'header fissato
         // una volta sola al caricamento, un tab lasciato aperto continuava a
@@ -1614,152 +1821,6 @@ const prI18n = {
           salvaTema();
         });
 
-        // --- Google Business ---
-        const gState = document.getElementById("g-state") as HTMLSpanElement | null;
-        const gConnect = document.getElementById("g-connect") as HTMLButtonElement | null;
-        const gOauthNote = document.getElementById("g-oauth-note") as HTMLSpanElement | null;
-
-
-        // Collegamento OAuth (livello 2)
-        const gDisconnect = document.getElementById("g-disconnect") as HTMLButtonElement | null;
-        gConnect?.addEventListener("click", () => conAttesa(gConnect, async () => {
-          try {
-            const res = await fetch("/api/google/connect", { method: "POST", headers });
-            const j = await res.json();
-            if (!res.ok || !j.url) { toast(j.error ?? tr("itg.g.connErr"), true); return; }
-            window.location.href = j.url; // schermata di consenso Google
-          } catch {
-            toast(tr("common.netErr"), true);
-          }
-        }));
-
-        // --- Scheda Google: il RINVIO al modale della sede -------------------
-        // La scelta della scheda e' passata nel modale del punto (deciso
-        // 15/09/2026): tutto quello che appartiene a una sede si modifica
-        // nella sua scheda, non in una pagina che parla dell'installazione.
-        // Qui resta solo il collegamento, che e' uno per tutte le sedi.
-        const gRinvio = document.getElementById("g-sedi-rinvio") as HTMLElement | null;
-        const gUnicaBox = document.getElementById("g-unica") as HTMLElement | null;
-        const gUnicaCur = document.getElementById("g-unica-cur") as HTMLElement | null;
-        const gUnicaPick = document.getElementById("g-unica-pick") as HTMLButtonElement | null;
-        const gUnicaList = document.getElementById("g-unica-list") as HTMLElement | null;
-
-        /** ⚠️ Legge `sedi`, che la riempie `locCarica()`: per questo NON si
-         *  chiama qui (`sedi` sarebbe ancora nella sua zona morta e lancerebbe)
-         *  ma in fondo a `locCarica`, quando l'elenco c'e' davvero. */
-        async function gCaricaSedeStato() {
-          // ⚠️ FUORI dal `try`: il Place ID e' il livello 1 e non dipende da
-          // Google OAuth. Dentro, una chiamata fallita avrebbe lasciato il
-          // campo nascosto — cioe' di nuovo nessun posto dove metterlo.
-          const gPlaceBox = document.getElementById("g-place-unica") as HTMLElement | null;
-          if (gPlaceBox) gPlaceBox.style.display = sedi.length > 0 ? "none" : "block";
-          try {
-            const res = await fetch("/api/admin/google/locations", { headers });
-            const j = await res.json();
-            const conSedi = sedi.length > 0;
-            if (gRinvio) gRinvio.style.display = j.connected && conSedi ? "block" : "none";
-            if (gUnicaBox) gUnicaBox.style.display = j.connected && !conSedi ? "block" : "none";
-            if (gUnicaCur) gUnicaCur.textContent = j.current?.title || (SUP.loc?.gNessuna ?? "");
-          } catch { /* best-effort */ }
-        }
-
-        // --- Place ID a sede unica: verifica e salvataggio ---------------
-        // ⚠️ La VERIFICA e' la stessa della scheda sede (`loc-place-test`):
-        // stessa API, stesso errore tipico (la chiave API incollata al posto
-        // del Place ID), stessa frase di risposta. Due verifiche diverse per
-        // lo stesso campo sarebbero due idee di «valido».
-        const gPlace = document.getElementById("g-place") as HTMLInputElement | null;
-        const gPlaceTest = document.getElementById("g-place-test") as HTMLButtonElement | null;
-        const gPlaceSave = document.getElementById("g-place-save") as HTMLButtonElement | null;
-        const gPlaceRes = document.getElementById("g-place-res") as HTMLElement | null;
-
-        gPlaceTest?.addEventListener("click", () => conAttesa(gPlaceTest, async () => {
-          const id = (gPlace?.value ?? "").trim();
-          if (!gPlaceRes) return;
-          if (!id) { gPlaceRes.textContent = SUP.loc?.placeVuoto ?? ""; return; }
-          if (/^AIza/.test(id)) { gPlaceRes.textContent = SUP.loc?.placeChiave ?? ""; return; }
-          gPlaceRes.textContent = SUP.loading ?? "";
-          try {
-            const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
-            const j = await res.json();
-            gPlaceRes.textContent = res.ok
-              ? `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0}`
-              : (j.error ?? SUP.loc?.netErr ?? "");
-          } catch {
-            gPlaceRes.textContent = SUP.loc?.netErr ?? "";
-          }
-        }));
-
-        gPlaceSave?.addEventListener("click", () => conAttesa(gPlaceSave, async () => {
-          if (!gPlaceRes) return;
-          try {
-            const res = await fetch("/api/admin/integrations", {
-              method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ google_place_id: (gPlace?.value ?? "").trim() }),
-            });
-            const j = await res.json();
-            gPlaceRes.textContent = res.ok ? (SUP.loc?.gSalvata ?? "") : (j.error ?? SUP.loc?.netErr ?? "");
-            // Salvato: lo stato in alto a destra cambia da solo, perche' lo
-            // decide il Place ID tanto quanto il collegamento OAuth.
-            if (res.ok) void itgCarica();
-          } catch {
-            gPlaceRes.textContent = SUP.loc?.netErr ?? "";
-          }
-        }));
-
-        gUnicaPick?.addEventListener("click", () => conAttesa(gUnicaPick, async () => {
-          if (!gUnicaList) return;
-          gUnicaList.textContent = SUP.loading ?? "";
-          try {
-            const res = await fetch("/api/admin/google/locations", { headers });
-            const j = await res.json();
-            if (j.error) { gUnicaList.textContent = String(j.error); return; }
-            const schede = (j.sedi ?? []) as { path: string; title: string; address: string }[];
-            const cur = j.current?.path ?? "";
-            if (!schede.length) { gUnicaList.textContent = SUP.loc?.gVuoto ?? ""; return; }
-            gUnicaList.innerHTML = schede
-              .map((sd) => `<button type="button" class="us-ghost gscheda-unica" data-path="${esc(sd.path)}" data-title="${esc(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${esc(sd.title || sd.path)}${sd.address ? ` — <span class="note">${esc(sd.address)}</span>` : ""}</button>`)
-              .join("");
-          } catch {
-            gUnicaList.textContent = SUP.loc?.netErr ?? "";
-          }
-        }));
-
-        gUnicaList?.addEventListener("click", (ev) => {
-          const b = (ev.target as HTMLElement).closest(".gscheda-unica") as HTMLElement | null;
-          if (!b) return;
-          void conAttesa(b, async () => {
-            try {
-              // ⚠️ Nessun `sede` nel corpo: e' proprio quello che manda l'API
-              // sul livello marchio. Metterci un id sarebbe inventare una sede.
-              const res = await fetch("/api/admin/google/locations", {
-                method: "POST", headers,
-                body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "" }),
-              });
-              const j = await res.json();
-              if (!res.ok) { toast(j.error ?? SUP.loc?.netErr ?? "", true); return; }
-              if (j.reviewError) toast(String(j.reviewError), true);
-              else toast(SUP.loc?.gSalvata ?? "");
-              if (gUnicaList) gUnicaList.innerHTML = "";
-              await gCaricaSedeStato();
-            } catch {
-              toast(SUP.loc?.netErr ?? "", true);
-            }
-          });
-        });
-        gDisconnect?.addEventListener("click", () => conAttesa(gDisconnect, async () => {
-          try {
-            const res = await fetch("/api/google/connect", {
-              method: "POST",
-              headers: { ...headers, "X-Method-Override": "DELETE" },
-            });
-            if (!res.ok) { toast(tr("itg.g.disErr"), true); return; }
-            toast(tr("itg.g.disconnected"));
-            void itgCarica();
-          } catch { toast(tr("common.netErr"), true); }
-        }));
-
         // Esito del ritorno da Google (?google=ok|refus|etat|echec|erreur)
         (() => {
           const q = new URLSearchParams(window.location.search).get("google");
@@ -1777,147 +1838,6 @@ const prI18n = {
           window.history.replaceState({}, "", u.toString());
         })();
 
-
-        async function itgCarica() {
-          try {
-            const res = await fetch("/api/admin/integrations", { headers });
-            if (!res.ok) return;
-            const j = (await res.json()) as {
-              google?: { place_id: string; connected: boolean; oauth_ready: boolean };
-              search_console?: { site: string; ready: boolean; robot: string };
-              newsletter?: { monthly_quota: number };
-            };
-            const g = j.google;
-            if (g) {
-              // ⚠️ Il campo si riempie col valore che c'e' davvero: lasciandolo
-              // vuoto, un «Salva» dato per sbaglio cancellerebbe il Place ID.
-              const inp = document.getElementById("g-place") as HTMLInputElement | null;
-              if (inp) inp.value = g.place_id ?? "";
-              if (gState) {
-                gState.textContent = g.connected ? tr("itg.g.connected") : g.place_id ? tr("itg.g.reviewsActive") : tr("itg.g.off");
-                gState.classList.toggle("ext", g.connected || Boolean(g.place_id));
-              }
-              if (gConnect) {
-                gConnect.disabled = !g.oauth_ready;
-                gConnect.textContent = g.connected ? tr("itg.g.reconnect") : tr("itg.g.connect");
-              }
-              if (gDisconnect) gDisconnect.style.display = g.connected ? "" : "none";
-              if (gOauthNote) {
-                gOauthNote.textContent = !g.oauth_ready
-                  ? tr("itg.g.pending")
-                  : g.connected
-                    ? tr("itg.g.connectedNote")
-                    : tr("itg.g.authNote");
-              }
-            }
-            const sc = j.search_console;
-            if (sc) {
-              if (scSite) scSite.value = sc.site ?? "";
-              if (scState) {
-                scState.textContent = !sc.ready ? tr("itg.sc.noKey") : sc.site ? tr("itg.sc.active") : tr("itg.sc.off");
-                scState.classList.toggle("ext", sc.ready && Boolean(sc.site));
-              }
-              // email del robot: mostrata solo se il super admin la riceve
-              if (sc.robot && scRobot && scRobotRow && scRobotWrap) {
-                scRobot.value = sc.robot;
-                scRobotRow.style.display = "";
-                scRobotWrap.style.display = "";
-              }
-              if (!sc.ready && scRes) {
-                scRes.textContent = tr("itg.sc.noServerKey");
-              }
-            }
-            const nl = j.newsletter;
-            if (nl && nlQuota) nlQuota.value = String(nl.monthly_quota ?? 1000);
-          } catch { /* rete assente */ }
-        }
-
-        // --- Search Console ---
-        const scSite = document.getElementById("sc-site") as HTMLInputElement | null;
-        const scRobot = document.getElementById("sc-robot") as HTMLInputElement | null;
-        const scRobotRow = document.getElementById("sc-robot-row") as HTMLElement | null;
-        const scRobotWrap = document.getElementById("sc-robot-wrap") as HTMLElement | null;
-        const scState = document.getElementById("sc-state") as HTMLSpanElement | null;
-        const scRes = document.getElementById("sc-res") as HTMLParagraphElement | null;
-        const scSave = document.getElementById("sc-save") as HTMLButtonElement | null;
-        const scErr = document.getElementById("sc-err") as HTMLSpanElement | null;
-        const scTest = document.getElementById("sc-test") as HTMLButtonElement | null;
-        const scCopy = document.getElementById("sc-copy") as HTMLButtonElement | null;
-
-        // --- Newsletter : quota mensile incluso ---
-        const nlQuota = document.getElementById("nl-quota") as HTMLInputElement | null;
-        const nlSave = document.getElementById("nl-save") as HTMLButtonElement | null;
-        const nlErr = document.getElementById("nl-err") as HTMLSpanElement | null;
-
-        nlSave?.addEventListener("click", () => conAttesa(nlSave, async () => {
-          if (!nlErr) return;
-          nlErr.textContent = "";
-          const n = Math.floor(Number(nlQuota?.value));
-          if (!Number.isFinite(n) || n < 0) { nlErr.textContent = tr("itg.nl.invalid"); return; }
-          try {
-            const res = await fetch("/api/admin/integrations", {
-              method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ newsletter_quota: n }),
-            });
-            const j = await res.json();
-            if (!res.ok) { nlErr.textContent = j.error ?? tr("common.saveErr"); return; }
-            toast(tr("itg.nl.saved"));
-          } catch {
-            nlErr.textContent = tr("common.netErr");
-          }
-        }));
-
-        scCopy?.addEventListener("click", async () => {
-          if (!scRobot?.value) return;
-          try { await navigator.clipboard.writeText(scRobot.value); toast(tr("itg.sc.emailCopied")); }
-          catch { scRobot.select(); }
-        });
-
-        scSave?.addEventListener("click", () => conAttesa(scSave, async () => {
-          if (!scErr) return;
-          scErr.textContent = "";
-          try {
-            const res = await fetch("/api/admin/integrations", {
-              method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ gsc_site: scSite?.value.trim() ?? "" }),
-            });
-            const j = await res.json();
-            if (!res.ok) { scErr.textContent = j.error ?? tr("common.saveErr"); return; }
-            toast(tr("itg.sc.saved"));
-          } catch {
-            scErr.textContent = tr("common.netErr");
-          }
-        }));
-
-        scTest?.addEventListener("click", () => conAttesa(scTest, async () => {
-          const site = scSite?.value.trim() ?? "";
-          if (!site) { if (scRes) scRes.textContent = tr("itg.sc.needSite"); return; }
-          if (scRes) scRes.textContent = tr("common.verifying");
-          try {
-            // ⚠️ PROVA e basta. Prima questo bottone SALVAVA `gsc_site` di
-            // nascosto — era l'unico modo di far leggere il sito all'API — e
-            // poi interrogava: una prova andata male lasciava registrata la
-            // proprieta' sbagliata, senza che nessuno l'avesse chiesto.
-            // Adesso la proprieta' viaggia nell'indirizzo e non si scrive
-            // niente; a salvare ci pensa «Enregistrer», che e' li' accanto.
-            const res = await fetch(`/api/admin/search-console?site=${encodeURIComponent(site)}`, { headers });
-            const j = await res.json();
-            if (!res.ok) { if (scRes) scRes.textContent = j.error ?? tr("common.netErr"); return; }
-            if (j.error) { if (scRes) scRes.textContent = j.error; return; }
-            if (!j.configured) { if (scRes) scRes.textContent = tr("itg.sc.notFound"); return; }
-            // ⚠️ Qui NON si ricarica la scheda: rileggerebbe il valore
-            // SALVATO e riscriverebbe il campo, cancellando la proprieta'
-            // appena provata.
-            if (scRes) scRes.textContent = `OK ✓ ${j.clicks} ${tr("itg.sc.okStats").replace("{imp}", String(j.impressions ?? 0))} ${tr("itg.sc.okNotSaved")}`;
-          } catch {
-            if (scRes) scRes.textContent = tr("common.netErr");
-          }
-        }));
-
-
-        void itgCarica();
 
         // ---------- Users (accessi all'admin) ----------
         const usList = document.getElementById("us-list") as HTMLDivElement | null;
@@ -2375,6 +2295,9 @@ const prI18n = {
          *  browser non vede mai le chiavi del servizio di stampa. */
         let elencoStampanti: { id: number; nome: string; stato: string; station: string }[] = [];
         let stampantiChieste = false;
+        /** BizPrint ha le sue chiavi nel .env? E la stampa del MARCHIO (Intégrations). */
+        let bizConfigurata = true;
+        let stampaMarchio: { printer_id?: string; auto?: boolean; dest?: { nome: string; cat: string[]; printer: string }[] } | null = null;
         let erroreStampanti = "";
         /** ⚠️ Separato da `stampantiChieste`, e non si azzera mai. Il
          *  riepilogo ridisegna quando l'elenco arriva; se il tentativo
@@ -2394,6 +2317,8 @@ const prI18n = {
         // un ripiego per ciascun segreto (solo se c'e', mai il valore).
         let schedeGoogle: Record<string, string> = {};
         let ripiego: Record<string, boolean> = {};
+        /** Il marchio ha la sua chiave (casella Stripe, #95)? Solo SE. */
+        let ripiegoMarchio: Record<string, boolean> = {};
         /** Le chiavi che ogni sede ha scritto DI SUO: il resto e' ereditato dal
          *  marchio, e per la scheda Google ereditare vuol dire sbagliata. */
         let propri: Record<string, string[]> = {};
@@ -2432,6 +2357,7 @@ const prI18n = {
          *  lo diceva con la stessa pastiglia grigia di «non serve». */
         function statoSegreto(idSede: string, chiave: string): [("ok" | "no" | "ko"), string] {
           if (segreti[idSede]?.[chiave] === true) return ["ok", String(L.secretSet ?? "")];
+          if (ripiegoMarchio[chiave] === true) return ["no", String(L.stDaMarchio ?? "")];
           if (ripiego[chiave] === true) return ["no", String(L.stDaEnv ?? "")];
           return ["ko", String(L.stManca ?? "")];
         }
@@ -2535,21 +2461,17 @@ const prI18n = {
             const j = await res.json();
             sedi = (j.locations ?? []) as Sede[];
             segreti = j.secrets ?? {};
-            // ⚠️ Si dice PRIMA, non dopo il salvataggio: quando l'avviso
-            // servirebbe davvero, la chiave e' gia' stata incollata.
-            const av = document.getElementById("loc-cifra") as HTMLElement | null;
-            if (av) av.hidden = j.cifratura !== false;
             placeIds = j.placeIds ?? {};
             reviewUrls = j.reviewUrls ?? {};
             stampanti = j.stampanti ?? {};
             schedeGoogle = j.google ?? {};
             ripiego = j.ambiente ?? {};
+            ripiegoMarchio = j.marchio ?? {};
             propri = j.propri ?? {};
             storicoOrfano = j.storico ?? {};
             locRender();
-            // La scheda Google: solo adesso si sa se ci sono sedi, e quindi se
-            // la scelta va nel modale del punto o qui in Intégrations.
-            void gCaricaSedeStato();
+            // La casella Imprimantes conta le SEDI: si ridisegna adesso che si sanno.
+            renderCasellaStampa();
             stRenderAvviso();
           } catch {
             locState.style.display = "";
@@ -2572,42 +2494,34 @@ const prI18n = {
           (document.getElementById("loc-img-state") as HTMLSpanElement).textContent = "";
           campo("loc-order").value = String(s?.sort_order ?? sedi.length + 1);
           campo("loc-active").checked = s ? s.active : true;
-          // I campi segreti partono SEMPRE vuoti: non c'e' niente da
-          // riproporre, e un campo vuoto che non salva nulla e' meno
-          // pericoloso di un finto valore che qualcuno cancella per sbaglio.
-          campo("loc-stripe").value = "";
-          campo("loc-hook").value = "";
+          // Stripe: solo da dove viene la chiave. Si scrive in Intégrations.
           const st = document.getElementById("loc-stripe-stato") as HTMLSpanElement;
-          const hk = document.getElementById("loc-hook-stato") as HTMLSpanElement;
-          const dato = (k: string) => (s && segreti[s.id]?.[k] === true);
-          // ⚠️ Pallini nel SEGNAPOSTO, non nel valore. Il segreto non si
-          // rilegge da nessuna parte: mettere dei finti caratteri nel campo
-          // vorrebbe dire rispedirli al salvataggio e sostituire la chiave
-          // vera con dei pallini. Cosi' invece il campo resta vuoto — cioe'
-          // «non cambiare niente» — e si vede lo stesso che una chiave c'e'.
-          const segna = (el: HTMLInputElement, c: boolean, vuoto: string) => {
-            el.placeholder = c ? (L.secretSetPh ?? "") : vuoto;
-          };
-          const cStripe = !!dato("stripe_secret_key");
-          const cHook = !!dato("stripe_webhook_secret");
-          st.textContent = String((cStripe ? L.secretSet : L.secretNone) ?? "");
-          st.classList.toggle("is-set", cStripe);
-          hk.textContent = String((cHook ? L.secretSet : L.secretNone) ?? "");
-          hk.classList.toggle("is-set", cHook);
-          segna(campo("loc-stripe"), cStripe, String(L.secretPh ?? ""));
-          segna(campo("loc-hook"), cHook, "whsec_…");
-          campo("loc-place").value = s ? (placeIds[s.id] ?? "") : "";
-          campo("loc-greview").value = s ? (reviewUrls[s.id] ?? "") : "";
-          (document.getElementById("loc-place-res") as HTMLElement).textContent = L.placeHint ?? "";
-          void riempiStampanti(s ? (stampanti[s.id]?.printer_id ?? "") : "").then(async () => {
-            await chiediCategorie();
-            disegnaDest(s ? (stampanti[s.id]?.dest ?? []) : []);
-          });
-          (document.getElementById("loc-print-auto") as HTMLInputElement).checked = s ? Boolean(stampanti[s.id]?.auto) : false;
-          (document.getElementById("loc-print-res") as HTMLElement).textContent = String(L.printerHint ?? "");
-          void gSedeStato();
+          const [lv, testoSt] = statoSegreto(s?.id ?? "", "stripe_secret_key");
+          st.textContent = testoSt;
+          st.className = `loc-chip ${lv === "ok" ? "is-set" : lv === "no" ? "is-parz" : "is-no"}`;
+          (document.getElementById("loc-stripe-apri") as HTMLButtonElement).disabled = !s;
+          // Google: lo stato del Place ID di QUESTO punto. Si scrive in Intégrations.
+          const gs = document.getElementById("loc-google-stato") as HTMLSpanElement;
+          const [glv, gtesto] = s ? statoGoogle(s.id, "google_place_id", placeIds[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")) : ["no", String(L.stManca ?? "")];
+          gs.textContent = gtesto;
+          gs.className = `loc-chip ${glv === "ok" ? "is-set" : "is-parz"}`;
+          (document.getElementById("loc-google-apri") as HTMLButtonElement).disabled = !s;
+          // Stampa: solo lo stato. Si sceglie in Intégrations → Imprimantes.
+          const ps = document.getElementById("loc-stampa-stato") as HTMLSpanElement;
+          const [plv, ptesto] = s ? statoStampante(s.id) : ["ko", String(L.stManca ?? "")];
+          ps.textContent = ptesto;
+          ps.className = `loc-chip ${plv === "ok" ? "is-set" : plv === "no" ? "is-parz" : "is-no"}`;
+          (document.getElementById("loc-stampa-apri") as HTMLButtonElement).disabled = !s;
           locOverlay.hidden = false;
         }
+
+        // «Ouvrir Stripe»: chiude la scheda e apre la casella Stripe sulla
+        // pillola di questa sede (lo script della casella ascolta l'evento).
+        document.getElementById("loc-stripe-apri")?.addEventListener("click", () => {
+          if (!sedeAperta) return;
+          locOverlay.hidden = true;
+          document.dispatchEvent(new CustomEvent("apri-stripe", { detail: sedeAperta.id }));
+        });
 
         // ---- LE STAMPANTI ---------------------------------------------------
         // ⚠️ L'elenco lo chiede il SERVER al servizio di stampa: le chiavi
@@ -2621,8 +2535,13 @@ const prI18n = {
           stampantiChieste = true;
           try {
             const r = await fetch("/api/admin/printers", { headers });
-            const j = await r.json();
+            const j = await r.json().catch(() => ({}));
+            // ⚠️ L'esito si guarda: un 403 o un 500 non sono «nessuna
+            // stampante» ne' «niente di configurato». Si dice, e si riprova.
+            if (!r.ok) { stampantiChieste = false; erroreStampanti = String(j?.error ?? L.netErr ?? ""); return; }
             elencoStampanti = Array.isArray(j?.stampanti) ? j.stampanti : [];
+            bizConfigurata = j?.configurata !== false;
+            if (j?.config) stampaMarchio = j.config;
             // ⚠️ Un elenco vuoto perche' il servizio non risponde e uno vuoto
             // perche' non c'e' nessuna stampante NON sono la stessa cosa: si
             // cercherebbe il guasto dalla parte sbagliata.
@@ -2633,7 +2552,7 @@ const prI18n = {
           }
         }
 
-        async function riempiStampanti(scelta: string, idSel = "loc-printer", idRes = "loc-print-res"): Promise<void> {
+        async function riempiStampanti(scelta: string, idSel = "itg-printer", idRes = "itg-print-res"): Promise<void> {
           const sel = document.getElementById(idSel) as HTMLSelectElement | null;
           const res = document.getElementById(idRes) as HTMLElement | null;
           if (!sel || !res) return;
@@ -2662,7 +2581,7 @@ const prI18n = {
          *  configurano la stampa). Per questo prendono il contenitore invece
          *  di cercarlo per id: due copie del disegno divergerebbero, e si
          *  scoprirebbe sul cliente che ne usa una sola. */
-        const destBox = (box?: HTMLElement) => box ?? (document.getElementById("loc-dest") as HTMLElement);
+        const destBox = (box?: HTMLElement) => box ?? (document.getElementById("itg-dest") as HTMLElement);
 
         /** Lo stato sta nel DOM: si rilegge invece di tenerne una copia a
          *  fianco. Due copie della stessa cosa divergono, e qui divergerebbero
@@ -2771,7 +2690,6 @@ const prI18n = {
             disegnaDest([...raccogliDest(box), { nome: "", cat: [], printer: "" }], box);
           });
         }
-        legaDest("loc-dest", "loc-dest-add");
         legaDest("itg-dest", "itg-dest-add");
 
         function legaProva(idBtn: string, idSel: string, idRes: string, sedeDi: () => string): void {
@@ -2805,152 +2723,239 @@ const prI18n = {
           }
           });
         }
-        legaProva("loc-print-test", "loc-printer", "loc-print-res", () => sedeAperta?.id ?? "");
-        legaProva("itg-print-test", "itg-printer", "itg-print-res", () => "");
+        // ⚠️ La sede della prova e' la PILLOLA aperta nella casella, non l'header.
+        legaProva("itg-print-test", "itg-printer", "itg-print-res", () => (livelloStampa === "marchio" ? "" : livelloStampa));
 
-        // ---- LA STAMPA DELL'INSTALLAZIONE (Intégrations) --------------------
-        // ⚠️ Esiste per i cinque clienti su sei che hanno un locale solo: la
-        // scheda della sede non c'e' proprio, e senza questo non avrebbero
-        // nessun posto dove configurare la stampante. Con piu' sedi resta il
-        // livello di partenza, che ogni scheda sovrascrive.
-        /** Il messaggio della scheda Impression di Intégrations: uno solo,
-         *  quello accanto al bottone, cosi' non si cerca l'esito in due
-         *  posti a seconda di cosa e' andato storto. */
-        function itgMsgStampa(testo: string): void {
-          const m = document.getElementById("itg-print-msg");
-          if (m) m.textContent = testo;
+        // ---- INTÉGRATIONS → IMPRIMANTES (5/11/2026) ------------------------
+        // La casella col logo BizPrint: il servizio (chiavi, stampanti trovate)
+        // e, per LIVELLO (marchio o sede), la stampante principale, l'avvio
+        // automatico e le destinazioni. Prima erano due pannelli — la scheda
+        // della sede e la scheda «Impression» qui — con le stesse funzioni.
+        // ⚠️ Sta in QUESTO script e non in uno suo: riusa `riempiStampanti`,
+        // `disegnaDest`, `chiediCategorie`, `legaDest`, `legaProva`. Una
+        // seconda copia di quelle funzioni divergerebbe.
+        let livelloStampa = "marchio";
+        let occupatoStampa = false;
+        const imOverlay = document.getElementById("im-overlay");
+
+        /** La stampa di un livello: il marchio da `/api/admin/printers`, una
+         *  sede da `stampanti` (gia' risolta: sua o ereditata). */
+        function stampaDi(livello: string) {
+          if (livello === "marchio") return { printer_id: String(stampaMarchio?.printer_id ?? ""), auto: Boolean(stampaMarchio?.auto), dest: stampaMarchio?.dest ?? [], propria: true };
+          const st = stampanti[livello];
+          return { printer_id: String(st?.printer_id ?? ""), auto: Boolean(st?.auto), dest: st?.dest ?? [], propria: (propri[livello] ?? []).includes("print_printer_id") };
         }
 
-        async function caricaStampaInstallazione(): Promise<void> {
-          if (!document.getElementById("itg-printer")) return;
+        /** Il segno di un livello: verde se stampa da sola, arancio se la
+         *  stampante c'e' ma e' spenta (o fuori linea), rosso se non c'e'. */
+        function livelloDiStampa(livello: string): "ok" | "parz" | "no" {
+          const st = stampaDi(livello);
+          if (!st.printer_id) return "no";
+          const p = elencoStampanti.find((x) => String(x.id) === st.printer_id);
+          if (!st.auto || (p && p.stato && p.stato !== "online")) return "parz";
+          return "ok";
+        }
+
+        function imMsg(liv: "ok" | "parz" | "no" | "", testo = ""): void {
+          esito("im-esito", liv, testo);
+        }
+
+
+        function renderCasellaStampa(): void {
+          const segno = document.getElementById("im-segno");
+          const pill = document.getElementById("im-pill");
+          if (!segno || !pill) return;
+          const conta = sedi.length ? sedi.map((x) => x.id) : ["marchio"];
+          const livelli = conta.map(livelloDiStampa);
+          const pronti = livelli.filter((l) => l === "ok").length;
+          const l = !bizConfigurata || erroreStampanti ? "no" : pronti === conta.length ? "ok" : pronti === 0 && livelli.every((x) => x === "no") ? "no" : "parz";
+          segno.className = `itg-segno is-${l}`;
+          segno.innerHTML = SEGNO[l];
+          pill.className = `itg-pill is-${l}`;
+          pill.textContent = !bizConfigurata ? String(L.imNoKeys ?? "")
+            : erroreStampanti ? String(L.imDown ?? "")
+            : sedi.length ? String(L.imPart ?? "").replace("{a}", String(pronti)).replace("{t}", String(conta.length))
+            : l === "ok" ? String(L.imOk ?? "") : l === "parz" ? String(L.printPaused ?? "") : String(L.imOff ?? "");
+        }
+
+        async function renderModaleStampa(): Promise<void> {
+          // Il servizio.
+          const biz = document.getElementById("im-bizprint");
+          const nota = document.getElementById("im-bizprint-nota");
+          if (biz) {
+            const online = elencoStampanti.filter((p) => !p.stato || p.stato === "online").length;
+            const [cls, testo] = !bizConfigurata ? ["is-no", String(L.imNoKeys ?? "")]
+              : erroreStampanti ? ["is-no", String(L.imDown ?? "")]
+              : ["is-set", String(L.imFound ?? "").replace("{n}", String(elencoStampanti.length)).replace("{o}", String(online))];
+            biz.className = `loc-chip ${cls}`;
+            biz.textContent = testo;
+            if (nota) nota.textContent = !bizConfigurata ? String(L.imNoKeysHint ?? "") : erroreStampanti || String(L.imHint ?? "");
+          }
+          // Le pillole (solo con le sedi).
+          const pillole = document.getElementById("im-pillole");
+          if (pillole) {
+            pillole.hidden = sedi.length === 0;
+            const voci = [{ id: "marchio", nome: String(L.imBrand ?? "") }, ...sedi.map((x) => ({ id: x.id, nome: x.name }))];
+            pillole.innerHTML = voci.map((v) => `<button type="button" class="m-tab${v.id === livelloStampa ? " is-on" : ""}" data-livello="${esc(v.id)}"><span class="sp-punto is-${livelloDiStampa(v.id) === "ok" ? "ok" : "no"}"></span>${esc(v.nome)}</button>`).join("");
+          }
+          const spiega = document.getElementById("im-spiega");
+          const st = stampaDi(livelloStampa);
+          if (spiega) {
+            spiega.hidden = sedi.length === 0;
+            spiega.textContent = String((livelloStampa === "marchio" ? L.imLvBrand : st.propria ? L.imLvOwn : L.imLvInherit) ?? "");
+          }
+          const chip = document.getElementById("im-printer-stato");
+          if (chip) {
+            const [cls, testo] = !st.printer_id ? ["is-no", String(L.stManca ?? "")]
+              : livelloStampa === "marchio" || st.propria ? ["is-set", String(L.imOwn ?? "")]
+              : ["is-parz", String(L.stDaMarchio ?? "")];
+            chip.className = `loc-chip ${cls}`;
+            chip.textContent = testo;
+          }
+          await riempiStampanti(st.printer_id, "itg-printer", "itg-print-res");
+          (document.getElementById("itg-print-auto") as HTMLInputElement).checked = st.auto;
           await chiediCategorie();
-          try {
-            const r = await fetch("/api/admin/printers", { headers });
-            const j = await r.json().catch(() => ({}));
-            // ⚠️ Senza questo controllo un errore si leggeva come «niente di
-            // configurato»: tendina su «aucune», nessuna destinazione, come
-            // se nessuno avesse mai salvato. E' lo stesso inganno del
-            // salvataggio che si crede riuscito, dal lato della lettura.
-            if (!r.ok) { itgMsgStampa(String(j?.error ?? L.netErr ?? "")); return; }
-            const c = (j?.config ?? {}) as { printer_id?: string; auto?: boolean; dest?: { nome: string; cat: string[]; printer: string }[] };
-            await riempiStampanti(String(c.printer_id ?? ""), "itg-printer", "itg-print-res");
-            (document.getElementById("itg-print-auto") as HTMLInputElement).checked = Boolean(c.auto);
-            disegnaDest(Array.isArray(c.dest) ? c.dest : [], document.getElementById("itg-dest") as HTMLElement);
-          } catch { itgMsgStampa(String(L.netErr ?? "")); }
+          disegnaDest(st.dest, document.getElementById("itg-dest") as HTMLElement);
         }
-        void caricaStampaInstallazione();
+
+        async function caricaStampa(): Promise<void> {
+          stampantiChieste = false; // l'elenco e la config del marchio si rileggono
+          await chiediStampanti();
+          renderCasellaStampa();
+        }
+        void caricaStampa();
+
+        // ---- le CHIAVI dell'applicazione BizPrint (casella, .env come ripiego)
+        type StatoChiavi = { fonte: "casella" | "env" | "nessuna"; pub: { propria: boolean; mascherata: string }; sec: { propria: boolean; mascherata: string }; env: { pub: boolean; sec: boolean }; tabella: boolean; cifratura: boolean };
+        let chiaviBiz: StatoChiavi | null = null;
+
+        function renderChiavi(): void {
+          const c = chiaviBiz;
+          if (!c) return;
+          for (const [id, v] of [["pub", c.pub], ["sec", c.sec]] as const) {
+            const chip = document.getElementById(`im-${id}-stato`);
+            const inp = document.getElementById(`im-${id}`) as HTMLInputElement | null;
+            const [cls, testo] = v.propria ? ["is-set", String(L.imSrcBox ?? "")] : c.fonte === "env" ? ["is-parz", String(L.imSrcEnv ?? "")] : ["is-no", String(L.stManca ?? "")];
+            if (chip) { chip.className = `loc-chip ${cls}`; chip.textContent = testo; }
+            if (inp) inp.placeholder = v.mascherata || "";
+          }
+          const importa = document.getElementById("im-importa") as HTMLButtonElement | null;
+          if (importa) importa.hidden = !(c.env.pub && c.env.sec && c.fonte !== "casella");
+          aggiornaSalvaChiavi();
+        }
+
+        function aggiornaSalvaChiavi(): void {
+          const b = document.getElementById("im-chiavi-salva") as HTMLButtonElement | null;
+          const pub = (document.getElementById("im-pub") as HTMLInputElement | null)?.value.trim();
+          const sec = (document.getElementById("im-sec") as HTMLInputElement | null)?.value.trim();
+          if (b) b.disabled = occupatoStampa || (!pub && !sec);
+        }
+
+        async function caricaChiavi(): Promise<void> {
+          try {
+            const r = await fetch("/api/admin/bizprint-chiavi", { headers });
+            chiaviBiz = r.ok ? ((await r.json()) as StatoChiavi) : null;
+          } catch { chiaviBiz = null; }
+          renderChiavi();
+        }
+
+        /** Dopo una scrittura delle chiavi: rileggere tutto, perche' con
+         *  chiavi nuove cambia l'elenco delle stampanti. */
+        async function chiamaChiavi(metodo: "PUT" | "POST", corpo: unknown, bottone: HTMLButtonElement): Promise<void> {
+          if (occupatoStampa) return;
+          occupatoStampa = true;
+          await conAttesa(bottone, async () => {
+            try {
+              const r = await fetch("/api/admin/bizprint-chiavi", { method: metodo, headers, body: JSON.stringify(corpo) });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) { imMsg("no", String(j?.error ?? L.netErr ?? "")); return; }
+              chiaviBiz = j as StatoChiavi;
+              for (const id of ["im-pub", "im-sec"]) { const el = document.getElementById(id) as HTMLInputElement | null; if (el) el.value = ""; }
+              renderChiavi();
+              await caricaStampa();
+              await renderModaleStampa();
+              imMsg(erroreStampanti ? "no" : "ok", erroreStampanti || String(L.saved ?? ""));
+            } catch { imMsg("no", String(L.netErr ?? "")); }
+          }).finally(() => { occupatoStampa = false; aggiornaSalvaChiavi(); });
+        }
+
+        ["im-pub", "im-sec"].forEach((id) => document.getElementById(id)?.addEventListener("input", aggiornaSalvaChiavi));
+        const imChiaviSalva = document.getElementById("im-chiavi-salva") as HTMLButtonElement | null;
+        imChiaviSalva?.addEventListener("click", () => {
+          if (!imChiaviSalva) return;
+          const pub = (document.getElementById("im-pub") as HTMLInputElement).value.trim();
+          const sec = (document.getElementById("im-sec") as HTMLInputElement).value.trim();
+          void chiamaChiavi("PUT", { pub, sec }, imChiaviSalva);
+        });
+        const imImporta = document.getElementById("im-importa") as HTMLButtonElement | null;
+        imImporta?.addEventListener("click", () => { if (imImporta) void chiamaChiavi("POST", { azione: "importa" }, imImporta); });
+
+        async function apriStampa(su: string): Promise<void> {
+          livelloStampa = su;
+          imMsg("");
+          void caricaChiavi();
+          if (imOverlay) imOverlay.hidden = false;
+          (document.getElementById("itg-print-res") as HTMLElement).textContent = String(L.printerHint ?? "");
+          await caricaStampa();
+          await renderModaleStampa();
+        }
+
+        document.getElementById("im-tile")?.addEventListener("click", () => void apriStampa("marchio"));
+        document.addEventListener("apri-stampa", (ev) => void apriStampa(String((ev as CustomEvent).detail ?? "marchio")));
+        imOverlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (imOverlay && !occupatoStampa) imOverlay.hidden = true; }));
+        document.getElementById("im-pillole")?.addEventListener("click", (ev) => {
+          const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-livello]");
+          if (!b || occupatoStampa || b.dataset.livello === livelloStampa) return;
+          livelloStampa = b.dataset.livello ?? "marchio";
+          imMsg("");
+          (document.getElementById("itg-print-res") as HTMLElement).textContent = String(L.printerHint ?? "");
+          void renderModaleStampa();
+        });
 
         const itgPrintSave = document.getElementById("itg-print-save") as HTMLButtonElement | null;
-        itgPrintSave?.addEventListener("click", () => conAttesa(itgPrintSave, async () => {
-          itgMsgStampa("…");
-          try {
-            const r = await fetch("/api/admin/printers", {
-              method: "PUT", headers,
-              body: JSON.stringify({
-                printer_id: (document.getElementById("itg-printer") as HTMLSelectElement).value,
-                print_auto: (document.getElementById("itg-print-auto") as HTMLInputElement).checked,
-                destinazioni: raccogliDest(document.getElementById("itg-dest") as HTMLElement),
-              }),
-            });
-            const j = await r.json().catch(() => ({}));
-            // ⚠️ L'esito si GUARDA. Il 05/10 una scrittura rifiutata passava
-            // per salvata e la stampante spariva al riapri, senza un errore da
-            // nessuna parte.
-            itgMsgStampa(r.ok ? String(L.saved ?? "") : String(j?.error ?? L.netErr ?? ""));
-          } catch {
-            itgMsgStampa(String(L.netErr ?? ""));
-          }
-        }));
-
-        // ---- SCHEDA GOOGLE DI QUESTA SEDE -----------------------------------
-        // ⚠️ La sede viaggia ESPLICITA (`?sede=`), non nel cookie dell'header:
-        // qui si sta modificando il punto aperto nel modale, che puo' essere
-        // diverso da quello selezionato in alto. Su una sede NUOVA (non ancora
-        // salvata) non c'e' ancora un id a cui agganciare la scheda: si dice, e
-        // si sceglie dopo il primo salvataggio.
-        const gCur = document.getElementById("loc-g-cur") as HTMLElement;
-        const gPick = document.getElementById("loc-g-pick") as HTMLButtonElement;
-        const gList = document.getElementById("loc-g-list") as HTMLDivElement;
-        const gUrl = (id: string | null) => "/api/admin/google/locations" + (id ? `?sede=${encodeURIComponent(id)}` : "");
-
-        async function gSedeStato() {
-          gList.innerHTML = "";
-          gPick.style.display = "none";
-          gCur.textContent = "";
-          if (!sedeAperta) { gCur.textContent = L.gNuova ?? ""; return; }
-          try {
-            const res = await fetch(gUrl(sedeAperta.id), { headers });
-            const j = await res.json();
-            if (!j.connected) { gCur.textContent = L.gNonCollegato ?? ""; return; }
-            gPick.style.display = "";
-            // Il nome della scheda e basta: «Scheda attuale:» davanti era una
-            // didascalia che ripeteva l'etichetta gia' scritta sopra.
-            gCur.textContent = j.current?.title || (L.gNessuna ?? "");
-          } catch {
-            gCur.textContent = L.netErr ?? "";
-          }
-        }
-
-        const placeTest = document.getElementById("loc-place-test") as HTMLButtonElement;
-        const placeRes = document.getElementById("loc-place-res") as HTMLElement;
-        placeTest.addEventListener("click", () => conAttesa(placeTest, async () => {
-          const id = campo("loc-place").value.trim();
-          if (!id) { placeRes.textContent = L.placeVuoto ?? ""; return; }
-          // Errore tipico: incollare la CHIAVE API invece del Place ID.
-          if (/^AIza/.test(id)) { placeRes.textContent = L.placeChiave ?? ""; return; }
-          placeRes.textContent = SUP.loading ?? "";
-          try {
-            const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
-            const j = await res.json();
-            placeRes.textContent = res.ok
-              ? `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0}`
-              : (j.error ?? L.netErr ?? "");
-          } catch {
-            placeRes.textContent = L.netErr ?? "";
-          }
-        }));
-
-        gPick.addEventListener("click", () => conAttesa(gPick, async () => {
-          if (!sedeAperta) return;
-          gList.textContent = SUP.loading ?? "";
-          try {
-            const res = await fetch(gUrl(sedeAperta.id), { headers });
-            const j = await res.json();
-            if (j.error) { gList.textContent = String(j.error); return; }
-            const schede = (j.sedi ?? []) as { path: string; title: string; address: string }[];
-            const cur = j.current?.path ?? "";
-            if (!schede.length) { gList.textContent = L.gVuoto ?? ""; return; }
-            gList.innerHTML = schede
-              .map((sd) => `<button type="button" class="us-ghost gscheda" data-path="${esc(sd.path)}" data-title="${esc(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${esc(sd.title || sd.path)}${sd.address ? ` — <span class="note">${esc(sd.address)}</span>` : ""}</button>`)
-              .join("");
-          } catch {
-            gList.textContent = L.netErr ?? "";
-          }
-        }));
-
-        gList.addEventListener("click", (ev) => {
-          const b = (ev.target as HTMLElement).closest(".gscheda") as HTMLElement | null;
-          if (!b || !sedeAperta) return;
-          // ⚠️ L'id si prende ADESSO. Dentro la funzione asincrona il
-          // controllo di sopra non vale piu': il modale puo' essersi chiuso
-          // nel frattempo, e `sedeAperta` tornare null mentre la chiamata e'
-          // ancora in volo.
-          const idSede = sedeAperta.id;
-          void conAttesa(b, async () => {
+        itgPrintSave?.addEventListener("click", () => {
+          if (occupatoStampa || !itgPrintSave) return;
+          occupatoStampa = true;
+          void conAttesa(itgPrintSave, async () => {
+            // La stampante e il suo interruttore viaggiano INSIEME: scritti in
+            // due chiamate, un salvataggio a meta' lascerebbe la stampa accesa
+            // su una stampante che non c'e' piu'.
+            const corpo = {
+              printer_id: (document.getElementById("itg-printer") as HTMLSelectElement).value,
+              print_auto: (document.getElementById("itg-print-auto") as HTMLInputElement).checked,
+              destinazioni: raccogliDest(document.getElementById("itg-dest") as HTMLElement),
+            };
             try {
-              const res = await fetch("/api/admin/google/locations", {
-                method: "POST", headers,
-                body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "", sede: idSede }),
-              });
-              const j = await res.json();
-              if (!res.ok) { toast(j.error ?? L.netErr ?? "", true); return; }
-              if (j.reviewError) toast(String(j.reviewError), true);
-              else toast(L.gSalvata ?? "");
-              await gSedeStato();
-            } catch {
-              toast(L.netErr ?? "", true);
+              if (livelloStampa === "marchio") {
+                const r = await fetch("/api/admin/printers", { method: "PUT", headers, body: JSON.stringify(corpo) });
+                const j = await r.json().catch(() => ({}));
+                // ⚠️ L'esito si GUARDA (05/10: una scrittura rifiutata passava per salvata).
+                if (!r.ok) { imMsg("no", String(j?.error ?? L.netErr ?? "")); return; }
+              } else {
+                await patchSede({ id: livelloStampa, ...corpo });
+              }
+              imMsg("ok", String(L.saved ?? ""));
+              await locCarica();
+              await caricaStampa();
+              await renderModaleStampa();
+            } catch (err) {
+              imMsg("no", (err instanceof Error && err.message) || String(L.netErr ?? ""));
             }
-          });
+          }).finally(() => { occupatoStampa = false; });
+        });
+
+        // «Ouvrir l'impression» dalla scheda della sede.
+        document.getElementById("loc-stampa-apri")?.addEventListener("click", () => {
+          if (!sedeAperta) return;
+          locOverlay.hidden = true;
+          document.dispatchEvent(new CustomEvent("apri-stampa", { detail: sedeAperta.id }));
+        });
+
+        // «Ouvrir Google»: come «Ouvrir Stripe», apre la casella sulla sede.
+        document.getElementById("loc-google-apri")?.addEventListener("click", () => {
+          if (!sedeAperta) return;
+          locOverlay.hidden = true;
+          document.dispatchEvent(new CustomEvent("apri-google", { detail: sedeAperta.id }));
         });
 
         // Lo slug segue il nome mentre si scrive, e SOLO su una sede nuova:
@@ -3093,28 +3098,7 @@ const prI18n = {
             if (!res.ok) { locErr.textContent = j.error ?? ""; return; }
             const id = String(j.location?.id ?? sedeAperta?.id ?? "");
 
-            // Place ID e link recensioni si mandano SEMPRE, anche vuoti:
-            // svuotare il campo deve poterli togliere. I segreti no — la'
-            // vuoto vuol dire «non cambiare», e un campo lasciato in bianco
-            // non cancella la chiave gia' registrata.
-            //
-            // La stampante e il suo interruttore viaggiano INSIEME: scritti in
-            // due chiamate, un salvataggio a meta' lascerebbe la stampa accesa
-            // su una stampante che non c'e' piu', cioe' una coda che si riempie
-            // di ticket che nessuno stampera' mai.
-            await patchSede({ id, place_id: campo("loc-place").value.trim() });
-            await patchSede({ id, review_url: campo("loc-greview").value.trim() });
-            await patchSede({
-              id,
-              printer_id: (document.getElementById("loc-printer") as HTMLSelectElement).value,
-              print_auto: (document.getElementById("loc-print-auto") as HTMLInputElement).checked,
-              destinazioni: raccogliDest(),
-            });
-            for (const [idCampo, chiave] of [["loc-stripe", "stripe_secret_key"], ["loc-hook", "stripe_webhook_secret"]]) {
-              const v = campo(idCampo).value.trim();
-              if (!v) continue;
-              await patchSede({ id, secret_key: chiave, secret_value: v });
-            }
+            void id;
             locOverlay.hidden = true;
             const n = Number(j.assegnate ?? 0);
             toast(n > 0 ? (L.stDone ?? "").replace("{n}", String(n)) : (L.saved ?? ""));
@@ -3541,6 +3525,1370 @@ const prI18n = {
 
         carica();
       }
+    </script>
+
+    <!-- ===== INTÉGRATIONS → SUPABASE (5/11/2026) =====
+         Lo stato del database e i quattro passi di «Tout préparer». Script a
+         parte: la casella non dipende dal resto della pagina, e il resto
+         della pagina non dipende da lei. -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
+      import { esc } from "../../lib/esc";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Stato = {
+        progetto: { ref: string; mascherato: string; dashboard: string };
+        chiavi: { url: string; anon: string; service: string };
+        token: boolean;
+        sito: { raggiungibile: boolean };
+        migrazioni: { livello: Livello; applicate: number; totale: number; mancanti: { numero: number; nome: string }[]; registro: boolean; baseVuota: boolean };
+        bucket: { livello: Livello; presenti: number; totale: number; mancanti: string[]; daCorreggere: string[] };
+        cron: { livello: Livello; giusti: number; totale: number; daRifare: string[]; domini: string[]; motivo: string };
+        estensioni: { livello: Livello; presenti: string[]; mancanti: string[]; motivo: string };
+        casella: { livello: Livello; daFare: number };
+      };
+      type Esito = { ok: true; fatte: number; restano: number } | { ok: false; errore: string; numero?: number; messaggio?: string };
+      type Passo = "estensioni" | "migrazioni" | "bucket" | "cron";
+
+      const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
+      const $ = (id: string) => document.getElementById(id);
+      const tile = $("sb-tile");
+      const overlay = $("sb-overlay");
+      let stato: Stato | null = null;
+      let occupato = false;
+
+      const lista = (v: string[]) => v.map((x) => `<b>${esc(x)}</b>`).join(", ");
+
+      function renderCasella() {
+        const segno = $("sb-segno");
+        const pill = $("sb-pill");
+        if (!segno || !pill) return;
+        if (!stato) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const { livello, daFare } = stato.casella;
+        segno.className = `itg-segno is-${livello}`;
+        segno.innerHTML = livello === "ignoto" ? "" : SEGNO[livello];
+        pill.className = `itg-pill is-${livello === "ignoto" ? "parz" : livello}`;
+        pill.textContent = stato.migrazioni.baseVuota ? tr("itg.sb.empty")
+          : livello === "ok" ? tr("itg.sb.ok")
+          : livello === "ignoto" ? tr("itg.sb.toCheck")
+          : daFare <= 1 ? tr("itg.sb.todo1") : tr("itg.sb.todo").replace("{n}", String(daFare));
+      }
+
+      /** Una riga dei controlli. `passo` vuoto = niente bottone. */
+      function riga(livello: Livello, titolo: string, dettaglio: string, passo: Passo | "", etichetta = ""): string {
+        const bottone = passo && (livello === "parz" || livello === "no")
+          ? `<button type="button" class="btn" data-passo="${passo}">${esc(etichetta)}</button>` : "<span></span>";
+        return `<li><span class="sb-ic is-${livello}">${SEGNO[livello]}</span><div><p class="sb-t">${esc(titolo)}</p><p class="sb-d">${dettaglio}</p></div>${bottone}</li>`;
+      }
+
+      function renderModale() {
+        if (!stato) return;
+        const s = stato;
+        const ref = $("sb-ref"); if (ref) ref.textContent = s.progetto.mascherato ? `${s.progetto.mascherato}.supabase.co` : "—";
+        const open = $("sb-open") as HTMLAnchorElement | null; if (open && s.progetto.dashboard) open.href = s.progetto.dashboard;
+
+        const v = (x: string) => x === "uguali" ? tr("itg.sb.same") : x === "diverse" ? tr("itg.sb.diff") : x === "ok" ? tr("itg.sb.accepted") : x === "rifiutata" ? tr("itg.sb.refused") : tr("itg.sb.missing");
+        const buono = (x: string) => x === "uguali" || x === "ok";
+        const chiavi = $("sb-chiavi");
+        if (chiavi) chiavi.innerHTML = [
+          ["SUPABASE_URL · PUBLIC_SUPABASE_URL", s.chiavi.url],
+          ["SUPABASE_ANON_KEY · PUBLIC_SUPABASE_ANON_KEY", s.chiavi.anon],
+          ["SUPABASE_SERVICE_KEY", s.chiavi.service],
+        ].map(([k, x]) => `<span class="sb-k">${k}</span><span class="sb-v${buono(x) ? "" : " is-no"}">${esc(v(x))}</span>`).join("");
+        const nota = $("sb-chiavi-nota");
+        const chiaviOk = buono(s.chiavi.url) && buono(s.chiavi.anon) && buono(s.chiavi.service);
+        if (nota) { nota.textContent = chiaviOk ? tr("itg.sb.keysNote") : tr("itg.sb.keysFix"); nota.className = chiaviOk ? "sb-nota" : "sb-nota is-no"; }
+
+        const m = s.migrazioni;
+        const dMig = m.baseVuota ? `<b>0 / ${m.totale}</b> · ${esc(tr("itg.sb.migEmpty"))}`
+          : !m.registro ? esc(tr("itg.sb.migNoReg"))
+          : `<b>${esc(tr("itg.sb.migDetail").replace("{a}", String(m.applicate)).replace("{t}", String(m.totale)))}</b>`
+            + (m.mancanti.length ? ` · ${tr("itg.sb.migMissing").replace("{l}", lista(m.mancanti.slice(0, 4).map((x) => `#${x.numero} (${x.nome})`)) + (m.mancanti.length > 4 ? " …" : ""))}` : "");
+        const b = s.bucket;
+        const dBucket = `<b>${esc(tr("itg.sb.storageDetail").replace("{a}", String(b.presenti)).replace("{t}", String(b.totale)))}</b>`
+          + (b.mancanti.length ? ` · ${tr("itg.sb.storageMissing").replace("{l}", lista(b.mancanti))}` : "")
+          + (b.daCorreggere.length ? ` · ${tr("itg.sb.storageFix").replace("{l}", lista(b.daCorreggere))}` : "");
+        const c = s.cron;
+        const dCron = c.motivo === "token" ? esc(tr("itg.sb.unknown"))
+          : c.motivo === "pgcron" ? esc(tr("itg.sb.cronPg"))
+          : `<b>${esc(tr("itg.sb.cronDetail").replace("{a}", String(c.giusti)).replace("{t}", String(c.totale)))}</b>`
+            + (c.domini.length ? ` · → ${lista(c.domini)}` : "")
+            + (c.daRifare.length ? ` · ${tr("itg.sb.cronRedo").replace("{l}", lista(c.daRifare))}` : "")
+            + (c.motivo === "localhost" && c.daRifare.length ? ` · ${esc(tr("itg.sb.cronLocal"))}` : "");
+        const e = s.estensioni;
+        const dExt = e.motivo === "token" ? esc(tr("itg.sb.unknown"))
+          : e.mancanti.length ? tr("itg.sb.extMissing").replace("{l}", lista(e.mancanti)) : e.presenti.map(esc).join(" · ");
+        const conToken = s.token;
+        const controlli = $("sb-controlli");
+        if (controlli) controlli.innerHTML = [
+          riga(m.livello, tr("itg.sb.mig"), dMig, conToken ? "migrazioni" : "", tr("itg.sb.apply")),
+          riga(b.livello, tr("itg.sb.storage"), dBucket, "bucket", tr("itg.sb.create")),
+          riga(c.livello, tr("itg.sb.cron"), dCron, conToken && c.motivo !== "localhost" && c.motivo !== "pgcron" ? "cron" : "", tr("itg.sb.create")),
+          riga(e.livello, tr("itg.sb.ext"), dExt, conToken ? "estensioni" : "", tr("itg.sb.enable")),
+        ].join("");
+        const tok = $("sb-token-nota");
+        if (tok) { tok.textContent = conToken ? tr("itg.sb.tokenNote") : tr("itg.sb.noToken"); tok.className = conToken ? "sb-nota" : "sb-nota is-no"; }
+        const tutto = $("sb-tutto") as HTMLButtonElement | null;
+        if (tutto) {
+          tutto.textContent = m.baseVuota ? tr("itg.sb.prepareAll") : tr("itg.sb.fixAll");
+          // Spento se non c'e' niente che questa casella possa fare da sola:
+          // senza token restano solo gli spazi di archivio.
+          const fattibile = b.livello !== "ok" || (conToken && (m.livello !== "ok" || e.livello !== "ok" || (c.livello !== "ok" && c.motivo === "")));
+          tutto.disabled = !fattibile || occupato;
+        }
+        const quando = $("sb-quando");
+        if (quando) quando.textContent = tr("itg.sb.checkedAt").replace("{h}", new Date().toLocaleTimeString(document.documentElement.lang || "fr", { hour: "2-digit", minute: "2-digit" }));
+        if (m.baseVuota) mostraEsito("parz", tr("itg.sb.emptyHint"));
+      }
+
+      function mostraEsito(livello: "ok" | "parz" | "no" | "", testo = "") {
+        esito("sb-esito", livello, testo);
+      }
+
+      function testoErrore(e: Exclude<Esito, { ok: true }>): string {
+        if (e.errore === "token") return tr("itg.sb.errToken");
+        if (e.errore === "localhost") return tr("itg.sb.errLocal");
+        if (e.errore === "segreto") return tr("itg.sb.errSecret");
+        if (e.errore === "pgcron") return tr("itg.sb.errPgcron");
+        if (e.errore === "storage") return tr("itg.sb.errStorage").replace("{m}", e.messaggio ?? "");
+        return tr("itg.sb.errSql").replace("{n}", e.numero ? ` (#${e.numero})` : "").replace("{m}", e.messaggio ?? "");
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/supabase-stato", { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+        } catch { stato = null; }
+        renderCasella();
+        renderModale();
+      }
+
+      /** Un passo. Le migrazioni tornano a pezzi: si richiama finche' ne restano. */
+      async function esegui(passo: Passo): Promise<boolean> {
+        for (;;) {
+          mostraEsito("parz", passo === "migrazioni" && stato
+            ? tr("itg.sb.migProgress").replace("{a}", String(stato.migrazioni.applicate)).replace("{t}", String(stato.migrazioni.totale))
+            : tr("itg.sb.running").replace("{p}", passo));
+          let r: { esito: Esito; stato: Stato } | null = null;
+          try {
+            const res = await fetch("/api/admin/supabase-stato", { method: "POST", headers: await authFresh(), body: JSON.stringify({ passo }) });
+            r = (await res.json().catch(() => null)) as { esito: Esito; stato: Stato } | null;
+          } catch { /* rete */ }
+          if (!r?.esito) { mostraEsito("no", tr("err.network")); return false; }
+          stato = r.stato;
+          renderCasella();
+          renderModale();
+          if (!r.esito.ok) { mostraEsito("no", testoErrore(r.esito)); return false; }
+          if (passo !== "migrazioni" || r.esito.restano <= 0) return true;
+        }
+      }
+
+      /** Un lavoro alla volta: il bottone premuto mostra l'attesa (conAttesa),
+       *  e finche' non finisce gli altri non partono. */
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          renderModale();
+        }
+      }
+
+      tile?.addEventListener("click", () => {
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        void carica();
+      });
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+      const verifica = $("sb-verifica") as HTMLButtonElement | null;
+      verifica?.addEventListener("click", () => blocca(verifica, async () => { mostraEsito(""); await carica(); }));
+      $("sb-controlli")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-passo]");
+        if (!b) return;
+        void blocca(b, async () => { if (await esegui(b.dataset.passo as Passo)) mostraEsito("ok", tr("itg.sb.done")); });
+      });
+      // «Tout préparer»: i passi nell'ordine giusto, solo quelli che servono.
+      const tuttoBtn = $("sb-tutto") as HTMLButtonElement | null;
+      tuttoBtn?.addEventListener("click", () => blocca(tuttoBtn, async () => {
+        if (!stato) await carica();
+        const ordine: Passo[] = ["estensioni", "migrazioni", "bucket", "cron"];
+        for (const p of ordine) {
+          const s = stato;
+          if (!s) return;
+          const serve = p === "estensioni" ? s.token && s.estensioni.livello !== "ok"
+            : p === "migrazioni" ? s.token && s.migrazioni.livello !== "ok"
+            : p === "bucket" ? s.bucket.livello !== "ok"
+            : s.token && s.cron.livello !== "ok" && s.cron.motivo === "";
+          if (serve && !(await esegui(p))) return;
+          if (p === "estensioni" && serve) await carica();
+        }
+        await carica();
+        mostraEsito(stato?.casella.livello === "ok" ? "ok" : "parz", stato?.casella.livello === "ok" ? tr("itg.sb.done") : tr("itg.sb.todo").replace("{n}", String(stato?.casella.daFare ?? 1)));
+      }));
+
+      void carica();
+    </script>
+    <!-- ===== INTÉGRATIONS → RESEND (5/11/2026) =====
+         Chiave (cifrata nel database, mai rimostrata), mittente, dominio,
+         e-mail di prova, email del mese. Script a parte come Supabase. -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
+      import { esc } from "../../lib/esc";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Fonte = "casella" | "env" | "nessuna";
+      type Stato = {
+        chiave: { fonte: Fonte; mascherata: string; rotta: boolean; inEnv: boolean; cifratura: boolean };
+        mittente: { fonte: Fonte; nome: string; email: string; dallEnv: string };
+        dominio: { nome: string; stato: "verificato" | "attesa" | "assente" | "ignoto" };
+        conteggi: { mese: string; transazionali: number | null; newsletter: number | null };
+        tabella: boolean;
+        casella: { livello: Livello; daFare: number };
+        io?: string;
+      };
+      type Esito = { ok: true } | { ok: false; errore: string; messaggio?: string };
+
+      const lingua = document.documentElement.lang || "fr";
+      const tr = adminT(lingua as AdminLang);
+      const $ = (id: string) => document.getElementById(id);
+      const overlay = $("rs-overlay");
+      let stato: Stato | null = null;
+      let occupato = false;
+      let io = "";
+
+      function renderCasella() {
+        const segno = $("rs-segno");
+        const pill = $("rs-pill");
+        if (!segno || !pill) return;
+        if (!stato) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const { livello, daFare } = stato.casella;
+        const l = livello === "ignoto" ? "parz" : livello;
+        segno.className = `itg-segno is-${l}`;
+        segno.innerHTML = SEGNO[l];
+        pill.className = `itg-pill is-${l}`;
+        pill.textContent = livello === "ok" ? tr("itg.rs.ok")
+          : livello === "no" ? tr("itg.rs.off")
+          : daFare <= 1 ? tr("itg.sb.todo1") : tr("itg.sb.todo").replace("{n}", String(daFare));
+      }
+
+      function chip(id: string, fonte: Fonte, rotta = false) {
+        const el = $(id);
+        if (!el) return;
+        const [cls, testo] = rotta ? ["is-no", tr("itg.rs.srcBroken")]
+          : fonte === "casella" ? ["is-set", tr("itg.rs.srcBox")]
+          : fonte === "env" ? ["is-parz", tr("itg.rs.srcEnv")]
+          : ["is-no", tr("itg.rs.srcNone")];
+        el.className = `loc-chip ${cls}`;
+        el.textContent = testo;
+      }
+
+      const numero = (n: number | null) => n === null ? "—" : n.toLocaleString(lingua);
+
+      function renderModale() {
+        if (!stato) return;
+        const s = stato;
+        chip("rs-chiave-stato", s.chiave.fonte, s.chiave.rotta);
+        const inChiave = $("rs-chiave") as HTMLInputElement | null;
+        if (inChiave) inChiave.placeholder = s.chiave.mascherata || tr("itg.rs.keyPh");
+        const nota = $("rs-chiave-nota");
+        if (nota) {
+          const avviso = !s.tabella ? tr("itg.rs.noTable") : !s.chiave.cifratura ? tr("itg.rs.noCrypto") : s.chiave.rotta ? tr("itg.rs.keyBroken") : "";
+          nota.textContent = avviso || tr("itg.rs.keyHint");
+          nota.className = avviso ? "f-note is-avviso" : "f-note";
+        }
+        chip("rs-mitt-stato", s.mittente.fonte);
+        const nome = $("rs-nome") as HTMLInputElement | null;
+        const email = $("rs-email") as HTMLInputElement | null;
+        if (nome && document.activeElement !== nome) nome.value = s.mittente.nome;
+        if (email && document.activeElement !== email) email.value = s.mittente.email;
+
+        const d = s.dominio;
+        const dom = $("rs-dominio");
+        if (dom) {
+          const [cls, testo] = !d.nome ? ["is-no", tr("itg.rs.domNone")]
+            : d.stato === "verificato" ? ["is-ok", tr("itg.rs.domOk")]
+            : d.stato === "attesa" ? ["is-parz", tr("itg.rs.domWait")]
+            : d.stato === "assente" ? ["is-no", tr("itg.rs.domMissing")]
+            : ["", tr("itg.rs.domUnknown")];
+          dom.className = `f-note rs-dominio ${cls}`.trim();
+          dom.textContent = testo.replace("{d}", d.nome);
+        }
+
+        const c = s.conteggi;
+        const tot = c.transazionali === null && c.newsletter === null ? null : (c.transazionali ?? 0) + (c.newsletter ?? 0);
+        const conteggi = $("rs-conteggi");
+        if (conteggi) conteggi.innerHTML = [
+          [tr("itg.rs.trans"), numero(c.transazionali)],
+          [tr("itg.rs.news"), numero(c.newsletter)],
+          [`${tr("itg.rs.total")} · ${c.mese}`, numero(tot)],
+        ].map(([k, v]) => `<span>${esc(k)}</span><span class="rs-n">${esc(v)}</span>`).join("");
+
+        // «Importer» solo se il .env ha qualcosa che la casella non ha.
+        const importa = $("rs-importa") as HTMLButtonElement | null;
+        if (importa) importa.hidden = !((s.chiave.inEnv && s.chiave.fonte !== "casella") || (s.mittente.dallEnv && s.mittente.fonte !== "casella"));
+        const togli = $("rs-togli") as HTMLButtonElement | null;
+        if (togli) togli.hidden = s.chiave.fonte !== "casella" && s.mittente.fonte !== "casella";
+        const prova = $("rs-prova") as HTMLButtonElement | null;
+        if (prova) prova.disabled = occupato || s.chiave.fonte === "nessuna" || !s.mittente.email;
+        aggiornaSalva();
+      }
+
+      /** Quello che «Enregistrer» scriverebbe adesso: vuoto = niente di nuovo. */
+      function daSalvare(): Record<string, string> {
+        const corpo: Record<string, string> = {};
+        const k = ($("rs-chiave") as HTMLInputElement | null)?.value.trim() ?? "";
+        const nome = ($("rs-nome") as HTMLInputElement | null)?.value.trim() ?? "";
+        const email = ($("rs-email") as HTMLInputElement | null)?.value.trim() ?? "";
+        if (k) corpo.chiave = k;
+        // Il mittente si scrive se e' cambiato, o se oggi viene dal .env.
+        if (email && (email !== stato?.mittente.email || nome !== stato?.mittente.nome || stato?.mittente.fonte !== "casella")) { corpo.nome = nome; corpo.email = email; }
+        return corpo;
+      }
+
+      function aggiornaSalva() {
+        const b = $("rs-salva") as HTMLButtonElement | null;
+        if (b) b.disabled = occupato || !Object.keys(daSalvare()).length;
+      }
+
+      function mostraEsito(livello: "ok" | "parz" | "no" | "", testo = "") {
+        esito("rs-esito", livello, testo);
+      }
+
+      function testoErrore(e: Exclude<Esito, { ok: true }>): string {
+        if (e.errore === "chiave") return tr("itg.rs.errKey");
+        if (e.errore === "email") return tr("itg.rs.errEmail");
+        if (e.errore === "cifratura") return tr("itg.rs.noCrypto");
+        if (e.errore === "tabella") return tr("itg.rs.noTable");
+        if (e.errore === "invio") return tr("itg.rs.errSend").replace("{m}", e.messaggio ?? "");
+        return tr("itg.rs.errNothing");
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/resend", { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+          if (stato?.io) io = stato.io;
+        } catch { stato = null; }
+        renderCasella();
+        renderModale();
+      }
+
+      /** Una chiamata che cambia qualcosa: la risposta porta lo stato nuovo. */
+      async function chiama(metodo: "PUT" | "POST" | "DELETE", corpo: unknown, riuscito: string): Promise<boolean> {
+        let r: { esito?: Esito; stato?: Stato } | null = null;
+        try {
+          const res = await fetch("/api/admin/resend", { method: metodo, headers: await authFresh(), body: corpo === undefined ? undefined : JSON.stringify(corpo) });
+          r = (await res.json().catch(() => null)) as { esito?: Esito; stato?: Stato } | null;
+        } catch { /* rete */ }
+        if (!r?.esito) { mostraEsito("no", tr("err.network")); return false; }
+        if (r.stato) stato = r.stato;
+        renderCasella();
+        renderModale();
+        if (!r.esito.ok) { mostraEsito("no", testoErrore(r.esito)); return false; }
+        mostraEsito("ok", riuscito);
+        return true;
+      }
+
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          renderModale();
+        }
+      }
+
+      $("rs-tile")?.addEventListener("click", () => {
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        const k = $("rs-chiave") as HTMLInputElement | null;
+        if (k) k.value = "";
+        void carica();
+      });
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+
+      const salva = $("rs-salva") as HTMLButtonElement | null;
+      salva?.addEventListener("click", () => blocca(salva, async () => {
+        const corpo = daSalvare();
+        if (!Object.keys(corpo).length) return;
+        if (await chiama("PUT", corpo, tr("itg.rs.saved"))) {
+          const k = $("rs-chiave") as HTMLInputElement | null;
+          if (k) k.value = "";
+          renderModale();
+        }
+      }));
+      // «Enregistrer» si accende solo quando c'e' qualcosa di nuovo da scrivere.
+      ["rs-chiave", "rs-nome", "rs-email"].forEach((id) => $(id)?.addEventListener("input", aggiornaSalva));
+
+      const importa = $("rs-importa") as HTMLButtonElement | null;
+      importa?.addEventListener("click", () => blocca(importa, async () => { await chiama("POST", { azione: "importa" }, tr("itg.rs.imported")); }));
+
+      const prova = $("rs-prova") as HTMLButtonElement | null;
+      prova?.addEventListener("click", () => blocca(prova, async () => { await chiama("POST", { azione: "prova" }, tr("itg.rs.testOk").replace("{e}", io)); }));
+
+      // «Supprimer» chiede conferma sul bottone stesso: il primo clic cambia
+      // la scritta, il secondo (entro 4 s) toglie.
+      const togli = $("rs-togli") as HTMLButtonElement | null;
+      let conferma = 0;
+      togli?.addEventListener("click", () => {
+        if (!togli) return;
+        if (Date.now() > conferma) {
+          conferma = Date.now() + 4000;
+          togli.textContent = tr("itg.rs.delConfirm");
+          setTimeout(() => { if (Date.now() >= conferma) togli.textContent = tr("common.delete"); }, 4100);
+          return;
+        }
+        conferma = 0;
+        togli.textContent = tr("common.delete");
+        void blocca(togli, async () => { await chiama("DELETE", undefined, tr("itg.rs.deleted")); });
+      });
+
+      void carica();
+    </script>
+    <!-- ===== INTÉGRATIONS → STRIPE (5/11/2026) =====
+         Chiave e webhook per livello (marchio, sedi), conto, webhook creato
+         dalla casella. La scheda della sede apre qui con «apri-stripe». -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
+      import { esc } from "../../lib/esc";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Fonte = "sede" | "marchio" | "ambiente" | "nessuna";
+      type Riep = { id: string; nome: string; fonteChiave: Fonte; fonteFirma: Fonte; pronto: boolean };
+      type VoceConto = { id: string; nome: string; pronto: boolean; attivo: boolean; modo: "live" | "test" | "" };
+      type Scelto = Riep & {
+        conto: string; conti: VoceConto[]; nomeConto: string;
+        propriaChiave: "suo" | "rotto" | ""; propriaFirma: "suo" | "rotto" | "";
+        mascherata: string; modo: "live" | "test" | "";
+        verifica: { conto: { nome: string; paese: string; incassi: boolean } | null; errore: string;
+          webhook: { stato: "ok" | "eventi" | "spento" | "assente" | "ignoto"; url: string; domini: string[] } } | null;
+      };
+      type Stato = {
+        livelli: Riep[];
+        casella: { livello: Livello; pronti: number; totale: number; daEnv: boolean };
+        scelto: Scelto | null;
+        env: { chiave: boolean; firma: boolean };
+        cifratura: boolean; tabella: boolean; tabellaConti: boolean; sito: { online: boolean };
+      };
+      type Esito = { ok: true; conto?: string } | { ok: false; errore: string; messaggio?: string };
+
+      const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
+      const $ = (id: string) => document.getElementById(id);
+      const overlay = $("sp-overlay");
+      let stato: Stato | null = null;
+      let livello = "marchio";
+      /** Il conto aperto dentro il livello: "principale", un id, o "nuovo". */
+      let conto = "principale";
+      let occupato = false;
+
+      function renderCasella() {
+        const segno = $("sp-segno");
+        const pill = $("sp-pill");
+        if (!segno || !pill) return;
+        if (!stato) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const c = stato.casella;
+        const l = c.livello === "ignoto" ? "parz" : c.livello;
+        segno.className = `itg-segno is-${l}`;
+        segno.innerHTML = SEGNO[l];
+        pill.className = `itg-pill is-${l}`;
+        pill.textContent = c.livello === "no" ? tr("itg.st.off")
+          : c.pronti < c.totale ? tr("itg.st.part").replace("{a}", String(c.pronti)).replace("{t}", String(c.totale))
+          : c.daEnv ? tr("itg.st.viaEnv") : tr("itg.st.ok");
+      }
+
+      const nomeFonte = (f: Fonte) => f === "sede" ? tr("itg.st.fromSede") : f === "marchio" ? tr("itg.st.fromBrand") : f === "ambiente" ? tr("itg.st.fromEnv") : tr("itg.st.fromNone");
+
+      /** Il chip di un campo: suo, ereditato, dal .env, assente, illeggibile. */
+      function chip(id: string, proprio: "suo" | "rotto" | "", fonte: Fonte) {
+        const el = $(id);
+        if (!el) return;
+        const [cls, testo] = proprio === "rotto" ? ["is-no", tr("itg.rs.srcBroken")]
+          : proprio === "suo" ? ["is-set", livello === "marchio" && conto === "principale" ? tr("itg.rs.srcBox") : tr("itg.st.srcOwn")]
+          : fonte === "marchio" ? ["is-parz", tr("itg.st.srcBrand")]
+          : fonte === "ambiente" ? ["is-parz", tr("itg.rs.srcEnv")]
+          : ["is-no", tr("itg.rs.srcNone")];
+        el.className = `loc-chip ${cls}`;
+        el.textContent = testo;
+      }
+
+      /** Cos'e' un livello, in una frase: il marchio fa da conto di base,
+       *  una sede incassa col suo conto, con quello del marchio, o non incassa. */
+      function spiegazione(l: Riep, conSedi: boolean): string {
+        if (l.id === "marchio") return conSedi ? tr("itg.st.lvBrand") : "";
+        if (!l.pronto) return tr("itg.st.lvOff");
+        if (l.fonteChiave === "sede") return tr("itg.st.lvOwn");
+        if (l.fonteChiave === "marchio") return tr("itg.st.lvBrandUse");
+        return tr("itg.st.lvEnv");
+      }
+
+      function riga(lv: Livello, titolo: string, dettaglio: string, bottone = ""): string {
+        return `<li><span class="sb-ic is-${lv}">${SEGNO[lv]}</span><div><p class="sb-t">${titolo}</p><p class="sb-d">${dettaglio}</p></div>${bottone || "<span></span>"}</li>`;
+      }
+
+      function renderModale() {
+        if (!stato) return;
+        const s = stato;
+        // Le pillole: solo se ci sono sedi.
+        const pillole = $("sp-pillole");
+        if (pillole) {
+          pillole.hidden = s.livelli.length <= 1;
+          pillole.innerHTML = s.livelli.map((l) => {
+            const lv = l.pronto ? "ok" : "no";
+            return `<button type="button" class="m-tab${l.id === livello ? " is-on" : ""}" data-livello="${esc(l.id)}" title="${esc(spiegazione(l, s.livelli.length > 1))}"><span class="sp-punto is-${lv}"></span>${esc(l.id === "marchio" ? tr("itg.st.brand") : l.nome)}</button>`;
+          }).join("");
+        }
+        const sc = s.scelto;
+        if (!sc) return;
+        conto = sc.conto;
+        // La fila dei conti: nome, pallino pronto/no, «actif» su quello che incassa.
+        const fila = $("sp-conti");
+        if (fila) {
+          const voci = sc.conti.map((c) => `<button type="button" class="m-tab${c.id === conto ? " is-on" : ""}" data-conto="${esc(c.id)}"><span class="sp-punto is-${c.pronto ? "ok" : "no"}"></span>${esc(c.id === "principale" ? tr("itg.st.accMain") : c.nome)}${c.attivo ? `<span class="sp-attivo">${esc(tr("itg.st.accActive"))}</span>` : ""}</button>`);
+          if (s.tabellaConti) voci.push(`<button type="button" class="m-tab${conto === "nuovo" ? " is-on" : ""}" data-conto="nuovo">${esc(tr("itg.st.accAdd"))}</button>`);
+          fila.innerHTML = voci.join("");
+        }
+        const nomeCampo = $("sp-nome-campo");
+        if (nomeCampo) nomeCampo.hidden = conto === "principale";
+        const nome = $("sp-nome") as HTMLInputElement | null;
+        if (nome && document.activeElement !== nome) nome.value = sc.nomeConto;
+        // Una frase che dice cos'e' la pillola scelta e con che conto incassa.
+        const spiega = $("sp-spiega");
+        if (spiega) {
+          spiega.hidden = s.livelli.length <= 1;
+          spiega.textContent = spiegazione(s.livelli.find((l) => l.id === livello) ?? sc, true);
+          spiega.className = `f-note sp-spiega${sc.id !== "marchio" && !sc.pronto ? " is-avviso" : ""}`;
+        }
+        chip("sp-chiave-stato", sc.propriaChiave, sc.fonteChiave);
+        chip("sp-firma-stato", sc.propriaFirma, sc.fonteFirma);
+        const k = $("sp-chiave") as HTMLInputElement | null;
+        if (k) k.placeholder = sc.mascherata || tr("itg.st.keyPh");
+        const nota = $("sp-nota");
+        if (nota) {
+          const avviso = !s.tabella && livello === "marchio" ? tr("itg.rs.noTable") : !s.cifratura ? tr("itg.rs.noCrypto") : "";
+          nota.textContent = avviso || tr("itg.st.keyHint");
+          nota.className = avviso ? "f-note is-avviso" : "f-note";
+        }
+
+        // Controlli: conto, webhook, pagamento online.
+        const v = sc.verifica;
+        const modo = sc.modo ? `<span class="sp-modo${sc.modo === "live" ? " is-live" : ""}">${sc.modo.toUpperCase()}</span>` : "";
+        const cConto: [Livello, string] = !sc.mascherata ? ["no", esc(tr("itg.st.accountNone"))]
+          : v?.conto ? [v.conto.incassi ? "ok" : "parz", `<b>${esc(v.conto.nome)}</b>${v.conto.paese ? ` · ${esc(v.conto.paese)}` : ""}${modo}${v.conto.incassi ? "" : ` · ${esc(tr("itg.st.noCharges"))}`}`]
+          : ["no", esc(tr("itg.st.accountKo").replace("{m}", v?.errore ?? ""))];
+        const w = v?.webhook;
+        const wst = w?.stato ?? "ignoto";
+        const cHook: [Livello, string] = wst === "ok" ? ["ok", esc(s.sito.online ? tr("itg.st.whOk").replace("{u}", w?.url ?? "") : tr("itg.st.whLocal").replace("{d}", (w?.domini ?? []).join(", ")))]
+          : wst === "eventi" ? ["parz", esc(tr("itg.st.whEvents"))]
+          : wst === "spento" ? ["no", esc(tr("itg.st.whOff"))]
+          : wst === "assente" ? ["no", esc(tr("itg.st.whMissing"))]
+          : ["ignoto", esc(tr("itg.st.whUnknown"))];
+        // «Créer» solo online e con una chiave propria; «Recréer» se c'e' gia'.
+        const puoCreare = s.sito.online && sc.propriaChiave === "suo" && !occupato;
+        const btnHook = puoCreare
+          ? `<button type="button" class="btn" data-azione="webhook">${esc(wst === "ok" && sc.propriaFirma === "suo" ? tr("itg.st.whRecreate") : tr("itg.st.whCreate"))}</button>` : "";
+        const cPaga: [Livello, string] = sc.pronto ? ["ok", esc(tr("itg.st.payOk").replace("{a}", nomeFonte(sc.fonteChiave)))]
+          : sc.fonteChiave !== "nessuna" && sc.fonteFirma !== "nessuna" ? ["no", esc(tr("itg.st.payMix").replace("{a}", nomeFonte(sc.fonteChiave)).replace("{b}", nomeFonte(sc.fonteFirma)))]
+          : ["no", esc(tr("itg.st.payNone"))];
+        const controlli = $("sp-controlli");
+        if (controlli) controlli.innerHTML = [
+          riga(cConto[0], esc(tr("itg.st.account")), cConto[1]),
+          riga(cHook[0], esc(tr("itg.st.webhook")), cHook[1], btnHook),
+          riga(cPaga[0], esc(tr("itg.st.pay")), cPaga[1]),
+        ].join("");
+
+        const importa = $("sp-importa") as HTMLButtonElement | null;
+        if (importa) importa.hidden = !(livello === "marchio" && conto === "principale" && ((s.env.chiave && sc.propriaChiave !== "suo") || (s.env.firma && sc.propriaFirma !== "suo")));
+        const togli = $("sp-togli") as HTMLButtonElement | null;
+        if (togli) togli.hidden = conto === "nuovo" || (conto === "principale" && !sc.propriaChiave && !sc.propriaFirma);
+        const verificaBtn = $("sp-verifica") as HTMLButtonElement | null;
+        if (verificaBtn) verificaBtn.hidden = conto === "nuovo";
+        // Un conto nuovo non ha ancora niente da controllare.
+        const controlliEl = $("sp-controlli");
+        if (controlliEl && conto === "nuovo") controlliEl.innerHTML = "";
+        aggiornaSalva();
+      }
+
+      function aggiornaSalva() {
+        const b = $("sp-salva") as HTMLButtonElement | null;
+        const k = ($("sp-chiave") as HTMLInputElement | null)?.value.trim();
+        const f = ($("sp-firma") as HTMLInputElement | null)?.value.trim();
+        const n = ($("sp-nome") as HTMLInputElement | null)?.value.trim() ?? "";
+        const nomeCambiato = conto !== "principale" && !!n && n !== (stato?.scelto?.nomeConto ?? "");
+        if (b) b.disabled = occupato || (conto === "nuovo" ? !n || !k : !k && !f && !nomeCambiato);
+      }
+
+      function mostraEsito(lv: "ok" | "parz" | "no" | "", testo = "") {
+        esito("sp-esito", lv, testo);
+      }
+
+      function testoErrore(e: Exclude<Esito, { ok: true }>): string {
+        const m: Record<string, string> = {
+          livello: "itg.st.errLevel", chiave: "itg.st.errKey", pubblicabile: "itg.st.errPk", firma: "itg.st.errHook",
+          cifratura: "itg.rs.noCrypto", tabella: "itg.rs.noTable", localhost: "itg.st.errLocal", ereditata: "itg.st.errInherited",
+          niente: "itg.rs.errNothing", nome: "itg.st.errName", conto: "itg.st.errConto",
+        };
+        if (e.errore === "stripe") return tr("itg.st.errStripe").replace("{m}", e.messaggio ?? "");
+        return tr(m[e.errore] ?? "itg.rs.errNothing");
+      }
+
+      function svuotaCampi() {
+        for (const id of ["sp-chiave", "sp-firma", "sp-nome"]) { const el = $(id) as HTMLInputElement | null; if (el) el.value = ""; }
+      }
+
+      async function carica(conLivello = true) {
+        try {
+          const q = conLivello ? `?livello=${encodeURIComponent(livello)}&conto=${encodeURIComponent(conto)}` : "";
+          const res = await fetch(`/api/admin/stripe${q}`, { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+        } catch { stato = null; }
+        renderCasella();
+        renderModale();
+      }
+
+      async function chiama(metodo: "PUT" | "POST" | "DELETE", corpo: unknown, riuscito: string): Promise<boolean> {
+        let r: { esito?: Esito; stato?: Stato } | null = null;
+        try {
+          const res = await fetch("/api/admin/stripe", { method: metodo, headers: await authFresh(), body: JSON.stringify(corpo) });
+          r = (await res.json().catch(() => null)) as { esito?: Esito; stato?: Stato } | null;
+        } catch { /* rete */ }
+        if (!r?.esito) { mostraEsito("no", tr("err.network")); return false; }
+        if (r.stato) stato = r.stato;
+        renderCasella();
+        renderModale();
+        if (!r.esito.ok) { mostraEsito("no", testoErrore(r.esito)); return false; }
+        mostraEsito("ok", riuscito);
+        return true;
+      }
+
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          renderModale();
+        }
+      }
+
+      function apri(su: string) {
+        livello = su;
+        conto = "principale";
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        svuotaCampi();
+        void carica();
+      }
+
+      $("sp-tile")?.addEventListener("click", () => apri("marchio"));
+      // Dalla scheda di una sede: «Ouvrir Stripe» apre sulla sua pillola.
+      document.addEventListener("apri-stripe", (ev) => apri(String((ev as CustomEvent).detail ?? "marchio")));
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+      ["sp-chiave", "sp-firma", "sp-nome"].forEach((id) => $(id)?.addEventListener("input", aggiornaSalva));
+
+      $("sp-pillole")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-livello]");
+        if (!b || occupato || b.dataset.livello === livello) return;
+        livello = b.dataset.livello ?? "marchio";
+        conto = "principale";
+        mostraEsito("");
+        svuotaCampi();
+        renderModale();
+        void blocca(b, async () => { await carica(); });
+      });
+
+      $("sp-conti")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-conto]");
+        if (!b || occupato || b.dataset.conto === conto) return;
+        conto = b.dataset.conto ?? "principale";
+        mostraEsito("");
+        svuotaCampi();
+        void blocca(b, async () => { await carica(); });
+      });
+
+      const salva = $("sp-salva") as HTMLButtonElement | null;
+      salva?.addEventListener("click", () => blocca(salva, async () => {
+        const chiave = ($("sp-chiave") as HTMLInputElement | null)?.value.trim() ?? "";
+        const firma = ($("sp-firma") as HTMLInputElement | null)?.value.trim() ?? "";
+        const nome = ($("sp-nome") as HTMLInputElement | null)?.value.trim() ?? "";
+        if (await chiama("PUT", { livello, conto, nome: conto === "principale" ? undefined : nome, chiave, firma }, tr("itg.st.saved"))) svuotaCampi();
+      }));
+
+      const verifica = $("sp-verifica") as HTMLButtonElement | null;
+      verifica?.addEventListener("click", () => blocca(verifica, async () => { mostraEsito(""); await carica(); }));
+
+      const importa = $("sp-importa") as HTMLButtonElement | null;
+      importa?.addEventListener("click", () => blocca(importa, async () => { await chiama("POST", { azione: "importa", livello: "marchio" }, tr("itg.st.imported")); }));
+
+      $("sp-controlli")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-azione=webhook]");
+        if (!b) return;
+        void blocca(b, async () => { await chiama("POST", { azione: "webhook", livello, conto }, tr("itg.st.whDone")); });
+      });
+
+      // «Supprimer»: conferma sul bottone stesso, come nella casella Resend.
+      const togli = $("sp-togli") as HTMLButtonElement | null;
+      let conferma = 0;
+      togli?.addEventListener("click", () => {
+        if (!togli) return;
+        if (Date.now() > conferma) {
+          conferma = Date.now() + 4000;
+          togli.textContent = tr("itg.rs.delConfirm");
+          setTimeout(() => { if (Date.now() >= conferma) togli.textContent = tr("common.delete"); }, 4100);
+          return;
+        }
+        conferma = 0;
+        togli.textContent = tr("common.delete");
+        void blocca(togli, async () => { await chiama("DELETE", { livello, conto }, conto === "principale" ? tr("itg.st.deleted") : tr("itg.st.accDeleted")); });
+      });
+
+      // La casella si colora subito, senza chiamare Stripe (solo il riepilogo).
+      void carica(false);
+    </script>
+    <!-- ===== INTÉGRATIONS → GOOGLE BUSINESS (5/11/2026) =====
+         Account Google (uno), e per livello Place ID, link recensioni,
+         scheda, recensioni. La scheda della sede apre qui con «apri-google». -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
+      import { esc } from "../../lib/esc";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Liv = {
+        id: string; nome: string; placeId: string; placeProprio: boolean; link: string; linkProprio: boolean;
+        scheda: string; schedaPropria: boolean; pronto: boolean; linkGenerato: string;
+        sync: { il: string; voto: string; recensioni: string };
+      };
+      type Stato = {
+        oauth: { stato: "spento" | "mai" | "scaduto" | "incerto" | "ok"; configurato: boolean };
+        places: boolean;
+        livelli: Liv[];
+        casella: { livello: Livello; pronti: number; totale: number };
+      };
+      type Esito = { ok: true; generato?: boolean } | { ok: false; errore: string; messaggio?: string };
+
+      const lingua = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(lingua);
+      const $ = (id: string) => document.getElementById(id);
+      const overlay = $("gb-overlay");
+      let stato: Stato | null = null;
+      let livello = "marchio";
+      let occupato = false;
+
+      const conSedi = () => (stato?.livelli.length ?? 1) > 1;
+      const scelto = (): Liv | null => stato?.livelli.find((l) => l.id === livello) ?? null;
+
+      function renderCasella() {
+        const segno = $("gb-segno");
+        const pill = $("gb-pill");
+        if (!segno || !pill) return;
+        if (!stato) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const c = stato.casella;
+        segno.className = `itg-segno is-${c.livello}`;
+        segno.innerHTML = SEGNO[c.livello];
+        pill.className = `itg-pill is-${c.livello}`;
+        pill.textContent = c.livello === "no" ? tr("itg.gb.off")
+          : c.pronti < c.totale ? tr("itg.st.part").replace("{a}", String(c.pronti)).replace("{t}", String(c.totale))
+          : tr("itg.gb.ok");
+      }
+
+      /** Un chip: suo, ereditato dal marchio, assente. */
+      function chip(id: string, valore: string, proprio: boolean) {
+        const el = $(id);
+        if (!el) return;
+        const [cls, testo] = !valore ? ["is-no", tr("itg.rs.srcNone")]
+          : livello === "marchio" || proprio ? ["is-set", livello === "marchio" ? tr("itg.rs.srcBox") : tr("itg.st.srcOwn")]
+          : ["is-parz", tr("itg.st.srcBrand")];
+        el.className = `loc-chip ${cls}`;
+        el.textContent = testo;
+      }
+
+      function riga(lv: Livello, titolo: string, dettaglio: string, bottone = ""): string {
+        return `<li><span class="sb-ic is-${lv}">${SEGNO[lv]}</span><div><p class="sb-t">${esc(titolo)}</p><p class="sb-d">${dettaglio}</p></div>${bottone || "<span></span>"}</li>`;
+      }
+
+      function renderModale() {
+        if (!stato) return;
+        const s = stato;
+        // L'account Google.
+        const o = s.oauth;
+        const oauth = $("gb-oauth");
+        if (oauth) {
+          const [cls, testo] = o.stato === "ok" ? ["is-set", tr("itg.g.connected")]
+            : o.stato === "scaduto" ? ["is-no", tr("itg.gb.expired")]
+            : o.stato === "incerto" ? ["is-parz", tr("itg.gb.uncertain")]
+            : o.stato === "spento" ? ["is-parz", tr("itg.gb.notReady")]
+            : ["is-parz", tr("itg.g.off")];
+          oauth.className = `loc-chip ${cls}`;
+          oauth.textContent = testo;
+        }
+        const connetti = $("gb-connetti") as HTMLButtonElement | null;
+        if (connetti) {
+          connetti.disabled = occupato || !o.configurato;
+          connetti.textContent = o.stato === "ok" || o.stato === "scaduto" ? tr("itg.g.reconnect") : tr("itg.g.connect");
+        }
+        const scollega = $("gb-scollega") as HTMLButtonElement | null;
+        if (scollega) scollega.hidden = o.stato === "mai" || o.stato === "spento";
+        const nota = $("gb-oauth-nota");
+        if (nota) nota.textContent = !o.configurato ? tr("itg.g.pending") : o.stato === "ok" ? tr("itg.g.connectedNote") : o.stato === "scaduto" ? tr("itg.gb.expiredHint") : tr("itg.g.authNote");
+
+        // Le pillole dei livelli (solo con le sedi).
+        const pillole = $("gb-pillole");
+        if (pillole) {
+          pillole.hidden = !conSedi();
+          pillole.innerHTML = s.livelli.map((l) => `<button type="button" class="m-tab${l.id === livello ? " is-on" : ""}" data-livello="${esc(l.id)}"><span class="sp-punto is-${l.pronto ? "ok" : "no"}"></span>${esc(l.id === "marchio" ? tr("itg.st.brand") : l.nome)}</button>`).join("");
+        }
+        const l = scelto();
+        if (!l) return;
+        const spiega = $("gb-spiega");
+        if (spiega) {
+          spiega.hidden = !conSedi();
+          spiega.textContent = l.id === "marchio" ? tr("itg.gb.lvBrand") : l.pronto ? tr("itg.gb.lvOk") : tr("itg.gb.lvTodo");
+          spiega.className = `f-note sp-spiega${l.id !== "marchio" && !l.pronto ? " is-avviso" : ""}`;
+        }
+        chip("gb-place-stato", l.placeId, l.placeProprio);
+        chip("gb-link-stato", l.link, l.linkProprio);
+        const place = $("gb-place") as HTMLInputElement | null;
+        const link = $("gb-link") as HTMLInputElement | null;
+        // Il campo mostra il valore SUO; un valore ereditato sta nel segnaposto.
+        if (place && document.activeElement !== place) { place.value = l.placeProprio ? l.placeId : ""; place.placeholder = l.placeProprio || !l.placeId ? "ChIJ…" : l.placeId; }
+        if (link && document.activeElement !== link) { link.value = l.linkProprio ? l.link : ""; link.placeholder = l.linkProprio || !l.link ? "https://…" : l.link; }
+        const gen = $("gb-link-gen") as HTMLButtonElement | null;
+        if (gen) gen.hidden = !l.linkGenerato || (l.linkProprio && l.link === l.linkGenerato);
+
+        // Controlli: scheda Google e recensioni.
+        const collegato = s.oauth.stato === "ok";
+        const dScheda = !collegato ? esc(tr("itg.gb.needAccount"))
+          : l.scheda ? `<b>${esc(l.scheda)}</b>${l.id !== "marchio" && !l.schedaPropria ? ` · ${esc(tr("itg.st.srcBrand"))}` : ""}`
+          : esc(tr("itg.gb.noListing"));
+        const lvScheda: Livello = !collegato ? "ignoto" : l.scheda && (l.id === "marchio" || l.schedaPropria || !conSedi()) ? "ok" : "no";
+        const btnScheda = collegato ? `<button type="button" class="btn" data-azione="schede">${esc(tr("gg.change"))}</button>` : "";
+        const quando = l.sync.il ? new Date(l.sync.il).toLocaleString(ADMIN_LOCALE[lingua] ?? "fr-BE", { dateStyle: "short", timeStyle: "short" }) : "";
+        const vecchio = l.sync.il ? Date.now() - new Date(l.sync.il).getTime() > 3 * 3600_000 : true;
+        const dRec = !l.sync.il ? esc(tr("itg.gb.neverSynced"))
+          : `${esc(tr("itg.gb.lastSync").replace("{d}", quando))}${l.sync.voto ? ` · <b>${esc(Number(l.sync.voto).toLocaleString(lingua, { maximumFractionDigits: 1 }))}/5</b>` : ""}${l.sync.recensioni ? ` · ${esc(l.sync.recensioni)} ${esc(tr("itg.g.reviews"))}` : ""}`;
+        const lvRec: Livello = !collegato || !l.scheda ? "ignoto" : !l.sync.il ? "no" : vecchio ? "parz" : "ok";
+        const btnSync = collegato && l.scheda ? `<button type="button" class="btn" data-azione="sync">${esc(tr("itg.gb.syncNow"))}</button>` : "";
+        const controlli = $("gb-controlli");
+        if (controlli) controlli.innerHTML = [
+          riga(lvScheda, tr("itg.gb.listing"), dScheda, btnScheda),
+          riga(lvRec, tr("itg.gb.reviews"), dRec, btnSync),
+        ].join("");
+        aggiornaSalva();
+      }
+
+      function daSalvare(): Record<string, string> {
+        const l = scelto();
+        const corpo: Record<string, string> = {};
+        if (!l) return corpo;
+        const place = ($("gb-place") as HTMLInputElement | null)?.value.trim() ?? "";
+        const link = ($("gb-link") as HTMLInputElement | null)?.value.trim() ?? "";
+        if (place !== (l.placeProprio ? l.placeId : "")) corpo.place_id = place;
+        if (link !== (l.linkProprio ? l.link : "")) corpo.review_url = link;
+        return corpo;
+      }
+
+      function aggiornaSalva() {
+        const b = $("gb-salva") as HTMLButtonElement | null;
+        if (b) b.disabled = occupato || !Object.keys(daSalvare()).length;
+      }
+
+      function mostraEsito(lv: "ok" | "parz" | "no" | "", testo = "") {
+        esito("gb-esito", lv, testo);
+      }
+
+      function testoErrore(e: Exclude<Esito, { ok: true }>): string {
+        if (e.errore === "chiave") return tr("itg.g.isKey");
+        if (e.errore === "formato") return tr("loc.err.placeId");
+        if (e.errore === "link") return tr("itg.gb.errLink");
+        if (e.errore === "sync") return tr("itg.gb.errSync").replace("{m}", e.messaggio ?? "");
+        if (e.errore === "livello") return tr("itg.st.errLevel");
+        if (e.errore === "niente") return tr("itg.rs.errNothing");
+        return e.messaggio || tr("err.network");
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/google-casella", { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+        } catch { stato = null; }
+        if (stato && !stato.livelli.some((l) => l.id === livello)) livello = "marchio";
+        renderCasella();
+        renderModale();
+      }
+
+      async function chiama(metodo: "PUT" | "POST", corpo: unknown, riuscito: string): Promise<Esito | null> {
+        let r: { esito?: Esito; stato?: Stato } | null = null;
+        try {
+          const res = await fetch("/api/admin/google-casella", { method: metodo, headers: await authFresh(), body: JSON.stringify(corpo) });
+          r = (await res.json().catch(() => null)) as { esito?: Esito; stato?: Stato } | null;
+        } catch { /* rete */ }
+        if (!r?.esito) { mostraEsito("no", tr("err.network")); return null; }
+        if (r.stato) stato = r.stato;
+        renderCasella();
+        renderModale();
+        if (!r.esito.ok) { mostraEsito("no", testoErrore(r.esito)); return r.esito; }
+        mostraEsito("ok", riuscito);
+        return r.esito;
+      }
+
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          renderModale();
+        }
+      }
+
+      function svuota() {
+        for (const id of ["gb-place", "gb-link"]) { const el = $(id) as HTMLInputElement | null; if (el) el.value = ""; }
+        const res = $("gb-place-res"); if (res) res.textContent = tr("loc.placeIdHint");
+        const sc = $("gb-schede"); if (sc) sc.innerHTML = "";
+      }
+
+      function apri(su: string) {
+        livello = su;
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        svuota();
+        void carica();
+      }
+
+      $("gb-tile")?.addEventListener("click", () => apri("marchio"));
+      document.addEventListener("apri-google", (ev) => apri(String((ev as CustomEvent).detail ?? "marchio")));
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+      ["gb-place", "gb-link"].forEach((id) => $(id)?.addEventListener("input", aggiornaSalva));
+
+      $("gb-pillole")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-livello]");
+        if (!b || occupato || b.dataset.livello === livello) return;
+        livello = b.dataset.livello ?? "marchio";
+        mostraEsito("");
+        // Il cambio di pillola non chiede niente al server: e' tutto gia' qui.
+        const res = $("gb-place-res"); if (res) res.textContent = tr("loc.placeIdHint");
+        const sc = $("gb-schede"); if (sc) sc.innerHTML = "";
+        for (const id of ["gb-place", "gb-link"]) { const el = $(id) as HTMLInputElement | null; if (el) el.blur(); }
+        renderModale();
+      });
+
+      // Il collegamento: la stessa API di prima, poi la schermata di Google.
+      const connetti = $("gb-connetti") as HTMLButtonElement | null;
+      connetti?.addEventListener("click", () => blocca(connetti, async () => {
+        try {
+          const res = await fetch("/api/google/connect", { method: "POST", headers: await authFresh() });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.url) { mostraEsito("no", String(j.error ?? tr("itg.g.connErr"))); return; }
+          window.location.href = j.url;
+        } catch { mostraEsito("no", tr("err.network")); }
+      }));
+      const scollega = $("gb-scollega") as HTMLButtonElement | null;
+      scollega?.addEventListener("click", () => blocca(scollega, async () => {
+        try {
+          const res = await fetch("/api/google/connect", { method: "POST", headers: await authFresh({ "X-Method-Override": "DELETE" }) });
+          if (!res.ok) { mostraEsito("no", tr("itg.g.disErr")); return; }
+          mostraEsito("ok", tr("itg.g.disconnected"));
+          await carica();
+        } catch { mostraEsito("no", tr("err.network")); }
+      }));
+
+      // «Vérifier» il Place ID scritto (o quello che vale qui).
+      const verifica = $("gb-verifica") as HTMLButtonElement | null;
+      verifica?.addEventListener("click", () => blocca(verifica, async () => {
+        const res = $("gb-place-res");
+        const id = (($("gb-place") as HTMLInputElement | null)?.value.trim()) || scelto()?.placeId || "";
+        if (!res) return;
+        if (!id) { res.textContent = tr("itg.g.needPlace"); return; }
+        if (/^AIza/.test(id)) { res.textContent = tr("itg.g.isKeyShort"); return; }
+        try {
+          const r = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers: await authFresh() });
+          const j = await r.json().catch(() => ({}));
+          res.textContent = r.ok ? `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0} ${tr("itg.g.reviews")}` : String(j.error ?? tr("itg.g.verifyErr"));
+        } catch { res.textContent = tr("err.network"); }
+      }));
+
+      const gen = $("gb-link-gen") as HTMLButtonElement | null;
+      gen?.addEventListener("click", () => {
+        const l = scelto();
+        const link = $("gb-link") as HTMLInputElement | null;
+        if (l && link) { link.value = l.linkGenerato; aggiornaSalva(); }
+      });
+
+      const salva = $("gb-salva") as HTMLButtonElement | null;
+      salva?.addEventListener("click", () => blocca(salva, async () => {
+        const corpo = daSalvare();
+        if (!Object.keys(corpo).length) return;
+        const e = await chiama("PUT", { livello, ...corpo }, tr("itg.st.saved"));
+        if (e?.ok && e.generato) mostraEsito("ok", tr("itg.gb.savedGen"));
+      }));
+
+      // La scheda: si sceglie con la stessa API della scheda della sede.
+      const urlSchede = () => "/api/admin/google/locations" + (livello !== "marchio" ? `?sede=${encodeURIComponent(livello)}` : "");
+      $("gb-controlli")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>("[data-azione]");
+        if (!b) return;
+        if (b.dataset.azione === "sync") {
+          void blocca(b, async () => { await chiama("POST", { livello, azione: "sync" }, tr("itg.gb.synced")); });
+          return;
+        }
+        void blocca(b, async () => {
+          const box = $("gb-schede");
+          if (!box) return;
+          try {
+            const res = await fetch(urlSchede(), { headers: await authFresh() });
+            const j = await res.json();
+            if (j.error) { mostraEsito("no", String(j.error)); return; }
+            const schede = (j.sedi ?? []) as { path: string; title: string; address: string }[];
+            const cur = j.current?.path ?? "";
+            if (!schede.length) { mostraEsito("parz", tr("itg.gb.noListings")); return; }
+            box.innerHTML = schede.map((sd) => `<button type="button" class="btn gb-scheda${sd.path === cur ? " is-on" : ""}" data-path="${esc(sd.path)}" data-title="${esc(sd.title)}">${esc(sd.title || sd.path)}${sd.address ? ` — <span class="note">${esc(sd.address)}</span>` : ""}</button>`).join("");
+          } catch { mostraEsito("no", tr("err.network")); }
+        });
+      });
+      $("gb-schede")?.addEventListener("click", (ev) => {
+        const b = (ev.target as HTMLElement).closest<HTMLButtonElement>(".gb-scheda");
+        if (!b) return;
+        const su = livello;
+        void blocca(b, async () => {
+          try {
+            const res = await fetch("/api/admin/google/locations", {
+              method: "POST", headers: await authFresh(),
+              body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "", ...(su !== "marchio" ? { sede: su } : {}) }),
+            });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok) { mostraEsito("no", String(j.error ?? tr("err.network"))); return; }
+            const box = $("gb-schede"); if (box) box.innerHTML = "";
+            mostraEsito(j.reviewError ? "parz" : "ok", j.reviewError ? String(j.reviewError) : tr("itg.gb.listingSaved"));
+            await carica();
+          } catch { mostraEsito("no", tr("err.network")); }
+        });
+      });
+
+      void carica();
+    </script>
+    <!-- ===== INTÉGRATIONS → SEARCH CONSOLE (5/11/2026) =====
+         Il robot da aggiungere, la proprieta' (provata SENZA salvare), e se
+         i dati arrivano davvero. -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
+      import { esc } from "../../lib/esc";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Config = { site: string; ready: boolean; robot: string; suggerito: string };
+      type Vis = { configured: boolean; clicks: number; impressions: number; position: number; periode: string; error?: string };
+
+      const lingua = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(lingua);
+      const $ = (id: string) => document.getElementById(id);
+      const overlay = $("sc-overlay");
+      let cfg: Config | null = null;
+      /** I dati della proprieta' SALVATA (null = non chiesti o niente da chiedere). */
+      let vis: Vis | null = null;
+      let occupato = false;
+
+      /** Il segno: rosso senza chiave o senza proprieta', arancio se Google rifiuta. */
+      function livello(): Livello {
+        if (!cfg || !cfg.ready || !cfg.site) return "no";
+        if (!vis) return "ignoto";
+        return vis.configured && !vis.error ? "ok" : "parz";
+      }
+
+      function renderCasella() {
+        const segno = $("sc-segno");
+        const pill = $("sc-pill");
+        if (!segno || !pill) return;
+        if (!cfg) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const l = livello();
+        segno.className = `itg-segno is-${l}`;
+        segno.innerHTML = l === "ignoto" ? "" : SEGNO[l];
+        pill.className = `itg-pill is-${l === "ignoto" ? "parz" : l}`;
+        pill.textContent = !cfg.ready ? tr("itg.sc.noKey") : !cfg.site ? tr("itg.sc.off") : l === "ok" ? tr("itg.sc.active") : l === "ignoto" ? tr("itg.sb.checking") : tr("itg.sc.refused");
+      }
+
+      function riga(lv: Livello, titolo: string, dettaglio: string): string {
+        return `<li><span class="sb-ic is-${lv}">${SEGNO[lv]}</span><div><p class="sb-t">${esc(titolo)}</p><p class="sb-d">${dettaglio}</p></div><span></span></li>`;
+      }
+
+      function renderModale() {
+        if (!cfg) return;
+        const robot = $("sc-robot") as HTMLInputElement | null;
+        if (robot) robot.value = cfg.robot;
+        const sito = $("sc-site") as HTMLInputElement | null;
+        if (sito && document.activeElement !== sito && !sito.dataset.toccato) {
+          // Vuoto: si propone la proprieta' dominio del sito, da verificare e salvare.
+          sito.value = cfg.site || cfg.suggerito;
+        }
+        const l = livello();
+        const controlli = $("sc-controlli");
+        if (controlli) controlli.innerHTML = [
+          riga(cfg.ready ? "ok" : "no", tr("itg.sc.chkKey"), esc(cfg.ready ? tr("itg.sc.chkKeyOk") : tr("itg.sc.noServerKey"))),
+          riga(!cfg.site ? "no" : l, tr("itg.sc.chkSite"),
+            !cfg.site ? esc(tr("itg.sc.chkSiteNone"))
+            : l === "ok" ? `<b>${esc(cfg.site)}</b>`
+            : l === "ignoto" ? esc(tr("itg.sb.checking"))
+            : `<b>${esc(cfg.site)}</b> · ${esc(vis?.error || tr("itg.sc.notFound"))}`),
+        ].join("");
+        const dati = $("sc-dati");
+        if (dati) {
+          dati.hidden = !(vis?.configured && !vis.error);
+          if (!dati.hidden && vis) {
+            const n = (x: number) => x.toLocaleString(lingua);
+            dati.innerHTML = [
+              [n(vis.clicks), tr("itg.sc.clicks")],
+              [n(vis.impressions), tr("itg.sc.impressions")],
+              [vis.position ? vis.position.toLocaleString(lingua, { maximumFractionDigits: 1 }) : "—", tr("itg.sc.position")],
+            ].map(([v, k]) => `<div class="sc-dato"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("");
+          }
+        }
+        aggiornaSalva();
+      }
+
+      function aggiornaSalva() {
+        const b = $("sc-save") as HTMLButtonElement | null;
+        const v = ($("sc-site") as HTMLInputElement | null)?.value.trim() ?? "";
+        if (b) b.disabled = occupato || !cfg || v === cfg.site;
+      }
+
+      function mostraEsito(lv: "ok" | "parz" | "no" | "", testo = "") {
+        esito("sc-esito", lv, testo);
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/integrations", { headers: await authFresh() });
+          const j = res.ok ? await res.json() : null;
+          cfg = j?.search_console ? { suggerito: "", ...j.search_console } as Config : null;
+        } catch { cfg = null; }
+        vis = null;
+        renderCasella();
+        renderModale();
+        // I dati della proprieta' salvata: e' cosi' che si sa se il robot e' stato aggiunto.
+        if (cfg?.ready && cfg.site) {
+          try {
+            const res = await fetch("/api/admin/search-console", { headers: await authFresh() });
+            vis = res.ok ? ((await res.json()) as Vis) : { configured: false, clicks: 0, impressions: 0, position: 0, periode: "", error: tr("err.network") };
+          } catch { vis = { configured: false, clicks: 0, impressions: 0, position: 0, periode: "", error: tr("err.network") }; }
+          renderCasella();
+          renderModale();
+        }
+      }
+
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          aggiornaSalva();
+        }
+      }
+
+      $("sc-tile")?.addEventListener("click", () => {
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        const sito = $("sc-site") as HTMLInputElement | null;
+        if (sito) delete sito.dataset.toccato;
+        const res = $("sc-res"); if (res) res.textContent = tr("itg.sc.note");
+        void carica();
+      });
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+      $("sc-site")?.addEventListener("input", (ev) => { (ev.target as HTMLInputElement).dataset.toccato = "1"; aggiornaSalva(); });
+
+      const scCopy = $("sc-copy") as HTMLButtonElement | null;
+      scCopy?.addEventListener("click", async () => {
+        const robot = $("sc-robot") as HTMLInputElement | null;
+        if (!robot?.value) return;
+        try { await navigator.clipboard.writeText(robot.value); mostraEsito("ok", tr("itg.sc.emailCopied")); }
+        catch { robot.select(); }
+      });
+
+      const scTest = $("sc-test") as HTMLButtonElement | null;
+      scTest?.addEventListener("click", () => blocca(scTest, async () => {
+        const res = $("sc-res");
+        const site = ($("sc-site") as HTMLInputElement | null)?.value.trim() ?? "";
+        if (!res) return;
+        if (!site) { res.textContent = tr("itg.sc.needSite"); return; }
+        res.textContent = tr("common.verifying");
+        try {
+          // ⚠️ PROVA e basta: la proprieta' viaggia nell'indirizzo e non si
+          // scrive niente. A salvare ci pensa «Enregistrer».
+          const r = await fetch(`/api/admin/search-console?site=${encodeURIComponent(site)}`, { headers: await authFresh() });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) { res.textContent = String(j.error ?? tr("err.network")); return; }
+          if (j.error) { res.textContent = String(j.error); return; }
+          if (!j.configured) { res.textContent = tr("itg.sc.notFound"); return; }
+          res.textContent = `OK ✓ ${j.clicks} ${tr("itg.sc.okStats").replace("{imp}", String(j.impressions ?? 0))}${site !== cfg?.site ? ` ${tr("itg.sc.okNotSaved")}` : ""}`;
+        } catch {
+          res.textContent = tr("err.network");
+        }
+      }));
+
+      const scSave = $("sc-save") as HTMLButtonElement | null;
+      scSave?.addEventListener("click", () => blocca(scSave, async () => {
+        const site = ($("sc-site") as HTMLInputElement | null)?.value.trim() ?? "";
+        try {
+          const res = await fetch("/api/admin/integrations", { method: "PUT", headers: await authFresh(), body: JSON.stringify({ gsc_site: site }) });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) { mostraEsito("no", String(j.error ?? tr("common.saveErr"))); return; }
+          mostraEsito("ok", tr("itg.sc.saved"));
+          const sito = $("sc-site") as HTMLInputElement | null;
+          if (sito) delete sito.dataset.toccato;
+          await carica();
+        } catch {
+          mostraEsito("no", tr("err.network"));
+        }
+      }));
+
+      void carica();
+    </script>
+    <!-- ===== INTÉGRATIONS → NEWSLETTER (5/11/2026) =====
+         La quota inclusa, il consumo del mese, e tutto quello che decide se
+         una newsletter puo' partire. -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { SEGNO, esito } from "../../lib/admin/casellaUi";
+      import { esc } from "../../lib/esc";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      type Livello = "ok" | "parz" | "no" | "ignoto";
+      type Stato = {
+        quota: { sent_this_month: number; free_remaining: number; purchased_total: number; purchased_balance: number; total_remaining: number; monthly_quota: number } | null;
+        resend: boolean;
+        mittente: { valore: string; dominio: string; stato: "verificato" | "attesa" | "assente" | "ignoto" };
+        ultimo: { subject: string; count: number; il: string } | null;
+        programmati: number;
+        casella: { livello: "ok" | "parz" | "no" };
+      };
+
+      const lingua = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(lingua);
+      const $ = (id: string) => document.getElementById(id);
+      const overlay = $("nl-overlay");
+      let stato: Stato | null = null;
+      let occupato = false;
+      const n = (x: number) => x.toLocaleString(lingua);
+
+      function renderCasella() {
+        const segno = $("nl-segno");
+        const pill = $("nl-pill");
+        if (!segno || !pill) return;
+        if (!stato) { segno.className = "itg-segno is-no"; segno.innerHTML = SEGNO.no; pill.className = "itg-pill is-no"; pill.textContent = tr("itg.sb.down"); return; }
+        const l = stato.casella.livello;
+        const q = stato.quota;
+        segno.className = `itg-segno is-${l}`;
+        segno.innerHTML = SEGNO[l];
+        pill.className = `itg-pill is-${l}`;
+        pill.textContent = !stato.resend ? tr("itg.nl.noResend")
+          : q ? tr("itg.nl.pillLeft").replace("{n}", n(q.total_remaining)) : tr("itg.sb.down");
+      }
+
+      function riga(lv: Livello, titolo: string, dettaglio: string): string {
+        return `<li><span class="sb-ic is-${lv}">${SEGNO[lv]}</span><div><p class="sb-t">${esc(titolo)}</p><p class="sb-d">${dettaglio}</p></div><span></span></li>`;
+      }
+
+      function renderModale() {
+        if (!stato) return;
+        const s = stato;
+        const q = s.quota;
+        const quota = $("nl-quota") as HTMLInputElement | null;
+        if (quota && document.activeElement !== quota && q) quota.value = String(q.monthly_quota);
+        // La barra: inviate su incluse.
+        const barra = $("nl-barra");
+        if (barra && q) {
+          const pct = q.monthly_quota > 0 ? Math.min(100, Math.round((q.sent_this_month / q.monthly_quota) * 100)) : 100;
+          barra.className = `nl-barra${pct >= 100 ? " is-no" : pct >= 80 ? " is-parz" : ""}`;
+          const dentro = barra.firstElementChild as HTMLElement | null;
+          if (dentro) dentro.style.width = `${pct}%`;
+        }
+        const numeri = $("nl-numeri");
+        if (numeri && q) numeri.innerHTML = `<span>${tr("itg.nl.sentOf").replace("{a}", `<b>${esc(n(q.sent_this_month))}</b>`).replace("{t}", `<b>${esc(n(q.monthly_quota))}</b>`)}</span><span>${esc(tr("itg.nl.freeLeft").replace("{n}", n(q.free_remaining)))}</span>`;
+        const dati = $("nl-dati");
+        if (dati && q) dati.innerHTML = [
+          [n(q.purchased_total), tr("itg.nl.bought")],
+          [n(q.purchased_balance), tr("itg.nl.creditsLeft")],
+          [n(q.total_remaining), tr("itg.nl.canSend")],
+        ].map(([v, k]) => `<div class="sc-dato"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join("");
+
+        const m = s.mittente;
+        const lvM: Livello = !m.valore ? "no" : m.stato === "verificato" ? "ok" : m.stato === "assente" ? "no" : m.stato === "attesa" ? "parz" : "ignoto";
+        const dM = !m.valore ? esc(tr("itg.nl.noSender"))
+          : `<b>${esc(m.valore)}</b> · ${esc(m.stato === "verificato" ? tr("itg.rs.domOk") : m.stato === "attesa" ? tr("itg.rs.domWait") : m.stato === "assente" ? tr("itg.rs.domMissing") : tr("itg.rs.domUnknown")).replace("{d}", esc(m.dominio))}`;
+        const u = s.ultimo;
+        const quando = u?.il ? new Date(u.il).toLocaleString(ADMIN_LOCALE[lingua] ?? "fr-BE", { dateStyle: "short", timeStyle: "short" }) : "";
+        const controlli = $("nl-controlli");
+        if (controlli) controlli.innerHTML = [
+          riga(s.resend ? "ok" : "no", "Resend", esc(s.resend ? tr("itg.nl.resendOk") : tr("itg.nl.resendKo"))),
+          riga(lvM, tr("itg.nl.sender"), dM),
+          riga(u ? "ok" : "ignoto", tr("itg.nl.last"), u ? `<b>${esc(u.subject)}</b> · ${esc(quando)} · ${esc(tr("itg.nl.toN").replace("{n}", n(u.count)))}` : esc(tr("itg.nl.never"))),
+          riga(s.programmati ? "ok" : "ignoto", tr("itg.nl.scheduled"), esc(s.programmati ? tr("itg.nl.scheduledN").replace("{n}", String(s.programmati)) : tr("itg.nl.scheduledNone"))),
+        ].join("");
+        aggiornaSalva();
+      }
+
+      function aggiornaSalva() {
+        const b = $("nl-save") as HTMLButtonElement | null;
+        const v = ($("nl-quota") as HTMLInputElement | null)?.value.trim() ?? "";
+        if (b) b.disabled = occupato || !stato?.quota || v === "" || Number(v) === stato.quota.monthly_quota;
+      }
+
+      function mostraEsito(lv: "ok" | "parz" | "no" | "", testo = "") {
+        esito("nl-esito", lv, testo);
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/newsletter-casella", { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+        } catch { stato = null; }
+        renderCasella();
+        renderModale();
+      }
+
+      async function blocca(bottone: HTMLButtonElement | null, fai: () => Promise<void>): Promise<void> {
+        if (occupato || !bottone) return;
+        occupato = true;
+        try { await conAttesa(bottone, fai); } finally {
+          occupato = false;
+          aggiornaSalva();
+        }
+      }
+
+      $("nl-tile")?.addEventListener("click", () => {
+        if (overlay) overlay.hidden = false;
+        mostraEsito("");
+        void carica();
+      });
+      overlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (overlay && !occupato) overlay.hidden = true; }));
+      $("nl-quota")?.addEventListener("input", aggiornaSalva);
+
+      const nlSave = $("nl-save") as HTMLButtonElement | null;
+      nlSave?.addEventListener("click", () => blocca(nlSave, async () => {
+        const v = Math.floor(Number(($("nl-quota") as HTMLInputElement | null)?.value));
+        if (!Number.isFinite(v) || v < 0) { mostraEsito("no", tr("itg.nl.invalid")); return; }
+        try {
+          const res = await fetch("/api/admin/integrations", { method: "PUT", headers: await authFresh(), body: JSON.stringify({ newsletter_quota: v }) });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok) { mostraEsito("no", String(j.error ?? tr("common.saveErr"))); return; }
+          mostraEsito("ok", tr("itg.nl.saved"));
+          await carica();
+        } catch {
+          mostraEsito("no", tr("err.network"));
+        }
+      }));
+
+      void carica();
     </script>
   </body>
 </html>

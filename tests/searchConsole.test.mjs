@@ -50,7 +50,9 @@ test("provare non scrive niente", () => {
   // passato da `conAttesa`, e questo ritaglio ha continuato a leggere per
   // altre trecento righe, trovandoci dentro roba di altri. Il corpo sta a
   // dieci spazi o piu'; la prima riga che torna a otto e' la sua chiusura.
-  const fine = sup.slice(i).search(/\n {8}\}/);
+  // Dal 5/11/2026 l'handler sta nello script della casella, a sei spazi:
+  // si cerca la chiusura `}));` a sei o otto.
+  const fine = sup.slice(i).search(/\n {6,8}\}\)\);/);
   const handler = sup.slice(i, i + fine);
   assert.doesNotMatch(
     handler,
@@ -71,4 +73,17 @@ test("la prova e' del super, la tile della visibilita' di tutto lo staff", () =>
   assert.match(ramo, /isSuperUser\(staff\)/, "chiunque potrebbe provare proprieta' altrui");
   // La lettura normale resta aperta allo staff: la usa la tile dell'Accueil.
   assert.match(api, /const staff = await verificaStaff\(request\);\n  if \(!staff\) return nonAutorizzato\(\);/);
+});
+
+test("la casella propone la proprieta' dominio del sito, mai localhost", async () => {
+  const { proprietaSuggerita } = await import("../src/lib/searchConsole.ts");
+  assert.equal(proprietaSuggerita("https://www.villa77.be"), "sc-domain:villa77.be");
+  assert.equal(proprietaSuggerita("https://restaurantregina.be/"), "sc-domain:restaurantregina.be");
+  assert.equal(proprietaSuggerita("http://localhost:4321"), "");
+  assert.equal(proprietaSuggerita("https://regina.test"), "");
+  assert.equal(proprietaSuggerita(""), "");
+  // La proposta e' una proposta: il campo si riempie, ma si salva solo con «Enregistrer».
+  const sup = leggi("src/pages/admin/super.astro");
+  assert.match(sup, /sito\.value = cfg\.site \|\| cfg\.suggerito;/);
+  assert.doesNotMatch(sup, /id="sc-state"/, "la vecchia scheda Search Console e' tornata");
 });

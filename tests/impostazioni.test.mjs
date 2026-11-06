@@ -420,9 +420,14 @@ test("il link recensioni Google sta in Général, non nei Liens", () => {
   // Si scrive dalla scheda della sede in /admin/super, accanto al Place ID:
   // e' l'indirizzo pubblico della stessa scheda Google, ed e' configurazione
   // che si mette una volta, non un campo del ristoratore.
+  // Dal 5/11/2026 si scrive dalla casella Google Business di Intégrations,
+  // pillola della sede (prima: la scheda della sede).
   const sup = readFileSync("src/pages/admin/super.astro", "utf8");
-  assert.ok(sup.includes('id="loc-greview"'), "manca il campo nella modale della sede");
-  assert.ok(sup.includes("review_url:"), "il campo non viene salvato: resterebbe sempre vuoto");
+  assert.ok(sup.includes('id="gb-link"'), "manca il campo nella casella Google");
+  assert.ok(/corpo\.review_url = link/.test(sup), "il campo non viene salvato: resterebbe sempre vuoto");
+  const casella = readFileSync("src/lib/admin/googleCasella.ts", "utf8");
+  assert.match(casella, /const K_LINK = "link_google_review";/);
+  assert.match(casella, /await scriviConfig\(ambito, coppie\)/, "il link va scritto sul LIVELLO scelto");
 
   const api = readFileSync("src/pages/api/admin/locations.ts", "utf8");
   assert.ok(

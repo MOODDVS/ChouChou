@@ -4,7 +4,7 @@ import { json } from "../../../lib/rispostaJson";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
-import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente } from "../../../lib/admin/sede";
+import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente, segretoDelMarchio } from "../../../lib/admin/sede";
 import { controllaPlaceId } from "../../../lib/admin/googleRegole";
 import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
 import { salvaConfigStampa } from "../../../lib/stampaConfig";
@@ -295,10 +295,14 @@ export const GET: APIRoute = async ({ request }) => {
   // diverse, e la prima e' un pagamento che fallira'.
   const ambiente: Record<string, boolean> = {};
   for (const k of CHIAVI_SEGRETE) ambiente[k] = segretoDAmbiente(k) !== "";
+  // Il livello in mezzo (casella Stripe di Intégrations, #95): una sede senza
+  // chiave sua eredita dal MARCHIO prima che dal `.env`. Anche qui solo SE.
+  const marchio: Record<string, boolean> = {};
+  for (const k of CHIAVI_SEGRETE) marchio[k] = !!(await segretoDelMarchio(k).catch(() => null));
 
   return json({
     locations: data ?? [], secrets: impostati, placeIds, reviewUrls, google, propri, storico,
-    cifratura: cifraturaPronta(), ambiente, stampanti,
+    cifratura: cifraturaPronta(), ambiente, marchio, stampanti,
   });
 };
 

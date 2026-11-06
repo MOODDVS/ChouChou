@@ -59,6 +59,22 @@ export function sitoValido(sito: string): boolean {
   return /^sc-domain:[a-z0-9.-]+$/i.test(s) || /^https:\/\//i.test(s);
 }
 
+/**
+ * La proprieta' da proporre quando il campo e' vuoto: la proprieta' DOMINIO
+ * del sito pubblico (`sc-domain:esempio.be`, senza «www.»), che copre tutte
+ * le varianti dell'indirizzo. "" in locale: localhost non e' su Google.
+ */
+export function proprietaSuggerita(sitoPubblico: unknown): string {
+  try {
+    const u = new URL(String(sitoPubblico ?? ""));
+    const host = u.hostname.toLowerCase().replace(/^www\./, "");
+    if (u.protocol !== "https:" || !host.includes(".") || /^(localhost|127\.)/.test(host) || /\.(localhost|test)$/.test(host)) return "";
+    return `sc-domain:${host}`;
+  } catch {
+    return "";
+  }
+}
+
 const b64url = (b: Buffer | string) =>
   (Buffer.isBuffer(b) ? b : Buffer.from(b)).toString("base64url");
 

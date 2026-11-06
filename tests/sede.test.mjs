@@ -1007,6 +1007,8 @@ test("un ordine non si crea nell'aggregato, e nasce sempre con la sua sede", () 
 
    Devono essere pochi, dichiarati, e con il perche' scritto accanto. */
 const AMMESSI_AGGREGATO = {
+    "src/lib/admin/supabaseStato.ts":
+      "Intégrations → Supabase chiede se il DATABASE ha le tabelle del motore: e' una domanda sul progetto, non su un punto",
     "src/pages/api/stripe-webhook.ts":
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":
@@ -1191,6 +1193,9 @@ const SCAVALCANO = {
     "`relevePunto`, che ha i suoi test",
   "src/pages/api/admin/locations.ts":
     "e' il pannello che amministra le sedi: guardarle tutte e' il suo mestiere",
+  "src/lib/admin/stripeStato.ts":
+    "Intégrations → Stripe scrive i segreti di una sede scelta nel modale (non quella dell'header), " +
+    "come il pannello delle sedi: il livello arriva dal corpo e si verifica contro l'elenco",
   "src/pages/api/admin/push.ts":
     "onConflict su `endpoint` da solo: e' unico al mondo e non esiste un indice a due colonne",
 };

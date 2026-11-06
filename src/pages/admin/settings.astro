@@ -73,6 +73,8 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       /* I tab grandi: styles/tabs.css (.rh-tabs). */
       /* Fuori dal tab Horaire il contenuto sta su una colonna contenuta */
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
+      .o-conto-riga { display: flex; gap: 0.5rem; align-items: center; flex: 1; min-width: 0; }
+      .o-conto-riga select { flex: 1; min-width: 0; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
       #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"], #content[data-tab="notifications"], #content[data-tab="documents"] { max-width: none; }
@@ -1626,6 +1628,17 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
               <div class="field">
                 <label>{t("set.ord.payOnline")}<span class="lab-hint">{t("set.ord.payOnlineHint")}</span><span class="lab-hint" id="o-stripe-off" style="display:none">{t("set.ord.stripeOff")}</span></label>
                 <label class="switch"><input type="checkbox" id="o-pay-online" /><span class="track"></span></label>
+              </div>
+              {/* «Encaisser sur» (5/11/2026): compare solo con DUE conti Stripe
+                  pronti o piu' (super admin → Intégrations → Stripe). Si
+                  applica col bottone, non al cambio della tendina: e' la
+                  conferma. Solo l'admin (l'API e' della pagina Réglages). */}
+              <div class="field" id="o-conto-field" hidden>
+                <label for="o-conto">{t("set.ord.account")}<span class="lab-hint">{t("set.ord.accountHint")}</span><span class="lab-hint" id="o-conto-chi"></span></label>
+                <div class="o-conto-riga">
+                  <select id="o-conto"></select>
+                  <button type="button" class="btn" id="o-conto-ok" disabled>{t("set.ord.accountApply")}</button>
+                </div>
               </div>
               <div class="field">
                 <label>{t("set.ord.payOnsite")}<span class="lab-hint">{t("set.ord.payOnsiteHint")}</span></label>
@@ -6529,5 +6542,74 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
     if (t instanceof HTMLInputElement && t.dataset.noauto === "1") t.readOnly = true;
   });
 </script>
+
+    <!-- «Encaisser sur»: su quale conto Stripe si incassa (5/11/2026). -->
+    <script>
+      import { authFresh } from "../../lib/admin/auth";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      type Conto = { id: string; nome: string; pronto: boolean; modo: "live" | "test" | ""; principale: boolean };
+      type Stato = { tutte: boolean; conti: Conto[]; attivo: string; cambio: { da: string; il: string } | null };
+
+      const lingua = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(lingua);
+      const campo = document.getElementById("o-conto-field");
+      const scelta = document.getElementById("o-conto") as HTMLSelectElement | null;
+      const ok = document.getElementById("o-conto-ok") as HTMLButtonElement | null;
+      const chi = document.getElementById("o-conto-chi");
+      let stato: Stato | null = null;
+
+      const etichetta = (c: Conto) =>
+        (c.nome || (c.principale ? tr("set.ord.accountMain") : "—"))
+        + (c.modo === "test" ? " · TEST" : "")
+        + (c.pronto ? "" : ` · ${tr("set.ord.accountOff")}`);
+
+      function disegna(nota = "") {
+        if (!campo || !scelta || !ok || !chi) return;
+        const s = stato;
+        // Solo con almeno due conti pronti: con uno solo non c'e' niente da scegliere.
+        const pronti = s?.conti.filter((c) => c.pronto).length ?? 0;
+        campo.hidden = !s || s.tutte || pronti < 2;
+        if (campo.hidden || !s) return;
+        scelta.innerHTML = "";
+        for (const c of s.conti) {
+          const o = document.createElement("option");
+          o.value = c.id;
+          o.textContent = etichetta(c);
+          o.disabled = !c.pronto;
+          o.selected = c.id === s.attivo;
+          scelta.append(o);
+        }
+        ok.disabled = scelta.value === s.attivo;
+        const quando = s.cambio?.il ? new Date(s.cambio.il).toLocaleString(ADMIN_LOCALE[lingua] ?? "fr-BE", { dateStyle: "short", timeStyle: "short" }) : "";
+        chi.textContent = nota || (s.cambio ? tr("set.ord.accountBy").replace("{e}", s.cambio.da || "—").replace("{d}", quando) : "");
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/stripe-conto", { headers: await authFresh() });
+          stato = res.ok ? ((await res.json()) as Stato) : null;
+        } catch { stato = null; }
+        disegna();
+      }
+
+      scelta?.addEventListener("change", () => { if (ok && stato) ok.disabled = scelta.value === stato.attivo; });
+      ok?.addEventListener("click", () => conAttesa(ok, async () => {
+        if (!scelta) return;
+        try {
+          const res = await fetch("/api/admin/stripe-conto", { method: "PUT", headers: await authFresh(), body: JSON.stringify({ conto: scelta.value }) });
+          const j = await res.json().catch(() => null);
+          if (!res.ok) { disegna(String(j?.error ?? tr("err.network"))); return; }
+          stato = j as Stato;
+          const attivo = stato.conti.find((c) => c.id === stato?.attivo);
+          disegna(tr("set.ord.accountDone").replace("{n}", attivo ? etichetta(attivo) : ""));
+        } catch {
+          disegna(tr("err.network"));
+        }
+      }));
+
+      void carica();
+    </script>
   </body>
 </html>

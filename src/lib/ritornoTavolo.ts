@@ -14,7 +14,7 @@
  * secondo non fa niente.
  */
 import { leggi, tutteLeSedi, ambitoDiRiga, pagamentoOnlineAttivo } from "./admin/sede";
-import { stripeDi } from "./stripe";
+import { stripePerSessione } from "./stripe";
 import { confermaOrdinePagato } from "./confermaOrdine";
 import { idSessioneStripe } from "./esitoTavoloRegole";
 
@@ -61,7 +61,7 @@ export async function ordineDelRitorno(token: string, sessionId: string): Promis
   try {
     const suo = ambitoDiRiga(ordine.location_id);
     if (!(await pagamentoOnlineAttivo(suo))) return ordine;
-    const sess = await (await stripeDi(suo)).checkout.sessions.retrieve(sid);
+    const { sessione: sess } = await stripePerSessione(suo, sid);
     if (sess.payment_status !== "paid") return ordine;
     await confermaOrdinePagato({ orderId: ordine.id, ambito: suo, sessionId: sid });
     return (await rileggi(t)) ?? ordine;

@@ -369,7 +369,8 @@ test("le chiavi della stampa sono classificate: se no la scrittura esplode", () 
   const sup = leggi("src/pages/admin/super.astro");
   assert.match(
     sup,
-    /await patchSede\(\{\s*\n?\s*id,\s*\n?\s*printer_id:/,
+    // Dal 5/11/2026 la stampa di una sede si salva dalla casella Imprimantes.
+    /await patchSede\(\{ id: livelloStampa, \.\.\.corpo \}\)/,
     "il salvataggio della stampante non passa piu' da patchSede: tornerebbe una scrittura di cui nessuno legge l'esito",
   );
   assert.match(sup, /if \(!r\.ok\) throw new Error/, "patchSede non lancia piu' su errore");
@@ -607,7 +608,10 @@ test("una lettura che non riesce lo dice, invece di far sparire le cose", () => 
     "la riga di destinazione non distingue piu' «nessuna categoria» da «non sono arrivate»",
   );
 
-  const inst = sup.slice(sup.indexOf("async function caricaStampaInstallazione"));
+  // Dal 5/11/2026 la configurazione del marchio arriva con l'elenco delle
+  // stampanti (`chiediStampanti`, casella Imprimantes): e' li' che l'esito
+  // si deve guardare.
+  const inst = sup.slice(sup.indexOf("async function chiediStampanti"));
   assert.match(
     inst.slice(0, inst.indexOf("\n        }")),
     /if \(!r\.ok\)/,
@@ -727,4 +731,34 @@ test("il biglietto d'annullo: porta i piatti tolti, firmato, scade, e non e' una
   const lungo = firmaAnnullo({ sede: "", tavolo: "T1", chi: "Mario", righe: molte }, S, t0);
   assert.ok(lungo.length <= 2000, `la rotta accetta fino a 2000 segni (${lungo.length})`);
   assert.equal(leggiAnnullo(lungo, S, t0).righe.length, MAX_RIGHE_ANNULLO);
+});
+
+test("la casella Imprimantes: una sola, coi livelli, e la scheda della sede non sceglie piu' la stampante", () => {
+  const sup = leggi("src/pages/admin/super.astro");
+  // Un pannello solo: la scheda «Impression» di Intégrations e i campi della
+  // sede sono diventati la casella (5/11/2026).
+  assert.doesNotMatch(sup, /id="loc-printer"|id="loc-dest"|id="loc-print-auto"/);
+  assert.equal((sup.match(/id="itg-printer"/g) ?? []).length, 1);
+  assert.match(sup, /id="im-tile"/);
+  assert.match(sup, /src="\/restohub\/integrazioni\/bizprint\.webp"/);
+  // La prova parte per la PILLOLA aperta, non per la sede dell'header.
+  assert.match(sup, /legaProva\("itg-print-test", "itg-printer", "itg-print-res", \(\) => \(livelloStampa === "marchio" \? "" : livelloStampa\)\);/);
+  assert.match(sup, /new CustomEvent\("apri-stampa"/);
+});
+
+test("le chiavi BizPrint si scrivono nella casella, cifrate, e il .env resta il ripiego", () => {
+  const lib = leggi("src/lib/bizprint.ts");
+  // Una COPPIA alla volta: public della casella + secret del .env = firma che non torna.
+  assert.match(lib, /if \(pub && sec\) return \{ pub, sec, fonte: "casella"/);
+  assert.match(lib, /const env = chiaviDAmbiente\(\);\n\s*if \(env\.pub && env\.sec\) return \{ \.\.\.env, fonte: "env"/);
+  const api = leggi("src/pages/api/admin/bizprint-chiavi.ts");
+  for (const m of ["GET", "PUT", "POST", "DELETE"]) {
+    const corpo = api.split(`export const ${m}`)[1]?.split("export const")[0] ?? "";
+    assert.match(corpo, /isSuperUser\(staff\)/, `${m} senza controllo super`);
+  }
+  const scrivi = api.split("async function scrivi")[1].split("\n}\n")[0];
+  assert.ok(scrivi.indexOf("cifraturaPronta()") < scrivi.indexOf("cifra(v)"), "si scrive senza poter cifrare");
+  // Fuori escono solo le ultime quattro lettere.
+  assert.match(api, /mascherata: maschera\(uso\.pub\)/);
+  assert.doesNotMatch(api, /pub: uso\.pub|sec: uso\.sec/);
 });

@@ -11,6 +11,9 @@
  * compresi. Firmare solo i campi nostri da' 401 senza spiegazioni.
  */
 import { createHash } from "node:crypto";
+import { supabaseAdmin } from "./db";
+import { cacheOr, cacheDel } from "./cache";
+import { decifra } from "./segreti";
 
 const BASE = "https://print.bizswoop.app/api/connect-application/v1";
 
@@ -18,7 +21,8 @@ const BASE = "https://print.bizswoop.app/api/connect-application/v1";
  *  `import.meta.env.X` guardando il testo, e `import.meta.env[nome]` non lo
  *  sostituisce affatto — sarebbe `undefined` nel build, cioe' una stampa che
  *  funziona in sviluppo e non in produzione. `process.env` fa da rete. */
-function chiavi(): { pub: string; sec: string } {
+/** Le chiavi del `.env`: il RIPIEGO, dal 5/11/2026 (vedi `chiavi()`). */
+export function chiaviDAmbiente(): { pub: string; sec: string } {
   // ⚠️ Via le VIRGOLETTE, non solo gli spazi. Incollando una chiave nel
   // pannello dell'hosting ci si porta dietro le virgolette del .env
   // (`BIZPRINT_SECRET_KEY="abc"`), e restano DENTRO il valore. La chiave
@@ -33,6 +37,52 @@ function chiavi(): { pub: string; sec: string } {
   };
 }
 
+/** Le chiavi della casella Imprimantes di Intégrations, in `brand_secrets` (#95). */
+export const K_BIZPRINT_PUB = "bizprint_public_key";
+export const K_BIZPRINT_SEC = "bizprint_secret_key";
+const CACHE_BIZ = "bizprint:chiavi";
+
+export type FonteBiz = "casella" | "env" | "nessuna";
+
+/**
+ * LE CHIAVI DA USARE (5/11/2026): quelle scritte nella casella Imprimantes
+ * (cifrate nel database), altrimenti quelle del `.env`. Una coppia alla
+ * volta: una public della casella con una secret del `.env` sarebbe una
+ * firma che non torna mai, e un 401 che manda a cercare la chiave sbagliata.
+ * Cache 60 s, buttata da `dimenticaChiaviBizprint()` quando si scrive.
+ */
+export async function chiaviBizprint(): Promise<{ pub: string; sec: string; fonte: FonteBiz }> {
+  return cacheOr(CACHE_BIZ, async () => {
+    let pub = "";
+    let sec = "";
+    try {
+      const { data, error } = await supabaseAdmin.from("brand_secrets").select("key, value").in("key", [K_BIZPRINT_PUB, K_BIZPRINT_SEC]);
+      if (!error) {
+        for (const r of data ?? []) {
+          const v = decifra(String((r as { value?: unknown }).value ?? "")).trim();
+          if (r.key === K_BIZPRINT_PUB) pub = v;
+          if (r.key === K_BIZPRINT_SEC) sec = v;
+        }
+      }
+    } catch {
+      /* #95 non lanciata: vale il .env */
+    }
+    if (pub && sec) return { pub, sec, fonte: "casella" as FonteBiz };
+    const env = chiaviDAmbiente();
+    if (env.pub && env.sec) return { ...env, fonte: "env" as FonteBiz };
+    return { pub: "", sec: "", fonte: "nessuna" as FonteBiz };
+  });
+}
+
+export function dimenticaChiaviBizprint(): void {
+  cacheDel(CACHE_BIZ);
+}
+
+async function chiavi(): Promise<{ pub: string; sec: string }> {
+  const { pub, sec } = await chiaviBizprint();
+  return { pub, sec };
+}
+
 /**
  * Perche' il servizio ha detto 401 — senza far uscire le chiavi.
  *
@@ -42,14 +92,14 @@ function chiavi(): { pub: string; sec: string } {
  * dire che quella variabile non c'e', due caratteri di troppo vuol dire
  * virgolette, e due lunghezze scambiate fra loro vuol dire chiavi invertite.
  */
-function perche401(): string {
-  const { pub, sec } = chiavi();
+async function perche401(): Promise<string> {
+  const { pub, sec } = await chiavi();
   return `chiavi rifiutate (public ${pub.length} caratteri, secret ${sec.length}). Controlla che non siano invertite e che non abbiano virgolette intorno.`;
 }
 
 /** Questo cliente ha un servizio di stampa configurato? */
-export function stampaConfigurata(): boolean {
-  const { pub, sec } = chiavi();
+export async function stampaConfigurata(): Promise<boolean> {
+  const { pub, sec } = await chiavi();
   return pub !== "" && sec !== "";
 }
 
@@ -66,14 +116,14 @@ export interface Stampante {
  *  ⚠️ Rende solo id, nome, stato e station: la risposta vera contiene anche
  *  le chiavi delle station, e non devono uscire di qui. */
 export async function elencoStampanti(): Promise<{ ok: boolean; stampanti: Stampante[]; errore?: string }> {
-  const { pub, sec } = chiavi();
+  const { pub, sec } = await chiavi();
   if (!pub || !sec) return { ok: false, stampanti: [], errore: "chiavi mancanti" };
   const q = new URLSearchParams({ publicKey: pub, time: String(Math.floor(Date.now() / 1000)) });
   q.set("hash", createHash("sha256").update(`${q.toString()}:${sec}`).digest("hex"));
   try {
     const r = await fetch(`${BASE}/printers?${q}`, { signal: AbortSignal.timeout(10_000) });
     if (!r.ok) {
-      return { ok: false, stampanti: [], errore: r.status === 401 ? `HTTP 401 — ${perche401()}` : `HTTP ${r.status}` };
+      return { ok: false, stampanti: [], errore: r.status === 401 ? `HTTP 401 — ${await perche401()}` : `HTTP ${r.status}` };
     }
     const j = (await r.json()) as { data?: unknown[] };
     const righe = Array.isArray(j?.data) ? j.data : [];
@@ -108,7 +158,7 @@ export async function mandaStampa(
   url: string,
   descrizione: string,
 ): Promise<{ ok: boolean; jobId?: string; errore?: string }> {
-  const { pub, sec } = chiavi();
+  const { pub, sec } = await chiavi();
   if (!pub || !sec) return { ok: false, errore: "chiavi mancanti" };
   if (!Number.isFinite(printerId) || printerId <= 0) return { ok: false, errore: "stampante non indicata" };
   const corpo = { printerId, url, description: descrizione, publicKey: pub, time: Math.floor(Date.now() / 1000) };
@@ -127,7 +177,7 @@ export async function mandaStampa(
       const pulito = testo.replace(/"(secretKey|publicKey|key|token|apiKey|hash)"\s*:\s*"[^"]*"/gi, '"$1":"***"');
       // Stessa spiegazione dell'elenco: un 401 qui non e' una stampante
       // spenta, sono le chiavi rifiutate — e si cerca in due posti diversi.
-      if (r.status === 401) return { ok: false, errore: `HTTP 401 — ${perche401()}` };
+      if (r.status === 401) return { ok: false, errore: `HTTP 401 — ${await perche401()}` };
       return { ok: false, errore: `HTTP ${r.status} ${pulito.slice(0, 200)}` };
     }
     let jobId: string | undefined;

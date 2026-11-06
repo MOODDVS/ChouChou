@@ -3,7 +3,7 @@ import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, type Ambito } from "../../../lib/admin/sede";
 import Stripe from "stripe";
-import { Resend } from "resend";
+import { resendCliente, mittenteResend, contaEmail } from "../../../lib/emailResend";
 import { motivoInvio } from "../../../lib/esitoEmail";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
@@ -24,11 +24,7 @@ const MOODD_STRIPE_SECRET_KEY = import.meta.env.MOODD_STRIPE_SECRET_KEY;
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
 const MOODD_ORDERS_EMAIL = "enquiries@moodd.online";
 
-const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-const RESEND_FROM = ((import.meta.env.RESEND_FROM ?? "") as string).trim().replace(/^["']|["']$/g, "") || undefined;
-
 const moodd = MOODD_STRIPE_SECRET_KEY ? new Stripe(MOODD_STRIPE_SECRET_KEY) : null;
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 
 const euro = (c: number) => (Math.round(c) / 100).toFixed(2).replace(".", ",") + " €";
@@ -60,7 +56,9 @@ function rigaPrint(lab: string, val: string, forte = false): string {
 /** Avvisa MOODD via email che è arrivato un ordine di stampa (best-effort).
  *  Destinatario: MOODD, non il ristoratore — resta in francese di proposito. */
 async function avvisaMoodd(o: { label: string; qty: number; amount_cents: number; buyer?: string | null }): Promise<void> {
-  if (!resend || !RESEND_FROM) return;
+  const resend = await resendCliente();
+  const mittente = await mittenteResend();
+  if (!resend || !mittente) return;
   const accent = "#0e7a5f";
   const wordmark = `${SITE_URL.replace(/\/$/, "")}/restohub/wordmark.png`;
   const html = `
@@ -98,13 +96,14 @@ async function avvisaMoodd(o: { label: string; qty: number; amount_cents: number
     // se non arriva nessuno stampa niente. Il client di Resend non lancia
     // niente quando l'API rifiuta (vedi `lib/esitoEmail.ts`).
     const esito = await resend.emails.send({
-      from: RESEND_FROM,
+      from: mittente,
       to: MOODD_ORDERS_EMAIL,
       subject: `Nouvelle commande Print — ${CLIENT.nome} · ${o.qty}× ${o.label}`,
       html,
     });
     const motivo = motivoInvio(esito);
     if (motivo) console.error("[print-order] notifica MOODD refus\u00e9e par Resend:", motivo);
+    else contaEmail(1);
   } catch (e) {
     console.error("[print-order] notifica MOODD fallita:", e);
   }

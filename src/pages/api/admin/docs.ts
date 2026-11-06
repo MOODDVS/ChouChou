@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
-import { Resend } from "resend";
+import { resendCliente, mittenteResend, contaEmail } from "../../../lib/emailResend";
 import { motivoInvio } from "../../../lib/esitoEmail";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
@@ -11,9 +11,6 @@ import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
 import { sedeDaScrivere, radiceDocs, type Ambito } from "../../../lib/admin/sedeRegole";
 
 import { bucketDocs, linkDocs, spostaNelPrivato } from "../../../lib/admin/bucketDocs";
-const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-const RESEND_FROM = import.meta.env.RESEND_FROM;
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 export const prerender = false;
 
@@ -354,7 +351,9 @@ export const POST: APIRoute = async ({ request }) => {
     if (cat !== "contrat") return json({ error: await msg("err.contractsOnly") }, 400);
     const name = String(body.name ?? "");
     if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
-    if (!resend || !RESEND_FROM) return json({ error: await msg("err.resend") }, 500);
+    const resend = await resendCliente();
+    const mittente = await mittenteResend();
+    if (!resend || !mittente) return json({ error: await msg("err.resend") }, 500);
 
     let meta: Record<string, unknown> | null = null;
     try {
@@ -413,7 +412,7 @@ export const POST: APIRoute = async ({ request }) => {
       // aver disdetto un contratto che e' ancora attivo. Il client di Resend
       // non lancia niente quando l'API rifiuta (vedi `lib/esitoEmail.ts`).
       const esito = await resend.emails.send({
-        from: RESEND_FROM as string,
+        from: mittente,
         to: dest,
         replyTo: dati.email, // la risposta del fornitore arriva al ristorante
         subject: LL.oggetto(societa, name),
@@ -424,6 +423,7 @@ export const POST: APIRoute = async ({ request }) => {
         console.error("[docs] lettre de r\u00e9siliation refus\u00e9e par Resend:", { a: dest, motivo });
         return json({ error: `${await msg("err.send")} : ${motivo}` }, 502);
       }
+      contaEmail(1);
     } catch {
       return json({ error: await msg("err.send") }, 502);
     }

@@ -1,4 +1,5 @@
-import { Resend } from "resend";
+import type { Resend } from "resend";
+import { resendCliente, mittenteResend, contaEmail } from "./emailResend";
 import { motivoInvio } from "./esitoEmail";
 import { DateTime } from "luxon";
 import { datiRistorante } from "./ristorante";
@@ -31,10 +32,9 @@ import { ambitoDiRiga, type Ambito } from "./admin/sede";
 import { appConfigEq, appConfigIn } from "./appConfigCache";
 import { basePubblica } from "./basePubblica";
 
-const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-// RESEND_FROM: si toglie l'eventuale virgolettatura stray dell'.env (es. "Nome <mail>")
-// che Resend rifiuta con 422 "Invalid from field".
-const RESEND_FROM = ((import.meta.env.RESEND_FROM ?? "") as string).trim().replace(/^["']|["']$/g, "") || undefined;
+// La chiave Resend e il mittente di ripiego NON si leggono piu' qui dal
+// `.env`: arrivano da `emailResend.ts` (casella Resend del super admin, poi
+// `.env`), letti al momento dell'invio (5/11/2026).
 const KITCHEN_EMAIL = import.meta.env.KITCHEN_EMAIL;
 const SLACK_WEBHOOK_URL = import.meta.env.SLACK_WEBHOOK_URL;
 const BCC = "enquiries@moodd.online";
@@ -42,8 +42,6 @@ const BCC = "enquiries@moodd.online";
 // URL pubblico del sito (per il logo nell'email cliente).
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
 const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
-
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 /** Le opzioni e l'esito di un invio, come li definisce il client di Resend. */
 type OpzioniEmail = Parameters<Resend["emails"]["send"]>[0];
@@ -72,13 +70,15 @@ type EsitoEmail = Awaited<ReturnType<Resend["emails"]["send"]>>;
  * parte uguale — cambia solo che un fallimento adesso si vede.
  */
 async function spedisci(cosa: string, opzioni: OpzioniEmail): Promise<EsitoEmail> {
+  const resend = await resendCliente();
   if (!resend) {
-    const motivo = "Resend non configuré (RESEND_API_KEY)";
+    const motivo = "Resend non configuré (clé absente : Intégrations → Resend)";
     console.error(`[email] ${cosa}: ${motivo}`);
     return { data: null, error: { message: motivo, name: "application_error", statusCode: null } } as unknown as EsitoEmail;
   }
   const esito = await resend.emails.send(opzioni);
   const motivo = motivoInvio(esito);
+  if (!motivo) contaEmail(1);
   if (motivo) {
     const o = opzioni as { from?: unknown; to?: unknown };
     // Audit 3/11/2026: l'indirizzo del CLIENTE non va nei log, solo il dominio.
@@ -117,7 +117,7 @@ async function ordineFromEmail(ambito: Ambito): Promise<string> {
   } catch {
     /* fallback */
   }
-  return RESEND_FROM ?? "";
+  return await mittenteResend();
 }
 
 /** Dati di un ordine confermato, per comporre le notifiche. */
@@ -671,7 +671,7 @@ async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promis
   const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from) return;
+  if (!(await resendCliente()) || !from) return;
   if (!o.customer_email?.trim()) return; // ordine senza email: niente invio
 
   const t = pick5(TXT_ANN, o.lang);
@@ -888,7 +888,7 @@ async function emailStatoOrdine(
   const ambito = ambitoDiRiga(o.location_id);
   const fuso = await fusoDi(ambito);
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto email di stato ordine");
     return;
   }
@@ -1001,7 +1001,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto email cliente");
     return;
   }
@@ -1223,7 +1223,7 @@ async function emailModificaCliente(
   const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto email modifica");
     return;
   }
@@ -1423,7 +1423,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto email link di pagamento");
     return;
   }
@@ -1521,7 +1521,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
 
   const dest = await kitchenEmail(ambito);
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from || !dest) {
+  if (!(await resendCliente()) || !from || !dest) {
     console.warn("Resend/email ordini non configurati: salto notifica ordine");
     return;
   }
@@ -1640,7 +1640,7 @@ async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
 
   const dest = await kitchenEmail(ambito);
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from || !dest) {
+  if (!(await resendCliente()) || !from || !dest) {
     console.warn("Resend/email ordini non configurati: salto avviso annullo cucina");
     return;
   }
@@ -1821,7 +1821,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from) return;
+  if (!(await resendCliente()) || !from) return;
   if (!o.customer_email?.trim()) return; // niente email: niente richiesta recensione
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
@@ -2022,7 +2022,7 @@ export async function inviaFeedbackCliente(fb: {
 
   const dest = await kitchenEmail(ambito);
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from || !dest) return false;
+  if (!(await resendCliente()) || !from || !dest) return false;
 
   const tema = await temaEmail();
   const dati = await datiRistorante(ambito);
@@ -2135,7 +2135,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   const ambito = ambitoDiRiga(r.location_id);
   const fuso = await fusoDi(ambito);
 
-  if (!resend || !RESEND_FROM) return null;
+  if (!(await resendCliente()) || !(await mittenteResend())) return null;
   const email = r.email.trim();
   if (!email) return null;
   const dati = await datiRistorante(ambito);
@@ -2209,7 +2209,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
 `;
   try {
     const { data } = await spedisci("avis réservation (programmé)", {
-      from: RESEND_FROM,
+      from: await mittenteResend(),
       to: email,
       subject: t.subject(nome),
       bcc: BCC,
@@ -2225,6 +2225,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
 
 /** Annulla un'email recensione programmata (annullamento / no-show). */
 export async function annullaEmailReview(emailId: string): Promise<void> {
+  const resend = await resendCliente();
   if (!resend || !emailId) return;
   try {
     await resend.emails.cancel(emailId);
@@ -2517,7 +2518,7 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
   },
 };
 
-/** Mittente delle email cliente: reservation_from_email (Réglages) o RESEND_FROM. */
+/** Mittente delle email cliente: reservation_from_email (Réglages) o il mittente di ripiego (casella Resend / RESEND_FROM). */
 async function resaFromEmail(ambito: Ambito): Promise<string> {
   try {
     const { data } = await appConfigIn(
@@ -2531,7 +2532,7 @@ async function resaFromEmail(ambito: Ambito): Promise<string> {
   } catch {
     /* fallback */
   }
-  return RESEND_FROM ?? "";
+  return await mittenteResend();
 }
 
 /** Destinatario delle notifiche al ristorante (reservation_notify_email). */
@@ -2676,7 +2677,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto conferma prenotazione");
     return;
   }
@@ -2762,7 +2763,7 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
   const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto rappel prenotazione");
     return false;
   }
@@ -2819,7 +2820,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto demande prenotazione");
     return;
   }
@@ -2889,7 +2890,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
-  if (!resend || !from || !r.email) {
+  if (!(await resendCliente()) || !from || !r.email) {
     console.warn("Resend non configurato: salto email annullamento");
     return;
   }
@@ -2958,7 +2959,7 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
-  if (!resend || !from || !r.email) {
+  if (!(await resendCliente()) || !from || !r.email) {
     console.warn("Resend non configurato: salto email chiusura");
     return;
   }
@@ -3145,7 +3146,7 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
 
   const dest = await resaNotifyEmail(ambito);
   const from = await resaFromEmail(ambito);
-  if (!resend || !from || !dest) {
+  if (!(await resendCliente()) || !from || !dest) {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica ristorante");
     return;
   }
@@ -3201,7 +3202,7 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
 
   const dest = await resaNotifyEmail(ambito);
   const from = await resaFromEmail(ambito);
-  if (!resend || !from || !dest) {
+  if (!(await resendCliente()) || !from || !dest) {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica annullo");
     return;
   }
@@ -3333,7 +3334,7 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
   // ⚠️ I buoni regalo sono del MARCHIO: la riga non ha una sede, quindi il
   // punto lo dice chi manda l'email (dove e' stato creato o riscattato).
 
-  if (!resend || !RESEND_FROM || !dest) {
+  if (!(await resendCliente()) || !(await mittenteResend()) || !dest) {
     console.warn("Resend non configurato: salto l'email du bon cadeau");
     return;
   }
@@ -3414,7 +3415,7 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
 `;
   try {
     await spedisci("bon cadeau (client)", {
-      from: RESEND_FROM,
+      from: await mittenteResend(),
       to: dest,
       bcc: BCC,
       subject: perDest ? L.subjDest(dati.nome, euroCents(bon.initial_cents)) : L.subjOffr(bon.code),
@@ -3464,7 +3465,7 @@ export async function emailBonRistoratore(bon: BonEmail, ambito: Ambito): Promis
   // punto lo dice chi manda l'email (dove e' stato creato o riscattato).
 
   const dest = await emailRistoratore(ambito);
-  if (!resend || !RESEND_FROM || !dest) {
+  if (!(await resendCliente()) || !(await mittenteResend()) || !dest) {
     console.warn("Resend/email ristoratore non configurati: salto notifica bon");
     return;
   }
@@ -3511,7 +3512,7 @@ export async function emailBonRistoratore(bon: BonEmail, ambito: Ambito): Promis
     </table>
 `;
   try {
-    await spedisci("bon cadeau (resto)", { from: RESEND_FROM, to: dest, bcc: BCC, subject: L.subject(bon.code), html: avvolgiTema(html, tema) });
+    await spedisci("bon cadeau (resto)", { from: await mittenteResend(), to: dest, bcc: BCC, subject: L.subject(bon.code), html: avvolgiTema(html, tema) });
   } catch (e) {
     console.error("Errore email bon ristoratore:", e);
   }
@@ -3525,7 +3526,7 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
 
   const dest = await resaNotifyEmail(ambito);
   const from = await resaFromEmail(ambito);
-  if (!resend || !from || !dest) {
+  if (!(await resendCliente()) || !from || !dest) {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica modifica");
     return;
   }
@@ -3676,7 +3677,7 @@ export async function emailNoShowResa(r: ResaEmail): Promise<void> {
   const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
-  if (!resend || !from || !r.email) {
+  if (!(await resendCliente()) || !from || !r.email) {
     console.warn("Resend non configurato: salto email no-show");
     return;
   }
@@ -3805,7 +3806,7 @@ export async function emailNotaAssegnata(n: {
 }): Promise<boolean> {
   const ambito = ambitoDiRiga(n.location_id);
   const from = await resaFromEmail(ambito);
-  if (!resend || !from) {
+  if (!(await resendCliente()) || !from) {
     console.warn("Resend non configurato: salto l'avviso di nota assegnata");
     return false;
   }
@@ -3872,7 +3873,7 @@ const TXT_RICEVUTA: Record<string, {
 export async function emailRicevutaConto(r: RicevutaConto, a: string): Promise<boolean> {
   const ambito = ambitoDiRiga(r.location_id);
   const from = await ordineFromEmail(ambito);
-  if (!resend || !from || !a.trim()) return false;
+  if (!(await resendCliente()) || !from || !a.trim()) return false;
   const t = pick5(TXT_RICEVUTA, r.lang);
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();

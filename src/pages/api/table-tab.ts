@@ -15,7 +15,7 @@ import {
   addizione, aggiungiTavolo, apriConto, contoDelTavolo, lasciaPagamento, pagamentoPerToken, prenotaPagamento,
   rilasciaInviiScaduti, segnaPagato, statoPagamenti, togliOrdine, verificaCodice, type ContoRiga,
 } from "../../lib/contoServer";
-import { creaCheckoutConto, stripeDi, type VoceCheckout } from "../../lib/stripe";
+import { creaCheckoutConto, stripePerSessione, type VoceCheckout } from "../../lib/stripe";
 import { importoMancia } from "../../lib/manceRegole";
 import { sedeDettaDa, PARAM_SEDE } from "../../lib/admin/sedeRegole";
 import { prefissoLingua } from "../../lib/linguaUrl";
@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ request }) => {
         await lasciaPagamento(suo, p);
         // La sessione non si deve piu' poter pagare: l'importo e' tornato libero.
         if (p.stripe_session_id) {
-          try { await (await stripeDi(suo)).checkout.sessions.expire(p.stripe_session_id); } catch { /* gia' scaduta o pagata */ }
+          try { await (await stripePerSessione(suo, p.stripe_session_id)).sp.checkout.sessions.expire(p.stripe_session_id); } catch { /* gia' scaduta o pagata */ }
         }
       }
       return json({ ok: true });
@@ -102,7 +102,7 @@ export const POST: APIRoute = async ({ request }) => {
     const sid = String(body.session_id ?? "").trim();
     if (!pagato && sid.startsWith("cs_") && sid === p.stripe_session_id) {
       try {
-        const sess = await (await stripeDi(suo)).checkout.sessions.retrieve(sid);
+        const { sessione: sess } = await stripePerSessione(suo, sid);
         if (sess.payment_status === "paid") {
           await segnaPagato(suo, p.id, { sessionId: sid, email: sess.customer_details?.email ?? null });
           pagato = true;

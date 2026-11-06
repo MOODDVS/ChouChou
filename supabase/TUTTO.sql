@@ -3331,3 +3331,110 @@ insert into storage.buckets (id, name, public)
 values ('admin_docs', 'admin_docs', false)
 on conflict (id) do update set public = false;
 
+
+-- ------------------------------------------------------------
+-- #94 — 094_registro_migrazioni.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #94 — IL REGISTRO DELLE MIGRAZIONI (Intégrations → Supabase, 5/11/2026)
+--
+-- Una riga per ogni migrazione applicata dalla casella Supabase del super
+-- admin: e' cosi' che la casella sa quali mancano. La crea anche il codice
+-- prima di applicare qualunque cosa (`SQL_REGISTRO` in
+-- src/lib/admin/supabaseRegole.ts): questo file e' la stessa cosa, per chi
+-- lancia `TUTTO.sql` a mano. Senza, tutto funziona come prima; la casella
+-- dice solo «registre absent». Idempotente.
+-- ============================================================
+create table if not exists public.restohub_migrazioni (
+  numero integer primary key,
+  file text not null,
+  applicata_il timestamptz not null default now()
+);
+alter table public.restohub_migrazioni enable row level security;
+grant select, insert, update, delete on public.restohub_migrazioni to service_role;
+
+
+-- ------------------------------------------------------------
+-- #95 — 095_resend_casella.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #95 — LA CASELLA RESEND (Intégrations → Resend, 5/11/2026)
+--
+-- 1. `brand_secrets`: i segreti del MARCHIO (uno per installazione, non per
+--    sede). Il primo e' la chiave Resend del cliente, scritta dal super
+--    admin nella casella invece che nel `.env`. Il valore e' CIFRATO
+--    (AES-256-GCM con `SECRETS_KEY`, src/lib/segreti.ts): il database da
+--    solo non basta a leggerla. Nessuna policy e nessun grant ad
+--    anon/authenticated: solo la service key.
+-- 2. `email_counter`: quante email transazionali (conferme, avvisi,
+--    promemoria…) sono partite, mese per mese. Le newsletter si contano gia'
+--    in `newsletter_log`. Si incrementa con `email_counter_bump`, che fa
+--    l'insert-o-somma in un colpo solo: due email nello stesso istante non
+--    si mangiano a vicenda il conteggio.
+--
+-- Senza, tutto come prima: la chiave resta quella del `.env` e la casella
+-- non mostra il conteggio. Idempotente.
+-- ============================================================
+create table if not exists public.brand_secrets (
+  key        text primary key,
+  value      text not null,
+  updated_at timestamptz not null default now(),
+  updated_by text
+);
+alter table public.brand_secrets enable row level security;
+grant select, insert, update, delete on public.brand_secrets to service_role;
+
+create table if not exists public.email_counter (
+  month      text primary key, -- 'YYYY-MM', nel fuso dell'installazione
+  sent       integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+alter table public.email_counter enable row level security;
+grant select, insert, update, delete on public.email_counter to service_role;
+
+create or replace function public.email_counter_bump(p_month text, p_n integer default 1)
+returns void language sql security definer set search_path = public, pg_temp as $$
+  insert into public.email_counter (month, sent) values (p_month, greatest(p_n, 0))
+  on conflict (month) do update
+    set sent = public.email_counter.sent + excluded.sent, updated_at = now();
+$$;
+revoke all on function public.email_counter_bump(text, integer) from public, anon, authenticated;
+grant execute on function public.email_counter_bump(text, integer) to service_role;
+
+
+-- ------------------------------------------------------------
+-- #96 — 096_stripe_conti.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #96 — PIU' CONTI STRIPE (Intégrations → Stripe, 5/11/2026)
+--
+-- Un ristorante puo' avere piu' conti Stripe (il conto di MOODD e il suo,
+-- per esempio) e scegliere da Réglages su quale incassare. Il conto
+-- PRINCIPALE resta dov'e' (location_secrets / brand_secrets / .env); qui
+-- stanno gli ALTERNATIVI, quanti se ne vuole.
+--
+--   location_id NULL = conto del marchio (lo vedono anche le sedi che non
+--   hanno un conto principale loro); altrimenti della sede.
+--   secret_key / webhook_secret: CIFRATI con SECRETS_KEY (src/lib/segreti.ts),
+--   mai in chiaro.
+--
+-- La scelta del conto attivo e' la chiave `stripe_conto_attivo` della
+-- configurazione (app_config / location_config): "principale" o l'id di
+-- una riga qui. Nessuna policy, nessun grant ad anon/authenticated: solo la
+-- service key. Senza, tutto come prima: un conto solo. Idempotente.
+-- ============================================================
+create table if not exists public.stripe_accounts (
+  id             uuid primary key default gen_random_uuid(),
+  location_id    uuid references public.locations(id) on delete cascade,
+  name           text not null,
+  secret_key     text not null,
+  webhook_secret text,
+  sort_order     integer not null default 0,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  updated_by     text
+);
+create index if not exists stripe_accounts_location_idx on public.stripe_accounts (location_id);
+alter table public.stripe_accounts enable row level security;
+grant select, insert, update, delete on public.stripe_accounts to service_role;
+

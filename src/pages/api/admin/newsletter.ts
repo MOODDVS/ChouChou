@@ -68,7 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  if (!resendPronto()) {
+  if (!(await resendPronto())) {
     return json({ error: await msg("err.resendFull") }, 500);
   }
 

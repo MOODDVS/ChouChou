@@ -53,7 +53,7 @@ async function configInstallazione() {
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff || !isSuperUser(staff)) return nonAutorizzato();
-  if (!stampaConfigurata()) return json({ configurata: false, stampanti: [], config: await configInstallazione() });
+  if (!(await stampaConfigurata())) return json({ configurata: false, stampanti: [], config: await configInstallazione() });
   const r = await elencoStampanti();
   // ⚠️ L'errore si dice. Un elenco vuoto perche' il servizio non risponde e un
   // elenco vuoto perche' non ci sono stampanti sono due cose diverse, e dal
