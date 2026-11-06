@@ -274,6 +274,7 @@ export const API_PAGINA: Record<string, string> = {
   // e queste restano aperte (una chiave sconosciuta non blocca). Il giorno
   // che la si aggiunge all'elenco, si chiudono da sole senza toccare nulla.
   "google/attributes": "google",
+  "google/azioni": "google",
   "google/data": "google",
   "google/locations": "google",
   "google/media": "google",
