@@ -69,6 +69,15 @@ export async function preferisciAzione(token: string, name: string, preferito: b
   return r.ok ? { ok: true, dati: normalizza(r.dati) } : r;
 }
 
+/** Cambia l'indirizzo di un link (e se e' preferito): stesso link, niente secondo link dello stesso sito. */
+export async function aggiornaAzione(token: string, name: string, uri: string, preferito: boolean): Promise<Esito<AzioneG>> {
+  const r = await chiama<Record<string, unknown>>(token, `${BASE_AZIONI}/${name}?updateMask=uri,isPreferred`, {
+    method: "PATCH",
+    body: JSON.stringify({ uri, isPreferred: preferito }),
+  });
+  return r.ok ? { ok: true, dati: normalizza(r.dati) } : r;
+}
+
 export async function togliAzione(token: string, name: string): Promise<Esito<null>> {
   const r = await chiama<unknown>(token, `${BASE_AZIONI}/${name}`, { method: "DELETE" });
   return r.ok ? { ok: true, dati: null } : r;
