@@ -19,7 +19,7 @@ const t = adminT(lang);
 const supI18n = {
   temaLabels: {
     accent: t("tema.accent"), hover: t("tema.hover"), bg: t("tema.bg"),
-    header: t("tema.header"), card: t("tema.card"), input: t("tema.input"),
+    header: t("tema.header"), nav: t("tema.nav"), card: t("tema.card"), input: t("tema.input"),
     line: t("tema.line"), muted: t("tema.muted"), text: t("tema.text"),
   } as Record<string, string>,
   glassTitle: t("tema.glass.title"),
@@ -398,7 +398,9 @@ const prI18n = {
       }
       .prev-logo { width: 20px; height: 20px; border-radius: 5px; background: var(--c-accent); flex-shrink: 0; }
       .prev-date { font-family: var(--font-title); font-size: 0.72rem; letter-spacing: 0.05em; color: var(--c-accent); }
-      .prev-mail { margin-left: auto; font-size: 0.62rem; color: var(--c-muted); }
+      /* Come nell'header vero: il giorno in accent, la data nel testo della barra. */
+      .prev-date b { color: var(--c-htext, var(--c-text)); font-weight: inherit; }
+      .prev-mail { margin-left: auto; font-size: 0.62rem; color: var(--c-hmuted, var(--c-muted)); }
       .prev-body { padding: 0.9rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
       .prev-tile {
         background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: 0.7rem 0.8rem;
@@ -419,11 +421,13 @@ const prI18n = {
       .prev-btn.ghost { background: none; color: var(--c-muted); border: 1px solid var(--c-line); }
       .prev-nav {
         margin: 0.2rem 0.9rem 0.9rem; padding: 0.4rem 0.6rem; display: flex; justify-content: center; gap: 0.5rem;
-        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 999px;
+        background: var(--c-nav, var(--c-header, var(--c-bg))); border: 1px solid var(--c-line); border-radius: 999px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.4 * var(--sh, 0.15)));
       }
-      .prev-nav i { width: 22px; height: 22px; border-radius: 50%; background: var(--c-input); display: block; }
-      .prev-nav i.on { background: var(--c-accent); }
+      /* I pallini sono le voci dell'isola: stesso testo smorzato e stessa
+         pillola attiva della barra vera, cosi' l'anteprima dice se si leggono. */
+      .prev-nav i { width: 22px; height: 22px; border-radius: 50%; background: var(--c-nmuted, var(--c-input)); opacity: 0.55; display: block; }
+      .prev-nav i.on { background: var(--c-nactive, var(--c-accent)); opacity: 1; }
 
       /* --- Users --- */
       .us-new { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
@@ -726,7 +730,7 @@ const prI18n = {
               <div class="prev" aria-hidden="true">
                 <div class="prev-top">
                   <span class="prev-logo"></span>
-                  <span class="prev-date">MERCREDI 29 JUILLET</span>
+                  <span class="prev-date">MERCREDI <b>29 JUILLET</b></span>
                   <span class="prev-mail">client@resto.be</span>
                 </div>
                 <div class="prev-body">
@@ -1381,6 +1385,7 @@ const prI18n = {
       import { esc } from "../../lib/esc";
       import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+      import { variabiliTema, NOMI_VARIABILI } from "../../lib/admin/temaColori";
       import { PAGINE_SOLO_ADMIN as SOLO_ADMIN } from "../../lib/admin/permessiRegole";
       import { adminT, type AdminLang } from "../../i18n/admin";
 
@@ -1735,10 +1740,13 @@ const prI18n = {
         // Applica SUBITO i colori a questa pagina (anteprima live) + cache
         function applicaTema() {
           const root = document.documentElement;
-          for (const k of TEMA_CHIAVI) {
-            if (tema[k]) root.style.setProperty("--c-" + k, tema[k]);
-            else root.style.removeProperty("--c-" + k);
-          }
+          // ⚠️ Anche le DERIVATE (testo di barra e isola), con la stessa
+          // funzione di server e AdminNav. Prima qui si scrivevano solo i
+          // colori scelti: cambiando la barra da chiara a nera, il suo testo
+          // restava quello calcolato al caricamento — nero su nero finche' non
+          // si ricaricava la pagina (7/11/2026, L'Arte della Pizza).
+          for (const nome of NOMI_VARIABILI) root.style.removeProperty(nome);
+          for (const [nome, valore] of variabiliTema(tema)) root.style.setProperty(nome, valore);
           document
             .querySelector('meta[name="theme-color"]')
             ?.setAttribute("content", tema.bg ?? "#ffffff");
@@ -1752,7 +1760,8 @@ const prI18n = {
           const glassOn = tema.glass === "on";
           temaRowsEl.innerHTML =
             TEMA_CHIAVI.map((k) => {
-              const v = tema[k] ?? TEMA_DEFAULT[k];
+              // L'isola non scelta e' del colore della barra in alto: si mostra quello.
+              const v = tema[k] ?? (k === "nav" ? tema.header : undefined) ?? TEMA_DEFAULT[k];
               return `
             <div class="tema-card" data-tk="${k}">
               <input type="color" class="tema-pick tema-sw" value="${v}" />
@@ -1817,6 +1826,14 @@ const prI18n = {
           tema[k] = t.value.toLowerCase();
           const hex = (t.closest(".tema-card") as HTMLElement).querySelector(".tema-hex");
           if (hex) hex.textContent = tema[k];
+          // L'isola mai scelta segue la barra in alto: lo deve dire anche la sua casella.
+          if (k === "header" && !tema.nav) {
+            const nav = temaRowsEl.querySelector<HTMLElement>('.tema-card[data-tk="nav"]');
+            const sw = nav?.querySelector<HTMLInputElement>(".tema-pick");
+            if (sw) sw.value = tema[k];
+            const nh = nav?.querySelector(".tema-hex");
+            if (nh) nh.textContent = tema[k];
+          }
           applicaTema();
           salvaTema();
         });

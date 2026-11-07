@@ -462,6 +462,7 @@ const DIZIONARIO: Dizionario = {
   "tema.hover":  { fr: "Accent — survol", en: "Accent — hover", it: "Accento — hover", nl: "Accent — hover", es: "Acento — hover" },
   "tema.bg":     { fr: "Fond", en: "Background", it: "Sfondo", nl: "Achtergrond", es: "Fondo" },
   "tema.header": { fr: "Barre du haut", en: "Top bar", it: "Barra superiore", nl: "Bovenbalk", es: "Barra superior" },
+  "tema.nav":    { fr: "Barre des liens (en bas)", en: "Links bar (bottom)", it: "Isola dei link (in basso)", nl: "Linkbalk (onderaan)", es: "Barra de enlaces (abajo)" },
   "tema.card":   { fr: "Cartes", en: "Cards", it: "Card", nl: "Kaarten", es: "Tarjetas" },
   "tema.input":  { fr: "Champs & éléments sombres", en: "Fields & dark elements", it: "Campi ed elementi scuri", nl: "Velden & donkere elementen", es: "Campos y elementos oscuros" },
   "tema.line":   { fr: "Lignes & bordures", en: "Lines & borders", it: "Linee e bordi", nl: "Lijnen & randen", es: "Líneas y bordes" },

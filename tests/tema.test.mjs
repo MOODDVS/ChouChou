@@ -120,7 +120,7 @@ test("NOMI_VARIABILI copre tutto quello che la funzione puo' scrivere", () => {
   for (const n of prodotte) {
     assert.ok(NOMI_VARIABILI.includes(n), `${n} non e' in NOMI_VARIABILI`);
   }
-  assert.equal(CHIAVI_COLORE.length, 9, "le chiavi scelte a mano sono nove");
+  assert.equal(CHIAVI_COLORE.length, 10, "le chiavi scelte a mano sono dieci (con l'isola dei link)");
   assert.ok(SOGLIA_CHIARO > 0 && SOGLIA_CHIARO < 1);
 });
 
@@ -135,8 +135,10 @@ test("header e nav usano le variabili derivate, non quelle della pagina", () => 
   assert.match(blocco, /var\(--c-htext,/);
 
   const n = readFileSync("src/components/admin/AdminNav.astro", "utf8");
-  assert.match(n, /background:\s*var\(--c-hactive,/, "la pillola attiva non passa da --c-hactive");
-  assert.match(n, /color:\s*var\(--c-hactive-text,/);
+  // Dal 7/11/2026 l'isola ha le sue derivate (`--c-n*`), con quelle della
+  // barra come ripiego.
+  assert.match(n, /background:\s*var\(--c-nactive, var\(--c-hactive,/, "la pillola attiva non passa dalle derivate");
+  assert.match(n, /color:\s*var\(--c-nactive-text, var\(--c-hactive-text,/);
 });
 
 test("server e browser applicano lo stesso tema", () => {
@@ -148,4 +150,32 @@ test("server e browser applicano lo stesso tema", () => {
   const nav = readFileSync("src/components/admin/AdminNav.astro", "utf8");
   assert.match(nav, /variabiliTema\(tema\)/, "AdminNav non usa piu' variabiliTema");
   assert.match(nav, /NOMI_VARIABILI/, "AdminNav non azzera piu' le variabili del tema vecchio");
+});
+
+test("l'isola dei link: senza colore suo segue la barra, con un colore suo ha i suoi testi", async () => {
+  const { variabiliTema } = await import("../src/lib/admin/temaColori.ts");
+  const mappa = (t) => Object.fromEntries(variabiliTema(t));
+  // Il caso di L'Arte della Pizza: barra nera, pagina bianca, testo nero.
+  const base = { accent: "#f37c21", bg: "#ffffff", header: "#000000", text: "#000000", muted: "#6b6b6b" };
+  const v = mappa(base);
+  assert.equal(v["--c-htext"], "#ffffff", "testo nero sulla barra nera");
+  assert.equal(v["--c-ntext"], "#ffffff", "l'isola senza colore suo segue la barra");
+  assert.equal(v["--c-nav"], undefined, "non si dichiara un colore che nessuno ha scelto");
+  // Isola bianca sotto una barra nera: testo scuro nell'isola, bianco in alto.
+  const w = mappa({ ...base, nav: "#ffffff" });
+  assert.equal(w["--c-nav"], "#ffffff");
+  assert.equal(w["--c-ntext"], "#000000");
+  assert.equal(w["--c-htext"], "#ffffff");
+  assert.equal(w["--c-nactive"], "#f37c21");
+});
+
+test("Réglages: l'anteprima calcola anche le derivate (niente nero su nero mentre si sceglie)", () => {
+  const sup = readFileSync("src/pages/admin/super.astro", "utf8");
+  assert.match(sup, /for \(const \[nome, valore\] of variabiliTema\(tema\)\) root\.style\.setProperty\(nome, valore\);/);
+  assert.match(sup, /for \(const nome of NOMI_VARIABILI\) root\.style\.removeProperty\(nome\);/);
+  for (const f of ["src/components/admin/AdminNav.astro", "src/components/admin/PalmareNav.astro"]) {
+    const src = readFileSync(f, "utf8");
+    assert.match(src, /background: var\(--c-nav, var\(--c-header, var\(--c-bg\)\)\)/, `${f}: l'isola non usa --c-nav`);
+    assert.match(src, /var\(--c-nactive, var\(--c-hactive,/, `${f}: la pillola attiva non usa le derivate dell'isola`);
+  }
 });
