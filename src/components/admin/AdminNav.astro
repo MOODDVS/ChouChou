@@ -236,7 +236,7 @@ const breve = (chiave: string): string => {
   /* ⚠️ La sfocatura sta in `AdminHead` (`VETRO_CSS`): nel CSS di un componente
      la costruzione la toglieva in silenzio. Qui resta il fondo. */
   html.glass .admin-nav {
-    background: color-mix(in srgb, var(--c-header, var(--c-bg)) 82%, transparent);
+    background: color-mix(in srgb, var(--c-nav, var(--c-header, var(--c-bg))) 82%, transparent);
   }
 
   /* "+" dei bottoni flottanti (Résa, Commande, Client, Plat): più grande
@@ -280,8 +280,10 @@ const breve = (chiave: string): string => {
     /* Pillola */
     border-radius: 999px;
 
-    /* Liquid glass */
-    background: var(--c-header, var(--c-bg));
+    /* Liquid glass. ⚠️ `--c-nav` (7/11/2026): l'isola puo' avere un colore
+       suo; senza, e' quello della barra in alto, come prima. I testi qui
+       dentro usano le derivate `--c-n*`, calcolate da QUESTO sfondo. */
+    background: var(--c-nav, var(--c-header, var(--c-bg)));
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow:
       0 8px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))),
@@ -302,7 +304,7 @@ const breve = (chiave: string): string => {
     font-size: 0.56rem;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--c-hmuted, var(--c-muted));
+    color: var(--c-nmuted, var(--c-hmuted, var(--c-muted)));
     text-decoration: none;
     padding: 0.42rem 0.85rem;
     border-radius: 999px;
@@ -318,7 +320,7 @@ const breve = (chiave: string): string => {
     stroke-linejoin: round;
   }
   .admin-nav a:hover {
-    color: var(--c-htext, var(--c-text, #fff));
+    color: var(--c-ntext, var(--c-htext, var(--c-text, #fff)));
   }
 
   /* iPad orizzontale, al dito: la barra scende con tutto il resto, ma le
@@ -335,8 +337,8 @@ const breve = (chiave: string): string => {
      colore e quello del suo testo vengono da `--c-hactive`, che si scosta
      dall'accent solo quando l'accent si confonderebbe con l'header. */
   .admin-nav a.active {
-    background: var(--c-hactive, var(--c-accent));
-    color: var(--c-hactive-text, var(--c-bg));
+    background: var(--c-nactive, var(--c-hactive, var(--c-accent)));
+    color: var(--c-nactive-text, var(--c-hactive-text, var(--c-bg)));
   }
 
   /* Pallino rosso "non visti" su Commandes / Réservations */

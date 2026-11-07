@@ -29,9 +29,10 @@
 /** Un colore del tema e' SEMPRE #rrggbb: niente nomi, niente rgb(), niente 3 cifre. */
 export const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Le nove chiavi scelte a mano in Réglages → Design. */
+/** Le dieci chiavi scelte a mano in Réglages → Design. `nav` = l'isola dei
+ *  link in basso (7/11/2026): assente, l'isola resta del colore della barra. */
 export const CHIAVI_COLORE = [
-  "accent", "hover", "bg", "header", "card", "input", "line", "muted", "text",
+  "accent", "hover", "bg", "header", "nav", "card", "input", "line", "muted", "text",
 ] as const;
 
 /** Componenti 0-255 di un #rrggbb. `null` se non e' un colore valido. */
@@ -80,8 +81,12 @@ export function distanza(a: unknown, b: unknown): number | null {
  */
 export const SOGLIA_SIMILI = 0.18;
 
-/** Le tre derivate: calcolate, mai scelte, mai salvate in app_config. */
-export const CHIAVI_DERIVATE = ["--c-htext", "--c-hmuted", "--c-hactive", "--c-hactive-text"] as const;
+/** Le derivate: calcolate, mai scelte, mai salvate in app_config.
+ *  `h` = barra in alto, `n` = isola dei link in basso. */
+export const CHIAVI_DERIVATE = [
+  "--c-htext", "--c-hmuted", "--c-hactive", "--c-hactive-text",
+  "--c-ntext", "--c-nmuted", "--c-nactive", "--c-nactive-text",
+] as const;
 
 /**
  * TUTTI i nomi di variabile che questo file puo' dichiarare. Serve a chi
@@ -116,46 +121,64 @@ function biancoSmorzato(lumSfondo: number): string {
   return lumSfondo < LUM_SFONDO_PROFONDO ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.92)";
 }
 
+/** Un #rrggbb del tema, minuscolo, o `null`. */
+function hex(v: unknown): string | null {
+  return typeof v === "string" && RE_HEX.test(v) ? v.toLowerCase() : null;
+}
+
 /**
- * Le variabili CSS del tema: le nove salvate piu' le tre derivate.
+ * Le quattro derivate di UNA barra (testo, testo smorzato, pillola attiva,
+ * testo della pillola), calcolate dal suo sfondo. Le usano la barra in alto
+ * (prefisso `h`) e l'isola dei link in basso (prefisso `n`).
+ */
+function derivateBarra(prefisso: "h" | "n", sfondo: string, theme: Record<string, unknown>): [string, string][] {
+  const out: [string, string][] = [];
+  const lum = luminanza(sfondo);
+  if (lum === null) return out;
+  const chiaro = lum > SOGLIA_CHIARO;
+  const testo = hex(theme.text);
+  const smorzato = hex(theme.muted);
+
+  // Barra chiara: il testo della pagina va bene. Barra scura: bianco.
+  out.push([`--c-${prefisso}text`, chiaro ? (testo ?? "#111111") : BIANCO]);
+  out.push([`--c-${prefisso}muted`, chiaro ? (smorzato ?? "#6b7075") : biancoSmorzato(lum)]);
+
+  // Voce attiva: accent, salvo quando si confonde con lo sfondo della barra.
+  const acc = hex(theme.accent);
+  const d = distanza(acc, sfondo);
+  const confuso = acc !== null && d !== null && d < SOGLIA_SIMILI;
+  const attiva = confuso ? (chiaro ? (testo ?? "#111111") : BIANCO) : acc;
+  if (attiva) out.push([`--c-${prefisso}active`, attiva]); // nessun accent salvato: lascia il default
+
+  // Il testo DENTRO la pillola attiva: deve contrastare con la pillola stessa,
+  // non con la barra. Pillola scura -> bianco, pillola chiara -> testo scuro.
+  const pillola = confuso ? (chiaro ? testo : BIANCO) : acc;
+  const lumP = luminanza(pillola);
+  if (lumP !== null) out.push([`--c-${prefisso}active-text`, lumP > SOGLIA_CHIARO ? (testo ?? "#111111") : BIANCO]);
+  return out;
+}
+
+/**
+ * Le variabili CSS del tema: le dieci salvate piu' le derivate.
  * Dichiara SOLO quello che sa: una chiave assente o malformata resta il
  * default della pagina, che e' il comportamento di sempre.
  */
 export function variabiliTema(theme: Record<string, unknown>): [string, string][] {
   const out: [string, string][] = [];
   for (const k of CHIAVI_COLORE) {
-    const v = theme[k];
-    if (typeof v === "string" && RE_HEX.test(v)) out.push([`--c-${k}`, v.toLowerCase()]);
+    const v = hex(theme[k]);
+    if (v) out.push([`--c-${k}`, v]);
   }
 
-  // Lo sfondo della barra in alto: `header` se c'e', altrimenti `bg` — la
-  // stessa catena di ripiego che i CSS scrivono come var(--c-header, var(--c-bg)).
-  const sfondo = (typeof theme.header === "string" && RE_HEX.test(theme.header))
-    ? theme.header
-    : (typeof theme.bg === "string" && RE_HEX.test(theme.bg) ? theme.bg : null);
-  const lum = luminanza(sfondo);
-  if (lum === null) return out; // tema senza header ne' bg: niente da derivare
+  // La barra in alto: `header` se c'e', altrimenti `bg` — la stessa catena
+  // di ripiego che i CSS scrivono come var(--c-header, var(--c-bg)).
+  const testa = hex(theme.header) ?? hex(theme.bg);
+  if (testa === null) return out; // tema senza header ne' bg: niente da derivare
+  out.push(...derivateBarra("h", testa, theme));
 
-  const chiaro = lum > SOGLIA_CHIARO;
-  const testo = typeof theme.text === "string" && RE_HEX.test(theme.text) ? theme.text.toLowerCase() : null;
-  const smorzato = typeof theme.muted === "string" && RE_HEX.test(theme.muted) ? theme.muted.toLowerCase() : null;
-
-  // Barra chiara: il testo della pagina va bene. Barra scura: bianco.
-  out.push(["--c-htext", chiaro ? (testo ?? "#111111") : BIANCO]);
-  out.push(["--c-hmuted", chiaro ? (smorzato ?? "#6b7075") : biancoSmorzato(lum)]);
-
-  // Voce attiva della barra: accent, salvo quando si confonde con l'header.
-  const acc = typeof theme.accent === "string" && RE_HEX.test(theme.accent) ? theme.accent.toLowerCase() : null;
-  const d = distanza(acc, sfondo);
-  const confuso = acc !== null && d !== null && d < SOGLIA_SIMILI;
-  out.push(["--c-hactive", confuso ? (chiaro ? (testo ?? "#111111") : BIANCO) : (acc ?? "")]);
-  if (out[out.length - 1][1] === "") out.pop(); // nessun accent salvato: lascia il default
-
-  // Il testo DENTRO la pillola attiva: deve contrastare con la pillola stessa,
-  // non con l'header. Pillola scura -> bianco, pillola chiara -> testo scuro.
-  const pillola = confuso ? (chiaro ? testo : BIANCO) : acc;
-  const lumP = luminanza(pillola);
-  if (lumP !== null) out.push(["--c-hactive-text", lumP > SOGLIA_CHIARO ? (testo ?? "#111111") : BIANCO]);
-
+  // L'ISOLA DEI LINK in basso (7/11/2026): `nav` se c'e', altrimenti la barra
+  // in alto — var(--c-nav, var(--c-header, var(--c-bg))). Per i clienti che
+  // non l'hanno mai scelta non cambia niente: stesse derivate della barra.
+  out.push(...derivateBarra("n", hex(theme.nav) ?? testa, theme));
   return out;
 }

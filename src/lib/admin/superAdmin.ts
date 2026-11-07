@@ -109,6 +109,7 @@ export const TEMA_DEFAULT: Record<string, string> = {
   hover: "#e86a61",  // corallo hover
   bg: "#0c2a30",     // fondo pagina (e testo sui bottoni accent)
   header: "#04161b", // barra in alto (indipendente dal fondo pagina)
+  nav: "#04161b",    // isola dei link in basso (assente nel tema = come la barra in alto)
   card: "#16424b",   // card
   input: "#0e3038",  // campi ed elementi scuri
   line: "#244a52",   // linee e bordi
