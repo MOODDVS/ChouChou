@@ -66,14 +66,17 @@ export function testoPiatto(
 export type ChiaveEtichetta =
   | "soldOut" | "vegan" | "spicy" | "seasonal" | "suggestion" | "confirm"
   // Carrello: prezzo unitario sotto il nome, e il comando che svuota tutto.
-  | "each" | "clearAll";
+  | "each" | "clearAll"
+  // «Prix du jour» (#97): la scritta al posto della cifra, l'etichetta
+  // accanto a una cifra del giorno, e la pastiglia «solo al ristorante».
+  | "dailyPrice" | "today" | "onSite";
 
 export const ETICHETTE_MENU: Record<string, Record<ChiaveEtichetta, string>> = {
-  fr: { soldOut: "Épuisé", vegan: "Végan", spicy: "Épicé", seasonal: "Saisonnier", suggestion: "Suggestion", confirm: "Confirmer ?", each: "l'unité", clearAll: "Tout vider" },
-  en: { soldOut: "Sold out", vegan: "Vegan", spicy: "Spicy", seasonal: "Seasonal", suggestion: "Suggestion", confirm: "Confirm?", each: "each", clearAll: "Clear all" },
-  it: { soldOut: "Esaurito", vegan: "Vegano", spicy: "Piccante", seasonal: "Stagionale", suggestion: "Consigliato", confirm: "Confermare?", each: "cad.", clearAll: "Svuota tutto" },
-  nl: { soldOut: "Uitverkocht", vegan: "Vegan", spicy: "Pittig", seasonal: "Seizoensgebonden", suggestion: "Aanbevolen", confirm: "Bevestigen?", each: "per stuk", clearAll: "Alles wissen" },
-  es: { soldOut: "Agotado", vegan: "Vegano", spicy: "Picante", seasonal: "De temporada", suggestion: "Sugerencia", confirm: "¿Confirmar?", each: "c/u", clearAll: "Vaciar todo" },
+  fr: { soldOut: "Épuisé", vegan: "Végan", spicy: "Épicé", seasonal: "Saisonnier", suggestion: "Suggestion", confirm: "Confirmer ?", each: "l'unité", clearAll: "Tout vider", dailyPrice: "Prix du jour", today: "du jour", onSite: "Sur place" },
+  en: { soldOut: "Sold out", vegan: "Vegan", spicy: "Spicy", seasonal: "Seasonal", suggestion: "Suggestion", confirm: "Confirm?", each: "each", clearAll: "Clear all", dailyPrice: "Price of the day", today: "today", onSite: "In the restaurant" },
+  it: { soldOut: "Esaurito", vegan: "Vegano", spicy: "Piccante", seasonal: "Stagionale", suggestion: "Consigliato", confirm: "Confermare?", each: "cad.", clearAll: "Svuota tutto", dailyPrice: "Prezzo del giorno", today: "del giorno", onSite: "Al ristorante" },
+  nl: { soldOut: "Uitverkocht", vegan: "Vegan", spicy: "Pittig", seasonal: "Seizoensgebonden", suggestion: "Aanbevolen", confirm: "Bevestigen?", each: "per stuk", clearAll: "Alles wissen", dailyPrice: "Dagprijs", today: "van de dag", onSite: "Ter plaatse" },
+  es: { soldOut: "Agotado", vegan: "Vegano", spicy: "Picante", seasonal: "De temporada", suggestion: "Sugerencia", confirm: "¿Confirmar?", each: "c/u", clearAll: "Vaciar todo", dailyPrice: "Precio del día", today: "del día", onSite: "En el local" },
 };
 
 /**

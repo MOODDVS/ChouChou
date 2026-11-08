@@ -26,6 +26,9 @@ export interface PiattoPerVetrina {
   is_suggestion?: boolean;
   is_bestseller?: boolean;
   variants?: { sold_out?: boolean }[];
+  /** «Prix du jour» (#97): senza cifra non si ordina, quindi niente vetrina. */
+  is_daily_price?: boolean;
+  price_cents?: number;
 }
 
 export const VETRINA_MAX = 8;
@@ -43,6 +46,9 @@ export function piattiInVetrina<T extends PiattoPerVetrina>(
     if (p.is_sold_out) return false;
     const formati = p.variants ?? [];
     if (formati.length > 0 && formati.every((v) => v.sold_out)) return false;
+    // Il suo «+» non aggiungerebbe niente: il piatto non ha una cifra.
+    // (E' `prezzoDaChiedere` di pricing.ts, riscritta: questo file sta senza import.)
+    if (p.is_daily_price === true && !(Number(p.price_cents) > 0) && formati.length === 0) return false;
     return true;
   });
   const peso = (p: T) => (p.is_suggestion ? 0 : p.is_bestseller ? 1 : 2);

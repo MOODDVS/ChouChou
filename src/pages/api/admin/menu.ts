@@ -22,7 +22,7 @@ const SELECT_BASE =
 /** Colonne aggiunte da migrazioni successive: su un cliente che non le ha
  *  ancora lanciate la query fallisce, e si riprova senza QUELLA colonna
  *  (non senza tutte, per non perdere le altre). */
-const COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants", "location_id"];
+const COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants", "location_id", "daily_price"];
 
 type Risultato = { data: unknown; error: { message?: string } | null };
 /** Come Risultato, ma dice anche QUALI colonne ha dovuto togliere per riuscire. */
@@ -160,6 +160,9 @@ function validaCampi(
   // ⚠️ `sold_out` NON viene messo qui quando si sta dentro un punto: e' uno
   // stato della sede e va in `menu_sold_out`. Vedi `scriviStatoPunto`.
   if ("sold_out" in body && ambito.modo !== "sede") campi.sold_out = !!body.sold_out;
+  // «Prix du jour» (#97): un'etichetta del piatto, del gruppo come il prezzo.
+  // Con il prezzo a 0 il piatto non si ordina (`prezzoDaChiedere`).
+  if ("daily_price" in body) campi.daily_price = !!body.daily_price;
 
   // --- Sconto ---
   if ("discount_type" in body) {

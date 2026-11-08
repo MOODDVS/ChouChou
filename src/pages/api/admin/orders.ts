@@ -17,7 +17,7 @@ import {
 } from "../../../lib/admin/sede";
 import { inCassa, metodoCambiabile, METODI_CASSA_SCELTA, avvisaChePronto, alTavolo } from "../../../lib/ordiniRegole";
 import { opzioniTavolo } from "../../../lib/ordiniOpzioni";
-import { piattiPerOrdine, rigaOrdine } from "../../../lib/admin/righeOrdine";
+import { piattiPerOrdine, rigaOrdine, piattoSenzaCifra } from "../../../lib/admin/righeOrdine";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine, emailOrdinePronto } from "../../../lib/notifications";
 // Consegna e mancia dell'ordine, per le email di annullo e di modifica: senza,
 // parlerebbero di «retrait» a chi aspetta il fattorino.
@@ -465,6 +465,7 @@ export const POST: APIRoute = async ({ request }) => {
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
     if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: await msg("err.dishGone") }, 409);
+    if (piattoSenzaCifra(piatto, ambito)) return json({ error: await msg("err.dailyPriceMissing") }, 409);
     const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang, ambito);
     if (!riga) return json({ error: await msg("err.formatGone") }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
@@ -919,6 +920,7 @@ export const PUT: APIRoute = async ({ request }) => {
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
     if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: await msg("err.dishGone") }, 409);
+    if (piattoSenzaCifra(piatto, ambito)) return json({ error: await msg("err.dailyPriceMissing") }, 409);
     const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang, ambito);
     if (!riga) return json({ error: await msg("err.formatGone") }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });

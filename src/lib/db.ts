@@ -65,6 +65,9 @@ export interface MenuItem {
   is_seasonal: boolean;
   /** Piatto segnalato «esaurito»: resta in carta ma non è ordinabile. */
   is_sold_out: boolean;
+  /** «Prix du jour» (#97). Con `price_cents` a 0 e senza formati il piatto
+   *  non ha cifra e non si ordina: lo dice `prezzoDaChiedere` (pricing.ts). */
+  is_daily_price?: boolean;
   /** Formati del piatto. Vuoto = prezzo unico (comportamento storico).
    *  Se pieno, `price_cents` è il prezzo «a partire da» (il più basso). */
   variants: Variante[];
@@ -91,7 +94,7 @@ const MENU_SELECT =
   "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
 /** Colonne aggiunte da migrazioni successive: su un cliente che non le ha
  *  ancora lanciate la select fallisce, e si riprova senza QUELLA colonna. */
-export const MENU_COLONNE_NUOVE = ["sold_out", "variants", "name_i18n", "desc_i18n"];
+export const MENU_COLONNE_NUOVE = ["sold_out", "variants", "name_i18n", "desc_i18n", "daily_price"];
 
 export type RisultatoQuery = { data: any[] | null; error: { message?: string } | null };
 
@@ -192,6 +195,7 @@ function raggruppa(data: any[], online: boolean, ambito: Ambito): MenuCategoria[
       is_suggestion: !!riga.is_suggestion,
       is_seasonal: !!riga.is_seasonal,
       is_sold_out: !!riga.sold_out,
+      is_daily_price: riga.daily_price === true,
       variants: varianti,
       name_i18n: i18nPulito(riga.name_i18n),
       desc_i18n: i18nPulito(riga.desc_i18n),

@@ -26,7 +26,7 @@ import { accodaTicket } from "../../lib/stampaCoda";
 import { contoPerId, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
 import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
 import { inviaPushConto } from "../../lib/push";
-import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
+import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante, prezzoDaChiedere } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
   calcolaScontoCoupon,
@@ -406,6 +406,12 @@ export const POST: APIRoute = async ({ request }) => {
       if (!variante) {
         return err(409, "Le format choisi n'est plus disponible");
       }
+    }
+    // «Prix du jour» senza cifra (#97): in carta si legge, ma non si incassa
+    // una cifra che non c'e'. La pagina toglie il «+»; qui si chiude anche
+    // la strada di chi manda la richiesta a mano (o un carrello di ieri).
+    if (!variante && prezzoDaChiedere(piatto.daily_price, piatto.price_cents)) {
+      return err(409, "Un piatto selezionato non è più disponibile");
     }
     const prezzoPieno = variante ? variante.price_cents : piatto.price_cents;
 

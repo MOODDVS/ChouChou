@@ -23,7 +23,7 @@ import { readFileSync } from "node:fs";
 import { ETICHETTE_MENU, etichettaMenu } from "../src/lib/i18nMenu.ts";
 import {
   prezzoEffettivo, leggiVariantiDb, variantiDelPunto, trovaVariante,
-  haVarianti, etichettaVariante, applicaStato,
+  haVarianti, etichettaVariante, applicaStato, prezzoDaChiedere,
 } from "../src/lib/pricing.ts";
 import {
   validaVarianti, variantiVisibili, fondiVarianti, pulisciI18n, MAX_VARIANTI,
@@ -799,4 +799,37 @@ test("sul menu pubblico il ripiego c'e', e non scavalca il ristoratore", () => {
   // Le lingue si chiedono al dizionario, non si riscrivono a mano qui.
   assert.match(src, /i18nStandard\(std, LINGUE as string\[\]\)/,
     "le lingue sono tornate un elenco scritto a mano: divergera'");
+});
+
+/* ============================================================
+   PRIX DU JOUR (#97) — una regola sola per la carta, la cassa e lo staff
+   ============================================================ */
+
+test("prix du jour: senza cifra non si ordina, con la cifra si'", () => {
+  assert.equal(prezzoDaChiedere(true, 0), true);
+  assert.equal(prezzoDaChiedere(true, null), true);
+  assert.equal(prezzoDaChiedere(true, 2600), false, "con la cifra di oggi si ordina");
+  assert.equal(prezzoDaChiedere(false, 0), false, "un piatto a 0 € senza interruttore resta com'era");
+  assert.equal(prezzoDaChiedere(undefined, 0), false, "database senza la colonna: tutto come prima");
+  assert.equal(prezzoDaChiedere("true", 0), false, "solo un booleano vero, non una stringa");
+  assert.equal(prezzoDaChiedere(true, 0, true), false, "coi formati vale il prezzo del formato");
+});
+
+test("prix du jour: la scritta esiste in tutte le lingue della carta", () => {
+  for (const [l, e] of Object.entries(ETICHETTE_MENU)) {
+    for (const k of ["dailyPrice", "today", "onSite"]) assert.ok(e[k]?.trim(), `${l}.${k} manca`);
+  }
+  assert.equal(etichettaMenu("dailyPrice", "fr"), "Prix du jour");
+});
+
+test("prix du jour: checkout, staff e palmare chiedono alla STESSA regola", () => {
+  const leggi = (f) => readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8");
+  assert.match(leggi("pages/api/checkout.ts"), /prezzoDaChiedere\(piatto\.daily_price, piatto\.price_cents\)/,
+    "il checkout non rifiuta piu' il prix du jour senza cifra: si incasserebbe 0 €");
+  assert.match(leggi("lib/admin/righeOrdine.ts"), /export function piattoSenzaCifra/);
+  assert.equal((leggi("pages/api/admin/orders.ts").match(/piattoSenzaCifra\(piatto, ambito\)/g) ?? []).length, 2,
+    "i due ordini dello staff (manuale e modifica) devono rifiutarlo tutti e due");
+  assert.match(leggi("lib/admin/ordineCameriere.ts"), /piattoSenzaCifra\(piatto, ambito\)/);
+  assert.match(leggi("lib/db.ts"), /MENU_COLONNE_NUOVE = \[[^\]]*"daily_price"/,
+    "senza `daily_price` fra le colonne nuove il sito non saprebbe niente dell'interruttore");
 });

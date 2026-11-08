@@ -19,7 +19,7 @@ const MENU_SELECT_BASE =
 // SSR (quella del PRIMO caricamento della pagina), le varianti salvate
 // sparivano a ogni reload: c'erano nel database, c'erano nella risposta
 // dell'API dopo il salvataggio, ma non nei dati con cui la pagina nasce.
-const MENU_COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants", "location_id"];
+const MENU_COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants", "location_id", "daily_price"];
 const MENU_SELECT = MENU_SELECT_BASE + ", " + MENU_COLONNE_NUOVE.join(", ");
 
 async function caricaItems(ambito: Ambito): Promise<{ data: unknown[] | null }> {

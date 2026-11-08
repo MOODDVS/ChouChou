@@ -99,6 +99,8 @@
 :where(.tbl-pagina .order-item-desc) { margin: .25rem 0 0; font-size: .85rem; line-height: 1.35; color: var(--tbl-muted); }
 :where(.tbl-pagina .order-item-price) { margin: .35rem 0 0; font-weight: 600; }
 :where(.tbl-pagina .order-item-old) { margin-right: .35rem; font-weight: 400; color: var(--tbl-muted); }
+/* «Prix du jour» senza cifra (#97): la scritta al posto del prezzo. */
+:where(.tbl-pagina .order-item-price--giorno) { font-style: italic; font-weight: 500; }
 
 /* Le etichette accanto al nome: piccole, staccate, mai incollate al testo. */
 :where(.tbl-pagina .order-b) { font-size: .85rem; line-height: 1; }
