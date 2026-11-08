@@ -9,6 +9,8 @@
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
 import { getMenu, type MenuItem } from "../lib/db";
+import { prezzoDaChiedere } from "../lib/pricing";
+import { etichettaMenu } from "../lib/i18nMenu";
 import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 import { getLunchAttivo } from "../lib/lunch";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
@@ -65,6 +67,12 @@ const ALLERGENI: [number, string][] = en
       [9, "Céleri"], [10, "Moutarde"], [11, "Sulfites"], [12, "Sésame"],
       [13, "Lupin"], [14, "Mollusques"],
     ];
+
+/** «Prix du jour» (#97 del motore): senza cifra esce la scritta al posto del
+ *  prezzo; con la cifra, l'etichetta «du jour» accanto al nome. */
+const senzaCifra = (i: MenuItem): boolean =>
+  prezzoDaChiedere(i.is_daily_price === true, i.price_cents, (i.variants ?? []).length > 0);
+const delGiorno = (i: MenuItem): boolean => i.is_daily_price === true && !senzaCifra(i) && (i.variants ?? []).length === 0;
 
 function prezzo(cents: number): string {
   const euro = cents / 100;
@@ -385,13 +393,14 @@ gruppi.forEach((g, i) => {
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
                         {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                        {delGiorno(item) && <span class="b-sugg">{etichettaMenu("today", lang)}</span>}
                         {item.is_seasonal && <span class="b" title={en ? "Seasonal" : "Saisonnier"}>🍂</span>}
                         {item.allergens.length > 0 && (
                           <sup class="dish__alg">{item.allergens.join("·")}</sup>
                         )}
                       </span>
                       <span class="dish__dots" aria-hidden="true"></span>
-                      {item.price_cents > 0 && (
+                      {senzaCifra(item) ? <span class="dish__price dish__price--jour">{etichettaMenu("dailyPrice", lang)}</span> : item.price_cents > 0 && (
                         <span class="dish__price">
                           {item.original_price_cents && (
                             <s class="dish__old">{prezzo(item.original_price_cents)}</s>
@@ -457,12 +466,13 @@ gruppi.forEach((g, i) => {
                     {r.item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                     {r.item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
                     {r.item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                    {delGiorno(r.item) && <span class="b-sugg">{etichettaMenu("today", lang)}</span>}
                     {r.item.allergens.length > 0 && (
                       <sup class="dish__alg">{r.item.allergens.join("·")}</sup>
                     )}
                   </span>
                   <span class="dish__dots" aria-hidden="true"></span>
-                  {r.item.price_cents > 0 && (
+                  {senzaCifra(r.item) ? <span class="dish__price dish__price--jour">{etichettaMenu("dailyPrice", lang)}</span> : r.item.price_cents > 0 && (
                     <span class="dish__price">
                       {r.item.original_price_cents && (
                         <s class="dish__old">{prezzo(r.item.original_price_cents)}</s>
@@ -509,12 +519,13 @@ gruppi.forEach((g, i) => {
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
                         {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                        {delGiorno(item) && <span class="b-sugg">{etichettaMenu("today", lang)}</span>}
                         {item.allergens.length > 0 && (
                           <sup class="dish__alg">{item.allergens.join("·")}</sup>
                         )}
                       </span>
                       <span class="dish__dots" aria-hidden="true"></span>
-                      {item.price_cents > 0 && (
+                      {senzaCifra(item) ? <span class="dish__price dish__price--jour">{etichettaMenu("dailyPrice", lang)}</span> : item.price_cents > 0 && (
                         <span class="dish__price">
                           {item.original_price_cents && (
                             <s class="dish__old">{prezzo(item.original_price_cents)}</s>
@@ -1186,6 +1197,7 @@ gruppi.forEach((g, i) => {
     letter-spacing: 0.05em;
   }
   .dish__dots { display: none; }
+  .dish__price--jour { font-style: italic; font-weight: 500; }
   .dish__price {
     font-family: var(--font-title);
     font-weight: 600;

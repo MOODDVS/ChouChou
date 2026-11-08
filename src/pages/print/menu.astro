@@ -14,6 +14,7 @@
 export const prerender = false;
 
 import { getMenu, type MenuItem, type MenuCategoria } from "../../lib/db";
+import { prezzoDaChiedere } from "../../lib/pricing";
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import Fonts from "../../components/Fonts.astro";
 
@@ -24,6 +25,10 @@ import Fonts from "../../components/Fonts.astro";
 // quello sarebbe vero finche' il ristorante e' uno — e il giorno che non lo
 // fosse piu' non darebbe errore, darebbe i dati del posto sbagliato.
 const menu = await getMenu(await ambitoPubblicoChiesto(Astro.request));
+/** «Prix du jour» senza cifra (#97 del motore): sulla carta stampata la
+ *  scritta al posto del prezzo (stampata in francese, come i nomi). */
+const senzaCifra = (i: MenuItem): boolean =>
+  prezzoDaChiedere(i.is_daily_price === true, i.price_cents, (i.variants ?? []).length > 0);
 
 // Foto copertina/retro: immagini dedicate in public/print/.
 const COVER_FOTO = "/print/chouchou-dessert-01.png";
@@ -493,7 +498,7 @@ const teaHead = (s: BevSub) => {
                 <div class="dish">
                   <div class="row">
                     <span class="name">{nomeFr(r.it)}</span>
-                    {r.it.price_cents > 0 && <span class="price">{prezzo(r.it.price_cents)}</span>}
+                    {senzaCifra(r.it) ? <span class="price">Prix du jour</span> : r.it.price_cents > 0 && <span class="price">{prezzo(r.it.price_cents)}</span>}
                   </div>
                   {nomeEn(r.it) && <div class="tr">{nomeEn(r.it)}</div>}
                 </div>
@@ -584,7 +589,7 @@ const teaHead = (s: BevSub) => {
                   <div class="wine">
                     <div class="top">
                       <span class="wn">{nomeFr(it)}</span>
-                      {it.price_cents > 0 && <span class="wp">{prezzo(it.price_cents)}</span>}
+                      {senzaCifra(it) ? <span class="wp">Prix du jour</span> : it.price_cents > 0 && <span class="wp">{prezzo(it.price_cents)}</span>}
                     </div>
                     {desc(it) && <div class="wr">{desc(it)}</div>}
                   </div>
@@ -612,7 +617,7 @@ const teaHead = (s: BevSub) => {
                     <div class="wine">
                       <div class="top">
                         <span class="wn">{nomeFr(it)}</span>
-                        {it.price_cents > 0 && <span class="wp">{prezzo(it.price_cents)}</span>}
+                        {senzaCifra(it) ? <span class="wp">Prix du jour</span> : it.price_cents > 0 && <span class="wp">{prezzo(it.price_cents)}</span>}
                       </div>
                       {desc(it) && <div class="wr">{desc(it)}</div>}
                     </div>
