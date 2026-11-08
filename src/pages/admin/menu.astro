@@ -350,6 +350,13 @@ const varianti = boot.features.includes("variants");
 
       /* Varianti del piatto (#71): riusa .lu-block / .mn-corso-* / .m-toggle / .i-del */
       .f-hint { margin: 0 0 0.8rem; color: var(--c-muted); font-size: 0.78rem; line-height: 1.45; }
+      /* «Prix du jour» (#97): l'interruttore sotto il prezzo, e la riga che
+         dice cosa succede sul sito. */
+      .f-giorno { margin-top: 0.55rem; }
+      .f-giorno-hint { margin: 0.45rem 0 0; max-width: 22rem; }
+      .f-giorno-hint b { color: var(--c-text); font-weight: 600; }
+      .i-giorno { font-style: italic; }
+      .i-oggi { display: block; font-family: var(--font-body, inherit); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
       .m-states { flex-wrap: wrap; gap: 0.9rem 1.4rem; }
 
       .m-btns { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
@@ -574,8 +581,14 @@ const varianti = boot.features.includes("variants");
                 <select id="f-cat"></select>
               </div>
               <div class="f-field">
-                <span class="f-label">{t("menu.priceReq")}</span>
+                <span class="f-label" id="f-price-lab">{t("menu.priceReq")}</span>
                 <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
+                {/* «Prix du jour» (#97), sotto il prezzo (Enzo, 9/11/2026). */}
+                <label class="m-toggle f-giorno">
+                  <span class="switch"><input type="checkbox" id="f-daily" /><span class="track"></span></span>
+                  {t("menu.dailyPrice")}
+                </label>
+                <p class="f-hint f-giorno-hint" id="f-daily-hint" hidden></p>
               </div>
             </div>
             <div class="f-row">
@@ -867,6 +880,8 @@ const varianti = boot.features.includes("variants");
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; is_seasonal: boolean; sold_out?: boolean;
+        /** «Prix du jour» (#97). Assente sui database senza la migrazione. */
+        daily_price?: boolean;
         image_url: string | null;
       };
       type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number; parent_id?: string | null; depth?: number; children?: number; name_i18n?: Record<string, string> | null };
@@ -924,7 +939,14 @@ const varianti = boot.features.includes("variants");
       const stateEl = document.getElementById("state") as HTMLDivElement;
       const searchEl = document.getElementById("search") as HTMLInputElement;
 
+      /** «Prix du jour» senza cifra (#97): la stessa regola di `prezzoDaChiedere`. */
+      const senzaCifra = (it: Item): boolean =>
+        it.daily_price === true && !(it.price_cents > 0) && !(it.variants && it.variants.length > 0);
       function prezzoHTML(it: Item): string {
+        if (senzaCifra(it)) return `<span class="i-price i-giorno">${esc(tr("menu.dailyPrice"))}</span>`;
+        if (it.daily_price === true && !(it.variants && it.variants.length > 0)) {
+          return `<span class="i-price"><span class="i-col"><span>${euro(effettivo(it))}</span><span class="i-oggi">${esc(tr("menu.dailyToday"))}</span></span></span>`;
+        }
         const eff = effettivo(it);
         if (eff >= it.price_cents) return `<span class="i-price">${euro(it.price_cents)}</span>`;
         if (it.discount_scope === "online") {
@@ -1218,6 +1240,24 @@ const varianti = boot.features.includes("variants");
       const mMsg = document.getElementById("m-msg") as HTMLSpanElement;
       const fName = document.getElementById("f-name") as HTMLInputElement;
       const fPrice = document.getElementById("f-price") as HTMLInputElement;
+      const fPriceLab = document.getElementById("f-price-lab") as HTMLSpanElement;
+      const fDaily = document.getElementById("f-daily") as HTMLInputElement;
+      const fDailyHint = document.getElementById("f-daily-hint") as HTMLParagraphElement;
+      /** Il prezzo diventa facoltativo SOLO con «Prix du jour» acceso, e la
+       *  riga sotto dice cosa uscira' sul sito: vuoto o con la cifra. */
+      function aggiornaGiorno(): void {
+        const on = fDaily.checked;
+        fPriceLab.textContent = on ? tr("menu.priceOpt") : tr("menu.priceReq");
+        fPrice.placeholder = on ? "—" : "";
+        fDailyHint.hidden = !on;
+        if (on) {
+          const vuoto = !(parseFloat(fPrice.value.replace(",", ".")) > 0);
+          fDailyHint.innerHTML = esc(tr(vuoto ? "menu.dailyHintEmpty" : "menu.dailyHintFilled"))
+            .replace(/«(.+?)»/, "<b>«$1»</b>");
+        }
+      }
+      fDaily.addEventListener("change", aggiornaGiorno);
+      fPrice.addEventListener("input", aggiornaGiorno);
       const fCat = document.getElementById("f-cat") as HTMLSelectElement;
       const fNameLab = document.getElementById("f-name-lab") as HTMLSpanElement;
       const fNamesExtra = document.getElementById("f-names-extra") as HTMLDivElement;
@@ -1400,7 +1440,10 @@ const varianti = boot.features.includes("variants");
             .join("");
         }
         fName.value = it?.name ?? "";
-        fPrice.value = it ? (it.price_cents / 100).toFixed(2) : "";
+        fDaily.checked = it?.daily_price === true;
+        // Prix du jour senza cifra: il campo resta VUOTO, non «0.00».
+        fPrice.value = it && !(fDaily.checked && !(it.price_cents > 0)) ? (it.price_cents / 100).toFixed(2) : "";
+        aggiornaGiorno();
         fCat.value = it?.category ?? attiva;
         // Nomi tradotti (lingue extra) + descrizioni per lingua pubblica
         const nI18n = it?.name_i18n ?? {};
@@ -1613,7 +1656,12 @@ const varianti = boot.features.includes("variants");
         mMsg.textContent = "";
         if (!fName.value.trim()) { mMsg.textContent = tr("menu.nameRequired"); return; }
         if (!fCat.value) { mMsg.textContent = tr("menu.sectionRequired"); return; }
-        const prezzo = Math.round(parseFloat(fPrice.value.replace(",", ".")) * 100);
+        // «Prix du jour» (#97): col prezzo vuoto si salva 0 — il sito scrive
+        // «Prix du jour» e il piatto non si ordina. Senza l'interruttore il
+        // prezzo resta obbligatorio come sempre.
+        const prezzo = fDaily.checked && !fPrice.value.trim()
+          ? 0
+          : Math.round(parseFloat(fPrice.value.replace(",", ".")) * 100);
         if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = tr("menu.priceInvalid"); return; }
 
         const varianti = variantiDaSalvare();
@@ -1650,6 +1698,10 @@ const varianti = boot.features.includes("variants");
           is_suggestion: fSuggestion.checked,
           is_seasonal: fSeasonal.checked,
           sold_out: fSoldout.checked,
+          // ⚠️ Si manda solo se serve (acceso, o da spegnere): su un database
+          // senza la migrazione #97 un `daily_price: false` mandato sempre
+          // farebbe fallire OGNI salvataggio con «colonna mancante».
+          ...(fDaily.checked || orig?.daily_price === true ? { daily_price: fDaily.checked } : {}),
           ...(sedeAttiva ? { all_locations: fAllLoc?.checked !== false } : {}),
           image_url: imgUrl,
           discount_type: fDtype.value || null,

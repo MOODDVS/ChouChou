@@ -30,7 +30,7 @@ import { contoPerId, invioPerOrdine, rilasciaInviiScaduti } from "../contoServer
 import { accodaTicket, stampaAnnullo } from "../stampaCoda";
 import { contiApertiDellaSala } from "./contiSala";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
-import { piattiPerOrdine, rigaOrdine } from "./righeOrdine";
+import { piattiPerOrdine, rigaOrdine, piattoSenzaCifra } from "./righeOrdine";
 import { applicaTogli, dividiModifica, ordineModificabile, righeModificabili, type VoceItems } from "./modificaOrdineRegole";
 import { letturaSala } from "./letturaSala";
 
@@ -115,6 +115,9 @@ export async function ordinaDalPalmare(opz: {
   for (const r of righe) {
     const piatto = piatti.find((x) => x.id === String(r.id ?? ""));
     if (!piatto || !piatto.available || piatto.sold_out === true) return { ok: false, errore: "piatto" };
+    // «Prix du jour» senza cifra (#97): il palmare lo mostra spento, qui si
+    // chiude la strada anche a una richiesta mandata a mano.
+    if (piattoSenzaCifra(piatto, ambito)) return { ok: false, errore: "piatto" };
     const riga = rigaOrdine(piatto, { qty: r.qty, variant: r.variant }, "fr", ambito);
     if (!riga) return { ok: false, errore: "formato" };
     items.push({

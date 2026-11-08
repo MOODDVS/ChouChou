@@ -5,7 +5,8 @@
 # Uso:
 #   ./scripts/deploy-vps.sh restohub     solo app.restohub.cloud (il motore)
 #   ./scripts/deploy-vps.sh villa77      solo villa77.be
-#   ./scripts/deploy-vps.sh              tutte e due
+#   ./scripts/deploy-vps.sh ladp         solo L'Arte della Pizza
+#   ./scripts/deploy-vps.sh              tutte
 #
 # Fa, per ogni app, i passi del documento «vps-restohub» nel progetto:
 #   1. la PROVA dell'rsync: se cancellerebbe qualcosa sul server, si FERMA
@@ -30,6 +31,10 @@ ESCLUSI=(--exclude node_modules --exclude build --exclude .git --exclude .astro 
 APPS=(
   "restohub|$HOME/Developer/RestoHub|/home/enzo/app-restohub|restohub-app|4321|https://app.restohub.cloud"
   "villa77|$HOME/Developer/Villa77|/home/enzo/app-villa77|villa77|4322|https://villa77.be"
+  # ⚠️ L'indirizzo e' quello TEMPORANEO (prova sul server vero prima di
+  # spostare lartedellapizza.be). Il giorno del DNS cambia qui E nel .env del
+  # server, insieme: se non combaciano lo script si ferma prima della build.
+  "ladp|$HOME/Developer/LArteDellaPizza|/home/enzo/app-ladp|ladp|4323|https://ladp.restohub.cloud"
 )
 
 scelta="${1:-tutti}"

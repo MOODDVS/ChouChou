@@ -8,7 +8,7 @@
  */
 import { leggi, type Ambito } from "./sede";
 import { conRipiegoColonne, type RisultatoQuery } from "../db";
-import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../pricing";
+import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante, prezzoDaChiedere } from "../pricing";
 import { applicaStatoSede } from "../menuStato";
 import { QTY_MAX } from "../quantita";
 
@@ -31,6 +31,14 @@ export async function piattiPerOrdine(ids: string[], ambito: Ambito): Promise<Ri
     )) as unknown as typeof res.data;
   }
   return res;
+}
+
+/** «Prix du jour» senza cifra (#97): non si ordina neanche dallo staff —
+ *  sul ticket e sul conto uscirebbe 0 €. Si scrive la cifra di oggi nella
+ *  scheda del piatto, e da li' si ordina. Stessa regola del sito e del
+ *  checkout (`prezzoDaChiedere`). */
+export function piattoSenzaCifra(piatto: any, ambito: Ambito): boolean {
+  return prezzoDaChiedere(piatto?.daily_price, piatto?.price_cents, haVarianti(piatto?.variants, ambito));
 }
 
 /** Riga d'ordine a partire dal piatto e dal formato eventualmente scelto.

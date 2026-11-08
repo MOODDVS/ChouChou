@@ -3438,3 +3438,22 @@ create index if not exists stripe_accounts_location_idx on public.stripe_account
 alter table public.stripe_accounts enable row level security;
 grant select, insert, update, delete on public.stripe_accounts to service_role;
 
+
+-- ------------------------------------------------------------
+-- #97 — 097_menu_prezzo_del_giorno.sql
+-- ------------------------------------------------------------
+-- ============================================================
+-- #97 — PREZZO DEL GIORNO (9/11/2026)
+--
+-- L'interruttore «Prix du jour» sotto il prezzo, nella scheda del piatto.
+--   · acceso e prezzo a 0 → sul sito «Prix du jour» al posto della cifra, e
+--     il piatto NON si ordina (online, al tavolo, dallo staff): non si fa
+--     pagare una cifra che non c'e';
+--   · acceso e prezzo scritto → la cifra con l'etichetta «du jour», e si
+--     ordina a quel prezzo.
+-- Il prezzo resta un NUMERO (`price_cents`): il carrello, Stripe, gli
+-- sconti e le stampe non cambiano. Senza questa colonna, tutto come prima.
+-- Idempotente.
+-- ============================================================
+alter table public.menu_items add column if not exists daily_price boolean not null default false;
+

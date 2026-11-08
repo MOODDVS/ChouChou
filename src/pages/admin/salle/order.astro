@@ -22,7 +22,9 @@ import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
 import { claimsDaToken } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo";
-import { getMenuSala, type MenuCategoria } from "../../../lib/db";
+import { getMenuSala, type MenuCategoria, type MenuItem } from "../../../lib/db";
+import { prezzoDaChiedere } from "../../../lib/pricing";
+import { etichettaMenu } from "../../../lib/i18nMenu";
 import { importoDa } from "../../../lib/soldi";
 import { cronometro } from "../../../lib/admin/letturaSala";
 import { ICONA_CIBO, ICONA_BEVANDA } from "../../../lib/iconeSala";
@@ -74,12 +76,15 @@ const tipoDi = (c: MenuCategoria): "food" | "drink" => (c.kind === "drink" ? "dr
 const haTipi = categorie.some((c) => tipoDi(c) === "drink") && categorie.some((c) => tipoDi(c) === "food");
 const tipoIniziale = "food";
 const nascosta = (c: MenuCategoria) => haTipi && tipoDi(c) !== tipoIniziale;
+/* «Prix du jour» senza cifra (#97): spento come un esaurito, con la scritta
+   al posto del prezzo. Si ordina quando nella scheda c'e' la cifra di oggi. */
+const senzaCifra = (p: MenuItem) => prezzoDaChiedere(p.is_daily_price === true, p.price_cents, (p.variants ?? []).length > 0);
 const datiMenu = JSON.stringify(
   categorie.flatMap((c) => c.items).map((p) => ({
     id: p.id,
     nome: p.name,
     prezzo: p.price_cents,
-    esaurito: p.is_sold_out,
+    esaurito: p.is_sold_out || senzaCifra(p),
     formati: (p.variants ?? []).filter((v) => v.orderable).map((v) => ({
       key: v.key,
       nome: v.label_i18n?.[lang] || v.label_i18n?.fr || Object.values(v.label_i18n ?? {})[0] || v.key,
@@ -304,13 +309,13 @@ const ancora = (i: number) => `cat-${i}`;
             <h2 id={ancora(i)}>{c.category}</h2>
             <div class="od-griglia">
               {c.items.map((p) => (
-                <button type="button" class:list={["od-piatto", { "ha-foto": Boolean(p.image_url) }]} data-id={p.id} disabled={p.is_sold_out}>
+                <button type="button" class:list={["od-piatto", { "ha-foto": Boolean(p.image_url) }]} data-id={p.id} disabled={p.is_sold_out || senzaCifra(p)}>
                   {/* La foto del piatto, se c'e' (Enzo, 23/10/2026): si riconosce prima
                       di leggere. Posto riservato (16/10) e caricata solo quando arriva
                       sullo schermo, come in tutto il motore (`Immagine`). */}
                   {p.image_url && <span class="od-foto"><Immagine src={p.image_url} alt="" rapporto="16/10" /></span>}
                   <b>{p.name}</b>
-                  <span>{p.is_sold_out ? t("sal.ord.soldOut") : `${(p.variants ?? []).filter((v) => v.orderable).length > 1 ? "≥ " : ""}${euro(p.price_cents)}`}</span>
+                  <span>{p.is_sold_out ? t("sal.ord.soldOut") : senzaCifra(p) ? etichettaMenu("dailyPrice", lang) : `${(p.variants ?? []).filter((v) => v.orderable).length > 1 ? "≥ " : ""}${euro(p.price_cents)}`}</span>
                   <span class="od-qty" aria-hidden="true"></span>
                 </button>
               ))}

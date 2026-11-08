@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import SlotPicker from "./SlotPicker";
-import { etichettaVariante } from "../lib/pricing";
+import { etichettaVariante, prezzoDaChiedere } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 import { urlConSede } from "../lib/sedeUrl";
 import { costoConsegna, zonaDelCap, costoBaseZona, capPulito, type ZonaConsegna } from "../lib/consegnaRegole";
@@ -39,6 +39,8 @@ interface MenuItem {
   is_seasonal: boolean;
   /** Piatto esaurito: resta in carta, segnalato, ma non ordinabile. */
   is_sold_out: boolean;
+  /** «Prix du jour» (#97): vedi `senzaCifra` qui sotto. */
+  is_daily_price?: boolean;
   /** Vuoto = prezzo unico. Pieno = il cliente sceglie il formato. */
   variants: Variante[];
 }
@@ -837,8 +839,15 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     return item.variants.filter((v) => v.orderable && !v.sold_out);
   }
 
+  /** «Prix du jour» senza cifra (#97): si legge in carta, non si ordina —
+   *  ne' online ne' al tavolo. Il checkout lo rifiuta comunque
+   *  (`prezzoDaChiedere`, la stessa regola): qui si toglie solo il «+». */
+  function senzaCifra(item: MenuItem): boolean {
+    return prezzoDaChiedere(item.is_daily_price === true, item.price_cents, item.variants.length > 0);
+  }
+
   function clicPiu(item: MenuItem) {
-    if (item.is_sold_out || consulta) return;
+    if (item.is_sold_out || consulta || senzaCifra(item)) return;
     const ordinabili = variantiOrdinabili(item);
     if (ordinabili.length === 0) {
       // Nessun formato: il piatto ha un prezzo unico e va dritto nel carrello.
@@ -1295,6 +1304,11 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
         {item.is_seasonal && (
           <span className="order-b" title={et("seasonal")}>🍂</span>
         )}
+        {/* La cifra di OGGI (#97): l'etichetta accanto al nome; il prezzo
+            resta al suo posto e si ordina normalmente. */}
+        {item.is_daily_price && !senzaCifra(item) && item.variants.length === 0 && (
+          <span className="order-sugg order-oggi">{et("today")}</span>
+        )}
       </>
     );
   }
@@ -1375,7 +1389,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
       if (!id) return; // senza id non c'e' nemmeno a chi rispondere
       const item = menu.flatMap((c) => c.items).find((i) => i.id === id);
       if (!item) return esito(id, false, "sconosciuto");
-      if (item.is_sold_out) return esito(id, false, "esaurito");
+      if (item.is_sold_out || senzaCifra(item)) return esito(id, false, "esaurito");
       if (item.variants.length === 0) {
         aggiungi(item);
         return esito(id, true);
@@ -1993,6 +2007,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                                   </button>
                                 ))}
                               </div>
+                            ) : senzaCifra(item) ? (
+                              /* «Prix du jour» senza cifra (#97): la scritta
+                                 al posto del prezzo. */
+                              <p className="order-item-price order-item-price--giorno">{et("dailyPrice")}</p>
                             ) : (
                               <p className="order-item-price">
                                 {item.original_price_cents && (
@@ -2009,7 +2027,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                           {conFoto(item) ? (
                             <div className="order-item-photo">
                               <img src={item.image_url!} alt={item.name} loading="lazy" decoding="async" />
-                              {!formatiInLinea(item) && !consulta && (
+                              {!formatiInLinea(item) && !consulta && !senzaCifra(item) && (
                                 <button
                                   type="button"
                                   className="order-item-add"
@@ -2021,6 +2039,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                                 </button>
                               )}
                             </div>
+                          ) : senzaCifra(item) ? (
+                            /* Senza cifra non c'e' il «+». Online si dice
+                               dove si puo' avere; al tavolo si e' gia' li'. */
+                            !inSala && !consulta && <span className="order-sugg order-solo-sala">{et("onSite")}</span>
                           ) : (
                             !formatiInLinea(item) && !consulta && (
                               <button

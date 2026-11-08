@@ -1581,6 +1581,16 @@ test("in vetrina solo piatti che si possono ordinare, e con una foto", () => {
   assert.deepEqual(piattiInVetrina(menu).map((p) => p.id), ["a", "unformato"]);
 });
 
+test("prix du jour senza cifra: niente vetrina (il suo «+» non aggiungerebbe niente)", () => {
+  const menu = [{ items: [
+    P("giornoVuoto", { is_daily_price: true, price_cents: 0 }),
+    P("giornoPieno", { is_daily_price: true, price_cents: 2600 }),
+    P("normale", { price_cents: 0 }),
+    P("giornoFormati", { is_daily_price: true, price_cents: 0, variants: [{ sold_out: false }] }),
+  ] }];
+  assert.deepEqual(piattiInVetrina(menu).map((p) => p.id), ["giornoPieno", "normale", "giornoFormati"]);
+});
+
 test("prima i consigliati, poi i best-seller, poi l'ordine della carta", () => {
   const menu = [
     { items: [P("uno"), P("best", { is_bestseller: true })] },

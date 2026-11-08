@@ -26,6 +26,21 @@ export function prezzoEffettivo(
   return priceCents;
 }
 
+/**
+ * PREZZO DEL GIORNO SENZA CIFRA (#97, 9/11/2026): il piatto ha l'interruttore
+ * «Prix du jour» acceso e il prezzo a 0. Sul sito esce la scritta al posto
+ * della cifra, e il piatto NON si ordina da nessuna parte: online, al tavolo,
+ * dallo staff. ⚠️ Lo decide questa funzione SOLA — il sito per la scritta, il
+ * checkout e gli ordini dello staff per il rifiuto — o un giorno la carta
+ * dice «Prix du jour» e il carrello incassa 0 €.
+ * Con i FORMATI non vale: il prezzo e' quello del formato scelto.
+ * Con la cifra scritta (> 0) si ordina normalmente: il «du jour» e' solo
+ * un'etichetta.
+ */
+export function prezzoDaChiedere(daily: unknown, priceCents: unknown, conFormati = false): boolean {
+  return daily === true && !(Number(priceCents) > 0) && !conFormati;
+}
+
 // ============================================================
 // Varianti / formati di un piatto (migrazione #71)
 // Punto di verità condiviso: sito pubblico, checkout e ordini admin
