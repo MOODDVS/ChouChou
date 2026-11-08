@@ -51,6 +51,9 @@ interface MenuCategoria {
   root?: string;
   /** Traduzioni del nome della sezione (dal pannello o dal dizionario). */
   name_i18n?: Record<string, string> | null;
+  /** Traduzioni del nome della RADICE: servono quando la radice e' una madre
+   *  senza piatti suoi (non arriva come sezione, solo dentro le figlie). */
+  root_i18n?: Record<string, string> | null;
   /** "food" | "drink" (`menu_categories.kind`). */
   kind?: string | null;
 }
@@ -509,7 +512,17 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
       const root = cat.root ?? cat.category;
       let g = perRoot.get(root);
       if (!g) {
-        g = { slug: "g" + gruppiVisibili.length, label: root, subcats: [] };
+        /* ⚠️ IL FILTRO NELLA LINGUA DELLA PAGINA (9/11/2026). Prima era il
+           nome grezzo della radice: con UNA sotto-categoria in carta, tutti i
+           filtri passavano al nome del pannello — «Boissons chaudes» anche
+           sulla pagina inglese. Se la radice ha piatti suoi e' `cat` stessa
+           (e vale il suo `name_i18n`, anche quello riscritto dal sito); se e'
+           una madre vuota («Pizzas» sopra le quattro pizze) la traduzione
+           arriva in `root_i18n`. */
+        const label = cat.category === root
+          ? nomeSezione(cat)
+          : (cat.root_i18n && (cat.root_i18n[lang] || cat.root_i18n.fr)) || root;
+        g = { slug: "g" + gruppiVisibili.length, label, subcats: [] };
         perRoot.set(root, g);
         gruppiVisibili.push(g);
       }
@@ -1929,7 +1942,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
               {g.subcats.map((sub) => (
                 <div key={sub.category} className="order-subcat">
                   {(sub.depth ?? 0) > 0 && (
-                    <h3 className="order-subcat-title">{sub.category}</h3>
+                    <h3 className="order-subcat-title">{nomeSezione(sub)}</h3>
                   )}
                   <div className="order-items">
                     {sub.items.map((item) => {
