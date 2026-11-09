@@ -31,10 +31,10 @@ ESCLUSI=(--exclude node_modules --exclude build --exclude .git --exclude .astro 
 APPS=(
   "restohub|$HOME/Developer/RestoHub|/home/enzo/app-restohub|restohub-app|4321|https://app.restohub.cloud"
   "villa77|$HOME/Developer/Villa77|/home/enzo/app-villa77|villa77|4322|https://villa77.be"
-  # ⚠️ L'indirizzo e' quello TEMPORANEO (prova sul server vero prima di
-  # spostare lartedellapizza.be). Il giorno del DNS cambia qui E nel .env del
-  # server, insieme: se non combaciano lo script si ferma prima della build.
-  "ladp|$HOME/Developer/LArteDellaPizza|/home/enzo/app-ladp|ladp|4323|https://ladp.restohub.cloud"
+  # (9/11/2026) Sul dominio vero. Prima era ladp.restohub.cloud (la prova):
+  # l'indirizzo qui e quello nel .env del server cambiano INSIEME, se no lo
+  # script si ferma prima della build.
+  "ladp|$HOME/Developer/LArteDellaPizza|/home/enzo/app-ladp|ladp|4323|https://lartedellapizza.be"
 )
 
 scelta="${1:-tutti}"
