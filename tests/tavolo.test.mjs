@@ -770,7 +770,7 @@ test("il menu della sala non e' nessuno dei due di prima", () => {
   /* ⚠️ `definizioneMenu(false)` — in sala si ordina tutto cio' che e' VISIBILE:
      «ordinabile» vuol dire «ordinabile ONLINE», e il piatto che il ristoratore
      non manda in un sacchetto e' proprio quello che ha senso da seduti. */
-  assert.match(db, /const \{ visibili, categorie \} = await definizioneMenu\(false, ambito\);\n\s*return arricchisci\(raggruppa\(await applicaStatoSede\(visibili, ambito\), true, ambito\), categorie\);/,
+  assert.match(db, /const \{ visibili, categorie \} = await definizioneMenu\(false, ambito\);\n\s*return arricchisci\(raggruppa\(await applicaStatoSede\(visibili, ambito\), true, ambito, false\), categorie\);/,
     "getMenuSala non legge piu' «visibile + prezzi online»");
   /* ⚠️ E `online: true` per i PREZZI, che e' la meta' che non si puo'
      sbagliare: `/api/checkout` applica SEMPRE tutti gli sconti
@@ -782,6 +782,23 @@ test("il menu della sala non e' nessuno dei due di prima", () => {
     /const prezzoBase = prezzoEffettivo\(prezzoPieno, piatto\.discount_type, piatto\.discount_value\);/,
     "il checkout ha cambiato il modo di scontare: ricontrollare che i prezzi della sala combacino");
   assert.match(TPAG, /getMenuSala\(ambito\)/);
+});
+
+test("cameriere e QR al tavolo vedono tutti i formati, tranne gli esauriti", () => {
+  /* ⚠️ Educazione Napoletana, 11/11/2026: la pizza ha tre formati, la «ruota
+     di carro» e' spenta per l'online (da casa non si ordina) ma al tavolo si
+     serve. Il palmare filtrava su `orderable` e mostrava solo Napoletana e
+     Gluten free. «Ordinabile» e' una regola del SITO, non della sala. */
+  const pal = nudo("src/pages/admin/salle/order.astro");
+  assert.match(pal, /getMenuSala\(ambito\)/);
+  assert.doesNotMatch(pal, /\.filter\(\(v\) => v\.orderable\)/, "il palmare non filtra i formati su «ordinabile online»");
+  // Il server dello staff accetta lo stesso formato, ma non un esaurito.
+  assert.match(nudo("src/lib/admin/righeOrdine.ts"), /trovaVarianteSala\(piatto\.variants, rich\.variant, ambito\)/);
+  assert.match(nudo("src/lib/pricing.ts"), /const v = trovaVariante\(raw, key, false, ambito\);\n\s*return v && !v\.sold_out \? v : null;/);
+  // QR al tavolo: la pagina e il checkout fanno lo stesso; da casa no.
+  assert.match(OAPP, /\(inSala \|\| v\.orderable\) && !v\.sold_out/);
+  const ck = nudo("src/pages/api/checkout.ts");
+  assert.match(ck, /variante = aTavolo\n\s*\? trovaVarianteSala\(piatto\.variants, richiesto\.variant, ambitoPub\)\n\s*: trovaVariante\(piatto\.variants, richiesto\.variant, true, ambitoPub\);/);
 });
 
 test("al tavolo niente slot, niente cognome, niente telefono", () => {

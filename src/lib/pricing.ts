@@ -169,6 +169,15 @@ export function trovaVariante(
   return v;
 }
 
+/** Il formato scelto IN SALA (palmare del cameriere, QR al tavolo, ordine
+ *  manuale di Commandes). «Ordinabile» vuol dire «ordinabile da CASA»: in
+ *  sala si serve ogni formato che c'e', tranne gli esauriti. La ruota di
+ *  carro che da casa non si ordina, al tavolo si prende (11/11/2026). */
+export function trovaVarianteSala(raw: unknown, key: unknown, ambito: Ambito): VarianteDb | null {
+  const v = trovaVariante(raw, key, false, ambito);
+  return v && !v.sold_out ? v : null;
+}
+
 /** Etichetta del formato nella lingua richiesta, con ripiego ordinato:
  *  lingua chiesta → lingua predefinita → prima disponibile → chiave. */
 export function etichettaVariante(

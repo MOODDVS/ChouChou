@@ -9,8 +9,9 @@
  * riepilogo, dove si cambia la quantita', si scrive la nota per la cucina e
  * si manda (`/api/admin/salle-order`, regole in `ordineCameriere.ts`).
  *
- * ⚠️ LIMITE NOTO (lo stesso del QR, `getMenuSala`): un piatto a formati
- * mostra solo i formati ordinabili online.
+ * I formati: TUTTI tranne gli esauriti, anche quelli spenti per l'online
+ * (`getMenuSala`, 11/11/2026): la ruota di carro non si ordina da casa, ma
+ * al tavolo si serve. Stesso menu del QR al tavolo.
  * ⚠️ Non ci sono ancora le portate («Envoyer la suite»): tutto quello che si
  * manda parte adesso. Vedi i prossimi passi in `claude/palmare.md`.
  */
@@ -85,7 +86,7 @@ const datiMenu = JSON.stringify(
     nome: p.name,
     prezzo: p.price_cents,
     esaurito: p.is_sold_out || senzaCifra(p),
-    formati: (p.variants ?? []).filter((v) => v.orderable).map((v) => ({
+    formati: (p.variants ?? []).map((v) => ({
       key: v.key,
       nome: v.label_i18n?.[lang] || v.label_i18n?.fr || Object.values(v.label_i18n ?? {})[0] || v.key,
       prezzo: v.price_cents,
@@ -315,7 +316,7 @@ const ancora = (i: number) => `cat-${i}`;
                       sullo schermo, come in tutto il motore (`Immagine`). */}
                   {p.image_url && <span class="od-foto"><Immagine src={p.image_url} alt="" rapporto="16/10" /></span>}
                   <b>{p.name}</b>
-                  <span>{p.is_sold_out ? t("sal.ord.soldOut") : senzaCifra(p) ? etichettaMenu("dailyPrice", lang) : `${(p.variants ?? []).filter((v) => v.orderable).length > 1 ? "≥ " : ""}${euro(p.price_cents)}`}</span>
+                  <span>{p.is_sold_out ? t("sal.ord.soldOut") : senzaCifra(p) ? etichettaMenu("dailyPrice", lang) : `${(p.variants ?? []).length > 1 ? "≥ " : ""}${euro(p.price_cents)}`}</span>
                   <span class="od-qty" aria-hidden="true"></span>
                 </button>
               ))}

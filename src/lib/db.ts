@@ -155,16 +155,18 @@ function leggiVarianti(
     });
 }
 
-function raggruppa(data: any[], online: boolean, ambito: Ambito): MenuCategoria[] {
+/** `formatiOnline` (di solito = `online`): tiene solo i formati ordinabili
+ *  online. La sala (cameriere e QR al tavolo) lo spegne: vedi `getMenuSala`. */
+function raggruppa(data: any[], online: boolean, ambito: Ambito, formatiOnline = online): MenuCategoria[] {
   const gruppi: MenuCategoria[] = [];
   const indiceCategoria = new Map<string, number>();
 
   for (const riga of data) {
     const applicabile = online || riga.discount_scope === "all";
-    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, online, ambito);
+    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, formatiOnline, ambito);
     // Un piatto con formati, ma nessun formato ordinabile, sparisce dal
     // menu take-away (come un piatto con orderable = false).
-    if (online && haVarianti(riga.variants, ambito) && varianti.length === 0) continue;
+    if (formatiOnline && haVarianti(riga.variants, ambito) && varianti.length === 0) continue;
     const base = applicabile
       ? prezzoEffettivo(riga.price_cents, riga.discount_type, riga.discount_value)
       : riga.price_cents;
@@ -506,15 +508,15 @@ export async function getMenuOrderable(ambito: Ambito): Promise<MenuCategoria[]>
  *     contrario — ma due numeri diversi per la stessa cena, e nessuno dei due
  *     sbagliato abbastanza da far sospettare dove sia il guasto.
  *
- * ⚠️ LIMITE NOTO, scritto perche’ si veda: con `online: true` un piatto che
- * ha dei FORMATI tiene solo quelli ordinabili online, e se non ne ha nessuno
- * sparisce anche dalla sala (la riga `if (online && haVarianti(...))` in
- * `raggruppa`). Finche’ `leggiVarianti` non sa distinguere «sala» da
- * «online», quei formati vanno segnati ordinabili. Riguarda i soli piatti a
- * formati, non il menu intero.
+ * ⚠️ I FORMATI: TUTTI, tranne gli esauriti (Enzo, 11/11/2026). Cameriere e
+ * QR al tavolo hanno lo STESSO menu; lo switch «ordinabile» vale solo per gli
+ * ordini da casa. La pizza «ruota di carro» di Educazione Napoletana non si
+ * ordina da casa, ma al tavolo si serve: prima il palmare e il QR vedevano
+ * solo Napoletana e Gluten free. Lo stesso vale per i server: lo staff
+ * (`righeOrdine.ts`) e il checkout al tavolo usano `trovaVarianteSala`.
  */
 export async function getMenuSala(ambito: Ambito): Promise<MenuCategoria[]> {
   const { visibili, categorie } = await definizioneMenu(false, ambito);
-  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), categorie);
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito, false), categorie);
 }
 
