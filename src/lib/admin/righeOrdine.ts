@@ -8,7 +8,7 @@
  */
 import { leggi, type Ambito } from "./sede";
 import { conRipiegoColonne, type RisultatoQuery } from "../db";
-import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante, prezzoDaChiedere } from "../pricing";
+import { prezzoEffettivo, haVarianti, trovaVarianteSala, etichettaVariante, prezzoDaChiedere } from "../pricing";
 import { applicaStatoSede } from "../menuStato";
 import { QTY_MAX } from "../quantita";
 
@@ -52,9 +52,11 @@ export function rigaOrdine(
   // Audit 3/11/2026: `NaN` diventava un totale `NaN`, e nessun tetto.
   const n = Math.floor(Number(rich.qty));
   const qty = Number.isFinite(n) ? Math.min(QTY_MAX, Math.max(1, n)) : 1;
-  let variante = null as ReturnType<typeof trovaVariante>;
+  let variante = null as ReturnType<typeof trovaVarianteSala>;
   if (haVarianti(piatto.variants, ambito)) {
-    variante = trovaVariante(piatto.variants, rich.variant, true, ambito);
+    // Staff: tutti i formati tranne gli esauriti, anche quelli non
+    // ordinabili ONLINE (che e' una regola del sito, non della sala).
+    variante = trovaVarianteSala(piatto.variants, rich.variant, ambito);
     if (!variante) return null;
   }
   const pieno = variante ? variante.price_cents : piatto.price_cents;

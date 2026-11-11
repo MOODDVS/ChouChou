@@ -26,7 +26,7 @@ import { accodaTicket } from "../../lib/stampaCoda";
 import { contoPerId, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
 import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
 import { inviaPushConto } from "../../lib/push";
-import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante, prezzoDaChiedere } from "../../lib/pricing";
+import { prezzoEffettivo, haVarianti, trovaVariante, trovaVarianteSala, etichettaVariante, prezzoDaChiedere } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
   calcolaScontoCoupon,
@@ -402,7 +402,11 @@ export const POST: APIRoute = async ({ request }) => {
     // dal browser arriva solo la chiave, il prezzo lo decide il server.
     let variante = null as ReturnType<typeof trovaVariante>;
     if (haVarianti(piatto.variants, ambitoPub)) {
-      variante = trovaVariante(piatto.variants, richiesto.variant, true, ambitoPub);
+      // Al tavolo ogni formato che c'e' (tranne gli esauriti), come col
+      // cameriere: lo switch «ordinabile» vale solo per gli ordini da casa.
+      variante = aTavolo
+        ? trovaVarianteSala(piatto.variants, richiesto.variant, ambitoPub)
+        : trovaVariante(piatto.variants, richiesto.variant, true, ambitoPub);
       if (!variante) {
         return err(409, "Le format choisi n'est plus disponible");
       }

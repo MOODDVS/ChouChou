@@ -836,7 +836,9 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
 
   /** Formati che si possono davvero ordinare adesso. */
   function variantiOrdinabili(item: MenuItem): Variante[] {
-    return item.variants.filter((v) => v.orderable && !v.sold_out);
+    // Al tavolo (QR) ogni formato non esaurito, come col cameriere: lo switch
+    // «ordinabile» vale solo per gli ordini da casa (11/11/2026).
+    return item.variants.filter((v) => (inSala || v.orderable) && !v.sold_out);
   }
 
   /** «Prix du jour» senza cifra (#97): si legge in carta, non si ordina —
