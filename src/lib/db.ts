@@ -276,7 +276,10 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
     const info = mappa.get(g.category);
     g.parent = info?.parent ?? null;
     g.depth = info?.depth ?? 0;
-    g.kind = info?.kind ?? null;
+    // Il tipo (piatti/bevande) e' quello della RADICE: una sotto-sezione
+    // segue sempre la sua madre. Se nel DB e' rimasta col tipo sbagliato
+    // («Vin Maison» food sotto «Vins» drink) finirebbe nella carta sbagliata.
+    g.kind = mappa.get(radiceDi(g.category))?.kind ?? info?.kind ?? null;
     g.name_i18n = i18nDi(g.category, info?.name_i18n ?? null);
     g.root = radiceDi(g.category);
     g.root_i18n = i18nDi(g.root, mappa.get(g.root)?.name_i18n ?? null);

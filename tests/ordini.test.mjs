@@ -814,7 +814,8 @@ test("senza sotto-categorie le bevande le riconoscono i dati, non i numeri di La
   const app = leggi("src/components/OrderApp.tsx");
   const db = leggi("src/lib/db.ts");
   assert.match(db, /select\("id, name, parent_id, depth, name_i18n, kind"\)/);
-  assert.match(db, /g\.kind = info\?\.kind \?\? null;/);
+  // Il tipo e' quello della RADICE: una sotto-sezione segue la madre (#98).
+  assert.match(db, /g\.kind = mappa\.get\(radiceDi\(g\.category\)\)\?\.kind \?\? info\?\.kind \?\? null;/);
   assert.match(app, /const conTipo = menu\.some\(\(c\) => c\.kind === "food" \|\| c\.kind === "drink"\);/);
   // Il ramo coi dati viene PRIMA di quello storico.
   assert.ok(app.indexOf("} else if (conTipo) {") < app.indexOf("Legacy (senza sotto-categorie e senza `kind`)"));

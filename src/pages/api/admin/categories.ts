@@ -32,6 +32,34 @@ async function leggiCategorie(): Promise<Cat[] | null> {
   return (res.data ?? []) as Cat[];
 }
 
+/** Il tipo della RADICE del ramo di `id`: le sotto-sezioni seguono sempre la
+ *  madre. Senza questa regola «+ sotto» creava la sotto-sezione col tipo di
+ *  default (food) anche sotto una sezione bevande, e il modale del piatto —
+ *  che filtra per tipo — la metteva tra i piatti e nascondeva il resto. */
+function kindRadice(cats: Cat[], id: string): string | null {
+  const perId = new Map(cats.map((c) => [c.id, c]));
+  let cur = perId.get(id);
+  let guard = 0;
+  while (cur && cur.parent_id && guard < 12) {
+    const p = perId.get(cur.parent_id);
+    if (!p) break;
+    cur = p;
+    guard++;
+  }
+  return cur?.kind ?? null;
+}
+
+/** Tutti i discendenti di `id` (figli, nipoti...). */
+function discendentiDi(cats: Cat[], id: string): Cat[] {
+  const out: Cat[] = [];
+  const visti = new Set<string>([id]);
+  const raccogli = (pid: string) => {
+    for (const c of cats) if (c.parent_id === pid && !visti.has(c.id)) { visti.add(c.id); out.push(c); raccogli(c.id); }
+  };
+  raccogli(id);
+  return out;
+}
+
 /** Ordina le categorie in profondità (depth-first) rispettando sort_order. */
 function ordineAlbero(cats: Cat[]): Cat[] {
   const figli = new Map<string | null, Cat[]>();
@@ -94,7 +122,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const name = String(body.name ?? "").trim().slice(0, 60);
   if (!name) return json({ error: await msg("cat.err.name") }, 400);
-  const kind = body.kind === "drink" ? "drink" : "food";
+  let kind = body.kind === "drink" ? "drink" : "food";
 
   let parent_id: string | null = null;
   let depth = 0;
@@ -110,6 +138,10 @@ export const POST: APIRoute = async ({ request }) => {
     depth = Number((parent as { depth?: number }).depth ?? 0) + 1;
     if (depth > MAX_DEPTH) return json({ error: await msg("cat.err.depth") }, 400);
     parent_id = pid;
+    // Una sotto-sezione ha sempre il tipo della sua radice, qualunque cosa mandi il client.
+    const tutte = await leggiCategorie();
+    const k = tutte ? kindRadice(tutte, pid) : null;
+    if (k === "food" || k === "drink") kind = k;
   }
 
   const { data: max } = await supabaseAdmin
@@ -224,7 +256,26 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
-  if (Object.keys(campi).length === 0) return json({ error: await msg("cat.err.nothing") }, 400);
+  // Il tipo: una sotto-sezione prende quello della radice della (nuova) madre;
+  // una radice tiene il suo (o quello nuovo) e lo passa a tutto il ramo.
+  const pidFinale = "parent_id" in campi ? (campi.parent_id as string | null) : (attuale.parent_id ?? null);
+  const kindFinale = pidFinale ? (kindRadice(cats, pidFinale) ?? attuale.kind) : String(campi.kind ?? attuale.kind);
+  if (kindFinale !== attuale.kind) campi.kind = kindFinale;
+  else delete campi.kind;
+  const kindRamo = discendentiDi(cats, id).filter((c) => c.kind !== kindFinale).map((c) => c.id);
+
+  if (Object.keys(campi).length === 0) {
+    // Solo un `kind` su una sotto-sezione (che segue la madre): si sistema al
+    // massimo il ramo, e la sezione resta com'e'.
+    if ("kind" in body) {
+      if (kindRamo.length > 0) {
+        await supabaseAdmin.from("menu_categories").update({ kind: kindFinale }).in("id", kindRamo);
+        scadeMenu();
+      }
+      return json({ ok: true, invariato: kindRamo.length === 0 });
+    }
+    return json({ error: await msg("cat.err.nothing") }, 400);
+  }
 
   let errUpd = (await supabaseAdmin.from("menu_categories").update(campi).eq("id", id)).error;
   if (errUpd && String(errUpd.message ?? "").includes("name_i18n")) {
@@ -237,6 +288,7 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ error: await msg("cat.err.update") }, 500);
   }
   await Promise.all(subtreeUpdates.map((u) => supabaseAdmin.from("menu_categories").update({ depth: u.depth }).eq("id", u.id)));
+  if (kindRamo.length > 0) await supabaseAdmin.from("menu_categories").update({ kind: kindFinale }).in("id", kindRamo);
 
   // Propaga ai piatti (nome/ordine). Il parent/kind non toccano i piatti.
   const aggiornaPiatti: Record<string, unknown> = {};
@@ -292,9 +344,11 @@ export const PATCH: APIRoute = async ({ request }) => {
   // Calcola depth da parent, valida parent-prima-dei-figli e profondità max
   const posizione = new Map(nodes.map((n, i) => [n.id, i]));
   const depthDi = new Map<string, number>();
+  const kindDi = new Map<string, string>(); // tipo della radice di ogni nodo
+  const kindAttuale = new Map(cats.map((c) => [c.id, c.kind]));
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
-    if (n.parent_id === null) { depthDi.set(n.id, 0); continue; }
+    if (n.parent_id === null) { depthDi.set(n.id, 0); kindDi.set(n.id, kindAttuale.get(n.id) ?? "food"); continue; }
     if (!perId.has(n.parent_id)) return json({ error: await msg("cat.err.parentUnknown") }, 400);
     if (n.parent_id === n.id) return json({ error: await msg("cat.err.parent") }, 400);
     const pPos = posizione.get(n.parent_id);
@@ -302,6 +356,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     const d = (depthDi.get(n.parent_id) ?? 0) + 1;
     if (d > MAX_DEPTH) return json({ error: await msg("cat.err.depth") }, 400);
     depthDi.set(n.id, d);
+    kindDi.set(n.id, kindDi.get(n.parent_id) ?? kindAttuale.get(n.id) ?? "food");
   }
 
   // Un giro solo per le sezioni, e per i piatti SOLO quelle che si sono
@@ -316,10 +371,12 @@ export const PATCH: APIRoute = async ({ request }) => {
     const cur = attuale.get(n.id)!;
     const sort = i + 1;
     const depth = depthDi.get(n.id) ?? 0;
-    if (cur.sort_order === sort && (cur.parent_id ?? null) === n.parent_id && (cur.depth ?? 0) === depth) continue;
-    // `name` e `kind` vanno rimandati indietro identici: l'upsert e' un INSERT
-    // con ON CONFLICT, e le colonne NOT NULL devono esserci comunque.
-    righe.push({ id: n.id, name: cur.name, kind: cur.kind, sort_order: sort, parent_id: n.parent_id, depth });
+    const kind = kindDi.get(n.id) ?? cur.kind;
+    if (cur.sort_order === sort && (cur.parent_id ?? null) === n.parent_id && (cur.depth ?? 0) === depth && cur.kind === kind) continue;
+    // `name` va rimandato indietro identico: l'upsert e' un INSERT con
+    // ON CONFLICT, e le colonne NOT NULL devono esserci comunque. Il `kind`
+    // e' quello della radice: un ramo spostato sotto «Vins» diventa bevanda.
+    righe.push({ id: n.id, name: cur.name, kind, sort_order: sort, parent_id: n.parent_id, depth });
     if (cur.sort_order !== sort) ordineCambiato.push(cur.name);
   }
   if (righe.length === 0) return json({ ok: true, invariato: true });
