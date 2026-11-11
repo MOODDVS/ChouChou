@@ -1123,6 +1123,21 @@ const varianti = boot.features.includes("variants");
         }
         return c?.name ?? nome;
       }
+
+      /** Il tipo (piatti/bevande) di una sezione e' quello della sua RADICE:
+       *  le sotto-sezioni seguono sempre la madre, anche se nel DB e' rimasto
+       *  un `kind` diverso (sotto-sezioni create prima di questa regola). */
+      function kindDi(c: Cat | undefined): "food" | "drink" {
+        let cur = c;
+        let guard = 0;
+        while (cur && cur.parent_id && guard < 10) {
+          const p = cats.find((x) => x.id === cur!.parent_id);
+          if (!p) break;
+          cur = p;
+          guard++;
+        }
+        return cur?.kind === "drink" ? "drink" : "food";
+      }
       function renderList() {
         const filtro = searchEl.value.trim().toLowerCase();
         listEl.dataset.mode = filtro ? "search" : "cat";
@@ -1409,11 +1424,26 @@ const varianti = boot.features.includes("variants");
         return items.filter((i) => i.category === cat).reduce((mx, i) => Math.max(mx, i.sort_order), 0);
       }
 
+      // Se nella tendina si sceglie una sezione dell'altro tipo, il modale si
+      // adegua: titolo e righe «vegano»/«piccante» (che sulle bevande non ci sono).
+      function adeguaKindModale() {
+        const isDrink = kindDi(cats.find((c) => c.name === fCat.value)) === "drink";
+        mTitle.textContent = editId
+          ? tr(isDrink ? "menu.editDrink" : "menu.editDish")
+          : tr(isDrink ? "menu.addDrink" : "menu.addDish");
+        const vegRow = fVegan.closest(".m-toggle") as HTMLElement | null;
+        const spiRow = fSpicy.closest(".m-toggle") as HTMLElement | null;
+        if (vegRow) vegRow.style.display = isDrink ? "none" : "";
+        if (spiRow) spiRow.style.display = isDrink ? "none" : "";
+        if (isDrink) { fVegan.checked = false; fSpicy.checked = false; }
+      }
+      fCat.addEventListener("change", adeguaKindModale);
+
       function apriModale(it: Item | null) {
         editId = it?.id ?? null;
         mostraTab("desc");
-        const kindModale: string = it
-          ? (cats.find((c) => c.name === it.category)?.kind ?? "food")
+        const kindModale: "food" | "drink" = it
+          ? kindDi(cats.find((c) => c.name === it.category))
           : (kindFiltro === "drink" ? "drink" : "food");
         const isDrink = kindModale === "drink";
         mTitle.textContent = it
@@ -1429,13 +1459,24 @@ const varianti = boot.features.includes("variants");
             while (cur && !seen.has(cur.id)) { seen.add(cur.id); names.unshift(cur.name); cur = cur.parent_id ? catById.get(cur.parent_id) : undefined; }
             return names;
           };
-          fCat.innerHTML = cats
-            .filter((c) => (c.kind ?? "food") === kindModale)
+          // TUTTE le sezioni, divise in due gruppi (prima quello del tab).
+          // Prima si filtrava sul `kind` della singola sezione: le
+          // sotto-sezioni con un kind diverso dalla madre sparivano (o
+          // finivano nel gruppo sbagliato) e le bevande non c'erano mai.
+          const opzioni = (k: "food" | "drink") => cats
+            .filter((c) => kindDi(c) === k)
             .map((c) => {
               const d = c.depth ?? 0;
               const pre = d > 0 ? "\u00A0\u00A0".repeat(d) : "";
               const label = pathOf(c).join(" \u203A ");
               return `<option value="${esc(c.name)}">${pre}${esc(label)}</option>`;
+            })
+            .join("");
+          const gruppi: ("food" | "drink")[] = kindModale === "drink" ? ["drink", "food"] : ["food", "drink"];
+          fCat.innerHTML = gruppi
+            .map((k) => {
+              const o = opzioni(k);
+              return o ? `<optgroup label="${esc(tr(k === "drink" ? "tab.menu.drink" : "tab.menu.food"))}">${o}</optgroup>` : "";
             })
             .join("");
         }
@@ -1831,8 +1872,8 @@ const varianti = boot.features.includes("variants");
               <button type="button" class="i-btn s-mv s-down" ${fratelloDopo(i) < 0 ? "disabled" : ""} title="${tr("menu.moveDown")}" aria-label="${tr("menu.moveDown")}">${ICO_GIU}</button>
             </span>
             ${tree}
-            <button type="button" class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
-            <button type="button" class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
+            <button type="button" class="i-btn k-btn s-kfood${kindDi(c) === "food" ? " is-active" : ""}" ${depth > 0 ? "disabled" : ""} title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
+            <button type="button" class="i-btn k-btn s-kdrink${kindDi(c) === "drink" ? " is-active" : ""}" ${depth > 0 ? "disabled" : ""} title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
             <input type="text" class="s-name" list="cat-std-list" value="${esc(c.name)}" maxlength="60" />
             ${tradBtn}
             <button type="button" class="i-btn s-out" ${puoOut ? "" : "disabled"} title="${tr("menu.outdentTitle")}">⇤</button>
@@ -1904,7 +1945,13 @@ const varianti = boot.features.includes("variants");
 
         if (t.closest(".s-kfood") || t.closest(".s-kdrink")) {
           const kind = t.closest(".s-kdrink") ? "drink" : "food";
-          if (cats[idx].kind !== kind) { cats[idx].kind = kind; renderSezioni(); }
+          if ((cats[idx].depth ?? 0) > 0) return; // una sotto-sezione segue la madre
+          // Su una radice il tipo vale per tutto il ramo.
+          let cambiato = false;
+          for (let k = idx; k < idx + bloccoSezione(idx); k++) {
+            if (cats[k].kind !== kind) { cats[k].kind = kind; cambiato = true; }
+          }
+          if (cambiato) renderSezioni();
           return;
         }
         const sDel = t.closest(".s-del") as HTMLElement | null;
@@ -1930,6 +1977,7 @@ const varianti = boot.features.includes("variants");
         if (t.closest(".s-sub")) {
           const c = cats[idx];
           nuovoParent = { id: c.id, name: c.name, depth: c.depth ?? 0 };
+          nuovaKind = kindDi(c);
           renderNuovaKind();
           secNew.focus();
           return;
@@ -2058,7 +2106,8 @@ const varianti = boot.features.includes("variants");
           return;
         }
         cats[i].parent_id = cats[j].id;
-        for (let k = i; k < i + mio; k++) cats[k].depth = (cats[k].depth ?? 0) + 1;
+        const kindMadre = kindDi(cats[j]);
+        for (let k = i; k < i + mio; k++) { cats[k].depth = (cats[k].depth ?? 0) + 1; cats[k].kind = kindMadre; }
         // La posizione e' gia' giusta: il blocco segue la sorella, quindi ne
         // diventa l'ultimo figlio senza spostare niente.
         secMsg.textContent = "";
@@ -3301,7 +3350,7 @@ const varianti = boot.features.includes("variants");
           const t = (e.target as HTMLElement).closest(".kf-pill") as HTMLElement | null;
           if (!t || !t.dataset.kind) return;
           kindFiltro = t.dataset.kind as KindTab;
-          attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? "";
+          attiva = cats.find((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0)?.name ?? "";
           searchEl.value = "";
           renderTabs();
           renderList();
@@ -3311,7 +3360,7 @@ const varianti = boot.features.includes("variants");
           if (!t) return;
           if (t.dataset.kind) {
             kindFiltro = t.dataset.kind as "food" | "drink";
-            attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? "";
+            attiva = cats.find((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0)?.name ?? "";
           } else {
             attiva = t.dataset.cat!;
           }
@@ -3574,7 +3623,7 @@ const varianti = boot.features.includes("variants");
                 if (tabVietati.includes(kindFiltro)) {
                   const ordine: KindTab[] = ["food", "drink", "lunch", "menus"];
                   kindFiltro = ordine.find((k) => !tabVietati.includes(k)) ?? kindFiltro;
-                  attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? "";
+                  attiva = cats.find((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0)?.name ?? "";
                 }
                 renderTabs();
                 renderList();

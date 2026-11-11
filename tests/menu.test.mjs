@@ -833,3 +833,34 @@ test("prix du jour: checkout, staff e palmare chiedono alla STESSA regola", () =
   assert.match(leggi("lib/db.ts"), /MENU_COLONNE_NUOVE = \[[^\]]*"daily_price"/,
     "senza `daily_price` fra le colonne nuove il sito non saprebbe niente dell'interruttore");
 });
+
+/* ============================================================
+   SOTTO-SEZIONI E TIPO (#98) — il ramo ha il tipo della radice
+   ============================================================ */
+
+test("il modale del piatto mostra TUTTE le sezioni, col tipo della radice", () => {
+  /* ⚠️ «+ sotto» creava la sotto-sezione sempre food, anche sotto «Vins»
+     (drink); il modale filtrava sul kind della singola sezione e la lista
+     di Villa 77 era a meta': «Vins › Vin Maison» fra i piatti, le bevande
+     mai (11/11/2026). */
+  const m = readFileSync(new URL("../src/pages/admin/menu.astro", import.meta.url), "utf8");
+  assert.doesNotMatch(m, /\.filter\(\(c\) => \(c\.kind \?\? "food"\) === kindModale\)/,
+    "il filtro sul kind della singola sezione nascondeva le sotto-sezioni");
+  assert.match(m, /function kindDi\(c: Cat \| undefined\): "food" \| "drink"/);
+  assert.match(m, /<optgroup label=/, "le sezioni dell'altro tipo ci sono, in un gruppo a parte");
+  assert.match(m, /nuovaKind = kindDi\(c\);/, "«+ sotto» prende il tipo della madre");
+  assert.match(m, /fCat\.addEventListener\("change", adeguaKindModale\)/);
+});
+
+test("il server tiene il tipo della radice su creazione, spostamento e riordino", () => {
+  const api = readFileSync(new URL("../src/pages/api/admin/categories.ts", import.meta.url), "utf8");
+  assert.match(api, /function kindRadice\(cats: Cat\[\], id: string\)/);
+  // POST: una sotto-sezione non sceglie il suo tipo
+  assert.match(api, /const k = tutte \? kindRadice\(tutte, pid\) : null;/);
+  // PUT: il tipo passa a tutto il ramo
+  assert.match(api, /update\(\{ kind: kindFinale \}\)\.in\("id", kindRamo\)/);
+  // PATCH in blocco: anche il kind conta per sapere se una riga e' cambiata
+  assert.match(api, /&& cur\.kind === kind\) continue;/);
+  assert.match(readFileSync(new URL("../supabase/098_menu_kind_sottosezioni.sql", import.meta.url), "utf8"),
+    /with recursive albero/);
+});
