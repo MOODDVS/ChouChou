@@ -320,8 +320,8 @@ const prI18n = {
       .loc-err { color: var(--c-ko-chiaro); font-size: 0.85rem; align-self: center; }
       .loc-err:empty { display: none; }
       .pane .tema-titre { margin-top: 0; }
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.4rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      h1 { margin-bottom: 0.4rem; }
+      
       .sub { color: var(--c-muted); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.6; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
@@ -1387,7 +1387,7 @@ const prI18n = {
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
       import { variabiliTema, NOMI_VARIABILI } from "../../lib/admin/temaColori";
       import { PAGINE_SOLO_ADMIN as SOLO_ADMIN } from "../../lib/admin/permessiRegole";
-      import { adminT, type AdminLang } from "../../i18n/admin";
+      import { adminT, type AdminLang } from "../../i18n/adminClient";
 
       (async () => {
         // Traduttore lato client: la lingua è già in <html lang>.
@@ -3553,7 +3553,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
-      import { adminT, type AdminLang } from "../../i18n/admin";
+      import { adminT, type AdminLang } from "../../i18n/adminClient";
 
       type Livello = "ok" | "parz" | "no" | "ignoto";
       type Stato = {
@@ -3756,7 +3756,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
-      import { adminT, type AdminLang } from "../../i18n/admin";
+      import { adminT, type AdminLang } from "../../i18n/adminClient";
 
       type Livello = "ok" | "parz" | "no" | "ignoto";
       type Fonte = "casella" | "env" | "nessuna";
@@ -3976,7 +3976,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
-      import { adminT, type AdminLang } from "../../i18n/admin";
+      import { adminT, type AdminLang } from "../../i18n/adminClient";
 
       type Livello = "ok" | "parz" | "no" | "ignoto";
       type Fonte = "sede" | "marchio" | "ambiente" | "nessuna";
@@ -4277,7 +4277,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
 
       type Livello = "ok" | "parz" | "no" | "ignoto";
       type Liv = {
@@ -4600,7 +4600,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
-      import { adminT, type AdminLang } from "../../i18n/admin";
+      import { adminT, type AdminLang } from "../../i18n/adminClient";
 
       type Livello = "ok" | "parz" | "no" | "ignoto";
       type Config = { site: string; ready: boolean; robot: string; suggerito: string };
@@ -4777,7 +4777,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { SEGNO, esito } from "../../lib/admin/casellaUi";
       import { esc } from "../../lib/esc";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
 
       type Livello = "ok" | "parz" | "no" | "ignoto";
       type Stato = {

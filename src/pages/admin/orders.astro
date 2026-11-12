@@ -99,8 +99,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
 
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.25rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      h1 { margin-bottom: 0.25rem; }
+      
       .today-label { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; text-transform: capitalize; color: var(--c-muted); margin-bottom: 0.5rem; }
       .count { color: var(--c-muted); font-size: 0.85rem; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
@@ -1276,7 +1276,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          server — scritta due volte, le due meta' si allontanano. */
       import { alTavolo, aConsegna } from "../../lib/ordiniRegole";
       import { indirizzoDaRiga, rigaIndirizzo, linkMappa } from "../../lib/consegnaRegole";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       /* ⚠️ I conti dei soldi NON si riscrivono qui: la colonna della Accueil,
          le statistiche e la mail del mattino contano la stessa giornata, e
          quando le copie della regola sono divergute un ordine rimborsato

@@ -1,4 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+// ⚠️ SOLO l'auth (audit 12/11/2026). Il browser dell'admin e del palmare usa
+// `supabaseBrowser.auth` e nient'altro: i dati passano tutti dalle nostre API.
+// `createClient` di supabase-js si portava dietro database, storage, realtime
+// e functions — 51 KB compressi in OGNI pagina admin, mai usati. AuthClient e'
+// lo stesso oggetto che supabase-js crea dentro (`_initSupabaseAuthClient`),
+// con le stesse opzioni e la STESSA chiave di localStorage: le sessioni gia'
+// aperte restano valide, nessuno deve rifare il login.
+import { AuthClient } from "@supabase/auth-js";
 
 // Client Supabase per il BROWSER (lato client).
 // Usa la chiave PUBBLICA (publishable / anon): è sicura da esporre,
@@ -17,14 +24,21 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   );
 }
 
-export const supabaseBrowser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
+const BASE = new URL(String(SUPABASE_URL).trim().replace(/\/?$/, "/"));
+export const supabaseBrowser = {
+  auth: new AuthClient({
+    url: new URL("auth/v1", BASE).href,
+    headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, apikey: `${SUPABASE_ANON_KEY}` },
+    // La chiave che supabase-js usava da sola: `sb-<progetto>-auth-token`.
+    storageKey: `sb-${BASE.hostname.split(".")[0]}-auth-token`,
     // Mantiene la sessione nel browser e la rinnova da sola: così lo staff
     // resta loggato tra una pagina e l'altra senza dover rifare il login.
     persistSession: true,
     autoRefreshToken: true,
-  },
-});
+    detectSessionInUrl: true, // il link di «mot de passe oublié» porta il token nell'URL
+    flowType: "implicit",
+  }),
+};
 
 // ============================================================
 // Cookie di sessione per il RENDER LATO SERVER (SSR) — Fase 2

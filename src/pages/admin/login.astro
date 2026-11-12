@@ -1,4 +1,5 @@
 ---
+import { urlDizionario } from "../../lib/admin/dizionarioBrowser";
 // Pagina di login dello staff — layout SPLIT (immagine + form).
 // Standalone: NON usa Layout.astro. L'autenticazione gira nel browser
 // tramite supabaseBrowser. Brand-aware: nome, logo, logo negativo dai Réglages;
@@ -119,6 +120,8 @@ const nonce = Astro.locals.cspNonce;
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#ffffff" />
     <Fonts />
+    {/* Le stringhe dell'admin per gli script della pagina (audit 12/11/2026). */}
+    <script is:inline src={urlDizionario(lang)} nonce={nonce}></script>
     <style>
       :root {
         --c-hover: #e86a61; --c-card: #16424b; --c-input: #f1f1f1; --c-bg: #0c2a30;
@@ -361,7 +364,7 @@ const nonce = Astro.locals.cspNonce;
     </script>
     <script>
       import { supabaseBrowser, scriviCookieToken } from "../../lib/supabaseBrowser";
-      import { adminT, type AdminLang } from "../../i18n/admin";
+      import { adminT, type AdminLang } from "../../i18n/adminClient";
       const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
       const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 

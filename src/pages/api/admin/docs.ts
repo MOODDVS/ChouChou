@@ -11,6 +11,7 @@ import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
 import { sedeDaScrivere, radiceDocs, type Ambito } from "../../../lib/admin/sedeRegole";
 
 import { bucketDocs, linkDocs, spostaNelPrivato } from "../../../lib/admin/bucketDocs";
+import { esc as escHtml } from "../../../lib/esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 export const prerender = false;
 
@@ -40,9 +41,6 @@ export const prerender = false;
 const CATS = ["contrat", "facture", "recu", "legal", "autre"];
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 
 function frData(iso: string): string {
   const [y, m, d] = iso.split("-");

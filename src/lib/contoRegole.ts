@@ -21,8 +21,17 @@ export function contoAperto(stato: unknown): boolean {
 
 /* ───────── Il codice ───────── */
 
+/** Un numero fra 0 e 1 dal generatore CRITTOGRAFICO (browser e Node).
+ *  ⚠️ Non `Math.random`: e' prevedibile, e un codice che apre un conto o un
+ *  buono che vale soldi non deve esserlo (audit 12/11/2026). */
+export function casoSicuro(): number {
+  const u = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(u);
+  return u[0] / 2 ** 32;
+}
+
 /** Un codice nuovo, «00»–«99». `caso` si passa nei test. */
-export function nuovoCodice(caso: () => number = Math.random): string {
+export function nuovoCodice(caso: () => number = casoSicuro): string {
   const n = Math.min(99, Math.max(0, Math.floor(caso() * 100)));
   return String(n).padStart(2, "0");
 }

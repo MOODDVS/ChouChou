@@ -1,4 +1,5 @@
 ---
+import "../../styles/campagne.css"; // regole in comune con Marketing (audit 12/11/2026)
 // Pannello admin — AGENDA / EVENTI.
 // CRUD degli eventi del ristorante: titolo, immagine principale, descrizione,
 // galleria, data singola o intervallo, link esterni, RSVP (inscriptions).
@@ -44,77 +45,9 @@ const pubLangsJson = JSON.stringify({
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
 
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+      
 
-      /* Tabs (come Réglages) */
-      /* I tab scorrono quando NON ci stanno, non sotto una larghezza scelta a
-         mano: quanti sono dipende dai moduli attivi del cliente. Stessa cura
-         della barra di navigazione. */
-      /* I tab grandi: styles/tabs.css (.rh-tabs). */
 
-      .actionsbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-      /* Bottoni d'azione: componente condiviso (src/styles/button.css, .btn). */
-      /* Pillole segmenti/programmazione nel modale newsletter */
-      .seg-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
-      .seg-pill {
-        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
-        padding: 0.45rem 0.9rem; border-radius: 999px; cursor: pointer;
-        transition: border-color 0.15s, color 0.15s, background 0.15s;
-      }
-      .seg-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .seg-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      .seg-pill .n { opacity: 0.7; margin-left: 0.3rem; }
-      .np-del {
-        background: none; border: 1px solid var(--c-line); color: var(--c-muted);
-        width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .np-del:hover, .np-del.confirm { border-color: var(--c-ko); color: var(--c-ko-chiaro); }
-      /* Card di brouillons e programmate */
-      .nn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.9rem; align-items: start; margin-bottom: 1.5rem; }
-      .nn-card {
-        display: flex; flex-direction: column; gap: 0.5rem;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 1rem 1.1rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
-      }
-      .nn-card.is-click { cursor: pointer; transition: border-color 0.15s; }
-      .nn-card.is-click:hover { border-color: var(--c-accent); }
-      .nn-tit { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.04em; color: var(--c-accent); }
-      .nn-msg { color: var(--c-muted); font-size: 0.8rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-      .nn-foot { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.6rem; margin-top: 0.2rem; font-size: 0.75rem; color: var(--c-muted); }
-      .nn-foot .nn-quando { margin-right: auto; color: var(--c-text); font-weight: 700; }
-      .nn-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; }
-      .nn-tag {
-        display: inline-block; background: var(--c-accent); color: var(--c-bg);
-        font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
-        padding: 0.2rem 0.6rem; border-radius: 999px;
-      }
-      .nn-img {
-        width: calc(100% + 2.2rem); margin: -1rem -1.1rem 0.35rem;
-        height: 130px; object-fit: cover; display: block;
-        border-bottom: 1px solid var(--c-line);
-      }
-
-      /* Card pop-up */
-      .pops { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem; }
-      .pop {
-        background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
-        display: flex; flex-direction: column; gap: 0.7rem;
-      }
-      .pop.is-off { opacity: 0.55; }
-      .pop-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; }
-      .pop-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.03em; }
-      .pop-text { color: var(--c-muted); font-size: 0.88rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-      .pop-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; }
-      .m-tag {
-        display: inline-block; padding: 0.16rem 0.55rem; border: 1px solid var(--c-line);
-        border-radius: 999px; color: var(--c-muted); font-size: 0.7rem;
-        text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
-      }
       /* RSVP non e' un'informazione in piu': dice che quell'evento RACCOGLIE
          ISCRIZIONI, cioe' che da qualche parte c'e' gente che aspetta. Pieno,
          non contornato: si deve vedere scorrendo la griglia. */
@@ -139,28 +72,12 @@ const pubLangsJson = JSON.stringify({
         text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;
         backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
       }
-      .pop-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
 
-      /* Interruttore: componente condiviso (src/styles/switch.css). */
-
-      /* Bottoni icona (come le altre pagine admin) */
-      .i-btn {
-        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
-        background: transparent; border: 1px solid var(--c-line); border-radius: 50%;
-        color: var(--c-muted); cursor: pointer; font-size: 0.95rem;
-        transition: border-color 0.2s, color 0.2s, background 0.2s;
-      }
-      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .i-edit { margin-left: auto; }
-      .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       /* La matita aveva fondo trasparente mentre il cestino, suo vicino, ne
          ha uno: due bottoni della stessa fila disegnati in due modi. Qui ha
          il suo, scuro e neutro — l'azione e' normale, non pericolosa. */
       .i-edit { background: rgba(0, 0, 0, 0.28); color: var(--c-text); }
       .i-edit:hover { background: rgba(0, 0, 0, 0.42); border-color: var(--c-accent); color: var(--c-accent); }
-      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: var(--c-ko); color: #fff; }
-      .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
       /* Modale evento — guscio, titolo, × e bottoni: classi .md-* in
          src/styles/modal.css. Qui resta SOLO la disposizione a due colonne.
@@ -193,121 +110,32 @@ const pubLangsJson = JSON.stringify({
       .ev-lang .f-lab:first-child { margin-top: 0; }
       .ev-lang .f-input, .ev-lang .f-area { margin-bottom: 0.15rem; }
       #overlay .m-tabs { margin-bottom: 1rem; }
-      /* La pastiglia e' quella condivisa (`styles/filters.css`). ⚠️ Qui era
-         scritta sotto `#overlay`, cioe' con un id davanti: vinceva su
-         qualunque regola condivisa, e la differenza non si sarebbe vista
-         finche' qualcuno non avesse aperto i due modali uno dopo l'altro. */
-
-      .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.1rem 0 0.4rem; }
-      .f-lab:first-of-type { margin-top: 0; }
       /* Fondo, bordo, angoli e focus dei campi arrivano da field.css: qui
          resta solo l'altezza minima piu' generosa delle aree di testo. */
       .f-area { min-height: 90px; }
-      /* Editor rich text (descrizione lunga evento) */
-      /* Lo stile dell'editor (.rte*) sta in styles/rte.css, caricato da
-         AdminHead: lo usa anche la newsletter. */
-      .f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-      .f-row--img { grid-template-columns: 1fr auto; align-items: center; }
-      .picks--lang { margin-bottom: 0.2rem; }
-      .picks--lang .pick { min-width: 56px; text-align: center; font-size: 0.9rem; }
-      .f-hint { font-size: 0.72rem; color: var(--c-muted); margin-top: 0.3rem; }
 
-      /* Pillole selezionabili (pagine, giorni, programmazione) */
-      .picks { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-      .pick {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-size: 0.82rem; font-weight: 700; padding: 0.4rem 0.85rem; cursor: pointer;
-        border-radius: 999px; user-select: none;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
-      .pick:hover { border-color: var(--c-accent); }
-      .pick.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
-      .sched-block { display: none; margin-top: 0.8rem; }
-      .sched-block.is-visible { display: block; }
-      .f-date { cursor: pointer; }
 
       /* Modale coupon: più largo e con più aria fra le sezioni (solo qui) */
       #cp-overlay .modal { max-width: 780px; padding: 2.25rem; }
-      #cp-overlay .f-lab { margin-top: 1.75rem; }
-      #cp-overlay .f-lab:first-of-type { margin-top: 0; }
-      #cp-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
-      #cp-overlay .f-row .f-lab { margin-top: 0; }
-      #cp-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
-      #cp-overlay .sched-block { margin-top: 1.2rem; }
-      #cp-overlay .f-hint { margin-top: 0.1rem; }
       #cp-overlay .m-foot { margin-top: 2.4rem; }
       /* Bon cadeau: stessa aria del modale coupon tra le righe */
       #gc-overlay .modal { padding: 2.25rem; }
-      #gc-overlay .f-lab { margin-top: 1.75rem; }
-      #gc-overlay .f-lab:first-of-type { margin-top: 0; }
-      #gc-overlay .f-row .f-lab { margin-top: 0; }
-      #gc-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
-      #gc-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
       #gc-overlay .m-foot { margin-top: 2.4rem; }
-      .gc-steps { display: flex; gap: 0.35rem; margin-bottom: 1.6rem; }
-      .gc-step { flex: 1; text-align: center; min-width: 60px; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); border-bottom: 2px solid var(--c-line); padding-bottom: 0.45rem; }
-      .gc-step.is-on { color: var(--c-accent); border-color: var(--c-accent); }
-      .gc-step.done { color: var(--c-text); border-color: var(--c-accent); }
-      .gc-recap { display: flex; flex-direction: column; }
       .gc-recap .r-row { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--c-line); padding: 0.6rem 0; font-size: 0.9rem; }
-      .gc-recap .r-k { color: var(--c-muted); }
       .gc-recap .r-v { color: var(--c-text); font-weight: 700; text-align: right; word-break: break-word; }
       #gc-overlay #gc-prev { color: var(--c-muted); }
-      #gc-overlay .f-lab + .f-row { margin-top: 0; }
       #gc-overlay .m-foot { flex-wrap: wrap; }
       #gc-overlay .m-foot .m-err { flex-basis: 100%; order: -1; margin: 0 0 0.2rem; }
       #gc-overlay .m-err:empty { display: none; }
       #gc-overlay .m-foot #gc-prev { margin-right: auto; }
       #gc-overlay .m-foot #gc-next, #gc-overlay .m-foot #gc-save { margin-left: auto; }
       #gc-overlay .m-save:disabled { opacity: 0.45; cursor: not-allowed; }
-      .gc-val { font-family: var(--font-title); font-size: 1.55rem; letter-spacing: 0.03em; color: var(--c-accent); line-height: 1.1; margin: 0.15rem 0 0.1rem; }
-      .gc-val .gc-val-sur { font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; color: var(--c-muted); margin-left: 0.4rem; }
       .gc-lines { display: flex; flex-direction: column; gap: 0.18rem; margin-top: 0.55rem; }
       .gc-lines .gc-line { font-size: 0.82rem; color: var(--c-muted); }
-      .gc-lines .gc-line b { color: var(--c-text); font-weight: 700; }
-      #giftcards .pop-actions .i-edit { margin-left: auto; }
-      #giftcards .pop { position: relative; }
-      #giftcards .pop.is-pending { opacity: 0.62; }
-      .gc-pay { position: absolute; top: 1.1rem; right: 1.1rem; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-      .gc-pay svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
-      .gc-pay.ok { background: var(--c-ok); }
-      .gc-pay.wait { background: #9b9490; }
-      .gc-pay.wait svg { fill: #fff; stroke: none; }
-      /* Dentro un modale: la larghezza della FINESTRA non dice quanto sia largo
-         il contenitore. Le colonne si contano da sole. */
-      .gs-packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.7rem; }
-      .gs-pack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
-        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 0.6rem;
-        cursor: pointer; font-family: inherit; transition: border-color 0.15s, transform 0.15s; }
-      .gs-pack:hover { border-color: var(--c-accent); transform: translateY(-2px); }
-      .gs-pack:disabled { opacity: 0.5; cursor: wait; transform: none; }
-      .gs-qty { color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
-      .gs-price { font-family: var(--font-title); font-size: 1.7rem; color: var(--c-accent); letter-spacing: 0.03em; }
-      .gs-unit { color: var(--c-muted); font-size: 0.72rem; }
-      .gs-badge { position: absolute; top: -9px; background: var(--c-accent); color: var(--c-bg); font-size: 0.6rem;
-        font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.12rem 0.5rem; border-radius: 999px; }
-      .gs-hist-row { display: flex; justify-content: space-between; border-top: 1px solid var(--c-line); padding: 0.5rem 0; font-size: 0.82rem; color: var(--c-muted); }
-      .gc-ship-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.75rem; }
-      #gc-ship-box .f-row { margin-top: 0.6rem; }
-      #gc-send-picks .pick.is-off, #gc-pay-picks .pick.is-off { opacity: 0.4; cursor: not-allowed; }
-      #gc-pay-picks .gc-resend { border-color: var(--c-accent); color: var(--c-accent); font-family: inherit; }
-      #gc-pay-picks .gc-resend:disabled { opacity: 0.5; cursor: wait; }
-      .gc-tel { display: flex; gap: 0.4rem; min-width: 0; }
-      .gc-tel .gc-tel-prefix { flex: 0 0 82px; cursor: pointer; padding-left: 0.5rem; padding-right: 0.3rem; }
-      .gc-tel input[type="tel"] { flex: 1 1 auto; min-width: 0; }
 
 
-      .m-err { color: #ff6b6b; font-size: 0.85rem; }
 
-      /* Newsletter */
-      .n-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem; }
-      .n-stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.3rem 1.5rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
-      .n-stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.5rem; }
-      .n-stat-big { font-family: var(--font-title); font-size: 2.4rem; line-height: 1; color: var(--c-accent); }
-      .n-stat-sub { font-size: 1.1rem; color: var(--c-muted); margin-left: 0.4rem; }
-      .n-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-      .n-stat-note { display: block; color: var(--c-muted); font-size: 0.78rem; margin-top: 0.5rem; }
       .c-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
       .c-pack {
         display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
@@ -320,17 +148,7 @@ const pubLangsJson = JSON.stringify({
       .c-pack:disabled { opacity: 0.5; cursor: wait; }
       .c-pack-n { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .c-pack-p { font-size: 0.9rem; font-weight: 700; }
-      .n-htitle { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 0.8rem; }
-      .n-row { display: flex; align-items: baseline; gap: 0.9rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 0.8rem 1.2rem; margin-bottom: 0.4rem; }
-      .n-row-subject { flex: 1; font-weight: 700; }
-      .n-row-count { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-accent); white-space: nowrap; }
-      .n-row-date { color: var(--c-muted); font-size: 0.82rem; white-space: nowrap; }
 
-      /* Toast */
-
-      @media (max-width: 640px) {
-        .f-row { grid-template-columns: 1fr; }
-      }
     </style>
 
     <style is:global>
@@ -487,7 +305,7 @@ const pubLangsJson = JSON.stringify({
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { ordinaEventi, eventoPassato } from "../../lib/admin/agendaRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;

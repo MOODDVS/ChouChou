@@ -14,6 +14,7 @@ import { fusoDi } from "../fuso";
 import { temaEmail, type TemaEmail } from "../temaBrand";
 import { cosaDaIncassare } from "./daIncassare";
 import { datiRistorante } from "../ristorante";
+import { esc } from "../esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 // Email quotidiana "Votre journée" (récap di ieri + programma di oggi).
 // Chiamata dall'endpoint /api/cron/daily-brief (protetto da CRON_SECRET),
@@ -25,8 +26,6 @@ const SITE_URL = (import.meta.env.PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
 const LOGO_URL = `${SITE_URL}/icon-512.png`;
 // Chiave e mittente: `emailResend.ts` (casella Resend, poi `.env`), al momento dell'invio.
 
-const esc = (t: unknown): string =>
-  String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const euro = (cents: number): string =>
   (cents / 100).toLocaleString("fr-BE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const cap = (t: string): string => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);

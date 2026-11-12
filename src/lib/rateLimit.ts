@@ -92,3 +92,19 @@ export function ipClient(request: Request, clientAddress?: string): string {
   if (real) return real;
   return (clientAddress || "sconosciuto").trim();
 }
+
+/**
+ * IL CORPO DELLE API PUBBLICHE HA UN TETTO (audit 12/11/2026). Ordini,
+ * prenotazioni, contatti, conto al tavolo: richieste di pochi KB. Senza un
+ * tetto chiunque poteva mandare centinaia di MB a `/api/track` o
+ * `/api/contact`, che li leggono interi in memoria prima di guardarli.
+ * L'admin e' escluso (carica foto e documenti) e passa comunque dal login;
+ * il webhook di Stripe e' escluso: e' firmato, e un evento grande non va perso.
+ */
+export const CORPO_PUBBLICO_MAX = 256 * 1024;
+export function corpoTroppoGrande(path: string, metodo: string, lunghezza: string | null): boolean {
+  if (!path.startsWith("/api/") || path.startsWith("/api/admin/") || path === "/api/stripe-webhook") return false;
+  if (metodo === "GET" || metodo === "HEAD" || metodo === "OPTIONS") return false;
+  const n = Number(lunghezza);
+  return Number.isFinite(n) && n > CORPO_PUBBLICO_MAX;
+}

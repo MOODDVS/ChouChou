@@ -20,3 +20,9 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
 #app { display: none; min-height: 100vh; flex-direction: column; }
+
+/* IL TITOLO DI PAGINA — l'h1 con la sua icona (audit 12/11/2026). Era
+   copiato identico in dodici pagine; ognuna ora tiene solo il suo margine.
+   `:where()` = specificita' zero: una regola di pagina vince sempre. */
+:where(h1) { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
+:where(h1 svg) { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

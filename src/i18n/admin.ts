@@ -15,32 +15,8 @@
  * altre pagine restano in francese finché non aggiungiamo le loro chiavi.
  */
 
-export const LINGUE_ADMIN = [
-  { code: "fr", label: "Français" },
-  { code: "en", label: "English" },
-  { code: "it", label: "Italiano" },
-  { code: "nl", label: "Nederlands" },
-  { code: "es", label: "Español" },
-] as const;
-
-export type AdminLang = (typeof LINGUE_ADMIN)[number]["code"];
-
-export const ADMIN_LANG_CODES: AdminLang[] = LINGUE_ADMIN.map((l) => l.code);
-export const ADMIN_LANG_DEFAULT: AdminLang = "fr";
-
-/** true se `v` è un codice lingua admin valido. */
-export function isAdminLang(v: unknown): v is AdminLang {
-  return typeof v === "string" && (ADMIN_LANG_CODES as string[]).includes(v);
-}
-
-/** Locale BCP-47 per formattare date e orari (per lingua admin). */
-export const ADMIN_LOCALE: Record<AdminLang, string> = {
-  fr: "fr-BE",
-  en: "en-GB",
-  it: "it-IT",
-  nl: "nl-BE",
-  es: "es-ES",
-};
+export * from "./adminLingue";
+import { ADMIN_LANG_DEFAULT, type AdminLang } from "./adminLingue";
 
 type Riga = Record<AdminLang, string>;
 type Dizionario = Record<string, Riga>;
@@ -3314,4 +3290,18 @@ export function adminT(lang: AdminLang) {
     if (!riga) return key;
     return riga[lang] ?? riga[ADMIN_LANG_DEFAULT] ?? key;
   };
+}
+
+/**
+ * IL DIZIONARIO DI UNA LINGUA, per il browser (audit 12/11/2026): solo le
+ * stringhe di `lang`, col ripiego sul francese come `adminT`. Lo serve
+ * `/api/i18n/admin-<lingua>.<impronta>.js`; il browser lo tiene in cache e
+ * `adminClient.ts` lo legge. Prima ogni pagina admin scaricava il dizionario
+ * intero (5 lingue, 167 KB compressi) per usarne una.
+ */
+export function dizionarioDi(lang: AdminLang): Record<string, string> {
+  const t = adminT(lang);
+  const out: Record<string, string> = {};
+  for (const k of Object.keys(DIZIONARIO)) out[k] = t(k);
+  return out;
 }

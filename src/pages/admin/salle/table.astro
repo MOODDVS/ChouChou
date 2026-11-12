@@ -841,6 +841,7 @@ const personeIsola = personeAdesso;
       data-loc={LOC}></div>
 
     <script>
+      import { esc } from "../../../lib/esc";
       // IL MODALE DEL CONTO: toccando il totale in basso (Enzo, 24/10/2026).
       import { authFresh as authC } from "../../../lib/admin/auth";
       import { importoDa } from "../../../lib/soldi";
@@ -910,12 +911,11 @@ const personeIsola = personeAdesso;
         let persone = 2;
         const scelti = new Set<string>();
         let giro = 0;
-        const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const corpo = document.getElementById("tb-pay-corpo");
         const bil = document.getElementById("tb-pay-bil");
         const metodi = [...document.querySelectorAll<HTMLButtonElement>("#tb-pay-metodi .tb-pay-modo")];
         const bilancio = () => q && q.pagato > 0
-          ? `<span>${escP(P.pagato)} <b class="v">${soldi(q.pagato)}</b></span><span>${escP(P.resta)} <b>${soldi(q.resto)}</b></span>`
+          ? `<span>${esc(P.pagato)} <b class="v">${soldi(q.pagato)}</b></span><span>${esc(P.resta)} <b>${soldi(q.resto)}</b></span>`
           : "";
         /** Le quote che restano, sul libero: l'ultima prende i centesimi. */
         const quote = (): number[] => (q ? quoteRestanti(q.libero, persone - q.quoteFatte) : []);
@@ -935,23 +935,23 @@ const personeIsola = personeAdesso;
           let h = "";
           if (modo === "tutto") {
             // Dopo una parte pagata non e' piu' «tutto il tavolo»: e' quello che resta.
-            h = `<p class="tb-pay-imp">${soldi(q.libero)}<small>${escP(q.pagato > 0 ? P.resta : P.tavolo)}</small></p>`;
+            h = `<p class="tb-pay-imp">${soldi(q.libero)}<small>${esc(q.pagato > 0 ? P.resta : P.tavolo)}</small></p>`;
           } else if (modo === "dividi") {
             const fatte = q.parti.filter((p) => p.modo === "dividi");
             const qs = quote();
             h = `<div class="tb-passo"><button type="button" class="tb-n tb-passo-btn" data-p="-1">−</button><b class="tb-pay-n">${persone}</b><button type="button" class="tb-n tb-passo-btn" data-p="1">+</button></div><div class="tb-quote">`;
             fatte.forEach((p, k) => {
-              h += `<div class="tb-quota is-pagata"><span class="n">${escP(P.persona.replace("{n}", String(k + 1)))}</span><span class="tb-quota-tag${p.pagata ? "" : " is-corso"}">${escP(P[p.metodo] ?? p.metodo)}${p.pagata ? " ✓" : " …"}</span><span class="e">${soldi(p.importo)}</span></div>`;
+              h += `<div class="tb-quota is-pagata"><span class="n">${esc(P.persona.replace("{n}", String(k + 1)))}</span><span class="tb-quota-tag${p.pagata ? "" : " is-corso"}">${esc(P[p.metodo] ?? p.metodo)}${p.pagata ? " ✓" : " …"}</span><span class="e">${soldi(p.importo)}</span></div>`;
             });
             qs.forEach((a, k) => {
-              h += `<div class="tb-quota${k === 0 ? " is-dopo" : ""}"><span class="n">${escP(P.persona.replace("{n}", String(fatte.length + k + 1)))}</span><span class="e">${soldi(a)}</span></div>`;
+              h += `<div class="tb-quota${k === 0 ? " is-dopo" : ""}"><span class="n">${esc(P.persona.replace("{n}", String(fatte.length + k + 1)))}</span><span class="e">${soldi(a)}</span></div>`;
             });
             h += `</div>`;
           } else {
             h = `<div class="tb-art">` + q.articoli.map((a) =>
-              `<button type="button" class="tb-art-r" data-k="${escP(a.key)}" aria-pressed="${scelti.has(a.key) ? "true" : "false"}"${a.pagato ? " disabled" : ""}><span class="tb-ck"></span><span>${escP(a.nome)}${a.variante ? ` <small>${escP(a.variante)}</small>` : ""}</span><span class="e">${soldi(a.prezzo)}</span></button>`).join("") + `</div>`;
+              `<button type="button" class="tb-art-r" data-k="${esc(a.key)}" aria-pressed="${scelti.has(a.key) ? "true" : "false"}"${a.pagato ? " disabled" : ""}><span class="tb-ck"></span><span>${esc(a.nome)}${a.variante ? ` <small>${esc(a.variante)}</small>` : ""}</span><span class="e">${soldi(a.prezzo)}</span></button>`).join("") + `</div>`;
             const n = scelti.size;
-            h += n ? `<p class="tb-pay-imp">${soldi(importo())}<small>${escP(P.scelti.replace("{n}", String(n)))}</small></p>` : `<p class="tb-pay-imp"><small>${escP(P.nessuno)}</small></p>`;
+            h += n ? `<p class="tb-pay-imp">${soldi(importo())}<small>${esc(P.scelti.replace("{n}", String(n)))}</small></p>` : `<p class="tb-pay-imp"><small>${esc(P.nessuno)}</small></p>`;
           }
           corpo.innerHTML = h;
           if (bil) bil.innerHTML = bilancio();

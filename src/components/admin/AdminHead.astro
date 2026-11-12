@@ -14,6 +14,8 @@
  * serve a recepire un cambio di colori avvenuto DENTRO i 60s di cache.
  */
 import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
+import { adminLang } from "../../lib/admin/adminLang";
+import { urlDizionario } from "../../lib/admin/dizionarioBrowser";
 import { CLIENT } from "../../config/client";
 import Fonts from "../Fonts.astro";
 import "../../styles/base.css";    // la base di ogni pagina (:root, *, body, #app)
@@ -183,10 +185,14 @@ const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash).
 // mai dichiarata → «Astro is not defined» a runtime. Leggerlo qui e' la forma
 // sicura: vale per QUALSIASI uso di Astro nel solo template.
 const nonce = Astro.locals.cspNonce;
+// Le stringhe dell'admin nella lingua della pagina (audit 12/11/2026): uno
+// script normale, quindi gira PRIMA dei moduli della pagina che le usano.
+const i18nUrl = urlDizionario(await adminLang());
 ---
 
 {/* is:inline = Astro NON tocca il tag: resta esattamente qui, in fondo
     al <head>, dopo i :root della pagina => vince nella cascata. */}
+<script is:inline src={i18nUrl} nonce={nonce}></script>
 {css && <style is:inline set:html={css} />}
 {flashJson && <script type="application/json" id="mdd-flash" is:inline set:html={flashJson} />}
 {flashJson && (

@@ -296,7 +296,7 @@ test("i comandi della Accueil chiamano le API che gia' esistono", () => {
   // chiede quello che le interessa: il componente condiviso, senza dire
   // quanto deve essere grande.
   assert.match(home, /class="switch"/, "i servizi non usano piu' l'interruttore condiviso");
-  assert.match(home, /input type="checkbox" data-sv="\$\{escHtml\(sv\.key\)\}"\$\{motivo \? "" : " checked"\}/,
+  assert.match(home, /input type="checkbox" data-sv="\$\{esc\(sv\.key\)\}"\$\{motivo \? "" : " checked"\}/,
     "acceso non vuol piu' dire aperto: lo stesso interruttore direbbe il contrario di Reservations");
 });
 

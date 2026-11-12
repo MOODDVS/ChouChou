@@ -31,6 +31,7 @@ import { urlConSede } from "./sedeUrl";
 import { ambitoDiRiga, type Ambito } from "./admin/sede";
 import { appConfigEq, appConfigIn } from "./appConfigCache";
 import { basePubblica } from "./basePubblica";
+import { esc } from "./esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 // La chiave Resend e il mittente di ripiego NON si leggono piu' qui dal
 // `.env`: arrivano da `emailResend.ts` (casella Resend del super admin, poi
@@ -301,9 +302,6 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 // Lingue delle email cliente: FR/EN/IT/NL/ES (le "lingue pubbliche").
 // Qualsiasi altra lingua ripiega su FR.
