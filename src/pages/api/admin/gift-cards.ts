@@ -5,6 +5,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, inserisci, elencoSedi, type Ambito } from "../../../lib/admin/sede";
 import { sedeDiVendita, contoDeiBuoni } from "../../../lib/buoniRegole";
+import { randomInt } from "node:crypto";
 import { normalizzaCodice } from "../../../lib/coupons";
 import { datiRistorante } from "../../../lib/ristorante";
 import { emailBonCadeau, emailBonRistoratore, type BonEmail } from "../../../lib/notifications";
@@ -53,7 +54,9 @@ function generaCodice(prefisso: string): string {
   let blocco = "";
   for (let i = 0; i < 8; i++) {
     if (i === 4) blocco += "-";
-    blocco += ALF[Math.floor(Math.random() * ALF.length)];
+    // ⚠️ Generatore crittografico: il codice di un buono E' il buono (chi lo
+    // conosce lo spende). Con Math.random era prevedibile (audit 12/11/2026).
+    blocco += ALF[randomInt(ALF.length)];
   }
   return prefisso + "-" + blocco;
 }

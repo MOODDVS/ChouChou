@@ -78,8 +78,8 @@ const varianti = boot.features.includes("variants");
       .t-pill b { color: var(--c-text); font-size: 0.95rem; }
       .t-pill.gold { border-color: var(--c-accent); }
       .t-pill.gold b { color: var(--c-accent); }
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      
+      
       .spacer { flex: 1; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
@@ -861,7 +861,7 @@ const varianti = boot.features.includes("variants");
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { etichettaFormati, formatiFiniti } from "../../lib/admin/menuRegole";
       import { importoDa } from "../../lib/soldi";
       import { ICONA_CIBO, ICONA_BEVANDA } from "../../lib/iconeSala";

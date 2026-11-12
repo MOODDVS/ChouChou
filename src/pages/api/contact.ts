@@ -6,6 +6,7 @@ import { inviaPushContatto } from "../../lib/push";
 import { ambitoPubblicoChiesto, leggiConfig, type Ambito } from "../../lib/admin/sede";
 import { CLIENT } from "../../config/client";
 import { resendCliente, mittenteResend, contaEmail } from "../../lib/emailResend";
+import { esc } from "../../lib/esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 const TO_FALLBACK = CLIENT.email;
 
@@ -118,14 +119,6 @@ const R_TXT: Record<string, {
   es: { consenso: (q: string) => `Condiciones aceptadas el ${q}`, nuovoMsg: "Nuevo mensaje", subject: "Asunto", email: "Email", phone: "Teléfono", clientLang: "Idioma del cliente", message: "Mensaje", footer: "Recibido a través del formulario de contacto del sitio.", reply: (n) => `Responder a ${n}`, subjectLine: (o) => `Contacto sitio: ${o}`, subjectFallback: (b) => `Nuevo mensaje — sitio ${b}` },
 };
 
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 export const POST: APIRoute = async ({ request }) => {
   let body: Record<string, unknown>;

@@ -61,8 +61,8 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
 
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.5rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      h1 { margin-bottom: 1.5rem; }
+      
       h2 { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--c-muted); margin: 0 0 1rem; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
@@ -2216,7 +2216,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       import { generaIconaPWA, PWA_ICONA_LATO } from "../../lib/admin/imageCompress";
       import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { tipoElemento, ETICHETTA_MAX, disegnoElemento, coloreElemento } from "../../lib/elementiSala";
       import { PENTAGONO, PASSO_ROTAZIONE, normalizzaRotazione, TELA, PUNTI_MIN, PUNTI_MAX, SALA_DI_SEMPRE, normalizzaArea, tracciatoSala, tracciatoMuro, muroSala, puntiIngombro, aggiungiAngolo, type PuntoSala } from "../../lib/salaForma";
 
@@ -6547,7 +6547,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
     <script>
       import { authFresh } from "../../lib/admin/auth";
       import { conAttesa } from "../../lib/admin/attesa";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
 
       type Conto = { id: string; nome: string; pronto: boolean; modo: "live" | "test" | ""; principale: boolean };
       type Stato = { tutte: boolean; conti: Conto[]; attivo: string; cambio: { da: string; il: string } | null };

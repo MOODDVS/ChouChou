@@ -19,6 +19,7 @@
     "@astrojs/node": "^11.1.5",
     "@astrojs/react": "^6.0.5",
     "@astrojs/sitemap": "^3.7.4",
+    "@supabase/auth-js": "^2.107.0",
     "@supabase/supabase-js": "^2.106.2",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",

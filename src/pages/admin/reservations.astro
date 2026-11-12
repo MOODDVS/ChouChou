@@ -69,8 +69,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       /* Testata: titolo a sinistra, controlli giorno a destra (come Ordini) */
       .head-row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--c-line); }
       .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0; }
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      
+      
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       /* Barra del giorno */
@@ -1191,7 +1191,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       import { serviziDelGiorno, attivoNelGiornoSpeciale } from "../../lib/admin/giornataRegole";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -1384,13 +1384,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           chiusureOggi
             .map((c) => {
               const nome = nomeServizio(c.service_key, LANG);
-              return `<span class="d-closed-pill">${esc(nome)} — <span class="dc-full">${RAGIONE_FR[c.reason] ?? c.reason}</span><span class="dc-short">${RAGIONE_SHORT[c.reason] ?? RAGIONE_FR[c.reason] ?? c.reason}</span><button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`;
+              return `<span class="d-closed-pill">${esc(nome)} — <span class="dc-full">${RAGIONE_FR[c.reason] ?? esc(c.reason)}</span><span class="dc-short">${RAGIONE_SHORT[c.reason] ?? RAGIONE_FR[c.reason] ?? esc(c.reason)}</span><button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`;
             })
             .join("") +
           chiusureZoneOggi
             .map(
               (c) =>
-                `<span class="d-closed-pill">${esc(c.zone)} — <span class="dc-full">${RAGIONE_FR[c.reason] ?? c.reason}</span><span class="dc-short">${RAGIONE_SHORT[c.reason] ?? RAGIONE_FR[c.reason] ?? c.reason}</span><button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`
+                `<span class="d-closed-pill">${esc(c.zone)} — <span class="dc-full">${RAGIONE_FR[c.reason] ?? esc(c.reason)}</span><span class="dc-short">${RAGIONE_SHORT[c.reason] ?? RAGIONE_FR[c.reason] ?? esc(c.reason)}</span><button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`
             )
             .join("");
         (document.getElementById("fab-serv") as HTMLElement).classList.toggle("has-closed", chiusureOggi.length > 0);
@@ -2056,7 +2056,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   .map(
                     (c) => `<div class="sv-fut-row">
                         <span class="sv-fut-date">${fmtFr(c.date)}</span>
-                        <span class="sv-fut-info"><b>${esc(nomeServizio(c.service_key, LANG))}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
+                        <span class="sv-fut-info"><b>${esc(nomeServizio(c.service_key, LANG))}</b> — ${RAGIONE_FR[c.reason] ?? esc(c.reason)}</span>
                         <button type="button" class="i-btn b-annule" data-date="${c.date}" data-k="${c.service_key}" title="${tr("home.reopenNote")}">${ICO_TRASH}</button>
                       </div>`
                   )
@@ -2332,7 +2332,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   .map(
                     (c) => `<div class="sv-fut-row">
                         <span class="sv-fut-date">${fmtFr(c.date)}</span>
-                        <span class="sv-fut-info"><b>${esc(c.zone)}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
+                        <span class="sv-fut-info"><b>${esc(c.zone)}</b> — ${RAGIONE_FR[c.reason] ?? esc(c.reason)}</span>
                         <button type="button" class="i-btn b-annule" data-date="${c.date}" data-z="${esc(c.zone)}" title="${tr("home.reopenNote")}">${ICO_TRASH}</button>
                       </div>`
                   )

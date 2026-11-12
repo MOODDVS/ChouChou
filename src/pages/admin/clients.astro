@@ -48,8 +48,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <meta name="theme-color" content="#ffffff" />
     <style is:global>
 
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
-      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      h1 { margin-bottom: 1.25rem; }
+      
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       /* Barra azioni (pulsante + ricerca), stile pagina Menu */
@@ -647,7 +647,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       import { PREFISSI, separaPrefisso, collegaPrefissoTel } from "../../lib/prefissi";
       import { LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { CLIENT } from "../../config/client";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { importoDa } from "../../lib/soldi";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;

@@ -9,6 +9,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { CLIENT } from "../../../config/client";
 import { K_PRINT_CATALOG, PRINT_DEFAULTS, normalizzaCatalogo, type PrintProduct } from "../../../config/printCatalog";
+import { esc as escP } from "../../../lib/esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 export const prerender = false;
 
@@ -45,8 +46,6 @@ async function leggiCatalogo(): Promise<PrintProduct[]> {
   return PRINT_DEFAULTS;
 }
 
-const escP = (t: unknown): string =>
-  String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Riga "etichetta / valore" del riepilogo. */
 function rigaPrint(lab: string, val: string, forte = false): string {

@@ -26,10 +26,17 @@
  *
  * Montato da `Fonts.astro`, che sta in testa a ogni pagina del motore e dei
  * siti: cosi' arriva dappertutto senza toccare le pagine una per una.
+ *
+ * ⚠️ Col NONCE (audit 12/11/2026): la CSP dell'admin esegue solo gli script
+ * inline che lo portano, e senza questo lo script veniva bloccato su TUTTE le
+ * pagine admin e del palmare — proprio dove si scrive di piu' col telefono.
+ * Sul sito pubblico (niente script-src) il nonce non cambia niente.
  */
+// ⚠️ Letto nel frontmatter: con Astro 7 `Astro` usato solo nel template non esiste.
+const nonce = Astro.locals.cspNonce;
 ---
 
-<script is:inline>
+<script is:inline nonce={nonce}>
   (function () {
     if (!window.matchMedia || !matchMedia("(hover: none) and (pointer: coarse)").matches) return;
     var SEL =

@@ -25,6 +25,7 @@ import { temaEmail, type TemaEmail } from "./temaBrand";
    blocchi <style> e Outlook ignora quasi tutto il resto. Un `<p>` senza
    margin esplicito, in Outlook, incolla i paragrafi fra loro. */
 import { messaggioEmail } from "./htmlRicco";
+import { esc } from "./esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 // Motore d'invio della newsletter, condiviso tra:
 // - /api/admin/newsletter        (invio immediato dall'admin)
@@ -45,9 +46,6 @@ export async function resendPronto(): Promise<boolean> {
   return Boolean((await resendCliente()) && (await mittenteResend()));
 }
 
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
 
 /** Mittente della newsletter: admin → "Email expéditeur newsletter"
  *  (fallback sul mittente della casella Resend / RESEND_FROM). Deve appartenere al dominio verificato su

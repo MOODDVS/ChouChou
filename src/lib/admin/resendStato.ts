@@ -34,6 +34,7 @@ import {
   type Livello,
   type StatoDominio,
 } from "./resendRegole";
+import { esc } from "../esc"; // l'escape HTML di tutto il progetto (audit 12/11/2026)
 
 export interface StatoResend {
   chiave: { fonte: FonteValore; mascherata: string; rotta: boolean; inEnv: boolean; cifratura: boolean };
@@ -211,9 +212,6 @@ export async function inviaProva(dest: string, nomeCliente: string): Promise<Esi
   }
 }
 
-function esc(s: string): string {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 /**
  * A che punto e' il dominio di un indirizzo mittente qualunque (la casella

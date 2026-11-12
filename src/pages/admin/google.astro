@@ -27,8 +27,8 @@ const t = adminT(lang);
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style is:global>
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
-      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
-      h1 svg { width: 20px; height: 20px; fill: var(--c-accent); }
+      h1 { margin-bottom: 1.25rem; }
+      h1 svg { width: 20px; height: 20px; fill: var(--c-accent); stroke: none; }
 
       /* Barra stato/statistiche */
       .g-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1.1rem; }
@@ -726,7 +726,7 @@ const t = adminT(lang);
       import { mostraToast } from "../../lib/admin/toast";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { creaDatepicker } from "../../lib/admin/datepicker";
       import { preparaFotoGoogle, GOOGLE_LATO_MIN } from "../../lib/admin/imageCompress";
       import { stellePiene, campiCambiati } from "../../lib/admin/googleRegole";
@@ -1139,7 +1139,6 @@ const t = adminT(lang);
           // Un post puo' annunciare qualcosa di gia' cominciato: il passato serve.
           if (pStart) dp.collega(pStart, true);
           if (pEnd) dp.collega(pEnd, true);
-          const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const ICO_TRASH = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 
           function applyType() {
@@ -1149,7 +1148,7 @@ const t = adminT(lang);
             });
           }
           function renderPhoto() {
-            if (prev) prev.innerHTML = pPhoto ? `<img src="${escP(pPhoto)}" alt="" />` : ICO_IMG;
+            if (prev) prev.innerHTML = pPhoto ? `<img src="${esc(pPhoto)}" alt="" />` : ICO_IMG;
             if (clearBtn) clearBtn.style.display = pPhoto ? "" : "none";
           }
           renderPhoto();
@@ -1193,10 +1192,10 @@ const t = adminT(lang);
           function postCard(p: any): string {
             const foto = p.media?.[0]?.googleUrl || p.media?.[0]?.sourceUrl || "";
             const dt = p.createTime ? new Date(p.createTime).toLocaleDateString() : "";
-            const testo = escP((p.summary || p.event?.title || "").slice(0, 160));
-            const link = p.searchUrl ? `<a class="p-card-link" href="${escP(p.searchUrl)}" target="_blank" rel="noopener">${tr("gg.postView")} <span class="p-card-link-arr">\u2192</span></a>` : "";
-            const stato = p.state && p.state !== "LIVE" ? `<span class="p-state-b">${escP(p.state)}</span>` : "";
-            return `<div class="p-card">${foto ? `<span class="p-card-img"><img src="${escP(foto)}" alt="" /></span>` : ""}<div class="p-card-main"><div class="p-card-top"><span class="p-badge">${badge(p.topicType)}</span>${stato}<span class="p-card-dt">${escP(dt)}</span></div><p class="p-card-txt">${testo || "\u2014"}</p><div class="p-card-act">${link}<button type="button" class="i-btn i-del p-del" data-name="${escP(p.name || "")}" title="${tr("common.delete")}">${ICO_TRASH}</button></div></div></div>`;
+            const testo = esc((p.summary || p.event?.title || "").slice(0, 160));
+            const link = p.searchUrl ? `<a class="p-card-link" href="${esc(p.searchUrl)}" target="_blank" rel="noopener">${tr("gg.postView")} <span class="p-card-link-arr">\u2192</span></a>` : "";
+            const stato = p.state && p.state !== "LIVE" ? `<span class="p-state-b">${esc(p.state)}</span>` : "";
+            return `<div class="p-card">${foto ? `<span class="p-card-img"><img src="${esc(foto)}" alt="" /></span>` : ""}<div class="p-card-main"><div class="p-card-top"><span class="p-badge">${badge(p.topicType)}</span>${stato}<span class="p-card-dt">${esc(dt)}</span></div><p class="p-card-txt">${testo || "\u2014"}</p><div class="p-card-act">${link}<button type="button" class="i-btn i-del p-del" data-name="${esc(p.name || "")}" title="${tr("common.delete")}">${ICO_TRASH}</button></div></div></div>`;
           }
           async function loadPosts() {
             if (stateEl) stateEl.style.display = "";
@@ -1782,7 +1781,6 @@ const t = adminT(lang);
           let loaded = false;
           const bodyEl = document.getElementById("menu-body");
           const syncBtn = document.getElementById("menu-sync") as HTMLButtonElement | null;
-          const escM = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const fmtP = (c: number) => "€ " + (c / 100).toFixed(2).replace(".", ",");
           async function loadMenu() {
             if (!bodyEl) return;
@@ -1790,10 +1788,10 @@ const t = adminT(lang);
             try {
               const r = await fetch("/api/admin/google/menu", { headers: await authFresh() });
               const j = await r.json();
-              if (!r.ok) { bodyEl.innerHTML = `<p class="fi-soon">${escM(j.error || tr("res.connErr"))}</p>`; return; }
+              if (!r.ok) { bodyEl.innerHTML = `<p class="fi-soon">${esc(j.error || tr("res.connErr"))}</p>`; return; }
               const sez = (j.sezioni || []) as { name: string; items: { name: string; priceCents: number }[] }[];
               if (!sez.length) { bodyEl.innerHTML = `<p class="fi-soon">${tr("gg.menuEmpty")}</p>`; return; }
-              bodyEl.innerHTML = sez.map((s2) => `<div class="fi-block"><h3 class="fi-h3">${escM(s2.name)}</h3>${(s2.items || []).map((it) => `<div class="menu-row"><span>${escM(it.name)}</span><span class="p">${fmtP(it.priceCents)}</span></div>`).join("")}</div>`).join("");
+              bodyEl.innerHTML = sez.map((s2) => `<div class="fi-block"><h3 class="fi-h3">${esc(s2.name)}</h3>${(s2.items || []).map((it) => `<div class="menu-row"><span>${esc(it.name)}</span><span class="p">${fmtP(it.priceCents)}</span></div>`).join("")}</div>`).join("");
             } catch { bodyEl.innerHTML = `<p class="fi-soon">${tr("res.connErr")}</p>`; }
           }
           syncBtn?.addEventListener("click", async () => {
@@ -1822,15 +1820,14 @@ const t = adminT(lang);
           let data: { logo: FMedia | null; cover: FMedia | null; gallery: FMedia[] } = { logo: null, cover: null, gallery: [] };
           const bodyEl = document.getElementById("foto-body");
           const fileInput = document.getElementById("foto-file") as HTMLInputElement | null;
-          const escF = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const ICO = `<svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`;
           function renderFoto() {
             if (!bodyEl) return;
             const slot = (cat: string, m: FMedia | null, big: boolean) => m
-              ? `<div class="foto-single"><img class="foto-thumb${big ? " big" : ""}" src="${escF(m.url)}" referrerpolicy="no-referrer" alt="" /><div class="foto-btns"><button type="button" class="foto-btn" data-up="${cat}">${tr("gg.fotoReplace")}</button><button type="button" class="foto-btn del" data-del="${escF(m.id)}">${tr("gg.fotoDelete")}</button></div></div>`
+              ? `<div class="foto-single"><img class="foto-thumb${big ? " big" : ""}" src="${esc(m.url)}" referrerpolicy="no-referrer" alt="" /><div class="foto-btns"><button type="button" class="foto-btn" data-up="${cat}">${tr("gg.fotoReplace")}</button><button type="button" class="foto-btn del" data-del="${esc(m.id)}">${tr("gg.fotoDelete")}</button></div></div>`
               : `<div class="foto-single"><span class="foto-empty${big ? " big" : ""}">${ICO}</span><button type="button" class="foto-btn" data-up="${cat}">${tr("gg.fotoUpload")}</button></div>`;
             const gal = `<button type="button" class="foto-add" data-up="ADDITIONAL">+ ${tr("gg.fotoAdd")}</button>`
-              + data.gallery.map((m) => `<div class="foto-cell"><img src="${escF(m.url)}" referrerpolicy="no-referrer" alt="" /><button type="button" class="foto-x" data-del="${escF(m.id)}">\u00d7</button></div>`).join("");
+              + data.gallery.map((m) => `<div class="foto-cell"><img src="${esc(m.url)}" referrerpolicy="no-referrer" alt="" /><button type="button" class="foto-x" data-del="${esc(m.id)}">\u00d7</button></div>`).join("");
             bodyEl.innerHTML =
               `<div class="fi-block"><div class="foto-duo">` +
                 `<div class="foto-one foto-logo"><h3 class="fi-h3">${tr("gg.fotoLogo")}</h3>${slot("LOGO", data.logo, false)}</div>` +
@@ -1844,7 +1841,7 @@ const t = adminT(lang);
             try {
               const r = await fetch("/api/admin/google/media", { headers: await authFresh() });
               const j = await r.json();
-              if (!r.ok) { bodyEl.innerHTML = `<p class="fi-soon">${escF(j.error || tr("res.connErr"))}</p>`; return; }
+              if (!r.ok) { bodyEl.innerHTML = `<p class="fi-soon">${esc(j.error || tr("res.connErr"))}</p>`; return; }
               data = { logo: j.logo || null, cover: j.cover || null, gallery: (j.gallery || []) as FMedia[] };
               renderFoto();
             } catch { bodyEl.innerHTML = `<p class="fi-soon">${tr("res.connErr")}</p>`; }

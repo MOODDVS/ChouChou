@@ -229,6 +229,7 @@ const inizialiSede = (n: string) =>
 </style>
 
 <script>
+      import { esc } from "../../lib/esc";
   // ---- Selettore della sede ----
   // La scelta viaggia in un cookie, e poi si ricarica: il filtro si applica
   // lato server, non ridisegnando la pagina a mano.
@@ -342,7 +343,6 @@ const inizialiSede = (n: string) =>
   // mostra l'email come prima. Il saluto ruota tra le lingue a ogni caricamento.
   const helloEl = document.getElementById("ah-hello");
   const emailEl = document.getElementById("user-email");
-  const escH = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const SALUTI = ["Ciao", "Salut", "Hola", "Hallo", "Olá", "Hej", "Hello", "Hoi", "Ahoj"];
   function nomeDaUtente(u: any): string {
     const m = (u && u.user_metadata) || {};
@@ -355,7 +355,7 @@ const inizialiSede = (n: string) =>
     const nome = nomeDaUtente(u);
     if (nome) {
       let gi = Math.floor(Math.random() * SALUTI.length);
-      helloEl.innerHTML = `<span class="ah-greet">${escH(SALUTI[gi])}</span> <strong>${escH(nome)}</strong>`;
+      helloEl.innerHTML = `<span class="ah-greet">${esc(SALUTI[gi])}</span> <strong>${esc(nome)}</strong>`;
       helloEl.style.display = "";
       if (emailEl) emailEl.style.display = "none";
       // Colore del nome adattato allo sfondo dell'header: bianco su sfondo scuro,

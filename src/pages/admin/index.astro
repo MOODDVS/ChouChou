@@ -1760,6 +1760,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <script id="ssr-home" type="application/json" is:inline set:html={ssrHomeJson}></script>
 
     <script>
+      import { esc } from "../../lib/esc";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { mostraToast } from "../../lib/admin/toast";
       import { authFresh } from "../../lib/admin/auth";
@@ -1770,7 +1771,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { descrivi } from "../../lib/admin/ricorrenzaRegole";
       import { assegnabili } from "../../lib/admin/teamRegole";
       import { iniziali, coloreDi } from "../../lib/admin/avatarRegole";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { festivita, ricorrenze } from "../../lib/festivitaRegole";
       import {
         statoDi, voceStatoDi, HOLD_RIPIEGO, type ServizioHold, type StatoMostrato,
@@ -1959,9 +1960,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       const ICO_PERS = '<svg class="j-mi" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 20.5v-1.4a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1.4"/><circle cx="9" cy="7.5" r="3.2"/><path d="M21.5 20.5v-1.4a4 4 0 0 0-3-3.87"/><path d="M16.2 4.3a4 4 0 0 1 0 7.5"/></svg>';
       const ICO_NOTA = ICONA_NOTA.replace("<svg ", '<svg class="j-mi" ');
 
-      function escHtml(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      }
 
       /** IL VUOTO DI UNA COLONNA: il testo (gia' sicuro) sotto l'icona della
        *  colonna stessa. ⚠️ L'icona si PRENDE dal titolo, non si ridisegna:
@@ -1998,7 +1996,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const voci = piattiVeri(items).map((i) => `${i.qty}× ${i.name}`);
         const visti = voci.length > PIATTI_IN_COLONNA ? voci.slice(0, PIATTI_IN_COLONNA - 1) : voci;
         const resto = voci.length - visti.length;
-        return visti.map((v) => `<span>${escHtml(v)}</span>`).join("") +
+        return visti.map((v) => `<span>${esc(v)}</span>`).join("") +
           (resto > 0 ? `<span class="j-ord-altri">+${resto}</span>` : "");
       }
       /** ⚠️ IL GUASTO. L'ultima riga era un ripiego: OGNI stato che non fosse
@@ -2019,14 +2017,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           return `<span class="j-badge enc">${banco ? tr("ord.toCollect") : tr("ord.awaitingShort")}</span>`;
         }
         if (st === "cancelled") return `<span class="j-badge done">${tr("ord.annulee")}</span>`;
-        return `<span class="j-badge done">${escHtml(String(o.status ?? ""))}</span>`;
+        return `<span class="j-badge done">${esc(String(o.status ?? ""))}</span>`;
       }
       function rigaOrdine(o: Order): string {
         return `<a class="j-li" href="/admin/orders">` +
           `<span class="h">${oraDa(o.pickup_time)}</span>` +
           /* Il nome con il totale sulla stessa riga, a destra; sotto i
              piatti, uno per riga. */
-          `<span class="tx"><span class="j-ord-testa"><span class="j-nome">${escHtml(String(o.customer_name ?? ""))}</span>` +
+          `<span class="tx"><span class="j-ord-testa"><span class="j-nome">${esc(String(o.customer_name ?? ""))}</span>` +
           `<b class="j-ord-tot">${euro(o.total_cents)}</b></span>` +
           `<span class="j-ord-piatti">${piattiDi(o.items)}</span></span>` +
           badgeOrdine(o) + `</a>`;
@@ -2103,7 +2101,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const v = sm ? PAROLE_STATO[sm] : undefined;
         const cls = v?.cls ?? "gr";
         const label = v?.label ?? String(r.status ?? "");
-        return `<button type="button" class="j-badge ${cls} j-st" data-st-id="${escHtml(String(r.id ?? ""))}">${escHtml(label)}</button>`;
+        return `<button type="button" class="j-badge ${cls} j-st" data-st-id="${esc(String(r.id ?? ""))}">${esc(label)}</button>`;
       }
       // ============================================================
       // LA COLONNA «MENU» — cosa non si puo' vendere adesso
@@ -2130,8 +2128,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
        *  non dice niente. */
       function fotoDi(r: MenuRow): string {
         const url = String(r.image_url ?? "").trim();
-        if (!url) return `<span class="m-foto" title="${escHtml(tr("home.menuPhotoNone"))}">${ICO_NOFOTO}</span>`;
-        return `<span class="m-foto"><img src="${escHtml(url)}" alt="" loading="lazy" ` +
+        if (!url) return `<span class="m-foto" title="${esc(tr("home.menuPhotoNone"))}">${ICO_NOFOTO}</span>`;
+        return `<span class="m-foto"><img src="${esc(url)}" alt="" loading="lazy" ` +
           `referrerpolicy="no-referrer" onerror="this.remove()" /></span>`;
       }
 
@@ -2150,9 +2148,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const prezzo = Number(r.price_cents);
         const sotto = [
           badge,
-          String(r.category ?? "").trim() ? `<span>${escHtml(String(r.category))}</span>` : "",
+          String(r.category ?? "").trim() ? `<span>${esc(String(r.category))}</span>` : "",
           Number.isFinite(prezzo) ? `<span class="m-prezzo">${euro(prezzo)}</span>` : "",
-          formati ? `<span class="m-var">${escHtml(formati)}</span>` : "",
+          formati ? `<span class="m-var">${esc(formati)}</span>` : "",
         ].filter(Boolean).join("");
         /* ⚠️ L'INTERRUTTORE SOLO SUGLI ESAURITI, ed e' quello della pagina
            Menu (`.switch.sw-sold`), con lo stesso verso: acceso = esaurito.
@@ -2161,8 +2159,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            decisione che si prende con foto, descrizione e prezzo davanti, e la
            riga porta li'. */
         const sw = st === "sold"
-          ? `<label class="switch sw-sold" title="${escHtml(tr("menu.soldOut"))}">` +
-            `<input type="checkbox" data-menu-id="${escHtml(String(r.id ?? ""))}" checked />` +
+          ? `<label class="switch sw-sold" title="${esc(tr("menu.soldOut"))}">` +
+            `<input type="checkbox" data-menu-id="${esc(String(r.id ?? ""))}" checked />` +
             `<span class="track"></span></label>`
           : "";
         /* ⚠️ LA RIGA NON E' UN LINK, e l'unica cosa che si tocca e'
@@ -2179,7 +2177,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            tocco non fa niente. Senza un errore da nessuna parte. */
         return `<div class="j-li${st === "hidden" ? " m-off" : ""}">` +
           fotoDi(r) +
-          `<span class="tx"><span class="j-nome">${escHtml(String(r.name ?? ""))}</span>` +
+          `<span class="tx"><span class="j-nome">${esc(String(r.name ?? ""))}</span>` +
           `<small>${sotto}</small></span>` +
           sw + `</div>`;
       }
@@ -2212,7 +2210,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         if (!box) return;
         box.innerHTML = PERIODI.map((g) =>
           `<button type="button" class="rh-filter${g === visPeriodo ? " is-on" : ""}" data-g="${g}">` +
-          `<span class="et">${escHtml(tr("home.visDays").replace("{n}", String(g)))}</span></button>`).join("");
+          `<span class="et">${esc(tr("home.visDays").replace("{n}", String(g)))}</span></button>`).join("");
       }
 
       /** Un numero come lo scrive il pannello: con i separatori della lingua. */
@@ -2274,7 +2272,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           plot.innerHTML = g.barre
             .map((b, i) =>
               `<div class="j-hb"><span class="vis${i === g.barre.length - 1 ? " oggi" : ""}" ` +
-              `style="height:${altezza(b.valore, g.cima)}%" title="${escHtml(`${b.iso} · ${b.valore}`)}"></span></div>`)
+              `style="height:${altezza(b.valore, g.cima)}%" title="${esc(`${b.iso} · ${b.valore}`)}"></span></div>`)
             .join("") + griglia;
           // ⚠️ LE DATE VERE SOTTO IL GRAFICO, e non «28 giorni»: Google ha
           // circa tre giorni di ritardo, quindi l'ultima barra NON e' oggi — e
@@ -2294,7 +2292,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               // Agli estremi la data si appoggia al bordo del grafico: centrata
               // sulla sua barra sporgerebbe fuori dal riquadro.
               const dove = i === 0 ? "left" : i === ultimo ? "right" : "center";
-              return `<span style="text-align:${dove}">${escHtml(dataCorta(i === ultimo ? g.a : b.iso))}</span>`;
+              return `<span style="text-align:${dove}">${esc(dataCorta(i === ultimo ? g.a : b.iso))}</span>`;
             })
             .join("");
           // Il piede: di che passo sono le barre (un giorno o una settimana —
@@ -2313,9 +2311,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         if (intest) intest.style.display = v.topQueries.length ? "" : "none";
         lista.innerHTML = v.topQueries.length
           ? v.topQueries.map((q) =>
-              `<div class="j-li j-vq"><span class="q">${escHtml(q.key)}</span>` +
-              `<span class="imp">${escHtml(nVis(q.impressions))}</span>` +
-              `<span class="n">${escHtml(nVis(q.clicks))}</span></div>`).join("")
+              `<div class="j-li j-vq"><span class="q">${esc(q.key)}</span>` +
+              `<span class="imp">${esc(nVis(q.impressions))}</span>` +
+              `<span class="n">${esc(nVis(q.clicks))}</span></div>`).join("")
           : vuotoHTML(tr("home.visNoData"), lista);
       }
 
@@ -2396,7 +2394,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         if (!box) return;
         box.innerHTML = PERIODI_R.map((p) =>
           `<button type="button" class="rh-filter${p === recPeriodo ? " is-on" : ""}" data-p="${p}">` +
-          `<span class="et">${escHtml(tr(REC_ET[p]))}</span></button>`).join("");
+          `<span class="et">${esc(tr(REC_ET[p]))}</span></button>`).join("");
       }
 
       function disegnaRec(): void {
@@ -2432,8 +2430,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         if (rb) {
           const quota = quotaResi(v.revenue_cents, resi);
           rb.innerHTML = resi > 0
-            ? `${escHtml(tr("home.recRefunded"))} <b>−${escHtml(euro(resi))}</b> ` +
-              `<span>· ${escHtml(tr("home.nOrders").replace("{n}", String(v.refunded_orders ?? 0)))}` +
+            ? `${esc(tr("home.recRefunded"))} <b>−${esc(euro(resi))}</b> ` +
+              `<span>· ${esc(tr("home.nOrders").replace("{n}", String(v.refunded_orders ?? 0)))}` +
               `${quota === null ? "" : ` · ${quota} %`}</span>`
             : "";
         }
@@ -2447,11 +2445,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const griglia =
             `<div class="j-grid" aria-hidden="true">` +
             `<i class="base"></i>` +
-            `<i style="bottom:${altezza(g.cima, g.cima)}%"><b>${escHtml(euro(g.cima))}</b></i>` +
+            `<i style="bottom:${altezza(g.cima, g.cima)}%"><b>${esc(euro(g.cima))}</b></i>` +
             `</div>`;
           plot.innerHTML = g.barre
             .map((b) =>
-              `<div class="j-hb" title="${escHtml(`${b.label} · ${euro(b.inc)}`)}">` +
+              `<div class="j-hb" title="${esc(`${b.label} · ${euro(b.inc)}`)}">` +
                 `<span class="inc" style="height:${altezza(b.inc, g.cima)}%"></span>` +
                 `<span class="rb" style="height:${altezza(b.rb, g.cima)}%"></span>` +
               `</div>`)
@@ -2464,7 +2462,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             .map((b, i) => {
               if (!segnate.has(i)) return "<span></span>";
               const dove = i === 0 ? "left" : i === ultimo ? "right" : "center";
-              return `<span style="text-align:${dove}">${escHtml(b.label)}</span>`;
+              return `<span style="text-align:${dove}">${esc(b.label)}</span>`;
             })
             .join("");
           // Il colore dei resi si nomina solo se ce ne sono.
@@ -2489,10 +2487,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         lista.innerHTML = art.length
           ? art.map((x, i) =>
               `<div class="j-li j-art"><span class="pos">${i + 1}</span>` +
-              `<span class="q">${escHtml(x.name)}</span>` +
-              `<span class="qty">×${escHtml(nVis(x.qty))}</span>` +
-              `<span class="eur">${escHtml(euro(x.cents))}</span></div>`).join("")
-          : vuotoHTML(escHtml(tr("home.recNone")), lista);
+              `<span class="q">${esc(x.name)}</span>` +
+              `<span class="qty">×${esc(nVis(x.qty))}</span>` +
+              `<span class="eur">${esc(euro(x.cents))}</span></div>`).join("")
+          : vuotoHTML(esc(tr("home.recNone")), lista);
 
         // ---- I tre numeri in fondo ----
         // ⚠️ Lo scontrino medio arriva gia' fatto: dividere qui `revenue` per
@@ -2588,8 +2586,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            trova mai. */
         const cestino = libera
           ? `<button type="button" class="ibtn ibtn-sm ibtn-danger ph-del" ` +
-            `data-b="${escHtml(String(f.bucket ?? ""))}" data-n="${escHtml(String(f.name ?? ""))}" ` +
-            `title="${escHtml(tr("common.delete"))}" aria-label="${escHtml(tr("common.delete"))}">${TRASH_ICON}</button>`
+            `data-b="${esc(String(f.bucket ?? ""))}" data-n="${esc(String(f.name ?? ""))}" ` +
+            `title="${esc(tr("common.delete"))}" aria-label="${esc(tr("common.delete"))}">${TRASH_ICON}</button>`
           : "";
         /* ⚠️ LA CELLA NON E' UN LINK: l'unica cosa che si tocca e' il
            cestino. Un quadrato grande che porta alla pagina Assets, con dentro
@@ -2608,13 +2606,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
            gia' sulla sua card: due parole per la stessa cosa sarebbero due
            cose. */
         const fam = famiglieDi(f)
-          .map((x) => `<span class="ph-t ph-${x}">${escHtml(NOME_FAMIGLIA[x])}</span>`)
+          .map((x) => `<span class="ph-t ph-${x}">${esc(NOME_FAMIGLIA[x])}</span>`)
           .join("");
-        return `<div class="ph-cell" title="${escHtml(titolo)}">` +
-          `<img src="${escHtml(String(f.url ?? ""))}" alt="" loading="lazy" ` +
+        return `<div class="ph-cell" title="${esc(titolo)}">` +
+          `<img src="${esc(String(f.url ?? ""))}" alt="" loading="lazy" ` +
           `onerror="this.closest('.ph-cell')?.classList.add('rotta'); this.remove()" />` +
           `<span class="ph-tags">${fam}` +
-          (libera ? `<span class="ph-b">${escHtml(tr("as.freeSg"))}</span>` : "") +
+          (libera ? `<span class="ph-b">${esc(tr("as.freeSg"))}</span>` : "") +
           `</span>` + cestino + `</div>`;
       }
 
@@ -2632,8 +2630,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         ];
         box.innerHTML = voci.map((v) =>
           `<button type="button" class="rh-filter${v.ico ? " tutte" : ""}${v.f === fotoFiltro ? " is-on" : ""}"` +
-          ` data-f="${escHtml(v.f)}"${v.ico ? ` aria-label="${escHtml(v.testo)}" title="${escHtml(v.testo)}"` : ""}>` +
-          `${v.ico ?? ""}<span class="et">${escHtml(v.testo)}</span></button>`).join("");
+          ` data-f="${esc(v.f)}"${v.ico ? ` aria-label="${esc(v.testo)}" title="${esc(v.testo)}"` : ""}>` +
+          `${v.ico ?? ""}<span class="et">${esc(v.testo)}</span></button>`).join("");
       }
 
       function disegnaFoto(): void {
@@ -2764,8 +2762,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         ];
         box.innerHTML = voci.map((v) =>
           `<button type="button" class="rh-filter${v.ico ? " tutte" : ""}${v.f === menuFiltro ? " is-on" : ""}"` +
-          ` data-f="${escHtml(v.f)}"${v.ico ? ` aria-label="${escHtml(v.testo)}" title="${escHtml(v.testo)}"` : ""}>` +
-          `${v.ico ?? ""}<span class="et">${escHtml(v.testo)}</span></button>`).join("");
+          ` data-f="${esc(v.f)}"${v.ico ? ` aria-label="${esc(v.testo)}" title="${esc(v.testo)}"` : ""}>` +
+          `${v.ico ?? ""}<span class="et">${esc(v.testo)}</span></button>`).join("");
       }
 
       function disegnaMenu(): void {
@@ -2854,22 +2852,22 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           tavoliDi(r),
           String(r.zone ?? "").trim(),
         ].filter(Boolean).join(" · ");
-        const doveHtml = `${ICO_PERS}<span>${escHtml(dove)}</span>`;
+        const doveHtml = `${ICO_PERS}<span>${esc(dove)}</span>`;
         const occ = occasioniDi(r)
-          .map((x) => `<span class="j-tag">${escHtml(x)}</span>`)
+          .map((x) => `<span class="j-tag">${esc(x)}</span>`)
           .join("");
         // ⚠️ La nota si ANNUNCIA, non si apre: una riga sola, tagliata dove
         // finisce lo spazio. Chi la legge sa che c'e' qualcosa da sapere e
         // apre la pagina; nasconderla del tutto vuol dire scoprire al tavolo
         // che c'era scritto «allergia».
         const nota = String(r.notes ?? "").trim();
-        const notaHtml = nota ? `<span class="j-nota">${ICO_NOTA}<span>${escHtml(nota)}</span></span>` : "";
+        const notaHtml = nota ? `<span class="j-nota">${ICO_NOTA}<span>${esc(nota)}</span></span>` : "";
         // ⚠️ Il link porta alla SUA prenotazione, non all'elenco: `?resa=<id>`
         // fa aprire di la' la scheda di questa riga. Chi ha cliccato un nome
         // non deve ritrovarselo in mezzo a venti.
         return `<a class="j-li" href="/admin/reservations?resa=${encodeURIComponent(String(r.id ?? ""))}">` +
           `<span class="h">${ora}</span>` +
-          `<span class="tx"><span class="j-nome">${escHtml(nome)}</span>` +
+          `<span class="tx"><span class="j-nome">${esc(nome)}</span>` +
           `<small>${doveHtml}</small>${notaHtml}</span>` +
           `<span class="j-dx-col">${badgeResa(r)}${occ ? `<span class="j-tags">${occ}</span>` : ""}</span>` +
           `</a>`;
@@ -2964,16 +2962,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             return (
               `<div class="j-sv${perm ? " is-perm" : ""}">` +
                 `<span class="j-sv-x">` +
-                  `<span class="n">${escHtml(sv.label)}</span>` +
-                  `<span class="h">${escHtml(sv.da)} – ${escHtml(sv.a)}</span>` +
+                  `<span class="n">${esc(sv.label)}</span>` +
+                  `<span class="h">${esc(sv.da)} – ${esc(sv.a)}</span>` +
                 `</span>` +
                 // ⚠️ Taglia PIENA, senza `sw-sm`: questo interruttore chiude un
                 // servizio, e lo si tocca col dito su un tablet appeso in sala.
                 // `sw-sm` e' la taglia delle righe fitte di un elenco lungo —
                 // qui ci sono due righe, e il bersaglio deve essere quello che
                 // il dispositivo da' a tutti gli altri interruttori.
-                `<label class="switch"${perm ? ` title="${escHtml(tr("res.closedUntilReopenM"))}"` : ""}>` +
-                  `<input type="checkbox" data-sv="${escHtml(sv.key)}"${motivo ? "" : " checked"}${perm ? " disabled" : ""} />` +
+                `<label class="switch"${perm ? ` title="${esc(tr("res.closedUntilReopenM"))}"` : ""}>` +
+                  `<input type="checkbox" data-sv="${esc(sv.key)}"${motivo ? "" : " checked"}${perm ? " disabled" : ""} />` +
                   `<span class="track"></span>` +
                 `</label>` +
               `</div>`
@@ -3253,8 +3251,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const uno = (x: string) => {
             const info = x === "important" ? quando : x === "recurrent" ? ripete : "";
             const rosso = x === "important" && inRit ? " late" : "";
-            return `<span class="note-tagx"><span class="note-tag ${TAG_LABEL[x] ? "t-" + x : "t-libero"}">${escHtml(TAG_LABEL[x] ?? x)}</span>` +
-              (info ? `<span class="note-fr">→</span><b class="note-info${rosso}">${escHtml(info)}</b>` : "") +
+            return `<span class="note-tagx"><span class="note-tag ${TAG_LABEL[x] ? "t-" + x : "t-libero"}">${esc(TAG_LABEL[x] ?? x)}</span>` +
+              (info ? `<span class="note-fr">→</span><b class="note-info${rosso}">${esc(info)}</b>` : "") +
               `</span>`;
           };
 
@@ -3273,11 +3271,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // risponde piu'. Se la persona non e' piu' in rubrica restano le
             // iniziali, che dal nome si ricavano sempre.
             const p = squadra.find((x) => x.id === n.assigned_to);
-            const dentro = escHtml(iniziali(n.assigned_name)) +
-              (p?.foto ? `<img src="${escHtml(p.foto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />` : "");
+            const dentro = esc(iniziali(n.assigned_name)) +
+              (p?.foto ? `<img src="${esc(p.foto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />` : "");
             pezzi.unshift(
               `<span class="note-tagx chi"><span class="j-av np-av" style="background:${coloreDi(n.assigned_name)}">${dentro}</span>` +
-              `<b class="note-info">${escHtml(n.assigned_name)}</b></span>`);
+              `<b class="note-info">${esc(n.assigned_name)}</b></span>`);
           }
           // ⚠️ Scadenza o ricorrenza SENZA la loro etichetta esistono: il
           // campo si apre con «Important», ma niente vieta di togliere
@@ -3285,10 +3283,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // il loro segno davanti — altrimenti una scadenza ci sarebbe e non
           // si vedrebbe.
           if (quando && !t.includes("important")) {
-            pezzi.push(`<span class="note-tagx">${ICO_SVEGLIA}<b class="note-info${inRit ? " late" : ""}">${escHtml(quando)}</b></span>`);
+            pezzi.push(`<span class="note-tagx">${ICO_SVEGLIA}<b class="note-info${inRit ? " late" : ""}">${esc(quando)}</b></span>`);
           }
           if (ripete && !t.includes("recurrent")) {
-            pezzi.push(`<span class="note-tagx">${ICO_RIPETI}<b class="note-info">${escHtml(ripete)}</b></span>`);
+            pezzi.push(`<span class="note-tagx">${ICO_RIPETI}<b class="note-info">${esc(ripete)}</b></span>`);
           }
           return pezzi.length ? `<div class="note-tags">${pezzi.join("")}</div>` : "";
           // (l'ordine della riga: a chi tocca, le etichette col loro
@@ -3315,8 +3313,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // «pulsante», e per chi guarda un rettangolo da provare.
           const chip = (val: string, testo: string, ico = "") =>
             `<button type="button" class="rh-filter${ico ? " tutte" : ""}${val.toLowerCase() === filtro.toLowerCase() ? " is-on" : ""}"` +
-            ` data-f="${escHtml(val)}"${ico ? ` aria-label="${escHtml(testo)}" title="${escHtml(testo)}"` : ""}>` +
-            `${ico}<span class="et">${escHtml(testo)}</span></button>`;
+            ` data-f="${esc(val)}"${ico ? ` aria-label="${esc(testo)}" title="${esc(testo)}"` : ""}>` +
+            `${ico}<span class="et">${esc(testo)}</span></button>`;
           // ⚠️ L'icona sta SOLO su «Toutes», ed e' il punto: le altre pastiglie
           // sono etichette — parole scritte da chi usa la lavagnetta — questa
           // e' il comando che le spegne tutte. Un segno la separa da loro
@@ -3402,8 +3400,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const ol = document.getElementById("j-note-top");
           if (ol) {
             ol.innerHTML = top.length
-              ? top.map((x) => `<li><span class="n">${escHtml(x.chi)}</span><span class="q">${x.quante}</span></li>`).join("")
-              : `<li class="vuoto">${escHtml(tr("home.notesTopNone"))}</li>`;
+              ? top.map((x) => `<li><span class="n">${esc(x.chi)}</span><span class="q">${x.quante}</span></li>`).join("")
+              : `<li class="vuoto">${esc(tr("home.notesTopNone"))}</li>`;
           }
         }
 
@@ -3443,7 +3441,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // etichetta». Il primo dice di premere +, il secondo sarebbe un
             // consiglio sbagliato — la nota c'e', e' il filtro che la nasconde.
             const testo = notes.length ? tr("home.nothingToShow") : tr("home.noNotesShort");
-            preview.innerHTML = vuotoHTML(escHtml(testo), preview, "np-empty");
+            preview.innerHTML = vuotoHTML(esc(testo), preview, "np-empty");
             return;
           }
           // ⚠️ TUTTE, e non le prime tre con un «+7 altre». Le tre erano il
@@ -3456,8 +3454,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               <div class="np-item${n.done ? " done" : ""}" data-id="${n.id}">
                 <button class="note-check" type="button" title="${n.done ? tr("home.reopenNote") : tr("home.markDone")}">${n.done ? CHECK_ICON : ""}</button>
                 <div class="np-body">
-                  <span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
-                  <div class="note-meta">${n.author ? `<b>${escHtml(n.author)}</b> · ` : ""}${noteDate(n.created_at)}</div>
+                  <span class="np-text">${esc(n.content)}</span>${tagPills(n)}
+                  <div class="note-meta">${n.author ? `<b>${esc(n.author)}</b> · ` : ""}${noteDate(n.created_at)}</div>
                 </div>
                 ${puoCancellare ? `<button class="ibtn ibtn-danger note-del" type="button" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button>` : ""}
               </div>`
@@ -3741,8 +3739,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         function disegnaChi(): void {
           if (!squadra.length) {
             boxChi.innerHTML =
-              `<p class="nc-vuoto">${escHtml(tr("home.noteTeamNone"))}</p>` +
-              `<a class="btn btn-sm" href="/admin/settings?tab=team">${escHtml(tr("home.noteTeamAdd"))}</a>`;
+              `<p class="nc-vuoto">${esc(tr("home.noteTeamNone"))}</p>` +
+              `<a class="btn btn-sm" href="/admin/settings?tab=team">${esc(tr("home.noteTeamAdd"))}</a>`;
             return;
           }
           const cella = (id: string, nome: string, foto: string) => {
@@ -3752,11 +3750,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             // ⚠️ Le iniziali ci sono SEMPRE, e la foto ci sta sopra: cosi'
             // `onerror` deve solo togliere l'immagine, e sotto c'e' gia' da
             // vedere. Un cerchio vuoto non dice niente e sembra un guasto.
-            const dentro = escHtml(iniziali(nome)) +
-              (foto ? `<img src="${escHtml(foto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />` : "");
-            return `<button type="button" class="nc-p${id === chiSel ? " is-on" : ""}" data-chi="${escHtml(id)}">` +
+            const dentro = esc(iniziali(nome)) +
+              (foto ? `<img src="${esc(foto)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()" />` : "");
+            return `<button type="button" class="nc-p${id === chiSel ? " is-on" : ""}" data-chi="${esc(id)}">` +
               `<span class="j-av" style="background:${id ? coloreDi(nome) : "transparent"}">${dentro}</span>` +
-              `<span class="n">${escHtml(nome)}</span></button>`;
+              `<span class="n">${esc(nome)}</span></button>`;
           };
           boxChi.innerHTML =
             `<div class="nc-chi-grid">` +
@@ -4047,7 +4045,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const nome = rawNome ? rawNome.split(/\s+/)[0] : "";
           const SALUTI = ["Ciao", "Salut", "Hola", "Hallo", "Olá", "Hej", "Hello", "Hoi", "Ahoj"];
           let gi = Math.floor(Math.random() * SALUTI.length);
-          homeHello.innerHTML = `<span class="hh-word">${escHtml(SALUTI[gi])}</span>${nome ? ` <strong>${escHtml(nome)}</strong>` : ""}`;
+          homeHello.innerHTML = `<span class="hh-word">${esc(SALUTI[gi])}</span>${nome ? ` <strong>${esc(nome)}</strong>` : ""}`;
           const wEl = homeHello.querySelector(".hh-word") as HTMLElement | null;
           if (wEl) {
             setInterval(() => {
@@ -4317,7 +4315,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
         /** Un giorno sul calendarietto: numero grande, mese piccolo. */
         const spxGiorno = (iso: string): string =>
-          `<b>${Number(iso.slice(8, 10))}</b><i>${escHtml(spxFmt(iso, { month: "short" }).replace(".", ""))}</i>`;
+          `<b>${Number(iso.slice(8, 10))}</b><i>${esc(spxFmt(iso, { month: "short" }).replace(".", ""))}</i>`;
 
         function rigaSpx(r: RigaSpeciale, chiusi: Set<string>, noto: boolean): string {
           /* ⚠️ UN PERIODO HA DUE DATE, e la seconda non e' un dettaglio da
@@ -4346,7 +4344,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
              quell'evento ha il cestino, che le feste non hanno: chi e' suo si
              vede dal fatto che si puo' buttare via. Due segni per la stessa
              cosa, e il corallo era quello che costava il colore del titolo. */
-          const titolo = nome ? `<span class="ev-nome">${escHtml(nome)}</span>` : "";
+          const titolo = nome ? `<span class="ev-nome">${esc(nome)}</span>` : "";
           const ore = [r.pranzo, r.cena]
             .filter((f): f is [string, string] => Array.isArray(f))
             .map((f) => `${f[0]} – ${f[1]}`)
@@ -4365,10 +4363,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
              solo il giorno: il numero e' cio' che si legge, il giorno e' il
              contorno di una data che sta li' accanto. */
           const misura = r.fine
-            ? `<span class="j-spx-dur">${escHtml(tr("home.spxDays").replace("{n}", String(r.giorni)))}</span>`
+            ? `<span class="j-spx-dur">${esc(tr("home.spxDays").replace("{n}", String(r.giorni)))}</span>`
             : ore
-              ? `<span class="j-spx-dur">${escHtml(ore)}</span>`
-              : `<span class="j-spx-gg">${escHtml(spxFmt(r.iso, { weekday: "long" }))}</span>`;
+              ? `<span class="j-spx-dur">${esc(ore)}</span>`
+              : `<span class="j-spx-gg">${esc(spxFmt(r.iso, { weekday: "long" }))}</span>`;
           /* Cosa succede quel giorno, sulla riga della festa: APERTO o CHIUSO,
              la stessa pastiglia verde e rossa dei giorni decisi.
              ⚠️ Solo se la risposta ce l'abbiamo DAVVERO (`noto`): quando l'API
@@ -4386,7 +4384,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             : "";
           // La nota scende qui solo se non e' gia' il nome della riga.
           const nota = r.nota && r.nota !== nome
-            ? `<span class="j-nota">${ICO_NOTA}<span>${escHtml(r.nota)}</span></span>`
+            ? `<span class="j-nota">${ICO_NOTA}<span>${esc(r.nota)}</span></span>`
             : "";
           /* ⚠️ UN SERVIZIO E' «chiave|orario», non una chiave. Nel database un
              giorno «aperto» salva `soir|17:00-22:30`, e stampando il valore
@@ -4397,7 +4395,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             .map((tok) => {
               const [k, h] = String(tok).split("|");
               const nome = nomeServizio(k, LANG);
-              return `<span class="j-tag">${escHtml(h ? `${nome} ${h.replace("-", "–")}` : nome)}</span>`;
+              return `<span class="j-tag">${esc(h ? `${nome} ${h.replace("-", "–")}` : nome)}</span>`;
             })
             .join("");
           /* Il cestino c'e' su cio' che QUALCUNO HA SCRITTO: le chiusure, le
@@ -4413,14 +4411,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
              non fa la nona. */
           const cancellabile = r.locale || (r.deciso && Boolean(r.id));
           const cestino = cancellabile
-            ? `<button type="button" class="ibtn ibtn-danger j-spx-del" data-sid="${escHtml(r.id ?? "")}" title="${escHtml(tr("common.delete"))}" aria-label="${escHtml(tr("common.delete"))}">${TRASH_ICON}</button>`
+            ? `<button type="button" class="ibtn ibtn-danger j-spx-del" data-sid="${esc(r.id ?? "")}" title="${esc(tr("common.delete"))}" aria-label="${esc(tr("common.delete"))}">${TRASH_ICON}</button>`
             : "";
           // ⚠️ La riga INTERA e' il link al modulo, con la sua data dentro
           // (`?spx=`): la cosa che si vuole fare guardando questa colonna e'
           // cambiare quel giorno, e un bersaglio piccolo in una colonna che si
           // guarda col dito e' un bersaglio che si sbaglia.
           return `<a class="j-li j-spx-li${r.deciso ? "" : " aperta"}${r.oggi ? " oggi" : ""}` +
-            `" data-iso="${r.iso}" data-nome="${escHtml(r.titolo)}"` +
+            `" data-iso="${r.iso}" data-nome="${esc(r.titolo)}"` +
             ` href="/admin/settings?tab=horaire&spx=${encodeURIComponent(r.iso)}">` +
             cal +
             `<span class="tx">` +
@@ -4456,8 +4454,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           };
           const chip = (val: string, testo: string, ico = ""): string =>
             `<button type="button" class="rh-filter${ico ? " tutte" : ""}${val === spxFiltro ? " is-on" : ""}"` +
-            ` data-f="${escHtml(val)}"${ico ? ` aria-label="${escHtml(testo)}" title="${escHtml(testo)}"` : ""}>` +
-            `${ico}<span class="et">${escHtml(testo)}</span></button>`;
+            ` data-f="${esc(val)}"${ico ? ` aria-label="${esc(testo)}" title="${esc(testo)}"` : ""}>` +
+            `${ico}<span class="et">${esc(testo)}</span></button>`;
           box.innerHTML = chip("", tr("home.notesAll"), ICO_TUTTE) +
             TIPI_FILTRO.map((t) => chip(t, nome[t])).join("");
         }
@@ -4619,13 +4617,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const headersJson = () => ({ ...headers, "Content-Type": "application/json" });
 
           const fdFr = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
-          const escE = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
           function renderListaEvt() {
             evtList.innerHTML = eventiLocali.length
               ? eventiLocali
                   .map((ev, i) =>
-                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="ibtn ibtn-danger evm-del" data-i="${i}" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button></div>`
+                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${esc(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="ibtn ibtn-danger evm-del" data-i="${i}" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button></div>`
                   )
                   .join("")
               : `<div class="evm-vide">${tr("home.noLocalEvents")}</div>`;
@@ -5077,12 +5074,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               // intanto la colonna di un lunedi' di chiusura diceva «Fermé»
               // senza dire fino a quando.
               const riapre = stato === "chiuso" && jt?.reopen
-                ? `<span class="j-riapre">${escHtml(`${tr("home.reopen")} ${quandoRiapre(jt.reopen.in_days)} ${jt.reopen.heure}`)}</span>`
+                ? `<span class="j-riapre">${esc(`${tr("home.reopen")} ${quandoRiapre(jt.reopen.in_days)} ${jt.reopen.heure}`)}</span>`
                 : "";
               righeOre.innerHTML = CLOCK + (
-                stato === "ignoto" ? escHtml("—")
-                : stato === "aperto" ? bande.map((f) => `<span class="f">${escHtml(f)}</span>`).join("")
-                : `<span class="f">${escHtml(tr("home.closedToday"))}</span>${riapre}`
+                stato === "ignoto" ? esc("—")
+                : stato === "aperto" ? bande.map((f) => `<span class="f">${esc(f)}</span>`).join("")
+                : `<span class="f">${esc(tr("home.closedToday"))}</span>${riapre}`
               );
             }
             // ⚠️ Si accende la PASTIGLIA, non un blocco: adesso stato e orari
@@ -5349,7 +5346,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <script>
       import { iniziali, coloreDi } from "../../lib/admin/avatarRegole";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { stelle, linkRecensioni, variazione } from "../../lib/admin/googleRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;

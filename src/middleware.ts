@@ -1,5 +1,5 @@
 import { defineMiddleware, sequence } from "astro:middleware";
-import { colpisci, ipClient } from "./lib/rateLimit";
+import { colpisci, ipClient, corpoTroppoGrande } from "./lib/rateLimit";
 import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
 import { contestoDaToken } from "./lib/admin/permessi";
 import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi, arrivoDi } from "./lib/admin/permessiRegole";
@@ -94,6 +94,12 @@ function regolaPer(path: string): Regola | null {
 
 const rateLimit = defineMiddleware((context, next) => {
   const path = new URL(context.request.url).pathname;
+  if (corpoTroppoGrande(path, context.request.method, context.request.headers.get("content-length"))) {
+    return new Response(JSON.stringify({ error: "Requête trop volumineuse." }), {
+      status: 413,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
   const r = regolaPer(path);
   if (!r) return next();
 
