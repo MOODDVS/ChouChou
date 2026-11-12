@@ -85,7 +85,7 @@ test("una margherita +2 € aggiunta in modifica resta +2 €", () => {
 
 test("il palmare manda il supplemento e il server lo mette nel prezzo del pezzo", () => {
   const pal = readFileSync(new URL("../src/pages/admin/salle/order.astro", import.meta.url), "utf8");
-  assert.match(pal, /const SUPPLEMENTI = \[100, 200, 300, 400\];/);
+  assert.match(pal, /const SUPPLEMENTI = \[100, 200, 300, 400, 500\];/);
   assert.match(pal, /extra: r\.extra \|\| undefined/);
   const srv = readFileSync(new URL("../src/lib/admin/ordineCameriere.ts", import.meta.url), "utf8");
   assert.match(srv, /const extra = extraDi\(r\.extra\);/);
