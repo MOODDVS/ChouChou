@@ -31,7 +31,7 @@ import { accodaTicket, stampaAnnullo } from "../stampaCoda";
 import { contiApertiDellaSala } from "./contiSala";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
 import { piattiPerOrdine, rigaOrdine, piattoSenzaCifra } from "./righeOrdine";
-import { applicaTogli, dividiModifica, ordineModificabile, righeModificabili, type VoceItems } from "./modificaOrdineRegole";
+import { applicaTogli, dividiModifica, ordineModificabile, righeModificabili, extraDi, type VoceItems } from "./modificaOrdineRegole";
 import { letturaSala } from "./letturaSala";
 
 export interface RigaRichiesta {
@@ -39,6 +39,8 @@ export interface RigaRichiesta {
   qty?: unknown;
   variant?: unknown;
   note?: unknown;
+  /** Supplemento del cameriere per pezzo, in centesimi (+1 € … +4 €). */
+  extra?: unknown;
 }
 
 export type EsitoOrdine =
@@ -120,9 +122,14 @@ export async function ordinaDalPalmare(opz: {
     if (piattoSenzaCifra(piatto, ambito)) return { ok: false, errore: "piatto" };
     const riga = rigaOrdine(piatto, { qty: r.qty, variant: r.variant }, "fr", ambito);
     if (!riga) return { ok: false, errore: "formato" };
+    // Il supplemento del cameriere (+1 € … +4 €): dentro il prezzo del pezzo,
+    // e scritto a parte perche' una modifica dell'ordine lo ritrovi.
+    const extra = extraDi(r.extra);
     items.push({
       id: piatto.id,
       ...riga,
+      price_cents: riga.price_cents + extra,
+      ...(extra ? { extra_cents: extra } : {}),
       // La nota del cameriere va in cucina con il piatto («sans oignon»).
       notes: String(r.note ?? "").trim().slice(0, 200),
     });

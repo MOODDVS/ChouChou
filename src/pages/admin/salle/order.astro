@@ -6,7 +6,8 @@
  * quello della sala (`getMenuSala`: tutto il visibile, coi prezzi che il
  * cliente vedrebbe col QR). Un tocco su un piatto = +1; un piatto con piu'
  * formati apre la scelta del formato. In fondo il carrello: «Récap» apre il
- * riepilogo, dove si cambia la quantita', si scrive la nota per la cucina e
+ * riepilogo, dove si cambia la quantita', si aggiunge un supplemento
+ * (+1 € … +4 €, per pezzo), si scrive la nota per la cucina e
  * si manda (`/api/admin/salle-order`, regole in `ordineCameriere.ts`).
  *
  * I formati: TUTTI tranne gli esauriti, anche quelli spenti per l'online
@@ -252,6 +253,17 @@ const ancora = (i: number) => `cat-${i}`;
         border: 1px dashed var(--c-line); background: transparent; color: var(--c-muted); font: inherit; font-size: 0.85rem; font-weight: 700;
       }
       .od-com-btn[hidden] { display: none; }
+      /* «+ Commento» e i supplementi del cameriere sulla stessa riga. */
+      .od-riga-giu { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+      /* I quattro supplementi vanno a capo INSIEME, mai spezzati 2 + 2. */
+      .od-extras { display: flex; gap: 0.3rem; margin-left: auto; }
+      .od-extra {
+        height: 36px; min-width: 40px; padding: 0 0.3rem; border-radius: 999px; cursor: pointer; white-space: nowrap;
+        border: 1px solid var(--c-line); background: transparent; color: var(--c-muted);
+        font: inherit; font-size: 0.85rem; font-weight: 800; font-variant-numeric: tabular-nums;
+      }
+      .od-extra.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .od-extra:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
       .od-barra-recap .od-invia { flex: 1; min-width: 0; }
       .od-totale-pill {
         align-self: center; display: inline-flex; align-items: baseline; gap: 0.75rem; min-height: 44px; padding: 0.55rem 1.25rem;
@@ -412,7 +424,9 @@ const ancora = (i: number) => `cat-${i}`;
 
       type Formato = { key: string; nome: string; prezzo: number; esaurito: boolean };
       type Piatto = { id: string; nome: string; prezzo: number; esaurito: boolean; formati: Formato[] };
-      type Riga = { chiave: string; id: string; nome: string; formato: string; formatoNome: string; prezzo: number; qty: number; nota: string };
+      /** `extra`: il supplemento del cameriere per pezzo, in centesimi (+1 € … +4 €). */
+      type Riga = { chiave: string; id: string; nome: string; formato: string; formatoNome: string; prezzo: number; qty: number; nota: string; extra: number };
+      const SUPPLEMENTI = [100, 200, 300, 400];
 
       const datiEl = document.getElementById("od-dati");
       const P = (document.getElementById("od-parole")?.dataset ?? {}) as Record<string, string>;
@@ -422,12 +436,43 @@ const ancora = (i: number) => `cat-${i}`;
         // Il carrello: una riga per piatto + formato. La nota si scrive nel riepilogo.
         const carrello: Riga[] = [];
 
+        // La chiave porta dentro il supplemento: dal menu si aggiunge sempre
+        // alla riga SENZA supplemento.
+        const chiaveDi = (id: string, formato: string, extra: number) => `${id}|${formato}|${extra}`;
         const aggiungi = (p: Piatto, f: Formato | null) => {
-          const chiave = `${p.id}|${f?.key ?? ""}`;
+          const chiave = chiaveDi(p.id, f?.key ?? "", 0);
           const r = carrello.find((x) => x.chiave === chiave);
           if (r) r.qty += 1;
-          else carrello.push({ chiave, id: p.id, nome: p.nome, formato: f?.key ?? "", formatoNome: f?.nome ?? "", prezzo: f ? f.prezzo : p.prezzo, qty: 1, nota: "" });
+          else carrello.push({ chiave, id: p.id, nome: p.nome, formato: f?.key ?? "", formatoNome: f?.nome ?? "", prezzo: f ? f.prezzo : p.prezzo, qty: 1, nota: "", extra: 0 });
           aggiorna();
+        };
+        const totaleCarrello = () => carrello.reduce((t, r) => t + (r.prezzo + r.extra) * r.qty, 0);
+        /* Il supplemento su una riga (Enzo, 12/11/2026: «una margherita piu'
+           prosciutto sono 2 € in piu'»). Vale per PEZZO:
+             · stesso importo gia' scelto → si toglie;
+             · riga di piu' pezzi ancora senza supplemento → se ne stacca UNO,
+               col supplemento (le altre margherite restano normali; il «+»
+               della riga nuova ne aggiunge altre col prosciutto);
+             · altrimenti cambia il supplemento della riga.
+           Poi le righe diventate uguali (stessa chiave e stessa nota) si fondono. */
+        const scegliExtra = (i: number, importo: number) => {
+          const r = carrello[i];
+          if (!r) return;
+          if (r.extra === importo) r.extra = 0;
+          else if (r.qty > 1 && r.extra === 0) {
+            r.qty -= 1;
+            carrello.splice(i + 1, 0, { ...r, qty: 1, nota: "", extra: importo, chiave: chiaveDi(r.id, r.formato, importo) });
+          } else r.extra = importo;
+          r.chiave = chiaveDi(r.id, r.formato, r.extra);
+          for (let a = 0; a < carrello.length; a++) {
+            for (let b = carrello.length - 1; b > a; b--) {
+              if (carrello[b].chiave === carrello[a].chiave && carrello[b].nota === carrello[a].nota) {
+                carrello[a].qty += carrello[b].qty;
+                carrello.splice(b, 1);
+              }
+            }
+          }
+          aggiorna(); disegnaRiepilogo();
         };
         // Rifa' partire l'animazione «pop» (togliere, ridisegnare, rimettere).
         const salta = (el: HTMLElement) => {
@@ -439,7 +484,7 @@ const ancora = (i: number) => `cat-${i}`;
         const aggiorna = () => {
           const pezzi = carrello.reduce((n, r) => n + r.qty, 0);
           const conta = document.getElementById("od-conta");
-          if (conta) conta.textContent = `${(P.items ?? "").replace("{n}", String(pezzi))} · ${euro(carrello.reduce((t, r) => t + r.prezzo * r.qty, 0))}`;
+          if (conta) conta.textContent = `${(P.items ?? "").replace("{n}", String(pezzi))} · ${euro(totaleCarrello())}`;
           const btn = document.getElementById("od-recap-btn") as HTMLButtonElement | null;
           if (btn) btn.disabled = pezzi === 0;
           if (btn && pezzi > pezziPrima) salta(btn);
@@ -498,7 +543,10 @@ const ancora = (i: number) => `cat-${i}`;
                   <button type="button" data-meno="${i}" aria-label="−">−</button><b>${r.qty}</b><button type="button" data-piu="${i}" aria-label="+">+</button>
                 </span>
               </div>
-              <button type="button" class="od-com-btn" data-com="${i}"${r.nota ? " hidden" : ""}>${esc(P.addNote ?? "")}</button>
+              <div class="od-riga-giu">
+                <button type="button" class="od-com-btn" data-com="${i}"${r.nota ? " hidden" : ""}>${esc(P.addNote ?? "")}</button>
+                <span class="od-extras">${SUPPLEMENTI.map((c) => `<button type="button" class="od-extra${r.extra === c ? " is-on" : ""}" data-extra="${i}" data-importo="${c}" aria-pressed="${r.extra === c}">+${c / 100}€</button>`).join("")}</span>
+              </div>
               <textarea class="od-nota" data-nota="${i}" maxlength="200" rows="2" placeholder="${esc(P.note ?? "")}"${r.nota ? "" : " hidden"}>${esc(r.nota)}</textarea>
             </div>`).join("");
           // «+ Commentaire»: apre il campo di quel piatto, gia' pronto a scrivere.
@@ -506,6 +554,9 @@ const ancora = (i: number) => `cat-${i}`;
             const campo = box.querySelector<HTMLTextAreaElement>(`[data-nota="${b.dataset.com}"]`);
             b.hidden = true;
             if (campo) { campo.hidden = false; campo.focus(); }
+          }));
+          box.querySelectorAll<HTMLButtonElement>("[data-extra]").forEach((b) => b.addEventListener("click", () => {
+            scegliExtra(Number(b.dataset.extra), Number(b.dataset.importo));
           }));
           box.querySelectorAll<HTMLButtonElement>("[data-meno]").forEach((b) => b.addEventListener("click", () => {
             const i = Number(b.dataset.meno);
@@ -524,7 +575,7 @@ const ancora = (i: number) => `cat-${i}`;
             if (r) r.nota = inp.value;
           }));
           const tot = document.getElementById("od-totale");
-          if (tot) tot.textContent = euro(carrello.reduce((t, r) => t + r.prezzo * r.qty, 0));
+          if (tot) tot.textContent = euro(totaleCarrello());
         };
         // ---- Il recap come PAGINA: si apre al posto del menu; la freccia e
         // l'«indietro» del telefono tornano ai piatti, il carrello resta. ----
@@ -562,7 +613,7 @@ const ancora = (i: number) => `cat-${i}`;
               headers: await authFresh(),
               body: JSON.stringify({
                 table: P.tavolo,
-                items: carrello.map((r) => ({ id: r.id, qty: r.qty, variant: r.formato || undefined, note: r.nota.trim() || undefined })),
+                items: carrello.map((r) => ({ id: r.id, qty: r.qty, variant: r.formato || undefined, note: r.nota.trim() || undefined, extra: r.extra || undefined })),
               }),
             });
             const j = (await res.json().catch(() => ({}))) as { error?: string };
