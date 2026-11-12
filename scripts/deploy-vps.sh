@@ -6,6 +6,7 @@
 #   ./scripts/deploy-vps.sh restohub     solo app.restohub.cloud (il motore)
 #   ./scripts/deploy-vps.sh villa77      solo villa77.be
 #   ./scripts/deploy-vps.sh ladp         solo L'Arte della Pizza
+#   ./scripts/deploy-vps.sh maremonti    solo Mare e Monti
 #   ./scripts/deploy-vps.sh              tutte
 #
 # Fa, per ogni app, i passi del documento «vps-restohub» nel progetto:
@@ -35,6 +36,9 @@ APPS=(
   # l'indirizzo qui e quello nel .env del server cambiano INSIEME, se no lo
   # script si ferma prima della build.
   "ladp|$HOME/Developer/LArteDellaPizza|/home/enzo/app-ladp|ladp|4323|https://lartedellapizza.be"
+  # (12/11/2026) Mare e Monti, in prova su nuovo.restohub.cloud (noindex). Il
+  # giorno del dominio vero cambia qui E nel .env del server.
+  "maremonti|$HOME/Developer/MareMonti|/home/enzo/app-maremonti|maremonti|4324|https://nuovo.restohub.cloud"
 )
 
 scelta="${1:-tutti}"
