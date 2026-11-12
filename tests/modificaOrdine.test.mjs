@@ -3,7 +3,8 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { righeModificabili, applicaTogli, ordineModificabile, dividiModifica } from "../src/lib/admin/modificaOrdineRegole.ts";
+import { righeModificabili, applicaTogli, ordineModificabile, dividiModifica, extraDi, EXTRA_MAX } from "../src/lib/admin/modificaOrdineRegole.ts";
+import { readFileSync } from "node:fs";
 
 const ITEMS = [
   { id: "a", name: "Margherita", qty: 2, price_cents: 1000 },
@@ -61,4 +62,32 @@ test("aggiungere col +: cio' che supera la partenza diventa un ordine nuovo", ()
   assert.deepEqual(d.aggiungi, [{ id: "a", qty: 1, variant: "grande", note: "ben cotta" }]);
   assert.equal(dividiModifica(items, { 0: 51 }), null, "un errore di dito non ordina 51 pizze");
   assert.equal(dividiModifica(items, { 5: 1 }), null);
+});
+
+/* ============================================================
+   IL SUPPLEMENTO DEL CAMERIERE (12/11/2026) — +1 € … +4 € per pezzo
+   ============================================================ */
+
+test("il supplemento e' un intero fra 0 e il tetto, il resto vale 0", () => {
+  assert.equal(extraDi(200), 200);
+  assert.equal(extraDi("300"), 300);
+  assert.equal(extraDi(undefined), 0);
+  assert.equal(extraDi(-100), 0);
+  assert.equal(extraDi("abc"), 0);
+  assert.equal(extraDi(99999), EXTRA_MAX);
+});
+
+test("una margherita +2 € aggiunta in modifica resta +2 €", () => {
+  const items = [{ id: "p1", name: "Margherita", qty: 1, price_cents: 1500, extra_cents: 200, notes: "+ jambon" }];
+  const d = dividiModifica(items, { 0: 3 });
+  assert.deepEqual(d.aggiungi, [{ id: "p1", qty: 2, note: "+ jambon", extra: 200 }]);
+});
+
+test("il palmare manda il supplemento e il server lo mette nel prezzo del pezzo", () => {
+  const pal = readFileSync(new URL("../src/pages/admin/salle/order.astro", import.meta.url), "utf8");
+  assert.match(pal, /const SUPPLEMENTI = \[100, 200, 300, 400\];/);
+  assert.match(pal, /extra: r\.extra \|\| undefined/);
+  const srv = readFileSync(new URL("../src/lib/admin/ordineCameriere.ts", import.meta.url), "utf8");
+  assert.match(srv, /const extra = extraDi\(r\.extra\);/);
+  assert.match(srv, /price_cents: riga\.price_cents \+ extra,/);
 });

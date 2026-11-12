@@ -22,6 +22,8 @@
 export interface VoceItems {
   id?: unknown;
   variant?: unknown;
+  /** Il supplemento del cameriere, per pezzo, gia' dentro `price_cents`. */
+  extra_cents?: unknown;
   notes?: unknown;
   name?: unknown;
   base_name?: unknown;
@@ -107,6 +109,19 @@ export function applicaTogli(
 export const MAX_QTY_RIGA = 50;
 
 /**
+ * IL SUPPLEMENTO DEL CAMERIERE (Enzo, 12/11/2026): i bottoni +1 € … +4 € nel
+ * riepilogo del palmare — una margherita col prosciutto e' 2 € in piu'.
+ * Per PEZZO, in centesimi, e finisce dentro `price_cents` della riga (conto,
+ * totale, stampa e Stripe non cambiano). Dal browser arriva un numero: qui
+ * diventa un intero fra 0 e `EXTRA_MAX`, e qualunque altra cosa vale 0.
+ */
+export const EXTRA_MAX = 2000;
+export function extraDi(v: unknown): number {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, EXTRA_MAX) : 0;
+}
+
+/**
  * Le quantita' nuove (`{ indice: qty }`) divise in due:
  *  - `togli`: cio' che scende, da applicare all'ordine (`applicaTogli`);
  *  - `aggiungi`: cio' che sale oltre la partenza, come righe per un ordine
@@ -116,12 +131,12 @@ export const MAX_QTY_RIGA = 50;
 export function dividiModifica(
   items: VoceItems[] | null | undefined,
   nuove: unknown,
-): { togli: Record<number, number>; aggiungi: { id: string; qty: number; variant?: string; note?: string }[] } | null {
+): { togli: Record<number, number>; aggiungi: { id: string; qty: number; variant?: string; note?: string; extra?: number }[] } | null {
   if (!nuove || typeof nuove !== "object" || Array.isArray(nuove)) return null;
   const lista = items ?? [];
   const vere = new Map(righeModificabili(lista).map((r) => [r.i, r]));
   const togli: Record<number, number> = {};
-  const aggiungi: { id: string; qty: number; variant?: string; note?: string }[] = [];
+  const aggiungi: { id: string; qty: number; variant?: string; note?: string; extra?: number }[] = [];
   for (const [k, v] of Object.entries(nuove as Record<string, unknown>)) {
     const i = Number(k);
     const q = Number(v);
@@ -132,7 +147,9 @@ export function dividiModifica(
       const it = lista[i];
       const variant = String(it.variant ?? "").trim();
       const note = String(it.notes ?? "").trim();
-      aggiungi.push({ id: String(it.id ?? ""), qty: q - r.qty, ...(variant ? { variant } : {}), ...(note ? { note } : {}) });
+      // Il supplemento segue il piatto: una margherita +2 € in piu' resta +2 €.
+      const extra = extraDi(it.extra_cents);
+      aggiungi.push({ id: String(it.id ?? ""), qty: q - r.qty, ...(variant ? { variant } : {}), ...(note ? { note } : {}), ...(extra ? { extra } : {}) });
     }
   }
   return { togli, aggiungi };
