@@ -6,6 +6,7 @@ import {
   type RigaOrdine,
 } from "../../../lib/stampaRegole";
 import { ordiniDiInvio } from "../../../lib/stampaCoda";
+import { pagamentiDelConto } from "../../../lib/contoServer";
 import { piattiVeri, notaCliente } from "../../../lib/admin/ordiniConti";
 import { defaultLang } from "../../../i18n/ui";
 // ⚠️ Il DISEGNO del ticket si prende da `config/`, che e' del cliente: ogni
@@ -255,6 +256,14 @@ export const GET: APIRoute = async ({ params }) => {
     }
     const persone = [...perNome.values()];
     const quando = new Date().toLocaleString("fr-BE", { timeZone: fuso, day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+    /* Il conto aperto: quello che e' gia' stato pagato online, sotto il
+       totale (13/11/2026). Solo i pagamenti `paid`: uno in corso su Stripe
+       non e' ancora denaro. Tabella illeggibile (la #88) → nessuna riga. */
+    const pagati = sessione
+      ? []
+      : ((await pagamentiDelConto(ambito, String(conto.reservation_id))) ?? [])
+          .filter((p) => p.status === "paid")
+          .map((p) => ({ nome: String(p.payer_name ?? "").trim(), cents: Number(p.amount_cents) || 0 }));
     await segnaInviato();
     return ticket(componiTesto(ticketAddizione({
       insegna: CLIENT.nome,
@@ -263,6 +272,7 @@ export const GET: APIRoute = async ({ params }) => {
       persone,
       totale: persone.reduce((t, p) => t + p.totale, 0),
       lang: defaultLang,
+      pagati,
     })));
   }
 

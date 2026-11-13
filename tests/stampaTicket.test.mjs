@@ -268,7 +268,12 @@ test("la nota dell'ordine si legge dove e' scritta davvero", () => {
 test("il numero del ticket si legge a voce al banco", () => {
   // Il database non ha un numero d'ordine: solo un id lungo. Quattro cifre
   // sono quello che una persona riesce a dire e un'altra a ritrovare.
-  assert.equal(ordineDaRiga(RIGA, "19:45").numero, "4F2A");
+  // ⚠️ Le PRIME quattro (13/11/2026): l'inizio del numero che telefono ed
+  // email mostrano (le prime otto), non le ultime.
+  assert.equal(ordineDaRiga(RIGA, "19:45").numero, "9A1B");
+  assert.ok(RIGA.id.slice(0, 8).toUpperCase().startsWith(ordineDaRiga(RIGA, "19:45").numero));
+  const conferma = leggi("src/lib/confermaOrdine.ts");
+  assert.match(conferma, /const numero = String\(ordine\.id\)\.slice\(0, 8\);/, "l'email non mostra piu' le prime otto: il ticket va riallineato");
 });
 
 test("«da incassare» e' una domanda sui soldi, non sullo stato", () => {

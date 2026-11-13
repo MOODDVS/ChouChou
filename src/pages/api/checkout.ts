@@ -23,7 +23,7 @@ import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordi
 import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBaseZona, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
-import { contoPerId, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
+import { contoPerId, contoDelTavolo, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
 import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
 import { inviaPushConto } from "../../lib/push";
 import { prezzoEffettivo, haVarianti, trovaVariante, trovaVarianteSala, etichettaVariante, prezzoDaChiedere } from "../../lib/pricing";
@@ -183,6 +183,14 @@ export const POST: APIRoute = async ({ request }) => {
     it: "Gli ordini online non sono disponibili al momento.",
     nl: "Online bestellen is momenteel niet beschikbaar.",
     es: "Los pedidos en línea no están disponibles por el momento.",
+  };
+  /* Sul tavolo c'e' un conto aperto e chi ordina non ne fa parte (13/11/2026). */
+  const TXT_CONTO_DI_ALTRI: Record<string, string> = {
+    fr: "Une addition est ouverte sur cette table : rejoignez-la avec son code pour commander, ou appelez le serveur.",
+    en: "A bill is open at this table: join it with its code to order, or call the waiter.",
+    it: "Su questo tavolo c'è un conto aperto: unisciti con il suo codice per ordinare, o chiama il cameriere.",
+    nl: "Aan deze tafel is een rekening open: doe mee met de code om te bestellen, of roep de ober.",
+    es: "Hay una cuenta abierta en esta mesa: únase con su código para pedir, o llame al camarero.",
   };
   const TXT_CHIUSO: Record<string, string> = {
     fr: "Les commandes en ligne sont momentanément fermées. Réessayez plus tard.",
@@ -665,6 +673,27 @@ export const POST: APIRoute = async ({ request }) => {
       if (!tav) return err(409, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
       tavoloId = tav.id;
       tavoloNome = String(tav.name ?? "");
+    }
+    /* ⚠️ UN CONTO APERTO SU QUESTO TAVOLO (o su uno unito) e chi ordina NON
+       ne fa parte (13/11/2026, Enzo): fuori dal conto non si ordina. La
+       pagina toglie gia' i bottoni; questo e' il cancello vero, per una
+       pagina rimasta aperta da prima e per chi chiama la rotta da solo.
+       Senza, l'ordine finiva su una seconda card dello stesso tavolo, e
+       pagato «au comptoir» restava da incassare fuori dal conto.
+       DUE DOMANDE: la SESSIONE a cui l'ordine si attaccherebbe e' gia' un
+       conto (la pagina del tavolo ritrova la sessione seduta su quel tavolo:
+       e' quella del conto), oppure c'e' un conto sul tavolo o su uno unito.
+       Lettura fallita (la #87 non lanciata) → nessun conto: si ordina come prima.
+       ⚠️ `tab_status` in una lettura A PARTE: nella select di sopra, senza la
+       #87, farebbe fallire ogni ordine al tavolo. */
+    if (!sulConto && sala?.conto) {
+      const { data: tabRaw, error: tabErr } = await leggi("reservations", ambitoPub, "tab_status")
+        .eq("id", resa.id)
+        .maybeSingle();
+      const statoTab = tabErr ? "" : String((tabRaw as { tab_status?: string | null } | null)?.tab_status ?? "");
+      const altrui = statoTab === "pending" || statoTab === "open"
+        || (tavoloId ? await contoDelTavolo(ambitoPub, tavoloId, ora.toFormat("yyyy-MM-dd")) : null);
+      if (altrui) return err(409, TXT_CONTO_DI_ALTRI[lang] ?? TXT_CONTO_DI_ALTRI.fr);
     }
   }
 

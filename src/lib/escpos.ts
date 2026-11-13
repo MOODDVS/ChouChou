@@ -194,6 +194,14 @@ export function impagina(righe: RigaTicket[]): RigaFisica[] {
        sugli spazi: mangiava i tre davanti, cosi' «sans ail» finiva incolonnato
        coi piatti e in cucina sembrava un piatto in piu'. E' il difetto che il
        rientro esisteva per evitare, nato dal rientro stesso. */
+    /* IL PREZZO A DESTRA (`destra`, 13/11/2026): una riga sola, larga quanto
+       la carta in questa taglia, e niente `aCapo` — che riduceva a uno gli
+       spazi dell'incolonnamento. Il testo si accorcia, l'importo mai. */
+    if (r.destra !== undefined && r.destra !== null) {
+      out.push({ testo: due(testo, String(r.destra), t.colonne), taglia: nome, grassetto: Boolean(r.grassetto), centrato: false, inverso });
+      if (r.linea) out.push({ testo: linea("-", TAGLIE.normale.colonne), taglia: "normale", grassetto: false, centrato: false, inverso: false });
+      continue;
+    }
     const pad = testo.match(/^ +/)?.[0].length ?? 0;
     const nudo = testo.trimStart();
     const pezzi = nudo === ""

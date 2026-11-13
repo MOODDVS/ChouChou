@@ -1479,7 +1479,7 @@ test("nome ed email si chiedono una volta sola", () => {
   assert.notEqual(senzaCampanella, TORD, "il riquadro del nome della campanella non si trova piu'");
   assert.doesNotMatch(senzaCampanella, /autoComplete="given-name"/, "il nome si chiede due volte");
   assert.doesNotMatch(TORD, /type="email"/, "l'email si chiede due volte");
-  assert.match(TORD, /tavolo=\{\{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp \}\}/);
+  assert.match(TORD, /tavolo=\{\{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp, soloConto: contoDiAltri && tc \? tc\.soloCodice : null \}\}/);
   // Il bottone di pagamento non si accende senza tavolo e coperti.
   assert.match(OAPP, /\(!inSala \|\| tavolo\.pronto\) &&/);
 });
@@ -2160,4 +2160,15 @@ test("le righe del carrello non si rimontano a ogni disegno (le foto lampeggiava
   const app = readFileSync("src/components/OrderApp.tsx", "utf8");
   assert.doesNotMatch(app, /<RigheCarrello\s*\/>/);
   assert.match(app, /\{RigheCarrello\(\)\}/);
+});
+
+test("in sala il telefono e' facoltativo, senza l'asterisco dell'obbligatorio (13/11/2026)", () => {
+  const app = readFileSync("src/components/OrderApp.tsx", "utf8");
+  assert.match(app, /placeholder=\{inSala \? `\$\{senzaAsterisco\(t\.phone\)\} \(/);
+  const m = app.match(/const senzaAsterisco = \(s: string\) => s\.replace\((\/.*\/), ""\);/);
+  assert.ok(m, "senzaAsterisco");
+  const re = new Function(`return ${m[1]}`)();
+  assert.equal("Téléphone *".replace(re, ""), "Téléphone");
+  assert.equal("Phone*".replace(re, ""), "Phone");
+  assert.equal("Téléphone".replace(re, ""), "Téléphone");
 });

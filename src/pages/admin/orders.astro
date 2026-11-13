@@ -415,9 +415,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .grp-corpo .items { margin-top: 0; border-top: none; }
       .card-gruppo > .actions > .act-row { flex: 1; }
       .card-gruppo .grp-incassa, .card-gruppo > .actions .btn-done { flex: 1; }
-      /* Tre scelte (contanti, carta, QR): piu' strette, il testo non si taglia. */
+      /* Tre scelte (contanti, carta, QR): piu' strette, il testo non si taglia.
+         ⚠️ Larghe quanto il loro testo, non tre terzi uguali (13/11/2026):
+         «QR» lasciava spazio vuoto mentre «Espèces» finiva in «Espè…». */
       .act-main:has(> .btn-done:nth-child(3)) { gap: 0.4rem; }
-      .act-main:has(> .btn-done:nth-child(3)) > .btn-done { padding-left: 0.3rem; padding-right: 0.3rem; font-size: 0.92rem; letter-spacing: 0; min-width: 0; }
+      .act-main:has(> .btn-done:nth-child(3)) > .btn-done { flex: 1 1 auto; padding-left: 0.3rem; padding-right: 0.3rem; font-size: 0.92rem; letter-spacing: 0; min-width: 0; }
       .items { border-top: 1px solid var(--c-line); margin-top: 0.9rem; padding-top: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; }
       .item { display: flex; gap: 0.6rem; align-items: baseline; font-size: 1.15rem; }
       .item-qty { color: var(--c-accent); font-weight: 700; }
