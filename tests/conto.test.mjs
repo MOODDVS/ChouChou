@@ -215,7 +215,7 @@ test("la pagina: «Ouvrir un compte» accanto al pagamento, «Ajouter» al suo p
 });
 
 /* ───────── Fase 3: il ristorante ───────── */
-import { sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione, ticketCucina } from "../src/lib/stampaRegole.ts";
+import { sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione, ticketCucina, righeAddizione } from "../src/lib/stampaRegole.ts";
 
 test("il ticket di un invio: piatti sommati, chi ha preso cosa, «TAVOLO 7 · INVIO 2»", () => {
   const somma = sommaPiatti([
@@ -245,6 +245,30 @@ test("l'addizione stampata: per persona coi prezzi, il totale, nella lingua del 
   assert.ok(righe.includes("ADDITION · Table 01+02"));
   assert.ok(righe.includes("TOTAL  31,50 EUR"));
   assert.ok(righe.some((r) => r.startsWith("  2x Tiramisù") && r.endsWith("14,00 EUR") && r.length === 48));
+});
+
+test("l'addizione: il supplemento del palmare sotto il piatto, non sommato (12/11/2026)", () => {
+  // 12 € la Margherita, +2 € dal palmare: price_cents ne contiene gia' 14.
+  assert.deepEqual(righeAddizione({ qty: 1, nome: "Margherita", price_cents: 1400, extra_cents: 200 }, "fr"), [
+    { testo: "1x Margherita", cents: 1200 },
+    { testo: "   suppl.", cents: 200 },
+  ]);
+  // Due porzioni: tutte e due le righe per due, il totale non cambia.
+  const due = righeAddizione({ qty: 2, nome: "Margherita", price_cents: 1400, extra_cents: 200 }, "en");
+  assert.deepEqual(due.map((r) => r.cents), [2400, 400]);
+  assert.equal(due[1].testo.trim(), "extra");
+  // Senza supplemento, o con un valore illeggibile: una riga sola, come prima.
+  assert.deepEqual(righeAddizione({ qty: 1, nome: "Pasta", price_cents: 1750 }, "fr"), [{ testo: "1x Pasta", cents: 1750 }]);
+  assert.equal(righeAddizione({ qty: 1, nome: "Pasta", price_cents: 1750, extra_cents: "x" }, "fr").length, 1);
+  // Stampato: due righe da 48 colonne, prezzo a destra.
+  const righe = ticketAddizione({
+    tavolo: "3", quando: "12/11 21:00", lang: "fr", totale: 1400,
+    persone: [{ nome: "", righe: righeAddizione({ qty: 1, nome: "Margherita", price_cents: 1400, extra_cents: 200 }, "fr"), totale: 1400 }],
+  }).map((r) => r.testo);
+  assert.ok(righe.some((r) => r.startsWith("1x Margherita") && r.endsWith("12,00 EUR") && r.length === 48));
+  assert.ok(righe.some((r) => r.startsWith("   suppl.") && r.endsWith("2,00 EUR") && r.length === 48));
+  // L'endpoint della stampante passa davvero da qui.
+  assert.match(nudo("src/pages/api/print/[token].ts"), /righeAddizione\(\{[\s\S]*?extra_cents: \(i as \{ extra_cents\?: unknown \}\)\.extra_cents,/);
 });
 
 test("gli invii partono una volta sola, e solo dopo la validazione o la finestra", () => {

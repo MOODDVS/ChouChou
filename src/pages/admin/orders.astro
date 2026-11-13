@@ -205,7 +205,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          ritiro — e' un ritiro che esce dalla porta. */
       .card-nastro--consegna { background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); }
       .row-nota { color: var(--c-muted); }
-      .card-nastro--ritiro { background: color-mix(in srgb, var(--c-text) 7%, transparent); color: var(--c-muted); }
+      /* Il ritiro: la scritta nel colore del testo, come il nome del cliente
+         (13/11/2026, Enzo): in grigio spento non si leggeva. */
+      .card-nastro--ritiro { background: color-mix(in srgb, var(--c-text) 7%, transparent); color: var(--c-text); }
       /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
          sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
          si vede il fondo della pagina attraverso, non un finto dentello
@@ -372,6 +374,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .row { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--c-muted); margin-bottom: 0.25rem; min-width: 0; }
       .row a { color: var(--c-text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .row-ico { flex: 0 0 auto; display: inline-flex; color: var(--c-muted); }
+      /* L'indirizzo della consegna va a capo invece di finire in «…»: e' il
+         dato che il fattorino deve leggere per intero. La nota sotto parte
+         dove parte il testo, non sotto l'icona. */
+      .row-indirizzo { align-items: flex-start; }
+      .row-indirizzo .row-ico { margin-top: 0.15em; }
+      .row-indirizzo a { white-space: normal; overflow: visible; }
+      .row-rientro { padding-left: calc(14px + 0.45rem); }
       .row-ico svg { width: 14px; height: 14px; display: block; }
 
       /* ---------- l'incasso col QR (26/10/2026) ---------- */
@@ -500,7 +509,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Matita BIANCA: in grigio spento sembrava disattivata, accanto a un
          «Completato» pieno e a un cestino rosso. Modificare un ordine e'
          un'azione normale e disponibile, e il bottone deve dirlo. */
-      .btn-edit { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid var(--c-line); color: var(--c-text); }
+      /* Il bordo come quello della stampante (13/11/2026, Enzo): sul filo
+         delle linee della card i bottoni sembravano spenti. */
+      .btn-edit { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid color-mix(in srgb, var(--c-text) 34%, transparent); color: var(--c-text); }
       .btn-edit svg { width: 19px; height: 19px; }
       .btn-edit:hover { border-color: var(--c-accent); color: var(--c-accent); }
       /* Card terminée : ✓ blanc rond sur fond vert, à côté du prix */
@@ -557,7 +568,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ⚠️ Alto almeno quanto la stampante (+ un respiro): con una riga sola
          (un «Walk-in» senza email ne' telefono) il bottone, ancorato in basso,
          saliva sopra il totale (Enzo, 26/10/2026). */
-      .contatti { position: relative; padding-right: 52px; min-height: 46px; }
+      .contatti { position: relative; }
+      /* Lo spazio per la stampante solo dove c'e' (la card del tavolo con piu'
+         ordini): sulla card singola la ristampa sta coi gesti in basso. */
+      .contatti:has(> .btn-print) { padding-right: 52px; min-height: 46px; }
       /* Bottone stampante (ristampa ticket), in basso a destra nei contatti.
          ⚠️ COLORE DEL TESTO, non quello spento dei dettagli: e' un comando, e
          fra tre righe grigie un bottone grigio non si vede. Il bordo resta
@@ -1505,7 +1519,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            pagina girerebbe leggendo sempre la copia sbagliata. Lo stesso
            inciampo e’ gia’ documentato poco sotto per `incassaId`. */
         const aTavolo = alTavolo(o.service);
-        // Nel gruppo la ristampa di QUESTO ordine sta coi suoi gesti.
+        // La ristampa sta coi gesti in alto, a sinistra di «ritarda».
+        /* ⚠️ `daStampare`, non «non e' finito»: un ordine `pending` con un link
+           di pagamento mai pagato e' un carrello abbandonato, e ristamparlo
+           vorrebbe dire cibo preparato per nessuno. La regola e' quella della
+           stampa automatica, chiesta allo stesso file. */
         const stampaBtnTop = STAMPA_TICKET && daStampare(o.status, o.payment_method)
           ? `<button class="btn-edit" type="button" data-id="${o.id}" data-act="print" title="${tr("ord.reprint")}" aria-label="${tr("ord.reprint")}">${ICON_PRINT}</button>`
           : "";
@@ -1542,11 +1560,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            consegna non puo' essere stata salvata. */
         const consegna = aConsegna(o.service) ? indirizzoDaRiga(o.delivery_address) : null;
         const indirizzoRiga = consegna
-          ? `<p class="row"><span class="row-ico">${ICON_PIN}</span><a href="${esc(linkMappa(consegna))}" target="_blank" rel="noopener">${esc(rigaIndirizzo(consegna))}</a>${consegna.note ? `<span class="row-nota"> · ${esc(consegna.note)}</span>` : ""}</p>` +
+          ? `<p class="row row-indirizzo"><span class="row-ico">${ICON_PIN}</span><a href="${esc(linkMappa(consegna))}" target="_blank" rel="noopener">${esc(rigaIndirizzo(consegna))}</a></p>` +
+            // La nota (sonnette, etage) su una riga sua, sotto: accanto
+            // all'indirizzo lo tagliava a meta' (13/11/2026, Enzo).
+            (consegna.note ? `<p class="row row-nota row-rientro">${esc(consegna.note)}</p>` : "") +
             // Il costo: e' gia' nel totale in alto, qui si dice QUANTO di
             // quel totale e' consegna (chi incassa al banco lo vuole sapere).
             (Number(o.delivery_fee_cents ?? 0) > 0
-              ? `<p class="row row-nota">${esc(tr("ord.deliveryFee"))} · ${euro(Number(o.delivery_fee_cents))}</p>`
+              ? `<p class="row row-nota row-rientro">${esc(tr("ord.deliveryFee"))} · ${euro(Number(o.delivery_fee_cents))}</p>`
               : "")
           : "";
 
@@ -1630,8 +1651,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            su un ordine da incassare avvisa e lo lascia da incassare (#89
            `ready_at`), e l'incasso dopo lo chiude. Su un ordine gia' pagato
            «Pronto» lo chiude subito, come faceva «Terminée». */
+        /* La ristampa A SINISTRA di «ritarda», con gli altri comandi
+           (13/11/2026, Enzo): prima stava in un angolo dei contatti, e su
+           una card con l'indirizzo gli rubava la riga. */
         const rigaTop = `<div class="act-row act-top">
-                 ${ritardoBtn}${inGruppo ? stampaBtnTop : ""}
+                 ${stampaBtnTop}${ritardoBtn}
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`;
@@ -1686,17 +1710,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         const badgeOk = o.status === "done" ? `<span class="badge-ok" title="${tr("ord.terminee")}">✓</span>` : "";
         const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="${tr("ord.annulee")}">✕</span>` : "";
-        // Bottone stampante (ristampa ticket): reso solo se STAMPA_TICKET = true.
-        /* ⚠️ `daStampare`, non «non e' finito»: un ordine `pending` con un link
-           di pagamento mai pagato e' un carrello abbandonato, e ristamparlo
-           vorrebbe dire cibo preparato per nessuno. La regola e' la stessa
-           della stampa automatica, chiesta allo stesso file: due copie
-           divergono, e il giorno che divergono il bottone compare dove non
-           deve. Sulle completate e sulle annullate non c'e' piu' niente da
-           preparare. */
-        const stampaBtn = STAMPA_TICKET && daStampare(o.status, o.payment_method)
-          ? `<button class="btn-print" type="button" data-id="${o.id}" data-act="print" title="${tr("ord.reprint")}" aria-label="${tr("ord.reprint")}">${ICON_PRINT}</button>`
-          : "";
         /* ⚠️ Quanto e' gia' tornato indietro e quanto resta: dichiarati QUI,
            prima di chiunque li usi. Stavano piu' in basso, e il bottone di
            rimborso del footer «completato» li leggeva prima che esistessero:
@@ -1834,7 +1847,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               ${phone}
               ${indirizzoRiga}
               ${Number(o.tip_cents ?? 0) > 0 ? `<p class="row row-nota">${esc(tr("ord.tip"))} · ${euro(Number(o.tip_cents))}</p>` : ""}
-              ${stampaBtn}
             </div>
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
@@ -3279,31 +3291,34 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                   <div class="items">${r.piatti.map((p) => `<div class="item"><span class="item-qty">${p.qty}×</span><span class="item-name">${esc(p.nome)}${p.variante ? ` <span class="item-sub">${esc(p.variante)}</span>` : ""}</span></div>`).join("")}</div>
                 </div>`).join("")}
             </div>`).join("");
+          /* ⚠️ LO STESSO DISEGNO DELLE CARD DEGLI ORDINI (13/11/2026, Enzo): le
+             icone in una riga sopra, a destra; il gesto principale a tutta
+             larghezza sotto. Nelle conferme la ✕ prende il posto delle icone.
+             Con le icone accanto, «Encaisser · 68,50 €» si tagliava. */
+          const riga = (sopra: string, sotto: string) =>
+            `<div class="actions actions-2">
+               <div class="act-row act-top">${sopra}</div>
+               <div class="act-row act-main">${sotto}</div>
+             </div>`;
+          const btnAnnulla = `<button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-annulla" title="${esc(tr("common.cancel"))}" aria-label="${esc(tr("common.cancel"))}">✕</button>`;
+          const iconeAperto = `
+            <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-stampa" title="${esc(tr("ord.tabPrint"))}" aria-label="${esc(tr("ord.tabPrint"))}">${ICON_PRINT}</button>
+            <button class="btn-cancel" type="button" data-conto="${c.id}" data-act="c-chiudi" title="${esc(tr("ord.tabClose"))}" aria-label="${esc(tr("ord.tabClose"))}">${ICON_BIN}</button>`;
           const azioni = daValidare
             ? contoRifiuta === c.id
-              ? `<div class="actions">
-                   <button class="btn-cancel confirm" type="button" data-conto="${c.id}" data-act="c-rifiuta-ok">${ICON_BIN}<span class="b-lab">${esc(tr("ord.tabRefuseConfirm"))}</span></button>
-                   <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-annulla" aria-label="${esc(tr("common.cancel"))}">✕</button>
-                 </div>`
-              : `<div class="actions">
-                   <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-valida"><span class="b-lab">✓ ${esc(tr("ord.tabValidate"))}</span></button>
-                   <button class="btn-cancel" type="button" data-conto="${c.id}" data-act="c-rifiuta" title="${esc(tr("ord.tabRefuse"))}" aria-label="${esc(tr("ord.tabRefuse"))}">${ICON_BIN}</button>
-                 </div>`
+              ? riga(btnAnnulla,
+                  `<button class="btn-cancel confirm" type="button" data-conto="${c.id}" data-act="c-rifiuta-ok">${ICON_BIN}<span class="b-lab">${esc(tr("ord.tabRefuseConfirm"))}</span></button>`)
+              : riga(`<button class="btn-cancel" type="button" data-conto="${c.id}" data-act="c-rifiuta" title="${esc(tr("ord.tabRefuse"))}" aria-label="${esc(tr("ord.tabRefuse"))}">${ICON_BIN}</button>`,
+                  `<button class="btn-done" type="button" data-conto="${c.id}" data-act="c-valida"><span class="b-lab">✓ ${esc(tr("ord.tabValidate"))}</span></button>`)
             : contoIncassa === c.id
-              ? `<div class="actions nc-scelte">
-                   <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-cash">${ICON_COINS}<span class="b-lab">${esc(tr("ord.payCash"))}</span></button>
-                   <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-card">${ICON_CARD}<span class="b-lab">${esc(tr("ord.payCard"))}</span></button>
-                 </div>`
+              ? riga(iconeAperto, `
+                  <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-cash">${ICON_COINS}<span class="b-lab">${esc(tr("ord.payCash"))}</span></button>
+                  <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-card">${ICON_CARD}<span class="b-lab">${esc(tr("ord.payCard"))}</span></button>`)
               : contoChiudi === c.id
-                ? `<div class="actions">
-                     <button class="btn-cancel confirm" type="button" data-conto="${c.id}" data-act="c-chiudi-ok"><span class="b-lab">${esc(tr("ord.tabCloseConfirm"))}</span></button>
-                     <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-annulla" aria-label="${esc(tr("common.cancel"))}">✕</button>
-                   </div>`
-                : `<div class="actions">
-                     <button class="btn-done" type="button" data-conto="${c.id}" data-act="c-incassa"><span class="b-lab">${esc(tr("ord.tabCollect"))} · ${euro(c.resto_cents)}</span></button>
-                     <button class="btn-edit" type="button" data-conto="${c.id}" data-act="c-stampa" title="${esc(tr("ord.tabPrint"))}" aria-label="${esc(tr("ord.tabPrint"))}">${ICON_PRINT}</button>
-                     <button class="btn-cancel" type="button" data-conto="${c.id}" data-act="c-chiudi" title="${esc(tr("ord.tabClose"))}" aria-label="${esc(tr("ord.tabClose"))}">${ICON_BIN}</button>
-                   </div>`;
+                ? riga(btnAnnulla,
+                    `<button class="btn-cancel confirm" type="button" data-conto="${c.id}" data-act="c-chiudi-ok"><span class="b-lab">${esc(tr("ord.tabCloseConfirm"))}</span></button>`)
+                : riga(iconeAperto,
+                    `<button class="btn-done" type="button" data-conto="${c.id}" data-act="c-incassa"><span class="b-lab">${esc(tr("ord.tabCollect"))} · ${euro(c.resto_cents)}</span></button>`);
           return `
             <div class="card card-conto${lr ? ` nc-late nc-late-${lr}` : ""}" data-conto="${c.id}">
               <div class="card-nastro card-nastro--sala"><span>${esc(tr("ord.tabRibbon"))}${giornoDiConto(c)}</span></div>

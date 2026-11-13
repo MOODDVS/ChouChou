@@ -18,6 +18,8 @@
 import { inCassa, alTavolo, aConsegna, servizioDi } from "./ordiniRegole";
 import { indirizzoDaRiga, rigaIndirizzo } from "./consegnaRegole";
 import { piattiVeri, notaCliente } from "./admin/ordiniConti";
+// Solo dati, nessun import a sua volta: non porta il database qui dentro.
+import { LOGO_RESTOHUB } from "./logoTicket";
 
 /** Chiavi di STAMPA, per sede. Un gruppo puo' avere la stampante in un punto
  *  e non nell'altro, e il punto senza stampante non deve vedere errori. */
@@ -293,11 +295,8 @@ export interface RigaTicket {
    * ⚠️ Esiste per UNA cosa: un'immagine. E' l'unico pezzo che non si puo'
    * descrivere a parole, perche' i suoi byte vanno sopra il 128 e il
    * trasporto e' testo — quindi vanno scritti come i CARATTERI che l'app
-   * riconvertira' in quei byte. Oggi la usa solo la prova del logo
-   * (`provaLogo.ts`), che e' un esperimento con la data di scadenza scritta
-   * in testa. Se l'esperimento riesce, quello che ne resta va in una funzione
-   * di `escpos.ts` che prende un bitmap — non in questa riga lasciata aperta
-   * a chiunque.
+   * riconvertira' in quei byte. Oggi la usa solo il logo RestoHub in testa
+   * (`RIGA_RESTOHUB`, dati in `logoTicket.ts`, solo byte sotto il 128).
    */
   grezzo?: string;
 }
@@ -315,6 +314,10 @@ export interface OrdineDaStampare {
   note?: string | null;
   piatti: { qty: number; nome: string; variante?: string | null; nota?: string | null }[];
   daIncassare?: boolean;
+  /** QUANTO incassare (centesimi), stampato sotto «DA INCASSARE» (13/11/2026,
+   *  Enzo). ⚠️ Senza la cifra il fattorino esce sapendo CHE deve farsi
+   *  pagare ma non QUANTO, e al telefono col banco ci perde la consegna. */
+  daIncassareCents?: number | null;
   /** Quando l'ordine esce da piu' stampanti. ⚠️ Senza questo, chi prepara
    *  legge un ticket che SEMBRA tutto l'ordine ed e' un terzo: peggio di
    *  nessun ticket, perche' non sa che manca qualcosa. */
@@ -366,6 +369,10 @@ export interface OrdineDaStampare {
    * il fattorino strappa e si porta via.
    */
   indirizzo?: string | null;
+  /** Lo stesso indirizzo in DUE righe intere: via e numero, CAP e comune
+   *  (13/11/2026, Enzo). Il ticket le stampa una per riga invece di lasciare
+   *  che la riga composta si spezzi dove capita. */
+  indirizzoRighe?: [string, string] | null;
   /** Per il fattorino: piano, campanello, codice. */
   notaConsegna?: string | null;
   /**
@@ -395,6 +402,8 @@ export interface RigaOrdine {
   table_label?: string | null;
   /** #84 — l'indirizzo della consegna (jsonb). Assente = non e' una consegna. */
   delivery_address?: unknown;
+  /** Il totale dell'ordine (centesimi), consegna compresa: la cifra di «DA INCASSARE». */
+  total_cents?: number | null;
   items?: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; notes?: string }[];
 }
 
@@ -425,7 +434,13 @@ export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
     tavolo: alTavolo(o.service) ? String(o.table_label ?? "").trim() || null : null,
     ...(() => {
       const ind = aConsegna(o.service) ? indirizzoDaRiga(o.delivery_address) : null;
-      return ind ? { indirizzo: rigaIndirizzo(ind), notaConsegna: ind.note || null } : {};
+      if (!ind) return {};
+      const civico = ind.box ? `${ind.numero}/${ind.box}` : ind.numero;
+      return {
+        indirizzo: rigaIndirizzo(ind),
+        indirizzoRighe: [`${ind.via} ${civico}`.trim(), `${ind.cap} ${ind.comune}`.trim()] as [string, string],
+        notaConsegna: ind.note || null,
+      };
     })(),
     cliente: String(o.customer_name ?? "").trim(),
     telefono: String(o.customer_phone ?? "").trim() || null,
@@ -446,25 +461,23 @@ export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
     // quella fascia nera e' l'unica cosa che impedisce di consegnare senza
     // farsi pagare.
     daIncassare: String(o.status ?? "") === "pending" && inCassa(o.payment_method),
+    daIncassareCents: Number(o.total_cents) > 0 ? Number(o.total_cents) : null,
   };
 }
 
 /**
- * LA FIRMA IN TESTA: «RESTOhUB» in lettere, la prima riga di ogni ticket,
- * con la «h» minuscola come nel marchio e una linea sotto che la separa dal
- * nome del locale.
+ * LA FIRMA IN TESTA: il LOGO RestoHub, la prima riga di ogni ticket, con una
+ * linea sotto che la separa dal nome del locale (13/11/2026, Enzo).
  *
- * ⚠️ IN LETTERE, NON UN LOGO. Un'immagine non passa dal ticket: andrebbe
- * caricata a mano nella memoria di OGNI stampante, con l'utility del
- * costruttore (vedi `C.logo` in `escpos.ts`). Le lettere escono da qualunque
- * stampante, il primo giorno, senza che nessuno faccia niente.
- * ⚠️ `gigante` come il nome del locale (17/10/2026: in `largo` era troppo
- * piccola). E' la LINEA a dire che sono due cose diverse — la firma sopra,
- * di chi e' l'ordine sotto — non la misura delle lettere.
+ * Fino al 13/11 era «RESTOhUB» in lettere: un'immagine sembrava non poter
+ * passare dal trasporto, che e' testo. Il biglietto di prova ha detto di si',
+ * a una condizione — solo byte sotto il 128 (`logoTicket.ts`).
+ * ⚠️ E' LA LINEA a dire che sono due cose diverse — la firma sopra, di chi
+ * e' l'ordine sotto.
  * Esportata perche' un cliente col disegno suo (`config/ticket.ts`) la
  * metta in testa con una riga, senza riscriverla.
  */
-export const RIGA_RESTOHUB: RigaTicket = { testo: "RESTOhUB", taglia: "gigante", grassetto: true, centrato: true, linea: true };
+export const RIGA_RESTOHUB: RigaTicket = { testo: "", grezzo: LOGO_RESTOHUB, linea: true };
 
 /**
  * DOVE VA QUESTO ORDINE — tre risposte, non due:
@@ -538,6 +551,11 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   // soldi non sono ancora entrati.
   if (o.daIncassare) {
     righe.push({ testo: "DA INCASSARE", taglia: "gigante", grassetto: true, centrato: true, inverso: true });
+    // La cifra nella stessa fascia nera: e' la stessa informazione, e una
+    // terza fascia altrove smetterebbe di essere un allarme.
+    if (o.daIncassareCents) {
+      righe.push({ testo: euroTicket(o.daIncassareCents), taglia: "gigante", grassetto: true, centrato: true, inverso: true });
+    }
   }
 
   // ---- I piatti ----
@@ -582,13 +600,22 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
      appoggiando il sacchetto o portando il piatto: dice DOVE va. Da asporto
      l’ora, col tavolo il tavolo, in sala senza tavoli il nome. */
   righe.push({ testo: dove.grande, taglia: "gigante", grassetto: true, centrato: true, linea: true });
+  /* ⚠️ IL BLOCCO CLIENTE e' in `grande` (doppia ALTEZZA, 48 colonne), non in
+     `largo` (13/11/2026, Enzo). In `largo` le righe sono di 24 colonne e
+     l'indirizzo si spezzava dove capitava («Avenue des Cerisiers / 120/3,
+     1200 / Woluwe-…»), con i rientri: si leggeva male proprio la parte che
+     il fattorino si porta via. In `grande` nome, telefono, via e comune
+     stanno interi, una cosa per riga. */
   // ⚠️ Un invio del conto non ha UN cliente: i nomi sono in `perPersona`.
-  if (o.cliente) righe.push({ testo: o.cliente, taglia: "largo", grassetto: true });
-  if (o.telefono) righe.push({ testo: o.telefono, taglia: "largo" });
-  // L'indirizzo sotto il telefono: nome, numero e dove, insieme, per chi esce.
-  if (o.indirizzo) righe.push({ testo: o.indirizzo, taglia: "largo", grassetto: true });
-  if (o.indirizzo && o.notaConsegna) righe.push({ testo: o.notaConsegna, taglia: "largo" });
-  if (o.note) righe.push({ testo: o.note, taglia: "largo", grassetto: true });
+  if (o.cliente) righe.push({ testo: o.cliente, taglia: "grande", grassetto: true });
+  // La linea separa chi e' da dove va, quando c'e' un indirizzo.
+  if (o.telefono) righe.push({ testo: o.telefono, taglia: "grande", linea: !!o.indirizzo });
+  else if (o.indirizzo && o.cliente) righe[righe.length - 1].linea = true;
+  // L'indirizzo sotto il telefono: via e numero, poi CAP e comune.
+  const vie = o.indirizzoRighe ?? (o.indirizzo ? [o.indirizzo] : []);
+  for (const v of vie) if (v) righe.push({ testo: v, taglia: "grande", grassetto: true });
+  if (o.indirizzo && o.notaConsegna) righe.push({ testo: o.notaConsegna, taglia: "normale" });
+  if (o.note) righe.push({ testo: o.note, taglia: "grande", grassetto: true });
   return righe;
 }
 
@@ -631,13 +658,43 @@ export function tavoliInsieme(etichette: (string | null | undefined)[]): string 
 
 /** Le parole dell'addizione stampata, che va in mano al CLIENTE: nella lingua
  *  pubblica del locale, non nell'italiano dei ticket di cucina. */
-export const TESTI_ADDIZIONE: Record<string, { titolo: string; tavolo: string; totale: string; grazie: string }> = {
-  fr: { titolo: "ADDITION", tavolo: "Table", totale: "TOTAL", grazie: "Merci et à bientôt !" },
-  en: { titolo: "BILL", tavolo: "Table", totale: "TOTAL", grazie: "Thank you, see you soon!" },
-  it: { titolo: "CONTO", tavolo: "Tavolo", totale: "TOTALE", grazie: "Grazie e a presto!" },
-  nl: { titolo: "REKENING", tavolo: "Tafel", totale: "TOTAAL", grazie: "Bedankt en tot ziens!" },
-  es: { titolo: "CUENTA", tavolo: "Mesa", totale: "TOTAL", grazie: "¡Gracias y hasta pronto!" },
+export const TESTI_ADDIZIONE: Record<string, { titolo: string; tavolo: string; totale: string; grazie: string; suppl: string }> = {
+  fr: { titolo: "ADDITION", tavolo: "Table", totale: "TOTAL", grazie: "Merci et à bientôt !", suppl: "suppl." },
+  en: { titolo: "BILL", tavolo: "Table", totale: "TOTAL", grazie: "Thank you, see you soon!", suppl: "extra" },
+  it: { titolo: "CONTO", tavolo: "Tavolo", totale: "TOTALE", grazie: "Grazie e a presto!", suppl: "suppl." },
+  nl: { titolo: "REKENING", tavolo: "Tafel", totale: "TOTAAL", grazie: "Bedankt en tot ziens!", suppl: "suppl." },
+  es: { titolo: "CUENTA", tavolo: "Mesa", totale: "TOTAL", grazie: "¡Gracias y hasta pronto!", suppl: "supl." },
 };
+
+/**
+ * LE RIGHE DI UN PIATTO NELL'ADDIZIONE (12/11/2026, Enzo). Il supplemento
+ * del palmare (+1 € … +5 €, `extra_cents`) e' gia' DENTRO `price_cents`: sul
+ * conto stampato pero' non va sommato al piatto, va sotto, sulla sua riga:
+ *
+ *     1x Margherita                    12,00 EUR
+ *        suppl.                         2,00 EUR
+ *
+ * cosi' il cliente vede il prezzo della carta e quello che si e' aggiunto.
+ * Con piu' porzioni tutte e due le righe sono moltiplicate per la quantita'.
+ * Senza supplemento (o con un valore illeggibile) resta una riga sola, come
+ * prima. ⚠️ Il totale non cambia: la somma delle due righe e' il prezzo di
+ * sempre.
+ */
+export function righeAddizione(
+  p: { qty: number; nome: string; variante?: string | null; price_cents: number; extra_cents?: unknown },
+  lang: string,
+): { testo: string; cents: number }[] {
+  const qty = Math.max(1, Math.floor(Number(p.qty) || 1));
+  const prezzo = Number(p.price_cents) || 0;
+  const extra = Math.max(0, Math.min(prezzo, Math.round(Number(p.extra_cents) || 0)));
+  const testo = piattoBreve({ qty, nome: p.nome, variante: p.variante });
+  if (!extra) return [{ testo, cents: prezzo * qty }];
+  const tx = TESTI_ADDIZIONE[lang] ?? TESTI_ADDIZIONE.fr;
+  return [
+    { testo, cents: (prezzo - extra) * qty },
+    { testo: `   ${tx.suppl}`, cents: extra * qty },
+  ];
+}
 
 export interface AddizioneDaStampare {
   insegna?: string | null;
@@ -665,7 +722,8 @@ function rigaPrezzo(sinistra: string, cents: number, colonne = 48): string {
  *  portare al tavolo. */
 export function ticketAddizione(a: AddizioneDaStampare): RigaTicket[] {
   const tx = TESTI_ADDIZIONE[a.lang] ?? TESTI_ADDIZIONE.fr;
-  const righe: RigaTicket[] = [];
+  // Il logo in testa come su ogni ticket (13/11/2026).
+  const righe: RigaTicket[] = [RIGA_RESTOHUB];
   if (a.insegna) righe.push({ testo: a.insegna.toUpperCase(), taglia: "gigante", grassetto: true, centrato: true });
   righe.push({ testo: `${tx.titolo} · ${tx.tavolo} ${a.tavolo}`, taglia: "largo", grassetto: true, centrato: true });
   righe.push({ testo: a.quando, taglia: "normale", centrato: true, linea: true });

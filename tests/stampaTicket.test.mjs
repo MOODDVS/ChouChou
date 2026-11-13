@@ -113,8 +113,10 @@ test("il ticket di cucina non e' uno scontrino", () => {
 
   // In cima la firma, in lettere: esce da qualunque stampante, senza un
   // logo da caricare a mano in ognuna (17/10/2026).
-  assert.equal(righe[0].testo, "RESTOhUB", "la «h» del marchio e' minuscola");
-  assert.equal(righe[0].taglia, "gigante");
+  // In cima il LOGO (13/11/2026): un GS v 0 di soli byte sotto il 128, l'unico
+  // che il biglietto di prova ha fatto passare intero.
+  assert.ok(righe[0].grezzo?.startsWith("\u001dv0"), "in testa non c'e' il logo");
+  assert.ok([...righe[0].grezzo].every((c) => c.charCodeAt(0) < 0x80), "byte alto nel logo: il trasporto lo rovina");
   assert.equal(righe[0].linea, true, "manca la linea che separa la firma dal nome del locale");
   // ⚠️ Poi DI CHI e' l'ordine. In una cucina che prepara per due marchi
   // (o per due punti) e' la prima domanda, prima di «che cosa contiene».
@@ -203,8 +205,8 @@ test("senza insegna il ticket comincia dalla riga di servizio", () => {
   // Un cliente che non vuole il nome in testa non deve ritrovarsi una riga
   // vuota grande come un titolo.
   const righe = ticketCucina({ numero: "4F2A", ora: "19:45", cliente: "Marco Rossi", piatti: [{ qty: 1, nome: "Margherita" }] });
-  // Dopo la firma, subito la riga di servizio.
-  assert.equal(righe[0].testo, "RESTOhUB");
+  // Dopo la firma (il logo), subito la riga di servizio.
+  assert.ok(righe[0].grezzo);
   assert.match(righe[1].testo, /^#4F2A/);
   assert.equal(colonneDi(righe[1].taglia), 24, "la riga di servizio e' tornata stretta");
 });
@@ -761,4 +763,30 @@ test("le chiavi BizPrint si scrivono nella casella, cifrate, e il .env resta il 
   // Fuori escono solo le ultime quattro lettere.
   assert.match(api, /mascherata: maschera\(uso\.pub\)/);
   assert.doesNotMatch(api, /pub: uso\.pub|sec: uso\.sec/);
+});
+
+test("da incassare: la cifra sotto, nella stessa fascia nera (13/11/2026)", () => {
+  const o = ordineDaRiga({ ...RIGA, total_cents: 4150 }, "20:15");
+  assert.equal(o.daIncassareCents, 4150);
+  const righe = ticketCucina(o);
+  const i = righe.findIndex((r) => r.testo === "DA INCASSARE");
+  assert.ok(i > 0);
+  assert.equal(righe[i + 1].testo, "41,50 EUR");
+  assert.equal(righe[i + 1].inverso, true);
+  // pagato online: nessuna fascia, nessuna cifra
+  const pagato = ticketCucina(ordineDaRiga({ ...RIGA, status: "paid", payment_method: "online", total_cents: 4150 }, "20:15"));
+  assert.ok(!pagato.some((r) => r.testo === "41,50 EUR"));
+});
+
+test("il blocco cliente in doppia altezza, l'indirizzo in due righe intere (13/11/2026)", () => {
+  const o = ordineDaRiga({ ...RIGA, service: "delivery", delivery_address: { via: "Avenue des Cerisiers", numero: "120", box: "3", cap: "1200", comune: "Woluwe-Saint-Lambert", note: "Sonnette Dupont" } }, "20:00");
+  assert.deepEqual(o.indirizzoRighe, ["Avenue des Cerisiers 120/3", "1200 Woluwe-Saint-Lambert"]);
+  const righe = ticketCucina(o);
+  const i = righe.findIndex((r) => r.testo === "Marco Rossi");
+  assert.deepEqual(righe.slice(i, i + 5).map((r) => [r.testo, r.taglia]), [
+    ["Marco Rossi", "grande"], ["0472 11 22 33", "grande"],
+    ["Avenue des Cerisiers 120/3", "grande"], ["1200 Woluwe-Saint-Lambert", "grande"],
+    ["Sonnette Dupont", "normale"],
+  ]);
+  assert.equal(righe[i + 1].linea, true, "la linea fra telefono e indirizzo");
 });
