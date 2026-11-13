@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { CLIENT } from "../../../config/client";
 import { leggi, aggiorna, tutteLeSedi, ambitoDiRiga, leggiConfig } from "../../../lib/admin/sede";
 import {
-  ordineDaRiga, idStampante, CHIAVE_DESTINAZIONI, sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione,
+  ordineDaRiga, idStampante, CHIAVE_DESTINAZIONI, sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione, righeAddizione, RIGA_RESTOHUB,
   type RigaOrdine,
 } from "../../../lib/stampaRegole";
 import { ordiniDiInvio } from "../../../lib/stampaCoda";
@@ -18,7 +18,6 @@ import { leggiProva, sembraProva, leggiChiamata, leggiAnnullo } from "../../../l
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
 // ⚠️ TEMPORANEO: le bande della prova del logo. Si cancella con l'esperimento.
-import { BANDE as PROVA } from "../../../lib/provaLogo";
 
 /**
  * IL TICKET, COME LO LEGGE LA STAMPANTE.
@@ -161,48 +160,10 @@ export const GET: APIRoute = async ({ params }) => {
         { testo: "RestoHub", taglia: "normale", centrato: true, linea: true },
         { testo: "Cette imprimante est bien reliee.", taglia: "normale", grassetto: true },
         { testo: "123456789012345678901234567890123456789012345678", taglia: "piccolo" },
-        // ---- ESPERIMENTO DEL LOGO, SECONDO GIRO — DA TOGLIERE ----
-        // ⚠️ Il primo biglietto si e' interrotto ESATTAMENTE dove cominciava
-        // la prima banda: dopo «1 · CP437» la carta era tagliata, e le altre
-        // tre — compresa quella di controllo — non sono mai uscite. Quindi la
-        // domanda non era quella giusta: prima di sapere QUALE tabella usa
-        // l'app, bisogna sapere se un comando del genere attraversa il tubo.
-        //
-        // L'indiziato e' IL BYTE ZERO. L'intestazione di `GS v 0` ne porta
-        // due, e se l'app tratta il corpo come una stringa che finisce al
-        // primo zero, il lavoro muore li' e la taglierina parte perche' il
-        // taglio lo aggiunge lei. Torna col fatto che il ticket di tutti i
-        // giorni funziona: il suo unico zero sta nel comando di taglio, in
-        // fondo, dove troncare non si vede.
-        //
-        // Qui sotto le domande sono tre, e le prime due sono di solo TESTO —
-        // quelle escono di sicuro, qualunque cosa succeda dopo:
-        //
-        //   1. Quali caratteri alti escono giusti? Dice se l'app converte, e
-        //      verso quale tabella. L'euro lo sappiamo gia' (05/10): esce. In
-        //      CP437 e CP850 l'euro NON esiste — se esce, la tabella e'
-        //      un'altra, e le bande scritte in CP437 non potevano funzionare.
-        //   2. Una riga, un byte zero, un'altra riga. ⚠️ Se la riga DOPO non
-        //      c'e', lo zero tronca — e allora la strada e' chiusa per
-        //      sempre, non per la tabella: il bianco di un disegno sono byte
-        //      zero a mucchi, e quelli non si tolgono.
-        //   3. Solo allora le bande: prima quella di CONTROLLO (tutti byte
-        //      sotto il 128), poi il disegno pieno. Nell'ordine giusto,
-        //      stavolta: la prima volta la banda che doveva uscire era quarta,
-        //      dietro tre che potevano far saltare il ticket. Una prova che
-        //      si auto-impedisce di rispondere non e' una prova.
+        // Il logo, come in testa a ogni ticket: se esce qui, esce anche li'.
+        // (L'esperimento del 9/10 ha risposto il 13/11: vedi `logoTicket.ts`.)
         { testo: "", linea: true },
-        { testo: "PROVA 2", taglia: "normale", grassetto: true, centrato: true },
-        { testo: "1) EUR \u20ac | CP437 \u2554 \u2591 | lat \u00f1 \u00b0 \u00a7" },
-        { testo: "2) riga PRIMA dello zero" },
-        // Il byte zero, da solo. Se quello che segue non si stampa, e' lui.
-        { grezzo: "\u0000", testo: "" },
-        { testo: "3) riga DOPO lo zero — se la vedi, passa" },
-        { testo: "4) banda di CONTROLLO (deve uscire a righe)" },
-        { grezzo: PROVA.sette, testo: "" },
-        { testo: "5) banda piena in CP437" },
-        { grezzo: PROVA.cp437, testo: "" },
-        { testo: "6) FINE — se leggi questa, e' passato tutto" },
+        RIGA_RESTOHUB,
       ]),
     );
   }
@@ -228,7 +189,7 @@ export const GET: APIRoute = async ({ params }) => {
      qui un ordine che non si legge vuol dire `vuoto()` — cioe’ NESSUN TICKET,
      per tutti gli ordini, compresi quelli da asporto che col tavolo non hanno
      niente a che fare. Meglio perdere il nome del tavolo che la comanda. */
-  const CAMPI = "id, status, payment_method, customer_name, customer_phone, items, pickup_time";
+  const CAMPI = "id, status, payment_method, customer_name, customer_phone, items, pickup_time, total_cents";
   const leggiOrdine = (campi: string) =>
     leggi("orders", ambito, campi).eq("id", riga.order_id).maybeSingle();
   // ⚠️ Quattro tentativi, dal piu' largo: #87 (il conto aperto), #84
@@ -280,9 +241,14 @@ export const GET: APIRoute = async ({ params }) => {
       const nome = sessione ? "" : String(o.customer_name ?? "").trim() || "-";
       const p = perNome.get(nome) ?? { nome, righe: [], totale: 0 };
       for (const i of piattiVeri(o.items ?? [])) {
-        const qty = Math.max(1, Math.floor(Number(i.qty) || 1));
-        const prezzo = Number((i as { price_cents?: number }).price_cents) || 0;
-        p.righe.push({ testo: piattoBreve({ qty, nome: String(i.base_name ?? i.name ?? "").trim(), variante: String(i.variant_label ?? "").trim() || null }), cents: prezzo * qty });
+        // Il supplemento del palmare su una riga sua, sotto il piatto (righeAddizione).
+        p.righe.push(...righeAddizione({
+          qty: Number(i.qty) || 1,
+          nome: String(i.base_name ?? i.name ?? "").trim(),
+          variante: String(i.variant_label ?? "").trim() || null,
+          price_cents: Number((i as { price_cents?: number }).price_cents) || 0,
+          extra_cents: (i as { extra_cents?: unknown }).extra_cents,
+        }, defaultLang));
       }
       p.totale += Number(o.total_cents) || 0;
       perNome.set(nome, p);

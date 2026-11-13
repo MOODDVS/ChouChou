@@ -71,8 +71,10 @@ test("il ticket dice CONSEGNA in cima e l'indirizzo in fondo", () => {
   assert.equal(doveVa(dati).breve, "CONSEGNA 19:30");
   const righe = ticketCucina(dati).map((r) => r.testo);
   assert.ok(righe.some((t) => t.includes("CONSEGNA 19:30")));
-  const iInd = righe.indexOf("Rue de la Loi 16/3, 1000 Bruxelles");
+  // Dal 13/11/2026 in due righe intere: via e numero, CAP e comune.
+  const iInd = righe.indexOf("Rue de la Loi 16/3");
   assert.ok(iInd > righe.indexOf("0470"), "l'indirizzo sta sotto il telefono");
+  assert.equal(righe[iInd + 1], "1000 Bruxelles");
   assert.ok(righe.includes("3e étage"));
   // Un ritiro resta com'era.
   const ritiro = ordineDaRiga({ id: "x", customer_name: "Marc", items: [] }, "19:30");

@@ -416,7 +416,8 @@ test("al tavolo non si puo' «ritardare» niente", () => {
   // tutti gli stati: il bottone ci compare una volta sola.
   const usi = ORD.match(/\$\{ritardoBtn\}/g) ?? [];
   assert.equal(usi.length, 1, `il bottone compare ${usi.length} volte invece di 1 (la riga in alto, uguale per tutti)`);
-  assert.match(ORD, /const rigaTop = `<div class="act-row act-top">\s*\$\{ritardoBtn\}/);
+  // (13/11/2026) Davanti, la ristampa: la stampante a sinistra di «ritarda».
+  assert.match(ORD, /const rigaTop = `<div class="act-row act-top">\s*\$\{stampaBtnTop\}\$\{ritardoBtn\}/);
   // ⚠️ `const` ha una zona morta: dichiarato sotto ai bottoni, sarebbe
   // «used before its declaration» — ed e' esattamente l'inciampo che il file
   // documenta per `incassaId`.
