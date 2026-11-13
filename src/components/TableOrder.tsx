@@ -1283,7 +1283,7 @@ export default function TableOrder({
         lang={lang}
         sede={sede}
         consulta={Boolean(chiusoTesto)}
-        tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp }}
+        tavolo={{ campi, pronto, emailObbligatoria: avvisa, apriSessione, onVista: setVista, conto: contoPerOrderApp, soloConto: contoDiAltri && tc ? tc.soloCodice : null }}
         vistaIniziale={ripresa && !chiusoTesto ? "checkout" : "menu"}
         sceltaFormato={sceltaFormato}
         foto={foto}

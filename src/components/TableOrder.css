@@ -528,9 +528,15 @@
 :where(.tbl-pagina .tbl-conto-unisciti) { display: flex; flex-direction: column; gap: .6rem; margin: .4rem 0 .8rem; }
 :where(.tbl-pagina .tbl-conto-codice) { display: flex; gap: .6rem; align-items: stretch; }
 :where(.tbl-pagina .tbl-conto-codice .tbl-input) {
-  flex: 0 0 6.5rem; text-align: center; font-size: 1.4rem; font-weight: 700; letter-spacing: .3em;
+  /* ⚠️ `width` e `min-width: 0`, non solo la base: un campo di testo ha una
+     larghezza sua (circa 20 caratteri) e la base sola non lo stringeva —
+     «Rejoindre» usciva dal riquadro (13/11/2026). */
+  flex: 0 0 6.5rem; width: 6.5rem; min-width: 0;
+  text-align: center; font-size: 1.4rem; font-weight: 700; letter-spacing: .3em;
 }
-:where(.tbl-pagina .tbl-conto-codice .tbl-btn) { flex: 1 1 auto; margin: 0; }
+:where(.tbl-pagina .tbl-conto-codice .tbl-btn) { flex: 1 1 auto; min-width: 0; margin: 0; }
+/* «2 chiffres» intero: le cifre si scrivono larghe, il suggerimento no. */
+:where(.tbl-pagina .tbl-conto-codice .tbl-input)::placeholder { font-size: 1rem; font-weight: 400; letter-spacing: normal; }
 :where(.tbl-pagina .tbl-conto-err) { margin: 0; color: #e0786c; font-weight: 600; font-size: .9rem; }
 :where(.tbl-pagina .tbl-conto-nonnostro) {
   align-self: flex-start; padding: 0; border: 0; background: none;

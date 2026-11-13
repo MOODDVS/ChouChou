@@ -299,6 +299,16 @@ export interface RigaTicket {
    * (`RIGA_RESTOHUB`, dati in `logoTicket.ts`, solo byte sotto il 128).
    */
   grezzo?: string;
+  /**
+   * IL PREZZO A DESTRA, sulla stessa riga del testo (13/11/2026). Chi impagina
+   * (`impagina`, in `escpos.ts`) la compone larga quanto la carta per QUELLA
+   * taglia: testo a sinistra, importo in colonna a destra, e cede il testo,
+   * mai l'importo.
+   * ⚠️ Non si allinea a mano con gli spazi dentro `testo`: `impagina` va a
+   * capo sulle parole e riduce gli spazi a uno. L'addizione stampata usciva
+   * «1x Margherita 12,00 EUR», coi prezzi attaccati ai piatti e fuori colonna.
+   */
+  destra?: string;
 }
 
 export interface OrdineDaStampare {
@@ -413,16 +423,19 @@ export interface RigaOrdine {
  * database e qui dentro non si fanno domande.
  *
  * ⚠️ IL NUMERO non esiste nel database: `orders` ha solo un id lungo. Si
- * prendono le ultime quattro cifre, che e' quello che la gente riesce a
- * leggersi a voce al banco. Il giorno che si vorra' «ordine 7» servira' una
- * colonna vera, e andra' scritta anche nel pannello: due numeri diversi per lo
- * stesso ordine sono peggio di nessun numero.
+ * prendono le PRIME quattro cifre (13/11/2026, Enzo): telefono, email e
+ * Commandes mostrano le prime OTTO («3F2A9C1B»), e il ticket deve esserne
+ * l'inizio («#3F2A») — chi legge il numero al banco lo ritrova a colpo
+ * d'occhio. Fino al 13/11 erano le ultime quattro («#4F2A»): due numeri senza
+ * niente in comune per lo stesso ordine. Il giorno che si vorra' «ordine 7»
+ * servira' una colonna vera, scritta ovunque: due numeri diversi per lo stesso
+ * ordine sono peggio di nessun numero.
  */
 export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
   const items = Array.isArray(o.items) ? o.items : [];
 
   return {
-    numero: String(o.id ?? "").replace(/-/g, "").slice(-4).toUpperCase(),
+    numero: String(o.id ?? "").replace(/-/g, "").slice(0, 4).toUpperCase(),
     ora,
     /* ⚠️ DUE CAMPI, non uno. Il primo dice SE il cliente e’ nel locale, il
        secondo QUALE tavolo — e il secondo manca in tutti i locali senza
@@ -658,12 +671,12 @@ export function tavoliInsieme(etichette: (string | null | undefined)[]): string 
 
 /** Le parole dell'addizione stampata, che va in mano al CLIENTE: nella lingua
  *  pubblica del locale, non nell'italiano dei ticket di cucina. */
-export const TESTI_ADDIZIONE: Record<string, { titolo: string; tavolo: string; totale: string; grazie: string; suppl: string }> = {
-  fr: { titolo: "ADDITION", tavolo: "Table", totale: "TOTAL", grazie: "Merci et à bientôt !", suppl: "suppl." },
-  en: { titolo: "BILL", tavolo: "Table", totale: "TOTAL", grazie: "Thank you, see you soon!", suppl: "extra" },
-  it: { titolo: "CONTO", tavolo: "Tavolo", totale: "TOTALE", grazie: "Grazie e a presto!", suppl: "suppl." },
-  nl: { titolo: "REKENING", tavolo: "Tafel", totale: "TOTAAL", grazie: "Bedankt en tot ziens!", suppl: "suppl." },
-  es: { titolo: "CUENTA", tavolo: "Mesa", totale: "TOTAL", grazie: "¡Gracias y hasta pronto!", suppl: "supl." },
+export const TESTI_ADDIZIONE: Record<string, { titolo: string; tavolo: string; totale: string; grazie: string; suppl: string; pagato: string; resto: string }> = {
+  fr: { titolo: "ADDITION", tavolo: "Table", totale: "TOTAL", grazie: "Merci et à bientôt !", suppl: "suppl.", pagato: "Déjà payé", resto: "RESTE À PAYER" },
+  en: { titolo: "BILL", tavolo: "Table", totale: "TOTAL", grazie: "Thank you, see you soon!", suppl: "extra", pagato: "Already paid", resto: "LEFT TO PAY" },
+  it: { titolo: "CONTO", tavolo: "Tavolo", totale: "TOTALE", grazie: "Grazie e a presto!", suppl: "suppl.", pagato: "Già pagato", resto: "DA PAGARE" },
+  nl: { titolo: "REKENING", tavolo: "Tafel", totale: "TOTAAL", grazie: "Bedankt en tot ziens!", suppl: "suppl.", pagato: "Al betaald", resto: "NOG TE BETALEN" },
+  es: { titolo: "CUENTA", tavolo: "Mesa", totale: "TOTAL", grazie: "¡Gracias y hasta pronto!", suppl: "supl.", pagato: "Ya pagado", resto: "PENDIENTE" },
 };
 
 /**
@@ -703,18 +716,24 @@ export interface AddizioneDaStampare {
   persone: { nome: string; righe: { testo: string; cents: number }[]; totale: number }[];
   totale: number;
   lang: string;
+  /**
+   * Quello che e' gia' stato pagato (13/11/2026): online dal telefono, per
+   * persona. Sotto il totale, e poi «RESTE À PAYER». ⚠️ Senza, il foglio
+   * diceva 90,50 € al tavolo dove Sara aveva gia' pagato 22,50 €: il cliente
+   * legge una cifra che non deve piu', e il cameriere la incassa.
+   * L'importo senza la mancia: la mancia non e' una parte del conto.
+   */
+  pagati?: { nome: string; cents: number }[];
 }
 
 function euroTicket(c: number): string {
   return (c / 100).toFixed(2).replace(".", ",") + " EUR";
 }
 
-/** Una riga «nome ........ prezzo» su 48 colonne (taglia normale). */
-function rigaPrezzo(sinistra: string, cents: number, colonne = 48): string {
-  const destra = euroTicket(cents);
-  const spazio = colonne - destra.length - 1;
-  const s = sinistra.length > spazio ? sinistra.slice(0, Math.max(0, spazio - 1)) + "." : sinistra;
-  return `${s}${" ".repeat(Math.max(1, colonne - s.length - destra.length))}${destra}`;
+/** Una riga «nome ........ prezzo»: il prezzo va in `destra`, e la riga la
+ *  compone `impagina` (vedi `RigaTicket.destra`). */
+function rigaPrezzo(sinistra: string, cents: number, grassetto = false): RigaTicket {
+  return { testo: sinistra, destra: euroTicket(cents), taglia: "normale", ...(grassetto ? { grassetto: true } : {}) };
 }
 
 /** L'ADDIZIONE stampata («Imprimer l'addition»): per persona, coi prezzi, e il
@@ -730,16 +749,25 @@ export function ticketAddizione(a: AddizioneDaStampare): RigaTicket[] {
   for (const p of a.persone) {
     // Senza nome (la sessione del cameriere): solo i piatti, il totale e' sotto.
     if (!p.nome) {
-      for (const r of p.righe) righe.push({ testo: rigaPrezzo(r.testo, r.cents), taglia: "normale" });
+      for (const r of p.righe) righe.push(rigaPrezzo(r.testo, r.cents));
       continue;
     }
     righe.push({ testo: p.nome.toUpperCase(), taglia: "normale", grassetto: true });
-    for (const r of p.righe) righe.push({ testo: rigaPrezzo(`  ${r.testo}`, r.cents), taglia: "normale" });
-    righe.push({ testo: rigaPrezzo("", p.totale), taglia: "normale", grassetto: true });
+    for (const r of p.righe) righe.push(rigaPrezzo(`  ${r.testo}`, r.cents));
+    righe.push(rigaPrezzo("", p.totale, true));
     righe.push({ testo: "" });
   }
   righe.push({ testo: "", linea: true });
   righe.push({ testo: `${tx.totale}  ${euroTicket(a.totale)}`, taglia: "largo", grassetto: true, centrato: true, linea: true });
+  const pagati = (a.pagati ?? []).filter((p) => p.cents > 0);
+  if (pagati.length) {
+    righe.push({ testo: tx.pagato, taglia: "normale", grassetto: true });
+    for (const p of pagati) righe.push(rigaPrezzo(`  ${p.nome || "-"}`, p.cents));
+    const resto = Math.max(0, a.totale - pagati.reduce((t, p) => t + p.cents, 0));
+    // In `largo` come il totale: e' la cifra da chiedere, la piu' importante del foglio.
+    righe.push({ testo: "", linea: false });
+    righe.push({ testo: tx.resto, destra: euroTicket(resto), taglia: "largo", grassetto: true, linea: true });
+  }
   righe.push({ testo: tx.grazie, taglia: "normale", centrato: true });
   return righe;
 }

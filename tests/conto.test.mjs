@@ -201,7 +201,7 @@ test("«Demander l'addition» passa dalla campanella, col suo motivo e il suo do
 test("la pagina: «Ouvrir un compte» accanto al pagamento, «Ajouter» al suo posto nel conto", () => {
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /const soloConto = contoTav\?\.modo === "aggiungi";/);
-  assert.match(app, /const mostraPaga = !soloConto && !\(inSala && !pagamento\.online\);/);
+  assert.match(app, /const mostraPaga = !soloConto && !contoDiAltri && !\(inSala && !pagamento\.online\);/);
   assert.match(app, /\{mostraPaga && \(\s*<button type="button" className="order-cart-checkout"/);
   assert.match(app, /pay: "tab",\s*code: c\.code,/);
   const to = nudo("src/components/TableOrder.tsx");
@@ -216,6 +216,7 @@ test("la pagina: «Ouvrir un compte» accanto al pagamento, «Ajouter» al suo p
 
 /* ───────── Fase 3: il ristorante ───────── */
 import { sommaPiatti, piattoBreve, tavoliInsieme, ticketAddizione, ticketCucina, righeAddizione } from "../src/lib/stampaRegole.ts";
+import { impagina } from "../src/lib/escpos.ts";
 
 test("il ticket di un invio: piatti sommati, chi ha preso cosa, «TAVOLO 7 · INVIO 2»", () => {
   const somma = sommaPiatti([
@@ -238,13 +239,33 @@ test("il ticket di un invio: piatti sommati, chi ha preso cosa, «TAVOLO 7 · IN
 });
 
 test("l'addizione stampata: per persona coi prezzi, il totale, nella lingua del locale", () => {
-  const righe = ticketAddizione({
+  const logiche = ticketAddizione({
     insegna: "Chez Test", tavolo: "01+02", quando: "18/10 21:30", lang: "fr", totale: 3150,
     persone: [{ nome: "Marco", righe: [{ testo: "2x Tiramisù", cents: 1400 }], totale: 1400 }, { nome: "Sara", righe: [{ testo: "1x Pasta", cents: 1750 }], totale: 1750 }],
-  }).map((r) => r.testo);
+  });
+  const righe = logiche.map((r) => r.testo);
   assert.ok(righe.includes("ADDITION · Table 01+02"));
   assert.ok(righe.includes("TOTAL  31,50 EUR"));
-  assert.ok(righe.some((r) => r.startsWith("  2x Tiramisù") && r.endsWith("14,00 EUR") && r.length === 48));
+  // Il prezzo sta in `destra`: la riga a 48 colonne la compone `impagina`.
+  assert.ok(logiche.some((r) => r.testo === "  2x Tiramisù" && r.destra === "14,00 EUR"));
+});
+
+test("l'addizione SULLA CARTA: i prezzi in colonna a destra, dopo impagina (13/11/2026)", () => {
+  // ⚠️ La prova sulle righe logiche non bastava: l'incolonnamento lo perdeva
+  // `impagina`, che va a capo sulle parole e riduce gli spazi a uno.
+  const fisiche = impagina(ticketAddizione({
+    tavolo: "3", quando: "12/11 21:00", lang: "fr", totale: 3150,
+    persone: [{ nome: "Marco", righe: [{ testo: "2x Tiramisù", cents: 1400 }, ...righeAddizione({ qty: 1, nome: "Margherita", price_cents: 1750, extra_cents: 200 }, "fr")], totale: 3150 }],
+  })).map((r) => r.testo);
+  const conPrezzo = fisiche.filter((t) => / EUR$/.test(t) && !t.startsWith("TOTAL"));
+  assert.ok(conPrezzo.length >= 4);
+  for (const t of conPrezzo) assert.equal(t.length, 48, `fuori colonna: «${t}»`);
+  assert.ok(fisiche.includes("  2x Tiramisù" + " ".repeat(48 - "  2x Tiramisù".length - "14,00 EUR".length) + "14,00 EUR"));
+  assert.ok(fisiche.some((t) => t.startsWith("     suppl.") && t.endsWith(" 2,00 EUR")), "il rientro del supplemento");
+  // Un nome lunghissimo cede, l'importo resta intero.
+  const lungo = impagina([{ testo: "1x " + "Pizza ".repeat(12), destra: "99,00 EUR" }])[0].testo;
+  assert.equal(lungo.length, 48);
+  assert.ok(lungo.endsWith(" 99,00 EUR"));
 });
 
 test("l'addizione: il supplemento del palmare sotto il piatto, non sommato (12/11/2026)", () => {
@@ -260,11 +281,11 @@ test("l'addizione: il supplemento del palmare sotto il piatto, non sommato (12/1
   // Senza supplemento, o con un valore illeggibile: una riga sola, come prima.
   assert.deepEqual(righeAddizione({ qty: 1, nome: "Pasta", price_cents: 1750 }, "fr"), [{ testo: "1x Pasta", cents: 1750 }]);
   assert.equal(righeAddizione({ qty: 1, nome: "Pasta", price_cents: 1750, extra_cents: "x" }, "fr").length, 1);
-  // Stampato: due righe da 48 colonne, prezzo a destra.
-  const righe = ticketAddizione({
+  // Stampato (dopo impagina, com'esce sulla carta): due righe da 48 colonne, prezzo a destra.
+  const righe = impagina(ticketAddizione({
     tavolo: "3", quando: "12/11 21:00", lang: "fr", totale: 1400,
     persone: [{ nome: "", righe: righeAddizione({ qty: 1, nome: "Margherita", price_cents: 1400, extra_cents: 200 }, "fr"), totale: 1400 }],
-  }).map((r) => r.testo);
+  })).map((r) => r.testo);
   assert.ok(righe.some((r) => r.startsWith("1x Margherita") && r.endsWith("12,00 EUR") && r.length === 48));
   assert.ok(righe.some((r) => r.startsWith("   suppl.") && r.endsWith("2,00 EUR") && r.length === 48));
   // L'endpoint della stampante passa davvero da qui.
@@ -524,7 +545,7 @@ test("tavolo 19/10: banco, telefono col prefisso, esaurito velato, «+» sulla v
   assert.equal(RIPIEGO_ORDINI.orders_table_counter, "0");
   assert.match(leggi("src/lib/admin/sedeRegole.ts"), /orders_table_counter: "sede",/);
   const app = nudo("src/components/OrderApp.tsx");
-  assert.match(app, /const mostraBanco = inSala && !soloConto && pagamento\.locale;/);
+  assert.match(app, /const mostraBanco = inSala && !soloConto && !contoDiAltri && pagamento\.locale;/);
   assert.match(app, /onClick=\{\(\) => void paga\(true\)\}/);
   assert.match(app, /const telefonoIntero = telefonoCompleto\(prefisso, telefono\) \?\? "";/);
   assert.match(app, /className=\{"order-item" \+ \(item\.is_sold_out \? " order-item--esaurito" : ""\)\}/);
@@ -535,4 +556,37 @@ test("tavolo 19/10: banco, telefono col prefisso, esaurito velato, «+» sulla v
   assert.match(to, /window\.dispatchEvent\(new CustomEvent\(EVENTO_AGGIUNGI, \{ detail: \{ id: f\.id \} \}\)\)/);
   assert.match(to, /people: conTavoli \? Number\(persone\) : 1,/);
   assert.match(leggi("src/pages/admin/settings.astro"), /id="o-table-counter"/);
+});
+
+test("conto aperto di altri sul tavolo: si ordina solo entrandoci (13/11/2026)", () => {
+  // La pagina: nessun bottone di pagamento, la frase al loro posto.
+  const app = nudo("src/components/OrderApp.tsx");
+  assert.match(app, /const mostraPaga = !soloConto && !contoDiAltri &&/);
+  assert.match(app, /const mostraBanco = inSala && !soloConto && !contoDiAltri &&/);
+  assert.match(nudo("src/components/TableOrder.tsx"), /soloConto: contoDiAltri && tc \? tc\.soloCodice : null/);
+  // Il cancello vero, nella rotta: fuori dal conto, con un conto aperto sul tavolo, 409.
+  const co = nudo("src/pages/api/checkout.ts");
+  assert.match(co, /if \(!sulConto && sala\?\.conto\) \{/);
+  // La sessione stessa e' gia' un conto, oppure c'e' un conto sul tavolo (o uno unito).
+  assert.match(co, /const altrui = statoTab === "pending" \|\| statoTab === "open"\s*\|\| \(tavoloId \? await contoDelTavolo\(ambitoPub, tavoloId,/);
+  assert.match(co, /if \(altrui\) return err\(409, TXT_CONTO_DI_ALTRI\[lang\]/);
+});
+
+test("l'addizione col già pagato: sotto il totale, e «RESTE À PAYER» (13/11/2026)", () => {
+  const base = {
+    tavolo: "01+02", quando: "13/11 20:42", lang: "fr", totale: 9050,
+    persone: [{ nome: "Sara", righe: [{ testo: "1x Spaghetti", cents: 2250 }], totale: 2250 }, { nome: "Marco", righe: [{ testo: "1x Pizza", cents: 6800 }], totale: 6800 }],
+  };
+  const fisiche = impagina(ticketAddizione({ ...base, pagati: [{ nome: "Sara", cents: 2250 }] })).map((r) => r.testo);
+  const i = fisiche.indexOf("Déjà payé");
+  assert.ok(i > fisiche.findIndex((t) => t.startsWith("TOTAL")), "il già pagato sta sotto il totale");
+  assert.equal(fisiche[i + 1], "  Sara" + " ".repeat(48 - 6 - 9) + "22,50 EUR");
+  // «RESTE À PAYER» largo: 24 colonne, la cifra a destra.
+  const r = fisiche.find((t) => t.startsWith("RESTE À PAYER"));
+  assert.equal(r, "RESTE À PAYER" + " ".repeat(24 - 13 - 9) + "68,00 EUR");
+  // Niente pagato: il foglio di prima, senza righe in più.
+  const senza = impagina(ticketAddizione(base)).map((r) => r.testo);
+  assert.ok(!senza.includes("Déjà payé") && !senza.some((t) => t.startsWith("RESTE")));
+  // La rotta della stampante passa i pagamenti `paid` del conto.
+  assert.match(nudo("src/pages/api/print/[token].ts"), /\.filter\(\(p\) => p\.status === "paid"\)/);
 });

@@ -18,6 +18,9 @@ export interface TestiConto {
   aggiungi: string;
   invio: string;
   giaAperto: string;
+  /** Al posto dei bottoni di pagamento, quando sul tavolo c'e' il conto di
+   *  altri: si ordina solo entrandoci (13/11/2026). */
+  soloCodice: string;
   codice: string;
   codicePh: string;
   unisciti: string;
@@ -80,6 +83,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     apriSolo: "Payer sur place", apriSoloSotto: "Commandez maintenant, payez à la fin.",
     aggiungi: "Ajouter à l’addition", invio: "Envoi…",
     giaAperto: "Une addition est déjà ouverte sur cette table ({i}). Entrez son code pour la rejoindre.",
+    soloCodice: "Pour commander à cette table, rejoignez l’addition avec son code (plus haut), ou appelez le serveur.",
     codice: "Code de l’addition", codicePh: "2 chiffres", unisciti: "Rejoindre",
     errCodice: "Ce n’est pas le bon code.", errBloccato: "Trop d’essais. Réessayez dans quelques minutes, ou demandez au serveur.",
     errGenerico: "Impossible pour le moment. Réessayez.",
@@ -112,6 +116,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     apriSolo: "Pay on site", apriSoloSotto: "Order now, pay at the end.",
     aggiungi: "Add to the bill", invio: "Sending…",
     giaAperto: "A bill is already open at this table ({i}). Enter its code to join.",
+    soloCodice: "To order at this table, join the bill with its code (above), or call the waiter.",
     codice: "Bill code", codicePh: "2 digits", unisciti: "Join",
     errCodice: "That’s not the right code.", errBloccato: "Too many tries. Try again in a few minutes, or ask the waiter.",
     errGenerico: "Not possible right now. Please try again.",
@@ -144,6 +149,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     apriSolo: "Paga sul posto", apriSoloSotto: "Ordina adesso, paga alla fine.",
     aggiungi: "Aggiungi al conto", invio: "Invio…",
     giaAperto: "C’è già un conto aperto su questo tavolo ({i}). Inserisci il suo codice per unirti.",
+    soloCodice: "Per ordinare a questo tavolo, unisciti al conto con il suo codice (qui sopra), o chiama il cameriere.",
     codice: "Codice del conto", codicePh: "2 cifre", unisciti: "Unisciti",
     errCodice: "Il codice non è quello giusto.", errBloccato: "Troppi tentativi. Riprova tra qualche minuto, o chiedi al cameriere.",
     errGenerico: "Non è possibile adesso. Riprova.",
@@ -176,6 +182,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     apriSolo: "Ter plaatse betalen", apriSoloSotto: "Bestel nu, betaal op het einde.",
     aggiungi: "Toevoegen aan de rekening", invio: "Verzenden…",
     giaAperto: "Aan deze tafel is al een rekening open ({i}). Geef de code in om mee te doen.",
+    soloCodice: "Om aan deze tafel te bestellen, doe mee met de rekening via de code (hierboven), of roep de ober.",
     codice: "Code van de rekening", codicePh: "2 cijfers", unisciti: "Meedoen",
     errCodice: "Dat is niet de juiste code.", errBloccato: "Te veel pogingen. Probeer over enkele minuten opnieuw, of vraag het aan de ober.",
     errGenerico: "Nu niet mogelijk. Probeer opnieuw.",
@@ -208,6 +215,7 @@ export const TESTI_CONTO: Record<string, TestiConto> = {
     apriSolo: "Pagar en el local", apriSoloSotto: "Pida ahora, pague al final.",
     aggiungi: "Añadir a la cuenta", invio: "Enviando…",
     giaAperto: "Ya hay una cuenta abierta en esta mesa ({i}). Introduzca su código para unirse.",
+    soloCodice: "Para pedir en esta mesa, únase a la cuenta con su código (arriba) o llame al camarero.",
     codice: "Código de la cuenta", codicePh: "2 cifras", unisciti: "Unirse",
     errCodice: "Ese no es el código correcto.", errBloccato: "Demasiados intentos. Inténtelo en unos minutos, o pregunte al camarero.",
     errGenerico: "No es posible ahora. Inténtelo de nuevo.",

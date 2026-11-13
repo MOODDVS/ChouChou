@@ -183,7 +183,7 @@ async function accodaGruppo(
   const r = await mandaStampa(
     Number(g.printer),
     `${base}/api/print/${token}`,
-    `Ticket ${orderId.slice(-4).toUpperCase()}${g.chiave ? ` · ${g.chiave}` : ""}`,
+    `Ticket ${orderId.slice(0, 4).toUpperCase()}${g.chiave ? ` · ${g.chiave}` : ""}`,
   );
 
   // ⚠️ Lo stato NON diventa `sent` qui: `sent` vuol dire «il servizio ha
@@ -263,7 +263,7 @@ export async function accodaAddizione(capo: { id: string; location_id?: string |
       console.error("[stampa] addizione:", error?.message);
       return { accodati: 0, motivo: "coda" };
     }
-    const r = await mandaStampa(Number(principale), `${base}/api/print/${token}`, `Addition ${capo.id.slice(-4).toUpperCase()}`);
+    const r = await mandaStampa(Number(principale), `${base}/api/print/${token}`, `Addition ${capo.id.slice(0, 4).toUpperCase()}`);
     await aggiorna("print_tickets", ambito, {
       attempts: 1,
       job_id: r.ok ? (r.jobId ?? null) : null,

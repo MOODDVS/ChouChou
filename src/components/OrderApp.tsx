@@ -192,6 +192,11 @@ const STILE_PREFISSO: CSSProperties = {
 const TXT_FACOLTATIVO: Record<string, string> = {
   fr: "facultatif", en: "optional", it: "facoltativo", nl: "optioneel", es: "opcional",
 };
+/** «Téléphone *» → «Téléphone». ⚠️ L'asterisco (obbligatorio) sta nella
+ *  stringa delle traduzioni, che il cliente puo' cambiare: in sala, accanto a
+ *  «(facultatif)», usciva «Téléphone * (facultatif)» — obbligatorio e
+ *  facoltativo insieme (13/11/2026). */
+const senzaAsterisco = (s: string) => s.replace(/\s*\*\s*$/, "");
 
 /** Il toast «Article ajouté» (solo al tavolo). */
 const TXT_AGGIUNTO: Record<string, string> = {
@@ -375,6 +380,15 @@ interface OrderAppProps {
        *  conto: la casella non si richiede a ogni giro. */
       consensoDato?: boolean;
     } | null;
+    /**
+     * Sul tavolo c'e' il conto aperto di ALTRI (13/11/2026, Enzo): nessun
+     * bottone per ordinare, solo questa frase. Si ordina entrando nel conto
+     * col codice (lo chiede la pagina, sopra), o chiamando il cameriere.
+     * ⚠️ Senza, chi non aveva il codice ordinava lo stesso FUORI dal conto:
+     * una seconda card per lo stesso tavolo, e con «Payer au comptoir» un
+     * ordine da incassare che ne' l'addizione ne' «Encaisser» contavano.
+     */
+    soloConto?: string | null;
   } | null;
   /**
    * Su quale schermo aprire. `"checkout"` vale SOLO se nel carrello c'e'
@@ -476,10 +490,12 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   /* Il conto aperto: «apri» aggiunge un bottone, «aggiungi» e' il solo modo. */
   const contoTav = tavolo?.conto ?? null;
   const soloConto = contoTav?.modo === "aggiungi";
+  /** Il conto aperto di altri sul tavolo: nessun bottone (vedi `tavolo.soloConto`). */
+  const contoDiAltri = Boolean(tavolo?.soloConto);
   /** Il bottone «Commander et payer»: no sul conto, e no al tavolo senza carta. */
-  const mostraPaga = !soloConto && !(inSala && !pagamento.online);
+  const mostraPaga = !soloConto && !contoDiAltri && !(inSala && !pagamento.online);
   /** Al tavolo: «Payer au comptoir», se la sala lo vuole. */
-  const mostraBanco = inSala && !soloConto && pagamento.locale;
+  const mostraBanco = inSala && !soloConto && !contoDiAltri && pagamento.locale;
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -630,7 +646,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     : !pagamento.online || (pagamento.locale && modoPagamento === "onsite" && !contoTav);
   /** ⚠️ Il campo del codice sparisce quando il codice non varrebbe: meglio non
    *  mostrarlo che mostrarlo e poi rifiutarlo al momento di confermare. */
-  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa) && !soloConto;
+  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa) && !soloConto && !contoDiAltri;
   const tp = TXT_PAGAMENTO[lang] ?? TXT_PAGAMENTO.fr;
   const tc = TXT_CONSEGNA[lang] ?? TXT_CONSEGNA.fr;
 
@@ -1068,7 +1084,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      persona), sui piatti scontati, con la stessa regola del server — che
      comunque la ricalcola: da qui parte solo QUALE bottone. */
   // Sul conto la mancia si lascia alla fine, pagando l'addizione.
-  const manceAttive = mance !== null && !pagaInCassa && !soloConto;
+  const manceAttive = mance !== null && !pagaInCassa && !soloConto && !contoDiAltri;
   const mancia = manceAttive && mance ? importoMancia(manciaScelta, mance.tipo, mance.valori, totaleFinale) : 0;
   const totaleDaPagare = totaleFinale + costoCons + mancia;
   // La riga «Livraison» nel totale c'e' solo se la consegna ha un prezzo:
@@ -1700,7 +1716,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
-                  placeholder={inSala ? `${t.phone} (${TXT_FACOLTATIVO[lang] ?? TXT_FACOLTATIVO.fr})` : t.phone}
+                  placeholder={inSala ? `${senzaAsterisco(t.phone)} (${TXT_FACOLTATIVO[lang] ?? TXT_FACOLTATIVO.fr})` : t.phone}
                   value={telefono}
                   onChange={(e) => scriviTelefono(e.target.value)}
                 />
@@ -1914,8 +1930,9 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
               </button>
             )}
             {contoTav?.sotto && !soloConto && <p className="order-cart-note order-conto-sotto">{contoTav.sotto}</p>}
+            {contoDiAltri && <p className="order-cart-note order-conto-solo">{tavolo?.soloConto}</p>}
             {erroreCheckout && <p className="order-cart-error">{erroreCheckout}</p>}
-            {!formValido && !erroreCheckout && (
+            {!formValido && !erroreCheckout && !contoDiAltri && (
               <p className="order-cart-note">{t.fillAll}</p>
             )}
           </aside>

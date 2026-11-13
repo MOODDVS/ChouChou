@@ -54,7 +54,7 @@ test("il server ricalcola, solo con la carta, e la salva a parte", () => {
   const app = nudo("src/components/OrderApp.tsx");
   assert.match(app, /\.\.\.\(manceAttive && !inCassaOra && manciaScelta >= 0 \? \{ tip: manciaScelta \} : \{\}\),/);
   assert.match(app, /useState\(-1\)/, "Aucun scelto all'apertura");
-  assert.match(app, /const manceAttive = mance !== null && !pagaInCassa && !soloConto;/);
+  assert.match(app, /const manceAttive = mance !== null && !pagaInCassa && !soloConto && !contoDiAltri;/);
 });
 
 test("modificare un ordine non toglie la mancia, e Réglages vuole la #86", () => {
