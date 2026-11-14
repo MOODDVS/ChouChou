@@ -41,6 +41,21 @@ export const FUORI_SITEMAP: readonly string[] = [
   // unisce le pagine COSTRUITE e TUTTE le rotte di tipo `page`, quindi una
   // pagina `prerender = false` ci finisce lo stesso (11/10/2026).
   "/print",
+  // ⚠️ TRE PAGINE CHE NON SONO DEL RISTORANTE (14/11/2026), trovate nella
+  // sitemap di Villa 77 — ed erano in quella di tutti:
+  //  • `/table`: la pagina del QR sul tavolo. Ci si arriva inquadrando il
+  //    cartoncino, e senza `?table=` chiede di scegliere un tavolo: in
+  //    ricerca e' un menu che non si puo' ordinare da casa.
+  //  • `/paiement`: `/paiement/ok`, dove Stripe riporta chi ha pagato al
+  //    tavolo. Un «Merci !» senza niente intorno.
+  //  • `/legal`: privacy e condizioni di RESTOHUB, non del ristorante. Lo
+  //    stesso testo su dodici domini e' contenuto duplicato, e chi cerca il
+  //    ristorante non cerca le condizioni del suo gestionale. Restano
+  //    raggiungibili (robots.txt non le chiude): servono come link, non in
+  //    ricerca. L'Huile sur le Feu le aveva gia' tolte col suo filtro.
+  "/table",
+  "/paiement",
+  "/legal",
 ];
 
 /**

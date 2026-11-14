@@ -32,7 +32,9 @@ test("nessuna pagina del pannello finisce in sitemap", () => {
 test("le pagine pubbliche ci restano", () => {
   // Il filtro deve escludere il pannello, non svuotare la sitemap: e' l'errore
   // gemello, e sarebbe molto piu' grave.
-  for (const p of ["/", "/en/", "/legal/privacy/", "/legal/terms/", "/menu/", "/contact/"]) {
+  // ⚠️ `/legal/*` non c'e' piu' (14/11/2026): sono le condizioni di
+  // RestoHub, non del ristorante — vedi la prova piu' sotto.
+  for (const p of ["/", "/en/", "/menu/", "/contact/", "/reservation/", "/en/reservation/", "/privacy/"]) {
     assert.ok(inSitemap(`https://www.esempio.be${p}`), `${p} e' sparito dalla sitemap`);
   }
 });
@@ -160,5 +162,17 @@ test("un pezzo intero, non «inizia con»", () => {
   // che si chiama `/order-confirmation` e' una pagina vera, e deve restare.
   for (const p of ["/order-confirmation/", "/order/", "/orders/", "/en/order/", "/404-idee/"]) {
     assert.ok(inSitemap(`https://www.esempio.be${p}`), `${p} e' sparita dalla sitemap`);
+  }
+});
+
+test("il QR del tavolo, il ritorno dal pagamento al tavolo e le condizioni di RestoHub restano fuori", () => {
+  // ⚠️ Trovate nella sitemap di Villa 77, ed erano in quella di ogni cliente
+  // (14/11/2026). Nessuna delle tre e' una pagina del ristorante.
+  for (const p of ["/table", "/table/", "/paiement/ok/", "/legal/privacy/", "/legal/terms/"]) {
+    assert.equal(inSitemap(`https://www.esempio.be${p}`), false, `${p} e' rimasta in sitemap`);
+  }
+  // Il confine: un prefisso non e' un pezzo di parola.
+  for (const p of ["/tables-et-terrasse/", "/legale/", "/paiements-acceptes/"]) {
+    assert.equal(inSitemap(`https://www.esempio.be${p}`), true, `${p} e' sparita dalla sitemap`);
   }
 });

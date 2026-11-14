@@ -22,7 +22,7 @@ interface Labels {
 // ⚠️ `sede` è il punto da cui si scrive: `/api/contact` manda il messaggio alla
 // casella DI QUELLA sede, e senza finiva sempre in quella della prima.
 // Vuoto = installazione a punto unico, e l'URL resta quello di sempre.
-export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; lang?: "fr" | "en"; sede?: string }) {
+export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; lang?: "fr" | "en" | "it" | "nl" | "es"; sede?: string }) {
   const conSede = (u: string) => urlConSede(u, sede);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
