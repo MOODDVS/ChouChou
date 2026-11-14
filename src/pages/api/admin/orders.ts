@@ -27,6 +27,7 @@ import { rimborsabile } from "../../../lib/admin/ordiniConti";
 import { cosaDaIncassare } from "../../../lib/admin/daIncassare";
 import { chiudiSeContoChiesto } from "../../../lib/admin/incassoSeduta";
 import { likeEsatto } from "../../../lib/like";
+import { chiudiPagatiPassatiOgniTanto } from "../../../lib/chiusuraPagati";
 export const prerender = false;
 
 
@@ -42,6 +43,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
   const fuso = await fusoDi(ambito);
+  /* I pagati dei giorni passati si chiudono anche da qui (14/11/2026): il
+     cron di pg_cron puo' essere rotto senza che nessuno lo veda. Ogni 10
+     minuti al massimo, mai bloccante (`lib/chiusuraPagati.ts`). */
+  await chiudiPagatiPassatiOgniTanto(ambito, fuso);
 
   // ?da_incassare=1 → l'avviso «non incassato» del tablet (AdminNav, ogni
   // mezz'ora): ordini da incassare da piu' di 30 minuti e conti aperti col
