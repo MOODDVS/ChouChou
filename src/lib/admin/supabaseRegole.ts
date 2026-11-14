@@ -110,7 +110,18 @@ export function sitoRaggiungibile(sito: unknown): boolean {
   try {
     const u = new URL(String(sito ?? ""));
     if (u.protocol !== "https:") return false;
-    return !/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(u.hostname) && !u.hostname.endsWith(".localhost") && !u.hostname.endsWith(".test");
+    /* ⚠️ UN NOME DI DOMINIO VERO, non «non e' localhost» (14/11/2026,
+       Educazione Napoletana). Il `.env` locale diceva «https://localhosst:4321»
+       (una s in piu'): passava, e «Ripara tutto» lanciato dal Mac ha scritto i
+       cinque job pg_cron verso un indirizzo che non esiste. Per giorni niente
+       ordini chiusi di notte, niente promemoria, niente riepilogo, niente
+       newsletter — e la casella verde. Adesso: niente porta, almeno un punto,
+       un'estensione di lettere, e niente indirizzi IP. */
+    if (u.port) return false;
+    const h = u.hostname.toLowerCase();
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(h)) return false;
+    return !/^(localhost|127\.|0\.0\.0\.0)/.test(h) && !h.endsWith(".localhost") && !h.endsWith(".test")
+      && !h.endsWith(".local") && !h.endsWith(".internal") && !h.endsWith(".invalid") && !h.endsWith(".example");
   } catch {
     return false;
   }
@@ -148,7 +159,11 @@ export function jobGiusti(
     const e = per.get(j.nome);
     const m = e?.command.match(/https?:\/\/([^/'"\s]+)/);
     if (m) domini.add(m[1]);
-    const dominioOk = online ? !!host && !!e && e.command.includes(host) : true;
+    /* ⚠️ Il job deve chiamare un sito VERO, ovunque lo si guardi: in locale il
+       dominio non si confronta con quello del `.env`, ma un job verso
+       «localhosst:4321» non e' mai giusto (14/11/2026). */
+    const jobPubblico = !!m && sitoRaggiungibile(`https://${m[1]}`);
+    const dominioOk = jobPubblico && (online ? !!host && !!e && e.command.includes(host) : true);
     const ok = !!e && e.active !== false && /x-cron-key/.test(e.command) && e.command.includes(j.percorso) && dominioOk;
     (ok ? giusti : daRifare).push(j.nome);
   }

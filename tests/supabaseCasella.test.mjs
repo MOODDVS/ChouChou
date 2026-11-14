@@ -50,6 +50,9 @@ test("gli spazi: mancanti e visibilita' sbagliata", () => {
 test("i job: mai su localhost, chiave nell'header, apici protetti", () => {
   assert.equal(sitoRaggiungibile("https://villa77.be"), true);
   for (const x of ["http://localhost:4321", "https://localhost", "http://villa77.be", "https://127.0.0.1", "", "https://x.test"]) assert.equal(sitoRaggiungibile(x), false, x);
+  // 14/11/2026, Educazione Napoletana: un errore di battitura nel `.env` locale passava.
+  for (const x of ["https://localhosst:4321", "https://localhosst", "https://villa77.be:4321", "https://192.168.1.10", "https://pc-enzo.local", "https://[::1]"]) assert.equal(sitoRaggiungibile(x), false, x);
+  for (const x of ["https://www.educazionenapoletana.be", "https://app.restohub.cloud", "https://villa77.be/"]) assert.equal(sitoRaggiungibile(x), true, x);
   const q = sqlJob(JOB_ATTESI[0], "https://villa77.be/", "ab'c");
   assert.match(q, /cron\.schedule\('auto-complete-orders', '0 \* \* \* \*'/);
   assert.match(q, /'https:\/\/villa77\.be\/api\/cron\/auto-complete-orders'/);
@@ -67,6 +70,11 @@ test("i job: mai su localhost, chiave nell'header, apici protetti", () => {
   // job vecchio con la chiave nell'indirizzo: da rifare
   const vecchio = [{ jobname: "daily-brief", command: "select net.http_get(url := 'https://villa77.be/api/cron/daily-brief?key=x')", active: true }];
   assert.ok(jobGiusti(vecchio, "https://villa77.be").daRifare.includes("daily-brief"));
+  // Job verso un indirizzo che non esiste: da rifare, anche guardando in locale (14/11/2026).
+  const sbagliati = giusti.map((g) => ({ ...g, command: g.command.replace("villa77.be", "localhosst:4321") }));
+  assert.equal(jobGiusti(sbagliati, "http://localhost:4321").daRifare.length, 5);
+  assert.equal(jobGiusti(sbagliati, "https://localhosst:4321").daRifare.length, 5);
+  assert.equal(jobGiusti(sbagliati, "https://www.educazionenapoletana.be").daRifare.length, 5);
 });
 
 test("il segno della casella", () => {
