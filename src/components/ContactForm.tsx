@@ -21,7 +21,9 @@ interface Labels {
 
 // ⚠️ Anche il modulo contatti ha un punto: il messaggio arriva nella casella
 // di QUELLA sede. Senza, finiva sempre in quella della prima.
-export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; lang?: "fr" | "en"; sede?: string }) {
+// ⚠️ Le cinque lingue che `/api/contact` sa scrivere (la risposta al cliente
+// esce nella sua). Con «fr | en» un sito in nederlands non poteva passarla.
+export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; lang?: "fr" | "en" | "it" | "nl" | "es"; sede?: string }) {
   const conSede = (u: string) => urlConSede(u, sede);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
