@@ -1,10 +1,11 @@
 import type { APIRoute } from "astro";
 import { json } from "../../../lib/rispostaJson";
 // Multi-sede: il cron passa su TUTTI i punti.
-import { aggiorna, tutteLeSedi, SEDE_UNICA } from "../../../lib/admin/sede";
+import { tutteLeSedi, SEDE_UNICA } from "../../../lib/admin/sede";
 import { segretoUguale } from "../../../lib/cronAuth";
 import { DateTime } from "luxon";
 import { fusoDi } from "../../../lib/fuso";
+import { sogliaChiusura, chiudiPagatiPassati } from "../../../lib/chiusuraPagati";
 
 export const prerender = false;
 
@@ -35,17 +36,14 @@ export const GET: APIRoute = async ({ request }) => {
   // la soglia e' una sola. Non e' gratis — con sedi in fusi diversi, la
   // grazia delle 02:00 e' quella dell'installazione — ma e' una scelta
   // dichiarata, non una variabile globale che decide per conto suo.
-  const nowB = DateTime.now().setZone(await fusoDi(SEDE_UNICA));
-  // Prima delle 02:00 gli ordini di IERI hanno ancora la grazia → soglia = inizio di ieri.
-  const soglia = (nowB.hour < 2 ? nowB.minus({ days: 1 }) : nowB).startOf("day");
-  const sogliaISO = soglia.toISO();
+  // La regola sta in `lib/chiusuraPagati.ts`: la stessa che usa Commandes.
+  const fuso = await fusoDi(SEDE_UNICA);
+  const sogliaISO = sogliaChiusura(DateTime.now().setZone(fuso)).toISO();
   if (!sogliaISO) return json({ error: "Data non valida" }, 500);
-
-  const { data, error } = await aggiorna("orders", ambito, { status: "done" })
-    .eq("status", "paid")
-    .lt("pickup_time", sogliaISO)
-    .select("id");
-
-  if (error) return json({ error: "Mise à jour impossible" }, 500);
-  return json({ completed: data?.length ?? 0, threshold: sogliaISO });
+  try {
+    const completed = await chiudiPagatiPassati(ambito, fuso);
+    return json({ completed, threshold: sogliaISO });
+  } catch {
+    return json({ error: "Mise à jour impossible" }, 500);
+  }
 };
