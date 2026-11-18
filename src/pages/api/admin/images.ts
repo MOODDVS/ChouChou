@@ -146,6 +146,9 @@ async function listaFile(
     if (!f.name || f.name.startsWith(".")) continue;
     const full = prefix ? `${prefix}/${f.name}` : f.name;
     const isFolder = f.id === null || f.metadata == null;
+    // Le copie JPEG fatte per le newsletter (newsletterSend): non sono foto
+    // della libreria, sono doppioni tecnici di una foto che c'e' gia'.
+    if (isFolder && bucket === "popups" && full === "newsletter") continue;
     if (isFolder) {
       out.push(...(await listaFile(bucket, full, depth + 1)));
     } else {

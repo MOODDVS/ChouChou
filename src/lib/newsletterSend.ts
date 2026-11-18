@@ -262,6 +262,44 @@ function taggaNewsletter(url: string): string {
   }
 }
 
+/**
+ * L'IMMAGINE DELLA NEWSLETTER IN UN FORMATO CHE OGNI POSTA LEGGE (18/11/2026).
+ *
+ * La libreria del motore e' in WebP: il sito lo mostra, ma una parte dei
+ * programmi di posta no (Outlook per Windows, client vecchi) — nel test di
+ * Mare e Monti restava lo spazio vuoto. Qui un'immagine che non e' gia'
+ * JPG/PNG/GIF si converte in JPEG (larga al massimo 1200 px, trasparenze sul
+ * fondo della card) e si salva UNA volta in `popups/newsletter/`, col nome
+ * dato dall'indirizzo d'origine: rimandarla non rifa' niente.
+ * Se qualcosa non va (sharp assente, rete, permessi) si usa l'originale:
+ * un'immagine che forse non si vede e' meglio di una newsletter che non parte.
+ */
+export const CARTELLA_IMG_NEWS = "newsletter";
+async function immagineEmail(url: string | null | undefined, sfondo: string): Promise<string> {
+  const u = String(url ?? "").trim();
+  if (!u || /\.(jpe?g|png|gif)(?:[?#]|$)/i.test(u)) return u;
+  try {
+    const nome = `${CARTELLA_IMG_NEWS}/${crypto.createHash("sha1").update(u).digest("hex").slice(0, 20)}.jpg`;
+    const pronta = supabaseAdmin.storage.from("popups").getPublicUrl(nome).data.publicUrl;
+    const c = await fetch(pronta, { method: "HEAD" });
+    if (c.ok) return pronta;
+    const r = await fetch(u);
+    if (!r.ok) return u;
+    const { default: sharp } = await import("sharp");
+    const jpg = await sharp(Buffer.from(await r.arrayBuffer()))
+      .rotate()
+      .resize({ width: 1200, withoutEnlargement: true })
+      .flatten({ background: /^#[0-9a-f]{3,8}$/i.test(sfondo) ? sfondo : "#ffffff" })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer();
+    const { error } = await supabaseAdmin.storage.from("popups").upload(nome, jpg, { contentType: "image/jpeg", upsert: true });
+    return error ? u : pronta;
+  } catch (e) {
+    console.error("[newsletter] immagine non convertita, uso l'originale:", e);
+    return u;
+  }
+}
+
 /* Il piede della newsletter nella lingua del segmento (18/11/2026): una
    newsletter ai clienti italiani finiva con «Vous recevez cet email…».
    «tous» e le lingue senza traduzione → la lingua predefinita del sito. */
@@ -383,13 +421,15 @@ export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise
     // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
     const dati = await datiRistorante(SEDE_UNICA);
     const tema = await temaEmail();
-    const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
+    const [logoUrl, social, image_url] = await Promise.all([
+      logoNewsletter(tema.isDark), linksSocial(), immagineEmail(contenuto.image_url, tema.card),
+    ]);
     const mittente = await mittenteNewsletter();
     const esito = await resend.emails.send({
       from: mittente,
       to: dest,
       subject: `[TEST] ${contenuto.subject}`,
-      html: htmlNewsletter(dati, { ...contenuto, email: dest, logoUrl, social }, tema),
+      html: htmlNewsletter(dati, { ...contenuto, image_url, email: dest, logoUrl, social }, tema),
       headers: intestazioniDisiscrizione(dest),
     });
     const motivo = motivoInvio(esito);
@@ -430,7 +470,9 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
   const dati = await datiRistorante(SEDE_UNICA);
   const quota = await statoQuota();
   const tema = await temaEmail();
-  const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
+  const [logoUrl, social, image_url] = await Promise.all([
+    logoNewsletter(tema.isDark), linksSocial(), immagineEmail(contenuto.image_url, tema.card),
+  ]);
   const { lista: dest } = await destinatariSegmento(lang, group);
 
   if (dest.length === 0) return { ok: false, error: "Aucun destinataire dans ce groupe", status: 400 };
@@ -450,7 +492,7 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
         from: mittente,
         to: email,
         subject: contenuto.subject,
-        html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }, tema, lang),
+        html: htmlNewsletter(dati, { ...contenuto, image_url, email, logoUrl, social }, tema, lang),
         headers: intestazioniDisiscrizione(email),
       }));
       const esito = await resend.batch.send(lotto);
