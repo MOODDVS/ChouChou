@@ -36,9 +36,9 @@ APPS=(
   # l'indirizzo qui e quello nel .env del server cambiano INSIEME, se no lo
   # script si ferma prima della build.
   "ladp|$HOME/Developer/LArteDellaPizza|/home/enzo/app-ladp|ladp|4323|https://lartedellapizza.be"
-  # (12/11/2026) Mare e Monti, in prova su nuovo.restohub.cloud (noindex). Il
-  # giorno del dominio vero cambia qui E nel .env del server.
-  "maremonti|$HOME/Developer/MareMonti|/home/enzo/app-maremonti|maremonti|4324|https://nuovo.restohub.cloud"
+  # Mare e Monti: in prova su nuovo.restohub.cloud dal 12/11/2026, sul dominio
+  # vero dal 18/11/2026 (cambiato qui E nel .env del server).
+  "maremonti|$HOME/Developer/MareMonti|/home/enzo/app-maremonti|maremonti|4324|https://mare-monti.be"
 )
 
 scelta="${1:-tutti}"
