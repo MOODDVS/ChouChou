@@ -68,6 +68,12 @@ h1 { margin-bottom: 1.25rem; }
 .pop.is-off { opacity: 0.55; }
 .pop-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; }
 .pop-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.03em; }
+/* La miniatura dell'immagine accanto al titolo (pop-up, 18/11/2026): un
+   quadratino, solo se il pop-up ha un'immagine. */
+.pop-head { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
+.pop-head .pop-title { min-width: 0; overflow-wrap: anywhere; }
+.pop-thumb { flex: none; width: 52px; height: 52px; border-radius: 8px; overflow: hidden; border: 1px solid var(--c-line); background: var(--c-input); }
+.pop-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pop-text { color: var(--c-muted); font-size: 0.88rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pop-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .m-tag {

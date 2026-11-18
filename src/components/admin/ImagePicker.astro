@@ -4,7 +4,11 @@
 // Comunicazione via eventi window:
 //   apertura  → window.dispatchEvent(new CustomEvent("imgpick:open"))
 //               (detail.mode = "link" mostra anche il tab Documenti:
-//                serve a scegliere un URL da incollare in un campo lien)
+//                serve a scegliere un URL da incollare in un campo lien;
+//                e il tab «Pages du site», aperto per primo: le pagine del
+//                sito e i link in piu' del cliente, /api/admin/site-links.
+//                detail.reserver = true aggiunge «#reserver», che ha senso
+//                solo nei bottoni dei pop-up)
 //   selezione → evento "imgpick:pick" con detail = { url }
 // La pagina che lo usa tiene il riferimento al campo di destinazione
 // e ascolta "imgpick:pick".
@@ -21,6 +25,7 @@ const t = adminT(lang);
     <button type="button" class="btn" id="imgpick-add">{"+ " + t("ip.add")}</button>
     <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
     <div class="ip-tabs rh-filters" id="imgpick-tabs">
+      <button type="button" class="ip-tab rh-filter" data-b="site" id="imgpick-tab-site" hidden>{t("ip.sitePages")}</button>
       <button type="button" class="ip-tab rh-filter is-on" data-b="">{t("ip.all")}</button>
       <button type="button" class="ip-tab rh-filter" data-b="menu">{t("nav.menu")}</button>
       <button type="button" class="ip-tab rh-filter" data-b="marketing">{t("nav.marketing")}</button>
@@ -68,6 +73,22 @@ const t = adminT(lang);
   @media (max-width: 640px) {
     .ip-grid { gap: 0.4rem; }
   }
+  /* «Pages du site»: una lista, non la griglia delle foto. Il nome della
+     pagina e sotto il suo indirizzo, come lo scrivera' il bottone. */
+  .ip-grid.ip-lista { display: flex; flex-direction: column; gap: 0.35rem; }
+  .ip-grp {
+    margin: 0.9rem 0 0.2rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--c-muted);
+  }
+  .ip-grp:first-child { margin-top: 0; }
+  .ip-cell.ip-link {
+    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.2rem 0.8rem;
+    padding: 0.65rem 0.9rem; text-align: left; color: var(--c-text); font: inherit;
+  }
+  .ip-cell.ip-link:hover { transform: none; }
+  .ip-link-nome { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+  .ip-link-nota { font-size: 0.78rem; color: var(--c-muted); white-space: nowrap; }
+  .ip-link-url { grid-column: 1 / -1; font-size: 0.78rem; color: var(--c-muted); overflow-wrap: anywhere; }
 </style>
 
 <script>
@@ -81,6 +102,7 @@ const t = adminT(lang);
 
   type Img = { bucket: string; name: string; url: string; used_by: string[]; tags: string[] };
   type Doc = { name: string; url: string; thumb_url: string | null };
+  type LinkSito = { gruppo?: string; label: string; url: string; nota?: string };
 
   const ICO_PDF =
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>';
@@ -95,6 +117,8 @@ const t = adminT(lang);
   let imgs: Img[] = [];
   let docs: Doc[] = [];
   let modo: "image" | "link" = "image";
+  let conReserver = false;
+  let linkSito: LinkSito[] = [];
   let filtro = "";
 
 
@@ -104,7 +128,34 @@ const t = adminT(lang);
     grid.innerHTML = "";
   }
 
+  function renderSito() {
+    grid.classList.add("ip-lista");
+    const voci: LinkSito[] = [
+      ...(conReserver ? [{ gruppo: tr("ip.actions"), label: tr("ip.reserve"), url: "#reserver" }] : []),
+      ...linkSito,
+    ];
+    if (!voci.length) return vuoto(tr("ip.noLinks"));
+    stateEl.style.display = "none";
+    let gruppo = "";
+    grid.innerHTML = voci
+      .map((v) => {
+        const g = v.gruppo ?? "";
+        const testa = g !== gruppo ? `<p class="ip-grp">${esc(g)}</p>` : "";
+        gruppo = g;
+        return testa +
+          `<button type="button" class="ip-cell ip-link" data-url="${esc(v.url)}">` +
+          `<span class="ip-link-nome">${esc(v.label)}</span>` +
+          (v.nota ? `<span class="ip-link-nota">${esc(v.nota)}</span>` : "<span></span>") +
+          `<span class="ip-link-url">${esc(v.url)}</span></button>`;
+      })
+      .join("");
+  }
+
   function render() {
+    grid.classList.remove("ip-lista");
+    // «Ajouter une image» non c'entra con le pagine del sito.
+    addBtn.hidden = filtro === "site";
+    if (filtro === "site") return renderSito();
     if (filtro === "docs") {
       if (!docs.length) return vuoto(tr("ip.noDocs"));
       stateEl.style.display = "none";
@@ -137,15 +188,31 @@ const t = adminT(lang);
     try {
       const { data } = await supabaseBrowser.auth.getSession();
       const token = data.session?.access_token ?? "";
-      const [resImg, resDoc] = await Promise.all([
+      const [resImg, resDoc, resSito] = await Promise.all([
         fetch("/api/admin/images", { headers: { Authorization: `Bearer ${token}` } }),
         modo === "link"
           ? fetch("/api/admin/documents", { headers: { Authorization: `Bearer ${token}` } })
           : Promise.resolve(null),
+        modo === "link"
+          ? fetch("/api/admin/site-links", { headers: { Authorization: `Bearer ${token}` } }).catch(() => null)
+          : Promise.resolve(null),
       ]);
-      if (!resImg.ok) throw new Error();
-      imgs = ((await resImg.json()) as { images: Img[] }).images;
+      // ⚠️ In modo link le foto sono solo uno dei tab: se la loro lista non
+      // arriva, le pagine del sito e i documenti si scelgono lo stesso.
+      if (!resImg.ok && modo !== "link") throw new Error();
+      imgs = resImg.ok ? ((await resImg.json()) as { images: Img[] }).images : [];
       docs = resDoc && resDoc.ok ? ((await resDoc.json()) as { documents: Doc[] }).documents : [];
+      linkSito = [];
+      if (resSito && resSito.ok) {
+        const j = (await resSito.json()) as {
+          pagine: { url: string; label: string | null; labelKey: string | null }[];
+          extra: LinkSito[];
+        };
+        linkSito = [
+          ...j.pagine.map((p) => ({ gruppo: tr("ip.sitePagesGroup"), label: p.labelKey ? tr(p.labelKey) : (p.label ?? p.url), url: p.url })),
+          ...(j.extra ?? []),
+        ];
+      }
       render();
     } catch {
       stateEl.textContent = tr("ip.loadErr");
@@ -157,13 +224,18 @@ const t = adminT(lang);
   }
 
   window.addEventListener("imgpick:open", (e) => {
-    modo = (e as CustomEvent<{ mode?: string }>).detail?.mode === "link" ? "link" : "image";
+    const det = (e as CustomEvent<{ mode?: string; reserver?: boolean }>).detail;
+    modo = det?.mode === "link" ? "link" : "image";
+    conReserver = modo === "link" && det?.reserver === true;
     const tabDocs = document.getElementById("imgpick-tab-docs") as HTMLButtonElement;
+    const tabSito = document.getElementById("imgpick-tab-site") as HTMLButtonElement;
     tabDocs.hidden = modo !== "link";
-    if (modo !== "link" && filtro === "docs") {
-      filtro = "";
-      tabsEl.querySelectorAll<HTMLElement>(".ip-tab").forEach((el) => el.classList.toggle("is-on", el.dataset.b === ""));
-    }
+    tabSito.hidden = modo !== "link";
+    // In modo link si apre sulle pagine del sito: e' quello che si cerca
+    // quasi sempre (18/11/2026). In modo immagine, mai su un tab nascosto.
+    if (modo === "link") filtro = "site";
+    else if (filtro === "docs" || filtro === "site") filtro = "";
+    tabsEl.querySelectorAll<HTMLElement>(".ip-tab").forEach((el) => el.classList.toggle("is-on", el.dataset.b === filtro));
     overlay.hidden = false;
     void carica(); // ricarica sempre: include gli upload appena fatti
   });

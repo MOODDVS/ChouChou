@@ -108,6 +108,14 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       /* Destinatario, offrente e scadenza sono l'informazione per cui si apre
          la pagina: a 0.82rem erano piu' piccoli della nota a margine. */
       .gc-lines { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.7rem; }
+      /* La riga della data nella card del pop-up: il gap della card basta. */
+      .gc-lines.pop-quando { margin-top: 0; }
+      /* Sotto il link del bottone: dove portera' in ogni lingua (18/11/2026). */
+      .lk-lingue { margin-top: 0.55rem; display: grid; gap: 0.2rem; font-size: 0.8rem; color: var(--c-muted); }
+      .lk-lingue > div { display: grid; grid-template-columns: 2rem 1fr; gap: 0.4rem; align-items: baseline; }
+      .lk-lingue b { font-size: 0.68rem; letter-spacing: 0.08em; color: var(--c-accent); }
+      .lk-lingue code { font-size: 0.8rem; color: var(--c-text); overflow-wrap: anywhere; }
+      .lk-aviso { margin: 0.35rem 0 0; font-size: 0.78rem; line-height: 1.45; color: var(--c-muted); }
       /* Icona a larghezza fissa + dato: i quattro dati si incolonnano da soli,
          senza dipendere da quanto e' lunga l'etichetta tradotta. */
       .gc-lines .gc-line { display: grid; grid-template-columns: 20px 1fr; gap: 0.55rem; align-items: center; font-size: 0.95rem; color: var(--c-muted); }
@@ -786,6 +794,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
   import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/adminClient";
       import { creaDatepicker } from "../../lib/admin/datepicker";
+      import { linkDelSito, localizzaLink } from "../../lib/linguaUrl";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -934,19 +943,31 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           popsEl.innerHTML = popups
             .map((p) => {
               const pagine = PAGINE.filter((x) => p.pages.includes(x.k)).map((x) => x.label).join(" · ");
-              const lingue =
-                (p.title ? `<span class="m-tag">FR</span>` : "") +
-                (p.title_en ? `<span class="m-tag">EN</span>` : "");
+              // LE LINGUE: quelle che hanno un titolo, nell'ordine del sito
+              // (18/11/2026). Prima solo `title` e `title_en`: un pop-up con
+              // l'italiano non lo diceva.
+              const conTitolo = new Set(Object.entries(p.title_i18n ?? {}).filter(([, v]) => String(v ?? "").trim()).map(([k]) => k));
+              if (p.title) conTitolo.add("fr");
+              if (p.title_en) conTitolo.add("en");
+              const lingue = [...ordineLang(), ...[...conTitolo].filter((l) => !ordineLang().includes(l))]
+                .filter((l) => conTitolo.has(l))
+                .map((l) => `<span class="m-tag">${esc(l.toUpperCase())}</span>`)
+                .join("");
+              const titolo = p.title || p.title_en || Object.values(p.title_i18n ?? {}).find((v) => String(v ?? "").trim()) || "";
+              // LA MINIATURA accanto al titolo, e LA DATA come riga con il
+              // calendario (le righe dei buoni regalo, `.gc-line`), non piu'
+              // una pastiglia in mezzo alle altre (18/11/2026, Enzo).
+              const testa = p.image_url
+                ? `<div class="pop-head"><span class="pop-thumb"><img src="${esc(p.image_url)}" alt="" loading="lazy" /></span><div class="pop-title">${esc(titolo)}</div></div>`
+                : `<div class="pop-top"><div class="pop-title">${esc(titolo)}</div></div>`;
               return `
               <div class="pop${p.active ? "" : " is-off"}" data-id="${p.id}">
-                <div class="pop-top">
-                  <div class="pop-title">${esc(p.title || p.title_en || "")}</div>
-                </div>
+                ${testa}
                 ${p.body ? `<div class="pop-text">${esc(p.body)}</div>` : ""}
+                <div class="gc-lines pop-quando"><span class="gc-line" title="${esc(tr("mk.schedule"))}"><span class="gc-line-ico" aria-hidden="true">${ICO_GC_EXP}</span><span class="gc-line-txt"><span class="sr-only">${esc(tr("mk.schedule"))}: </span><b>${esc(riassuntoProgramma(p))}</b></span></span></div>
                 <div class="pop-meta">
-                  <span class="m-tag gold">${esc(pagine)}</span>
+                  ${pagine ? `<span class="m-tag gold">${esc(pagine)}</span>` : ""}
                   ${lingue}
-                  <span class="m-tag">${esc(riassuntoProgramma(p))}</span>
                   <span class="m-tag">${p.max_shows}× max</span>
                 </div>
                 <div class="pop-actions">
@@ -1058,8 +1079,25 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const mErr = document.getElementById("m-err") as HTMLSpanElement;
         const mSave = document.getElementById("m-save") as HTMLButtonElement;
         const fImg = document.getElementById("f-img") as HTMLInputElement;
-        const setBtnU = (cls: string, v: string) => { fPanels.querySelectorAll<HTMLInputElement>("." + cls).forEach((el) => { el.value = v; }); };
-        const getBtnU = (cls: string): string => (fPanels.querySelector<HTMLInputElement>("." + cls)?.value ?? "").trim();
+        const setBtnU = (cls: string, v: string) => { fPanels.querySelectorAll<HTMLInputElement>("." + cls).forEach((el) => { el.value = v; }); anteprimaLink(cls); };
+        // ⚠️ UN LINK DEL SITO SI SALVA COME PERCORSO SENZA LINGUA (18/11/2026):
+        // `https://<sito>/en/evento` → `/evento`; la lingua la mette il sito,
+        // quella della pagina. Lo fa anche l'API: qui si vede subito.
+        const HOST_SITO = [location.host, (() => { try { return new URL(String(import.meta.env.PUBLIC_SITE_URL ?? "")).host; } catch { return ""; } })()];
+        const nudoLink = (v: string): string => linkDelSito(v.trim(), HOST_SITO, PUB.langs, PUB.def);
+        const getBtnU = (cls: string): string => nudoLink(fPanels.querySelector<HTMLInputElement>("." + cls)?.value ?? "");
+        /** Sotto il campo: dove portera' il bottone in ogni lingua del sito. */
+        function anteprimaLink(cls: string) {
+          const v = nudoLink(fPanels.querySelector<HTMLInputElement>("." + cls)?.value ?? "");
+          const interno = v.startsWith("/") && !v.startsWith("//");
+          fPanels.querySelectorAll<HTMLElement>(`.lk-lingue[data-for="${cls}"]`).forEach((box) => {
+            box.hidden = !interno;
+            box.innerHTML = interno
+              ? ordineLang().map((l) => `<div><b>${esc(l.toUpperCase())}</b><code>${esc(localizzaLink(v, l, PUB.def))}</code></div>`).join("") +
+                `<p class="lk-aviso">${esc(tr("mk.linkLangHint"))}</p>`
+              : "";
+          });
+        }
         const fPanels = document.getElementById("f-panels") as HTMLDivElement;
         const fPages = document.getElementById("f-pages") as HTMLDivElement;
         const fKind = document.getElementById("f-kind") as HTMLDivElement;
@@ -1100,12 +1138,14 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
                   `<input type="text" class="f-input f-b1u" data-lang="${esc(l)}" placeholder="${esc(tr("mk.btnLinkPh"))}" />` +
                   `<button class="btn asset-pop" type="button" data-cls="f-b1u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
                 `</div>` +
+                `<div class="lk-lingue" data-for="f-b1u" hidden></div>` +
                 `<label class="f-lab">${esc(tr("mk.btn2Opt"))} (${T})</label>` +
                 `<input type="text" class="f-input f-b2lx" data-lang="${esc(l)}" placeholder="${esc(tr("mk.labelPh"))}" />` +
                 `<div class="f-row f-row-btnu">` +
                   `<input type="text" class="f-input f-b2u" data-lang="${esc(l)}" placeholder="${esc(tr("mk.linkPh"))}" />` +
                   `<button class="btn asset-pop" type="button" data-cls="f-b2u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
                 `</div>` +
+                `<div class="lk-lingue" data-for="f-b2u" hidden></div>` +
                 `</div>`;
             })
             .join("");
@@ -1610,12 +1650,20 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           if (el.classList.contains("f-b1u")) setBtnU("f-b1u", (el as HTMLInputElement).value);
           else if (el.classList.contains("f-b2u")) setBtnU("f-b2u", (el as HTMLInputElement).value);
         });
+        // Uscendo dal campo, un link del sito incollato intero diventa il suo
+        // percorso: si vede quello che verra' salvato.
+        fPanels.addEventListener("change", (e) => {
+          const el = e.target as HTMLInputElement;
+          for (const cls of ["f-b1u", "f-b2u"]) if (el.classList.contains(cls)) setBtnU(cls, nudoLink(el.value));
+        });
         fPanels.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".asset-pop") as HTMLButtonElement | null;
           if (!b) return;
           const row = b.closest(".f-row");
           pickTarget = row?.querySelector<HTMLInputElement>("input.f-input") ?? null;
-          window.dispatchEvent(new CustomEvent("imgpick:open", { detail: { mode: "link" } }));
+          // `reserver`: la libreria propone anche «Ouvrir la réservation»
+          // (#reserver), che vale solo per i bottoni del pop-up.
+          window.dispatchEvent(new CustomEvent("imgpick:open", { detail: { mode: "link", reserver: true } }));
         });
 
         // Test: una sola email al proprio indirizzo

@@ -8,7 +8,7 @@ import { popupPerPagina } from "../lib/popups";
 import { SITE_PAGES } from "../config/sitePages";
 import Immagine from "./Immagine.astro";
 import { languages, defaultLang, useTranslations, type Lang } from "../i18n/ui";
-import { linguaEPercorso, localizzaLink } from "../lib/linguaUrl";
+import { linguaEPercorso, localizzaLink, linkDelSito } from "../lib/linguaUrl";
 
 // ⚠️ La lingua di base e le lingue del sito le dice `i18n/ui.ts` (file del
 // cliente): nessun prefisso di lingua scritto qui. Con il francese dato per
@@ -27,7 +27,13 @@ const pop = slug ? await popupPerPagina(slug, lingua) : null;
 
 // Link interni nella lingua della pagina (prefisso solo se la pagina
 // non e' nella lingua di base). La regola sta in `lib/linguaUrl`.
-const localizza = (url: string): string => localizzaLink(url, lingua, defaultLang);
+// ⚠️ PRIMA si riduce a percorso un link del sito incollato intero, o
+// copiato da una pagina in un'altra lingua (`linkDelSito`, 18/11/2026):
+// senza, `https://<sito>/evento` sulla pagina italiana portava al francese.
+// Vale anche per i pop-up salvati prima che il pannello li ripulisse.
+const hostSito = [Astro.url.host, Astro.site?.host, (() => { try { return new URL(String(import.meta.env.PUBLIC_SITE_URL ?? "")).host; } catch { return ""; } })()];
+const localizza = (url: string): string =>
+  localizzaLink(linkDelSito(url, hostSito, Object.keys(languages), defaultLang), lingua, defaultLang);
 const btn1 = pop?.btn1_label && pop?.btn1_url ? { label: pop.btn1_label, url: localizza(pop.btn1_url) } : null;
 const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: localizza(pop.btn2_url) } : null;
 ---

@@ -56,7 +56,7 @@ test("SitePopup e /api/popup leggono le lingue da i18n/ui, nessuna scritta a man
   const C = readFileSync("src/components/SitePopup.astro", "utf8");
   const fm = C.slice(0, C.indexOf("---", 3));
   assert.match(fm, /linguaEPercorso\(Astro\.url\.pathname, Object\.keys\(languages\), defaultLang\)/);
-  assert.match(fm, /localizzaLink\(url, lingua, defaultLang\)/);
+  assert.match(fm, /localizzaLink\(linkDelSito\(url, hostSito, Object\.keys\(languages\), defaultLang\), lingua, defaultLang\)/);
   assert.doesNotMatch(fm, /["'`]\/(en|it|fr)\b/, "una lingua scritta a mano nel pop-up");
   assert.doesNotMatch(fm, /lingua !== "fr"/);
   const A = readFileSync("src/pages/api/popup.ts", "utf8");
@@ -75,4 +75,25 @@ test("il bottone di chiusura parla la lingua della pagina", () => {
     const d = JSON.parse(readFileSync(`src/i18n/${f}`, "utf8"));
     assert.ok(String(d["common.close"] ?? "").trim(), `common.close manca in ${f}`);
   }
+});
+
+test("un link del sito incollato intero diventa il suo percorso in lingua di base (18/11/2026)", async () => {
+  const { linkDelSito } = await import("../src/lib/linguaUrl.ts");
+  const L = ["fr", "en", "it"], H = ["nuovo.restohub.cloud", "mare-monti.be"];
+  const ev = "/groupes-evenements/soiree-truffe-blanche-d-alba";
+  assert.equal(linkDelSito("https://nuovo.restohub.cloud" + ev, H, L, "fr"), ev);
+  assert.equal(linkDelSito("https://www.mare-monti.be/en" + ev, H, L, "fr"), ev);
+  assert.equal(linkDelSito("https://mare-monti.be/it" + ev + "?a=1#b", H, L, "fr"), ev + "?a=1#b");
+  assert.equal(linkDelSito("https://mare-monti.be/en", H, L, "fr"), "/");
+  assert.equal(linkDelSito("/en/order", H, L, "fr"), "/order");
+  assert.equal(linkDelSito("/entree", H, L, "fr"), "/entree");
+  // Un sito con l'inglese alla radice: /fr si toglie, /en no (non e' un prefisso).
+  assert.equal(linkDelSito("/fr/menu", H, ["en", "fr"], "en"), "/menu");
+  assert.equal(linkDelSito("/en/menu", H, ["en", "fr"], "en"), "/en/menu");
+  // Destinazioni che non sono pagine del sito: identiche.
+  for (const x of ["https://instagram.com/maremonti", "#reserver", "mailto:info@mare-monti.be", "tel:+3227726733", "//cdn.x/y.pdf", ""]) {
+    assert.equal(linkDelSito(x, H, L, "fr"), x);
+  }
+  // E poi nella lingua della pagina, come prima.
+  assert.equal(localizzaLink(linkDelSito("https://nuovo.restohub.cloud/en" + ev, H, L, "fr"), "it", "fr"), "/it" + ev);
 });
