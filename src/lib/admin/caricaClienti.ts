@@ -1,3 +1,4 @@
+import { aPagine } from "../aPagine";
 import { supabaseAdmin } from "../db";
 import { leggi, tutteLeSedi, type Ambito } from "./sede";
 import {
@@ -95,8 +96,10 @@ export async function caricaClienti(): Promise<{ count: number; clients: Cliente
   // allineata a mano da un commento.
   let optout: string[] = [];
   try {
-    const { data } = await supabaseAdmin.from("newsletter_optout").select("email");
-    optout = (data ?? []).map((r) => String(r.email ?? ""));
+    // A pagine: oltre i 1000 disiscritti PostgREST taglierebbe in silenzio.
+    const { data } = await aPagine<{ email: string | null }>((da, a) =>
+      supabaseAdmin.from("newsletter_optout").select("email").order("email").range(da, a));
+    optout = data.map((r) => String(r.email ?? ""));
   } catch { /* tabella assente: tutti opt-in */ }
 
   const clienti = uniscoClienti({ ordini, rese, manuali, optout });

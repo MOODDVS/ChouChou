@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { leggi, tutteLeSedi, type Ambito } from "./admin/sede";
 import { resendCliente, mittenteResend } from "./emailResend";
 import { supabaseAdmin } from "./db";
+import { aPagine } from "./aPagine";
 import { datiRistorante, type DatiRistorante } from "./ristorante";
 import { SEDE_UNICA } from "./admin/sede";
 import { appConfigIn } from "./appConfigCache";
@@ -166,8 +167,19 @@ async function rubrica(ambito: Ambito): Promise<{ profili: Map<string, Profilo>;
     if (!data || data.length < PAGINA) break;
   }
 
-  const { data: manuali } = await supabaseAdmin.from("clients").select("email, hidden, created_at");
-  for (const r of manuali ?? []) {
+  /* ⚠️ A PAGINE (18/11/2026, Mare e Monti): PostgREST rende al massimo 1000
+     righe e tace sul resto. Dopo l'import di 3.490 ospiti Zenchef la pagina
+     Clienti ne contava 3.017 opted-in (lei legge a pagine) e la newsletter
+     529 — solo i manuali delle prime mille righe. */
+  type RigaManuale = { email: string | null; hidden: boolean | null; created_at: string | null; lang?: string | null };
+  let { data: manuali, error: errManuali } = await aPagine<RigaManuale>((da, a) =>
+    supabaseAdmin.from("clients").select("email, hidden, created_at, lang").order("id").range(da, a));
+  // Migrazione #54 (`lang`) non lanciata: si rilegge senza
+  if (errManuali) {
+    ({ data: manuali } = await aPagine<RigaManuale>((da, a) =>
+      supabaseAdmin.from("clients").select("email, hidden, created_at").order("id").range(da, a)));
+  }
+  for (const r of manuali) {
     const e = (r.email ?? "").trim().toLowerCase();
     if (!e) continue;
     if (r.hidden) {
@@ -176,10 +188,16 @@ async function rubrica(ambito: Ambito): Promise<{ profili: Map<string, Profilo>;
     }
     const p = prendi(e);
     if (r.created_at && (!p.first || r.created_at < p.first)) p.first = r.created_at;
+    /* La lingua scritta sulla scheda e' il dato CURATO (modale admin, import):
+       prevale su quella delle prenotazioni — come nella pagina Clienti. Senza,
+       chi non ha mai prenotato dal sito finiva fra i francofoni. */
+    const l = (r.lang ?? "").trim().toLowerCase();
+    if (l) p.lang = l;
   }
   for (const e of nascosti) profili.delete(e);
 
-  const { data: optout } = await supabaseAdmin.from("newsletter_optout").select("email");
+  const { data: optout } = await aPagine<{ email: string | null }>((da, a) =>
+    supabaseAdmin.from("newsletter_optout").select("email").order("email").range(da, a));
   let esclusi = 0; // contatti della rubrica che si sono disiscritti
   for (const r of optout ?? []) {
     if (profili.delete((r.email ?? "").toLowerCase())) esclusi++;
