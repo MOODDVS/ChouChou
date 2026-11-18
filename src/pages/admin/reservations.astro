@@ -552,8 +552,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
          di appoggiarsi al bordo alto, dove i testi non si allineavano. */
       .dt-headline { --dt-riga: 1.7rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.55rem 1rem; flex-wrap: wrap; margin: 0; }
       #dt-tstatus { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; flex: 0 0 auto; min-height: var(--dt-riga); }
-      .dt-src { display: inline-flex; align-items: center; color: #fff; }
-      .dt-src svg { width: 18px; height: 18px; display: block; color: #fff; }
+      .dt-src { display: inline-flex; align-items: center; color: var(--c-text); }
+      .dt-src svg { width: 18px; height: 18px; display: block; color: currentColor; }
       #dt-title { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
       .dt-new {
         display: inline-block; background: var(--c-accent); color: var(--c-bg); font-family: var(--font-body);
@@ -801,7 +801,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .nm-stabs .nm-pill { display: inline-flex; align-items: center; justify-content: center; }
       /* Orario complet: sbarrato ma cliccabile (bypass del ristoratore) */
-      .nm-slot-full { position: relative; color: rgba(255, 255, 255, 0.22); }
+      .nm-slot-full { position: relative; color: color-mix(in srgb, var(--c-text) 25%, transparent); }
       .nm-slot-full::after {
         content: "✕"; position: absolute; inset: 0; display: flex; align-items: center;
         justify-content: center; color: var(--c-muted); font-size: 0.85rem; pointer-events: none;

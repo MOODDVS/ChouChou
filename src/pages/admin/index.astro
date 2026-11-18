@@ -252,8 +252,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         stroke-linecap: round; stroke-linejoin: round; display: block; }
       /* Si accende tutto insieme — testo, cerchio e freccia — perche' e' un
          bersaglio solo: illuminare mezzo link insegna a mirare male. */
-      .j-link:hover { color: #fff; }
-      .j-link:hover .j-arr { border-color: #fff; transform: translateX(2px); }
+      .j-link:hover { color: var(--c-text); }
+      .j-link:hover .j-arr { border-color: var(--c-text); transform: translateX(2px); }
       /* ⚠️ Il marchio VERO, da `public/restohub/`: la «G» disegnata a mano in
          un quadratino bianco era un segnaposto, e un logo ridisegnato non e'
          quel logo. Niente fondo: il file ha gia' il suo, e i colori reggono
