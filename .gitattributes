@@ -64,6 +64,9 @@ astro.config.mjs         merge=ours
 # motore la mappa del cliente tornava quella del template. (06/09/2026)
 src/config/siteImageSlots.ts  merge=ours
 src/config/sitePages.ts       merge=ours
+# I link in piu' del sito per la libreria del pannello (eventi, prodotti):
+# il motore lo tiene vuoto, il cliente lo riscrive (18/11/2026).
+src/config/linkSito.ts        merge=ours
 
 # --- Il DISEGNO del ticket di cucina ---
 # ⚠️ STESSO DIFETTO, UN MESE DOPO (09/10/2026). `src/config/ticket.ts` nasce

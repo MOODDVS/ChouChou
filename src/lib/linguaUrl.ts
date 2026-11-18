@@ -67,3 +67,52 @@ export function localizzaLink(url: string, lingua: string, predefinita: string):
   if (!p || url === p || url.startsWith(`${p}/`) || url.startsWith(`${p}?`) || url.startsWith(`${p}#`)) return url;
   return url === "/" ? p : `${p}${url}`;
 }
+
+/** L'host senza `www.` e senza maiuscole: `www.Mare-Monti.be` = `mare-monti.be`. */
+function hostNudo(h: string): string {
+  return String(h ?? "").trim().toLowerCase().replace(/^www\./, "");
+}
+
+/**
+ * UN LINK DEL SITO STESSO, RIDOTTO AL SUO PERCORSO IN LINGUA DI BASE
+ * (18/11/2026, Enzo: «se metto Leggi come bottone e vado sull'evento in fr,
+ * nelle altre lingue deve sapere che c'e' da mettere la lingua»).
+ *
+ * Chi crea un pop-up incolla l'indirizzo che ha nella barra del browser:
+ * `https://nuovo.restohub.cloud/groupes-evenements/…`, a volte copiato da
+ * una pagina inglese (`…/en/groupes-evenements/…`). Cosi' com'e',
+ * `localizzaLink` non lo toccava (e' «esterno»): sulla pagina italiana il
+ * bottone portava alla pagina francese, o a quella inglese.
+ *
+ * Qui: se l'host e' uno di quelli del sito (`hostSito`, senza `www.`), resta
+ * solo percorso + query + ancora; poi, se il percorso comincia con una lingua
+ * dichiarata che non e' quella di base, il prefisso si toglie. Il risultato
+ * e' quello che `localizzaLink` sa mettere nella lingua della pagina.
+ * ⚠️ Un link a un ALTRO sito, `#reserver`, `mailto:` e `tel:` escono
+ * identici: sono destinazioni, non pagine del sito.
+ */
+export function linkDelSito(
+  url: string,
+  hostSito: readonly (string | null | undefined)[],
+  lingue: readonly string[],
+  predefinita: string,
+): string {
+  const u = String(url ?? "").trim();
+  if (!u) return u;
+  let percorso = u;
+  if (/^https?:\/\//i.test(u)) {
+    let p: URL;
+    try { p = new URL(u); } catch { return u; }
+    const nostri = new Set(hostSito.filter(Boolean).map((h) => hostNudo(String(h))));
+    if (!nostri.has(hostNudo(p.host))) return u;
+    percorso = (p.pathname || "/") + p.search + p.hash;
+  } else if (!u.startsWith("/") || u.startsWith("//")) {
+    return u;
+  }
+  const m = /^\/([a-z]{2})(?=\/|$|\?|#)/i.exec(percorso);
+  if (m && m[1].toLowerCase() !== predefinita && lingue.includes(m[1].toLowerCase())) {
+    const resto = percorso.slice(m[0].length);
+    percorso = resto.startsWith("/") ? resto : "/" + resto;
+  }
+  return percorso;
+}

@@ -309,6 +309,10 @@ export const API_PAGINA: Record<string, string> = {
   "push": PAGINA_APERTA,           // notifiche del dispositivo di chi guarda
   "upload": PAGINA_APERTA,         // caricamento immagini, usato da piu' pagine
   "documents": PAGINA_APERTA,      // chiamata dalla home: chiamante non verificato
+  // La libreria in modo «link» (ImagePicker): la apre chiunque abbia un
+  // campo «lien» (pop-up, eventi, newsletter). Dentro solo indirizzi del
+  // sito pubblico, che sono pubblici per definizione.
+  "site-links": PAGINA_APERTA,
 };
 
 /**

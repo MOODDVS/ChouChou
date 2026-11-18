@@ -5,6 +5,8 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 
 import { SITE_PAGES } from "../../../config/sitePages";
+import { languages, defaultLang } from "../../../i18n/ui";
+import { linkDelSito } from "../../../lib/linguaUrl";
 export const prerender = false;
 
 
@@ -73,7 +75,16 @@ function pulisciI18n(o: unknown): Record<string, string> {
   return out;
 }
 
-function valida(b: PopupInput): { errore?: string; valori?: Record<string, unknown> } {
+/** Gli host del sito pubblico: quello da cui arriva la richiesta (il pannello
+ *  sta sullo stesso dominio del sito) e quello di `PUBLIC_SITE_URL`. */
+function hostDelSito(request: Request): string[] {
+  const h: string[] = [];
+  try { h.push(new URL(request.url).host); } catch { /* niente */ }
+  try { h.push(new URL(String(import.meta.env.PUBLIC_SITE_URL ?? "")).host); } catch { /* niente */ }
+  return h;
+}
+
+function valida(b: PopupInput, hostSito: string[] = []): { errore?: string; valori?: Record<string, unknown> } {
   // Multilingua: il pop-up appare in una lingua solo se il suo titolo per
   // quella lingua è compilato. Serve almeno una lingua col titolo.
   const title_i18n = pulisciI18n(b.title_i18n);
@@ -119,8 +130,12 @@ function valida(b: PopupInput): { errore?: string; valori?: Record<string, unkno
   }
 
   const urlOk = (u: string) => u === "" || u === "#reserver" || /^https?:\/\//.test(u) || u.startsWith("/");
-  const btn1_url = (b.btn1_url ?? "").trim();
-  const btn2_url = (b.btn2_url ?? "").trim();
+  // ⚠️ UN LINK DEL SITO SI SALVA COME PERCORSO, senza lingua (18/11/2026):
+  // `https://<sito>/en/evento` diventa `/evento`, e il pop-up sul sito ci
+  // mette la lingua della pagina (`linkDelSito`, `localizzaLink`).
+  const lingue = Object.keys(languages);
+  const btn1_url = linkDelSito((b.btn1_url ?? "").trim(), hostSito, lingue, defaultLang);
+  const btn2_url = linkDelSito((b.btn2_url ?? "").trim(), hostSito, lingue, defaultLang);
   if (!urlOk(btn1_url) || !urlOk(btn2_url)) {
     return { errore: "err.popupLinks" };
   }
@@ -181,7 +196,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: await msg("err.body") }, 400);
   }
 
-  const v = valida(body);
+  const v = valida(body, hostDelSito(request));
   if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   // Default: vale per TUTTE le sedi. Il pop-up e' comunicazione del marchio
@@ -223,7 +238,7 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ ok: true });
   }
 
-  const v = valida(body);
+  const v = valida(body, hostDelSito(request));
   if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   const campi = { ...v.valori! } as Record<string, unknown>;
