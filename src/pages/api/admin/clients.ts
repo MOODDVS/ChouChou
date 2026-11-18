@@ -1,3 +1,4 @@
+import { aPagine } from "../../../lib/aPagine";
 import type { APIRoute } from "astro";
 import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
@@ -200,8 +201,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   // punto solo.
   let optout: string[] = [];
   try {
-    const { data } = await supabaseAdmin.from("newsletter_optout").select("email");
-    optout = (data ?? []).map((r) => String(r.email ?? ""));
+    // A pagine: oltre i 1000 disiscritti PostgREST taglierebbe in silenzio.
+    const { data } = await aPagine<{ email: string | null }>((da, a) =>
+      supabaseAdmin.from("newsletter_optout").select("email").order("email").range(da, a));
+    optout = data.map((r) => String(r.email ?? ""));
   } catch { /* tabella assente: tutti opt-in */ }
 
   const clienti = uniscoClienti({ ordini, rese, manuali, optout });
