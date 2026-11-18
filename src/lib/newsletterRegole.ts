@@ -23,11 +23,30 @@
  * ------------------------------------------------------------------
  */
 
-// Una FR va al pubblico francofono (in tutti i gruppi: nouveaux/top50/…),
-// una EN al pubblico EN. fr = lingua del sito fr o SCONOSCIUTA (default del
-// sito); en = tutte le altre (en, nl, it, …).
-export type LinguaNews = "tous" | "fr" | "en";
-export const LINGUE: LinguaNews[] = ["tous", "fr", "en"];
+// ⚠️ LE LINGUE SONO QUELLE DEL SITO (18/11/2026, Mare e Monti fr/en/it).
+// Prima erano scritte qui, fr ed en: l'italiano di Mare e Monti non c'era e
+// chi parlava italiano finiva fra gli «EN». Ogni persona sta in UNA lingua:
+//  • una lingua del sito → quella;
+//  • nessuna lingua nota → la lingua predefinita del sito;
+//  • una lingua che il sito non ha (de, ja…) → l'inglese se il sito ce l'ha,
+//    se no la predefinita: meglio una mail capita a meta' che nessuna.
+export type LinguaNews = string; // "tous" o il codice di una lingua del sito
+export interface LingueSito { langs: string[]; def: string }
+/** Il comportamento di sempre: sito fr + en, francese predefinito. */
+export const SITO_FR_EN: LingueSito = { langs: ["fr", "en"], def: "fr" };
+
+/** Le pillole della lingua: «tutte» e poi le lingue del sito, nel suo ordine. */
+export function lingueNewsletter(sito: LingueSito): LinguaNews[] {
+  return ["tous", ...sito.langs];
+}
+
+/** In quale lingua del sito si scrive a questa persona. */
+export function linguaDelProfilo(lang: string, sito: LingueSito): string {
+  const l = String(lang ?? "").trim().toLowerCase().slice(0, 2);
+  if (!l) return sito.def;
+  if (sito.langs.includes(l)) return l;
+  return sito.langs.includes("en") ? "en" : sito.def;
+}
 export type GruppoNews = "tous" | "nouveaux" | "top50" | "resa" | "commande";
 export const GRUPPI: GruppoNews[] = ["tous", "nouveaux", "top50", "resa", "commande"];
 
@@ -42,7 +61,9 @@ export const TOP = 50;
 /** Segment salvato/trasmesso come "lingua:gruppo" (es. "fr:top50"). */
 export function parseSegment(s: string): { lang: LinguaNews; group: GruppoNews } {
   const [a, b] = String(s ?? "").split(":");
-  let lang: LinguaNews = (LINGUE as string[]).includes(a) ? (a as LinguaNews) : "tous";
+  // Un codice di lingua qualsiasi: se il sito non ce l'ha (piu'), il
+  // segmento risulta vuoto — un invio programmato non parte a tutti.
+  let lang: LinguaNews = /^[a-z]{2}$/.test(a ?? "") ? a : "tous";
   let group: GruppoNews = (GRUPPI as string[]).includes(b ?? "") ? (b as GruppoNews) : "tous";
   // ⚠️ Valori vecchi senza ":" (es. "top50"), salvati prima che il segmento
   // avesse una lingua. Letti come gruppo, non come lingua: altrimenti un
@@ -77,14 +98,14 @@ export function filtraRubrica(
   lang: LinguaNews,
   group: GruppoNews,
   adesso: number = Date.now(),
+  sito: LingueSito = SITO_FR_EN,
 ): string[] {
   let tutti = [...profili.entries()];
 
   // 1) LINGUA (primaria). ⚠️ Chi non ha mai detto in che lingua parla
-  // finisce fra i francofoni, perche' il francese e' la lingua del sito:
-  // meglio una mail nella lingua di casa che nessuna mail.
-  if (lang === "fr") tutti = tutti.filter(([, p]) => !p.lang || p.lang === "fr");
-  else if (lang === "en") tutti = tutti.filter(([, p]) => Boolean(p.lang) && p.lang !== "fr");
+  // finisce nella lingua predefinita del sito: meglio una mail nella lingua
+  // di casa che nessuna mail. Le regole sono in `linguaDelProfilo`.
+  if (lang !== "tous") tutti = tutti.filter(([, p]) => linguaDelProfilo(p.lang, sito) === lang);
 
   // 2) GRUPPO, dentro la lingua scelta: il top 50 e' il top 50 DI QUELLA
   // lingua, non i francofoni presi dal top 50 generale.
