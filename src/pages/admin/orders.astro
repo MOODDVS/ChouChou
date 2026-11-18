@@ -360,7 +360,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .time-tavolo .time-ico svg { width: 0.8em; height: 0.8em; }
       .total { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
       .tag { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-      .tag-done { border: 1px solid #fff; color: #fff; border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
+      .tag-done { border: 1px solid var(--c-text); color: var(--c-text); border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
       .tag-cancel { border: 1px solid #ff6b6b; color: #ff6b6b; background: transparent; border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
       /* Il nome con la sua icona, come l'email e il telefono sotto: le tre
          righe diventano una colonna sola di segni allineati. */
@@ -621,12 +621,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .tag-supppaid { background: #1f5c3a; color: #9fe6c0; }
       .pay-ico { display: inline-flex; align-items: center; justify-content: center; margin-left: 0.15rem; }
       .pay-ico svg { width: 15px; height: 15px; display: block; }
-      .pay-ico-cash { color: #e0b64a; }
-      .pay-ico-card { color: #9fb0b2; }
+      /* ⚠️ Colori che si leggono su un tema CHIARO e su uno SCURO (18/11/2026):
+         prima erano pensati per il fondo scuro — il logo Stripe era bianco e
+         su Mare e Monti (card quasi bianca) non si vedeva. */
+      .pay-ico-cash { color: #b8860b; }
+      .pay-ico-card { color: var(--c-text); }
       /* Incassato al banco ma senza metodo: le righe di prima che il bottone
          «Incassa» lo chiedesse. Spento, perche' dice meno delle altre due. */
       .pay-ico-onsite { color: var(--c-muted); }
-      .pay-ico-stripe { color: #ffffff; }
+      .pay-ico-stripe { color: #635bff; } /* il viola di Stripe */
       .pay-ico-stripe svg { width: 28px; height: auto; }
       /* ⚠️ UNA RIGA SOLA, e a cedere e' l'ETICHETTA, mai l'importo — la
          stessa regola delle righe del carrello. Prima era un testo unico:

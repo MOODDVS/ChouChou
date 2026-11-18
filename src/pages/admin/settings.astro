@@ -221,7 +221,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .sl-area-btn.attivo { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       /* Al passaggio del mouse il .btn colora il testo d'accento: sul fondo
          d'accento spariva. Qui diventa bianco. */
-      .sl-area-btn.attivo:hover:not(:disabled) { border-color: var(--c-accent); color: #fff; }
+      .sl-area-btn.attivo:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-bg); }
       /* Sala salvata: verde per un attimo, come il «Salva» della barra. */
       .sl-area-btn.salvata, .sl-area-btn.salvata:hover:not(:disabled) { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
       /* Il tavolo: il riquadro (trascinare, maniglie) e dentro LA FORMA, che
@@ -454,7 +454,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       .rw-noslot { grid-column: 1 / -1; text-align: center; color: var(--c-muted); font-size: 0.85rem; font-style: italic; margin: 0.4rem 0; }
       .rw-complet { color: var(--c-accent); font-style: normal; font-weight: 700; }
       /* Orario complet: sbarrato e non selezionabile */
-      .rw-slot-full { position: relative; color: rgba(255, 255, 255, 0.22); pointer-events: none; }
+      .rw-slot-full { position: relative; color: color-mix(in srgb, var(--c-text) 25%, transparent); pointer-events: none; }
       .rw-slot-full::after {
         content: "✕"; position: absolute; inset: 0; display: flex; align-items: center;
         justify-content: center; color: var(--c-muted); font-size: 0.85rem;
