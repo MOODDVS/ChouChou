@@ -1748,9 +1748,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         });
 
         // ---------- Segmenti destinatari + programmazione (#39) ----------
-        // La LINGUA è primaria (fr = sito FR o sconosciuta · en = tutte le
-        // altre); il gruppo vale DENTRO la lingua. segment = "lingua:gruppo".
-        const LANG_LAB: Record<string, string> = { tous: tr("mk.allLanguages"), fr: "FR", en: "EN" };
+        // La LINGUA è primaria e le lingue sono QUELLE DEL SITO: arrivano
+        // dall'API con i conteggi (chiavi di `segments`), non da qui. Il
+        // gruppo vale DENTRO la lingua. segment = "lingua:gruppo".
+        const labLingua = (k: string) => (k === "tous" ? tr("mk.allLanguages") : k.toUpperCase());
+        const lingueSeg = () => (Object.keys(segCounts).length ? Object.keys(segCounts) : ["tous"]);
         const SEG_LAB: Record<string, string> = {
           tous: tr("cli.all"), nouveaux: tr("mk.segNew"), top50: "Top 50", resa: tr("mk.segReserved"), commande: tr("mk.segOrdered"),
         };
@@ -1764,13 +1766,13 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         }
         function segPills(seg: string): string {
           const [sl, sg] = String(seg ?? "").split(":");
-          const pills: string[] = [LANG_LAB[sl] ?? tr("mk.allLanguages")];
+          const pills: string[] = [sl ? labLingua(sl) : tr("mk.allLanguages")];
           if (sg && sg !== "tous") pills.push(SEG_LAB[sg] ?? sg);
           return `<div class="nn-tags">${pills.map((t) => `<span class="nn-tag">${t}</span>`).join("")}</div>`;
         }
         function renderSeg() {
-          nLang.innerHTML = Object.keys(LANG_LAB)
-            .map((k) => `<button type="button" class="seg-pill${langScelta === k ? " is-on" : ""}" data-lang="${k}">${LANG_LAB[k]}${contaSeg(k, "tous") !== undefined ? `<span class="n">${contaSeg(k, "tous")}</span>` : ""}</button>`)
+          nLang.innerHTML = lingueSeg()
+            .map((k) => `<button type="button" class="seg-pill${langScelta === k ? " is-on" : ""}" data-lang="${k}">${labLingua(k)}${contaSeg(k, "tous") !== undefined ? `<span class="n">${contaSeg(k, "tous")}</span>` : ""}</button>`)
             .join("");
           nSeg.innerHTML = Object.keys(SEG_LAB)
             .map((k) => `<button type="button" class="seg-pill${segScelto === k ? " is-on" : ""}" data-seg="${k}">${SEG_LAB[k]}${contaSeg(langScelta, k) !== undefined ? `<span class="n">${contaSeg(langScelta, k)}</span>` : ""}</button>`)

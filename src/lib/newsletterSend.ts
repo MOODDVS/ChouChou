@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { leggi, tutteLeSedi, type Ambito } from "./admin/sede";
 import { resendCliente, mittenteResend } from "./emailResend";
 import { supabaseAdmin } from "./db";
+import { languages, defaultLang } from "../i18n/ui";
 import { aPagine } from "./aPagine";
 import { datiRistorante, type DatiRistorante } from "./ristorante";
 import { SEDE_UNICA } from "./admin/sede";
@@ -12,7 +13,7 @@ import { linksSocial, type LinkSocial } from "./links";
 // I SEGMENTI e il profilo sono regole pure: vivono in `newsletterRegole.ts`
 // e hanno i loro test. Qui resta l'invio, che un test non puo' provare.
 import {
-  filtraRubrica, parseSegment, LINGUE, GRUPPI,
+  filtraRubrica, parseSegment, lingueNewsletter, GRUPPI,
   type LinguaNews, type GruppoNews, type Profilo,
 } from "./newsletterRegole";
 // Il motivo di un rifiuto e' una regola di Resend, non della newsletter:
@@ -40,7 +41,10 @@ const SECRET = import.meta.env.SUPABASE_SERVICE_KEY ?? "lm-newsletter";
 // Resend del super admin, poi `.env`), letti al momento dell'invio.
 
 // Riesportati: /api/admin/newsletter e il cron li importano da qui da sempre.
-export { parseSegment, LINGUE, GRUPPI };
+export { parseSegment, GRUPPI };
+
+/** Le lingue del SITO di questo cliente (i18n/ui.ts, «merge=ours»). */
+const SITO_LINGUE = { langs: Object.keys(languages), def: defaultLang as string };
 export type { LinguaNews, GruppoNews };
 
 export async function resendPronto(): Promise<boolean> {
@@ -208,16 +212,17 @@ async function rubrica(ambito: Ambito): Promise<{ profili: Map<string, Profilo>;
 
 export async function destinatariSegmento(lang: LinguaNews, group: GruppoNews): Promise<{ lista: string[]; esclusi: number }> {
   const { profili, esclusi } = await rubrica(tutteLeSedi());
-  return { lista: filtraRubrica(profili, lang, group), esclusi };
+  return { lista: filtraRubrica(profili, lang, group, Date.now(), SITO_LINGUE), esclusi };
 }
 
 /** Conteggi per OGNI combinazione lingua×gruppo (pillole del modale) + opted-out. */
 export async function contatoriSegmenti(): Promise<{ counts: Record<string, Record<string, number>>; esclusi: number }> {
   const { profili, esclusi } = await rubrica(tutteLeSedi());
   const counts: Record<string, Record<string, number>> = {};
-  for (const l of LINGUE) {
+  const adesso = Date.now();
+  for (const l of lingueNewsletter(SITO_LINGUE)) {
     counts[l] = {};
-    for (const g of GRUPPI) counts[l][g] = filtraRubrica(profili, l, g).length;
+    for (const g of GRUPPI) counts[l][g] = filtraRubrica(profili, l, g, adesso, SITO_LINGUE).length;
   }
   return { counts, esclusi };
 }
@@ -257,11 +262,27 @@ function taggaNewsletter(url: string): string {
   }
 }
 
+/* Il piede della newsletter nella lingua del segmento (18/11/2026): una
+   newsletter ai clienti italiani finiva con «Vous recevez cet email…».
+   «tous» e le lingue senza traduzione → la lingua predefinita del sito. */
+const PIEDE: Record<string, { perche: (n: string) => string; via: string; html: string }> = {
+  fr: { perche: (n) => `Vous recevez cet email car vous \u00eates client de ${n}.`, via: "Se d\u00e9sinscrire", html: "fr" },
+  en: { perche: (n) => `You are receiving this email because you are a customer of ${n}.`, via: "Unsubscribe", html: "en" },
+  it: { perche: (n) => `Ricevi questa email perch\u00e9 sei cliente di ${n}.`, via: "Disiscriviti", html: "it" },
+  nl: { perche: (n) => `U ontvangt deze e-mail omdat u klant bent van ${n}.`, via: "Uitschrijven", html: "nl" },
+  es: { perche: (n) => `Recibes este correo porque eres cliente de ${n}.`, via: "Darse de baja", html: "es" },
+};
+function piedeNews(lang: string | undefined) {
+  return PIEDE[lang && lang !== "tous" ? lang : defaultLang] ?? PIEDE[defaultLang] ?? PIEDE.fr;
+}
+
 export function htmlNewsletter(
   dati: DatiRistorante,
   input: ContenutoNews & { email: string; logoUrl?: string; social?: LinkSocial[] },
-  tema: TemaEmail
+  tema: TemaEmail,
+  lang?: LinguaNews,
 ): string {
+  const piede = piedeNews(lang);
   const logo = input.logoUrl || `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
   const unsub = linkDisiscrizione(input.email);
   const img = input.image_url
@@ -280,7 +301,7 @@ export function htmlNewsletter(
     : "";
 
   return `<!doctype html>
-<html lang="fr">
+<html lang="${piede.html}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -319,8 +340,8 @@ export function htmlNewsletter(
         <td style="padding:0 40px 28px;border-top:1px solid ${tema.border};">
           <p style="margin:20px 0 0;color:${tema.muted};font-size:12px;line-height:1.8;text-align:center;">
             ${esc(dati.indirizzo)}<br>${esc(dati.tel)} \u00b7 ${esc(dati.email)}<br>
-            Vous recevez cet email car vous \u00eates client de ${esc(dati.nome)}.
-            <a href="${unsub}" style="color:${tema.muted};">Se d\u00e9sinscrire</a>
+            ${piede.perche(esc(dati.nome))}
+            <a href="${unsub}" style="color:${tema.muted};">${piede.via}</a>
           </p>
         </td>
       </tr>
@@ -429,7 +450,7 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
         from: mittente,
         to: email,
         subject: contenuto.subject,
-        html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }, tema),
+        html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }, tema, lang),
         headers: intestazioniDisiscrizione(email),
       }));
       const esito = await resend.batch.send(lotto);

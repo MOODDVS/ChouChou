@@ -23,7 +23,7 @@ import { DateTime } from "luxon";
 import { calcolaScontoCoupon, normalizzaCodice, couponValePer } from "../src/lib/coupons.ts";
 import { scegliPopup, popupInOrario, titoloPopup } from "../src/lib/popupRegole.ts";
 import {
-  filtraRubrica, parseSegment, GIORNI_NUOVO, TOP,
+  filtraRubrica, parseSegment, GIORNI_NUOVO, TOP, lingueNewsletter, linguaDelProfilo,
 } from "../src/lib/newsletterRegole.ts";
 import { CLASSIFICA, filtroPer, sede, SEDE_UNICA } from "../src/lib/admin/sedeRegole.ts";
 
@@ -380,6 +380,43 @@ test("«en» vuol dire tutte le lingue che non sono il francese", () => {
     "muto@x.be": profilo(),
   });
   assert.deepEqual(filtraRubrica(r, "en", "tous", ORA).sort(), ["it@x.be", "nl@x.be"]);
+});
+
+test("le lingue della newsletter sono QUELLE DEL SITO (Mare e Monti fr/en/it)", () => {
+  // 18/11/2026: le pillole erano fr ed en scritte a mano, e su Mare e Monti
+  // l'italiano non c'era — gli italiani finivano fra gli «EN».
+  const sito = { langs: ["fr", "en", "it"], def: "fr" };
+  assert.deepEqual(lingueNewsletter(sito), ["tous", "fr", "en", "it"]);
+  const r = rubrica({
+    "it@x.be": profilo({ lang: "it" }),
+    "en@x.be": profilo({ lang: "en" }),
+    "de@x.be": profilo({ lang: "de" }),
+    "muto@x.be": profilo(),
+  });
+  assert.deepEqual(filtraRubrica(r, "it", "tous", ORA, sito), ["it@x.be"]);
+  // una lingua che il sito non ha va all'inglese; chi non l'ha detta, alla predefinita
+  assert.deepEqual(filtraRubrica(r, "en", "tous", ORA, sito).sort(), ["de@x.be", "en@x.be"]);
+  assert.deepEqual(filtraRubrica(r, "fr", "tous", ORA, sito), ["muto@x.be"]);
+});
+
+test("ogni persona sta in UNA lingua sola: la somma delle lingue e' «tutte»", () => {
+  const sito = { langs: ["fr", "en", "it"], def: "fr" };
+  const r = rubrica({ a: profilo({ lang: "it" }), b: profilo({ lang: "ja" }), c: profilo(), d: profilo({ lang: "FR" }) });
+  const somma = sito.langs.reduce((n, l) => n + filtraRubrica(r, l, "tous", ORA, sito).length, 0);
+  assert.equal(somma, filtraRubrica(r, "tous", "tous", ORA, sito).length);
+});
+
+test("sito senza inglese: le lingue sconosciute vanno alla predefinita", () => {
+  const sito = { langs: ["nl", "fr"], def: "nl" };
+  assert.equal(linguaDelProfilo("de", sito), "nl");
+  assert.equal(linguaDelProfilo("", sito), "nl");
+  assert.equal(linguaDelProfilo("fr", sito), "fr");
+});
+
+test("un segmento di una lingua che il sito non ha non parte a tutti", () => {
+  assert.deepEqual(parseSegment("it:tous"), { lang: "it", group: "tous" });
+  const r = rubrica({ "x@x.be": profilo({ lang: "fr" }) });
+  assert.deepEqual(filtraRubrica(r, "es", "tous", ORA, { langs: ["fr", "en"], def: "fr" }), []);
 });
 
 test("il top 50 e' il top 50 DI QUELLA lingua", () => {
