@@ -108,7 +108,7 @@ test("email, Slack, conferma e lista leggono la consegna", () => {
   assert.equal((n.match(/subject: \(num, ora\) => `/g) ?? []).length, 10, "5 lingue cliente + 5 cucina");
   const co = nudo("src/lib/confermaOrdine.ts");
   assert.match(co, /consegnaDellOrdine\(String\(ordine\.id\), ordine\.location_id \?\? null\)/);
-  assert.match(nudo("src/pages/api/admin/orders.ts"), /EXTRA_84 = ", delivery_address"/);
+  assert.match(nudo("src/lib/admin/ordiniAdmin.ts"), /EXTRA_84 = ", delivery_address"/);
   assert.match(nudo("src/pages/api/print/[token].ts"), /service, table_label, delivery_address/);
 });
 

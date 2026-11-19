@@ -80,8 +80,9 @@ test("l'ordine da incassare si riconosce dalla riga, non dalla configurazione", 
   // accesi tutti e due, e allora avrebbe insieme ordini da incassare e
   // carrelli abbandonati. Li distingue `payment_method`, che sta sulla riga.
   assert.match(leggi("src/pages/api/checkout.ts"), /payment_method: "onsite"/);
-  assert.match(leggi("src/pages/api/admin/orders.ts"), /eq\("payment_method", "onsite"\)/);
-  assert.match(leggi("src/pages/admin/orders.astro"), /payment_method\.eq\.onsite/);
+  assert.match(leggi("src/lib/admin/ordiniAdmin.ts"), /eq\("payment_method", "onsite"\)/);
+  // Il primo disegno della pagina passa dalla stessa lib (20/11/2026).
+  assert.match(leggi("src/pages/admin/orders.astro"), /await elencoOrdiniAdmin\(/);
 });
 
 test("chi ordina senza pagare viene annunciato lo stesso", () => {
@@ -790,7 +791,7 @@ test("«Pronto» e «Incassato» sono due gesti, su due righe, per ogni ordine (
     "incassare un ordine gia' pronto lo chiude sul server: la copia locale deve dire lo stesso");
   // Il server: la colonna, il ripiego e l'avviso una volta sola.
   assert.match(leggi("supabase/089_orders_ready.sql"), /add column if not exists ready_at timestamptz/);
-  assert.match(api, /const EXTRA_89 = ", ready_at";/);
+  assert.match(leggi("src/lib/admin/ordiniAdmin.ts"), /const EXTRA_89 = ", ready_at";/);
   assert.match(api, /if \(status === "paid" && daIncassare && giaPronto\) status = "done";/);
   assert.match(api, /status === "done" && prima && prima\.status !== "done" && !giaPronto/,
     "l'incasso che chiude un ordine gia' pronto richiamerebbe il cliente una seconda volta");
