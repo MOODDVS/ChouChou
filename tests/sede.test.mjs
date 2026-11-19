@@ -1007,6 +1007,8 @@ test("un ordine non si crea nell'aggregato, e nasce sempre con la sua sede", () 
 
    Devono essere pochi, dichiarati, e con il perche' scritto accanto. */
 const AMMESSI_AGGREGATO = {
+    "src/lib/statoRestohub.ts":
+      "la scheda del cliente in admin.restohub.cloud conta ordini e prenotazioni dell'INSTALLAZIONE intera: e' un riassunto per MOODD, non una schermata di una sede",
     "src/lib/admin/supabaseStato.ts":
       "Intégrations → Supabase chiede se il DATABASE ha le tabelle del motore: e' una domanda sul progetto, non su un punto",
     "src/pages/api/stripe-webhook.ts":

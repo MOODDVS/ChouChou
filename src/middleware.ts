@@ -5,6 +5,8 @@ import { contestoDaToken } from "./lib/admin/permessi";
 import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi, arrivoDi } from "./lib/admin/permessiRegole";
 import { adminLangSubito } from "./lib/admin/adminLang";
 import { adminT } from "./i18n/admin";
+import { segretoUguale } from "./lib/cronAuth";
+import { segnaGiro } from "./lib/giriCron";
 
 /**
  * Host canonico: forza il www.
@@ -264,4 +266,25 @@ const authGuardAdmin = defineMiddleware(async (context, next) => {
   return next();
 });
 
-export const onRequest = sequence(securityHeaders, authGuardAdmin, rateLimit, metodoOverride, redirectWww);
+/**
+ * IL REGISTRO DEI JOB (#99, 19/11/2026). Dopo ogni `/api/cron/*` chiamato con
+ * la chiave giusta si scrive in `restohub_giri` quando e' passato, con che
+ * risposta e in quanto tempo: e' quello che la scheda del cliente in
+ * admin.restohub.cloud mostra. Qui e non nei cinque file, cosi' un job nuovo
+ * e' registrato senza ricordarselo.
+ *
+ * ⚠️ Solo con la chiave giusta: senza, chiunque riempirebbe il registro di
+ * 401. La scrittura non si aspetta e non puo' rompere la risposta del job.
+ */
+const registroCron = defineMiddleware(async (context, next) => {
+  const { pathname } = new URL(context.request.url);
+  if (!pathname.startsWith("/api/cron/")) return next();
+  const segreto = process.env.CRON_SECRET ?? import.meta.env.CRON_SECRET ?? "";
+  if (!segretoUguale(context.request.headers.get("x-cron-key") ?? "", segreto)) return next();
+  const inizio = Date.now();
+  const res = await next();
+  void segnaGiro(pathname, res.status, Date.now() - inizio);
+  return res;
+});
+
+export const onRequest = sequence(securityHeaders, authGuardAdmin, rateLimit, metodoOverride, redirectWww, registroCron);

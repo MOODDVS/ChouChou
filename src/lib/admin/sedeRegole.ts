@@ -44,6 +44,7 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   brand_secrets: "marchio", // i segreti del marchio, cifrati (#95): la chiave Resend
   email_counter: "marchio", // il conteggio mensile delle email (#95)
   restohub_migrazioni: "marchio", // il registro delle migrazioni: e' del DATABASE, non di un punto (Intégrations → Supabase)
+  restohub_giri: "marchio", // l'ultimo giro di ogni job /api/cron/* (#99): e' dell'installazione, i cron passano su tutte le sedi
   settings: "marchio",          // orari del marchio; la sede sovrascrive in location_settings
   clients: "marchio",           // il cliente e' del marchio, `blocked` compreso
   menu_categories: "marchio",

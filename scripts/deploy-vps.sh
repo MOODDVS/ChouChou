@@ -28,7 +28,7 @@ CHIAVE="$HOME/.ssh/moodd_vps"
 SERVER="enzo@153.92.222.33"
 ESCLUSI=(--exclude node_modules --exclude build --exclude .git --exclude .astro --exclude .env --exclude ecosystem.config.cjs)
 
-# nome | cartella sul Mac | cartella sul server | processo pm2 | porta | indirizzo atteso
+# nome | cartella sul Mac | cartella sul server | processo pm2 | porta | indirizzo atteso [| pagina del controllo finale, se non e' «/»]
 APPS=(
   "restohub|$HOME/Developer/RestoHub|/home/enzo/app-restohub|restohub-app|4321|https://app.restohub.cloud"
   "villa77|$HOME/Developer/Villa77|/home/enzo/app-villa77|villa77|4322|https://villa77.be"
@@ -39,6 +39,13 @@ APPS=(
   # Mare e Monti: in prova su nuovo.restohub.cloud dal 12/11/2026, sul dominio
   # vero dal 18/11/2026 (cambiato qui E nel .env del server).
   "maremonti|$HOME/Developer/MareMonti|/home/enzo/app-maremonti|maremonti|4324|https://mare-monti.be"
+  # Educazione Napoletana: dalla Web App Hostinger (504 la mattina) al VPS il
+  # 19/11/2026. Il sito vive su www (middleware: il nudo fa 301 verso www).
+  "educazione|$HOME/Developer/EducazioneNapoletana|/home/enzo/app-educazione|educazione|4325|https://www.educazionenapoletana.be"
+  # admin.restohub.cloud (19/11/2026): la cabina di regia, repo RestoHubAdmin.
+  # Non e' un cliente del motore: qui c'e' solo per il deploy.
+  # Il controllo finale va su /login: la home senza accesso risponde 302.
+  "admin|$HOME/Developer/RestoHubAdmin|/home/enzo/app-admin|restohub-admin|4330|https://admin.restohub.cloud|/login"
 )
 
 scelta="${1:-tutti}"
@@ -46,7 +53,8 @@ ok=()
 ko=()
 
 for riga in "${APPS[@]}"; do
-  IFS="|" read -r nome locale remoto pm2nome porta url <<<"$riga"
+  IFS="|" read -r nome locale remoto pm2nome porta url controllo <<<"$riga"
+  controllo="${controllo:-/}"
   [[ "$scelta" != "tutti" && "$scelta" != "$nome" ]] && continue
 
   echo "══════════════════════════════════════════════════════"
@@ -74,9 +82,9 @@ for riga in "${APPS[@]}"; do
 
   # 3 e 4. Sul server: indirizzo, build, riavvio, prova sulla porta.
   echo "   • build sul server (un minuto circa)…"
-  ssh -i "$CHIAVE" "$SERVER" bash -s -- "$remoto" "$pm2nome" "$porta" "$url" <<'REMOTO'
+  ssh -i "$CHIAVE" "$SERVER" bash -s -- "$remoto" "$pm2nome" "$porta" "$url" "$controllo" <<'REMOTO'
 set -uo pipefail
-remoto="$1"; pm2nome="$2"; porta="$3"; url="$4"
+remoto="$1"; pm2nome="$2"; porta="$3"; url="$4"; controllo="${5:-/}"
 attuale=$(grep '^PUBLIC_SITE_URL=' "$remoto/.env" | cut -d= -f2-)
 if [[ "$attuale" != "$url" ]]; then
   echo "   ✗ PUBLIC_SITE_URL nel .env del server e' «$attuale», atteso «$url»: niente build."
@@ -85,15 +93,20 @@ fi
 cd "$remoto" || exit 1
 if ! npm ci --silent >/tmp/deploy-npm.log 2>&1; then echo "   ✗ npm ci fallito:"; tail -20 /tmp/deploy-npm.log; exit 1; fi
 if ! npm run build >/tmp/deploy-build.log 2>&1; then echo "   ✗ build fallita:"; tail -30 /tmp/deploy-build.log; exit 1; fi
-pm2 restart "$pm2nome" >/dev/null || { echo "   ✗ pm2 restart fallito"; exit 1; }
+# Il primo deploy di un cliente nuovo: il processo non c'e' ancora, si accende
+# da ecosystem.config.cjs (che sta gia' sul server) e si salva per il riavvio.
+if ! pm2 restart "$pm2nome" >/dev/null 2>&1; then
+  pm2 start ecosystem.config.cjs >/dev/null && pm2 save >/dev/null || { echo "   ✗ pm2: ne' restart ne' start"; exit 1; }
+  echo "   • pm2: processo «$pm2nome» acceso per la prima volta e salvato"
+fi
 # L'app ci mette qualche secondo a ripartire: si riprova fino a 20 secondi.
 risposta=""
 for i in 1 2 3 4 5 6 7 8 9 10; do
   sleep 2
-  risposta=$(curl -sI "http://127.0.0.1:$porta" | head -1)
+  risposta=$(curl -sI "http://127.0.0.1:$porta$controllo" | head -1)
   [[ "$risposta" == *" 200"* ]] && break
 done
-echo "   • curl :$porta → $risposta"
+echo "   • curl :$porta$controllo → $risposta"
 [[ "$risposta" == *" 200"* ]] || exit 1
 REMOTO
   if [[ $? -eq 0 ]]; then
