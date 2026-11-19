@@ -282,6 +282,8 @@ test("la rotta non chiede «c'e' posto?» a chi e' gia' seduto", () => {
 
 const CK = nudo("src/pages/api/checkout.ts");
 const ORDINI_API = nudo("src/pages/api/admin/orders.ts");
+// La query della lista sta in una lib (20/11/2026): la usano l'API e il primo disegno della pagina.
+const ORDINI_LISTA = nudo("src/lib/admin/ordiniAdmin.ts");
 
 test("al tavolo `pickup_time` e' l'ora d'arrivo, MAI null", () => {
   /* ⚠️ Lasciarla vuota sembra piu' pulito — al tavolo non si ritira niente —
@@ -432,10 +434,10 @@ test("l'API porta le colonne del tavolo, e il ripiego non costa altro", () => {
      ha la #50 ma non la #82 ricadrebbe sui soli campi base e perderebbe
      `payment_method` — cioe' gli ordini da incassare tornerebbero a sembrare
      carrelli abbandonati e sparirebbero dalla lista. */
-  assert.match(ORDINI_API, /const EXTRA_82 = ", service, table_label, reservation_id";/);
-  assert.match(ORDINI_API, /leggiOrdini\(CAMPI_BASE \+ EXTRA_50 \+ EXTRA_82\)/);
-  assert.match(ORDINI_API, /if \(princ\.error\) \[princ, pend, cassa\] = await leggiOrdini\(CAMPI_BASE \+ EXTRA_50\);/);
-  assert.match(ORDINI_API, /if \(princ\.error\) \[princ, pend, cassa\] = await leggiOrdini\(CAMPI_BASE\);/);
+  assert.match(ORDINI_LISTA, /const EXTRA_82 = ", service, table_label, reservation_id";/);
+  assert.match(ORDINI_LISTA, /leggiOrdini\(CAMPI_BASE \+ EXTRA_50 \+ EXTRA_82\)/);
+  assert.match(ORDINI_LISTA, /if \(princ\.error\) \[princ, pend, cassa\] = await leggiOrdini\(CAMPI_BASE \+ EXTRA_50\);/);
+  assert.match(ORDINI_LISTA, /if \(princ\.error\) \[princ, pend, cassa\] = await leggiOrdini\(CAMPI_BASE\);/);
 });
 
 test("le due parole nuove esistono in tutte e cinque le lingue", () => {
@@ -988,7 +990,7 @@ test("il nastro: sala in corallo col tavolo, ritiro discreto, deciso da alTavolo
   // Il nastro porta la stessa maschera a denti della card: senza, coprirebbe i denti.
   assert.match(ORD, /\.card-nastro \{[\s\S]*?mask: radial-gradient\(var\(--tk-r\) at 50% 0/);
   // La provenienza arriva dall'API (e' nei campi della #50, con il suo ripiego).
-  assert.match(nudo("src/pages/api/admin/orders.ts"), /payment_method, source";/);
+  assert.match(nudo("src/lib/admin/ordiniAdmin.ts"), /payment_method, source";/);
   for (const k of ["ord.ribbonWeb", "ord.ribbonPickup", "ord.room"]) {
     for (const lang of ADMIN_LANG_CODES) {
       const v = adminT(lang)(k);

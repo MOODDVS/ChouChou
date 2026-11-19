@@ -7,7 +7,8 @@
 // In testata: bottoni rapidi tempo di preparazione
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
-import { ambitoDiRichiesta, leggi, pagamentoOnlineAttivo } from "../../lib/admin/sede";
+import { ambitoDiRichiesta, pagamentoOnlineAttivo } from "../../lib/admin/sede";
+import { elencoOrdiniAdmin } from "../../lib/admin/ordiniAdmin";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
@@ -36,7 +37,7 @@ export const prerender = false;
 
 // --- SSR (Fase 2): se il cookie di sessione è valido, carichiamo i primi
 // ordini GIÀ sul server → la pagina arriva coi dati (niente pagina vuota→fetch).
-// Stessa query di GET /api/admin/orders. Se il cookie manca/è scaduto o c'è un
+// La query e' LA STESSA di GET /api/admin/orders: `elencoOrdiniAdmin`. Se il cookie manca/è scaduto o c'è un
 // errore, ssrOrders resta null e il client carica come prima (nessun rischio).
 let ssrOrders: unknown[] | null = null;
 
@@ -63,18 +64,10 @@ try {
       .minus({ days: 7 })
       .startOf("day")
       .toISO();
-    const { data } = await leggi(
-      "orders",
-      ambitoOrd,
-      "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id, payment_method",
-    )
-      // ⚠️ Anche gli ordini DA INCASSARE, che sono `pending` (nessuno li ha
-      // pagati) ma veri. Il carrello abbandonato resta fuori: si distingue per
-      // `payment_method`, non per lo stato. Stessa regola dell'API.
-      .or("status.in.(paid,done,cancelled),and(status.eq.pending,payment_method.eq.onsite)")
-      .gte("pickup_time", soglia)
-      .order("pickup_time", { ascending: true });
-    ssrOrders = data ?? [];
+    // ⚠️ LA STESSA query del poll (`lib/admin/ordiniAdmin.ts`), non una
+    // copia piu' corta: senza le colonne del tavolo il primo disegno metteva
+    // ogni ordine in «ONLINE · DA ASPORTO» finche' il poll non lo correggeva.
+    ssrOrders = soglia ? await elencoOrdiniAdmin(ambitoOrd, { da: soglia }) : null;
   }
 } catch {
   ssrOrders = null;
