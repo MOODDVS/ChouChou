@@ -64,7 +64,7 @@ async function proprio(livello: string, chiave: string): Promise<string | null> 
   }
 }
 
-async function riepilogo(id: string, nome: string): Promise<RiepilogoLivello> {
+export async function riepilogo(id: string, nome: string): Promise<RiepilogoLivello> {
   const amb = ambitoDi(id);
   const [fonteChiave, fonteFirma, attivo] = await Promise.all([fonteSegreto(amb, K_CHIAVE), fonteSegreto(amb, K_FIRMA), contoAttivo(amb)]);
   // ⚠️ «Pronto» e' del conto ATTIVO: e' su quello che si incassa adesso.

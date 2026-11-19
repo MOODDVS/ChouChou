@@ -40,7 +40,7 @@ const FILE_SQL = import.meta.glob("../../../supabase/[0-9][0-9][0-9]_*.sql", {
   import: "default",
   eager: true,
 }) as Record<string, string>;
-const MIGRAZIONI: Migrazione[] = ordinaMigrazioni(Object.keys(FILE_SQL));
+export const MIGRAZIONI: Migrazione[] = ordinaMigrazioni(Object.keys(FILE_SQL));
 const SQL_DI = new Map<number, string>(
   MIGRAZIONI.map((m) => [m.numero, FILE_SQL[Object.keys(FILE_SQL).find((k) => k.endsWith("/" + m.file)) ?? ""] ?? ""]),
 );
