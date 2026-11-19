@@ -42,6 +42,9 @@ APPS=(
   # Educazione Napoletana: dalla Web App Hostinger (504 la mattina) al VPS il
   # 19/11/2026. Il sito vive su www (middleware: il nudo fa 301 verso www).
   "educazione|$HOME/Developer/EducazioneNapoletana|/home/enzo/app-educazione|educazione|4325|https://www.educazionenapoletana.be"
+  # admin.restohub.cloud (19/11/2026): la cabina di regia, repo RestoHubAdmin.
+  # Non e' un cliente del motore: qui c'e' solo per il deploy.
+  "admin|$HOME/Developer/RestoHubAdmin|/home/enzo/app-admin|restohub-admin|4330|https://admin.restohub.cloud"
 )
 
 scelta="${1:-tutti}"
