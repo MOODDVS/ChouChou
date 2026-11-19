@@ -39,6 +39,9 @@ APPS=(
   # Mare e Monti: in prova su nuovo.restohub.cloud dal 12/11/2026, sul dominio
   # vero dal 18/11/2026 (cambiato qui E nel .env del server).
   "maremonti|$HOME/Developer/MareMonti|/home/enzo/app-maremonti|maremonti|4324|https://mare-monti.be"
+  # Educazione Napoletana: dalla Web App Hostinger (504 la mattina) al VPS il
+  # 19/11/2026. Il sito vive su www (middleware: il nudo fa 301 verso www).
+  "educazione|$HOME/Developer/EducazioneNapoletana|/home/enzo/app-educazione|educazione|4325|https://www.educazionenapoletana.be"
 )
 
 scelta="${1:-tutti}"
@@ -85,7 +88,12 @@ fi
 cd "$remoto" || exit 1
 if ! npm ci --silent >/tmp/deploy-npm.log 2>&1; then echo "   ✗ npm ci fallito:"; tail -20 /tmp/deploy-npm.log; exit 1; fi
 if ! npm run build >/tmp/deploy-build.log 2>&1; then echo "   ✗ build fallita:"; tail -30 /tmp/deploy-build.log; exit 1; fi
-pm2 restart "$pm2nome" >/dev/null || { echo "   ✗ pm2 restart fallito"; exit 1; }
+# Il primo deploy di un cliente nuovo: il processo non c'e' ancora, si accende
+# da ecosystem.config.cjs (che sta gia' sul server) e si salva per il riavvio.
+if ! pm2 restart "$pm2nome" >/dev/null 2>&1; then
+  pm2 start ecosystem.config.cjs >/dev/null && pm2 save >/dev/null || { echo "   ✗ pm2: ne' restart ne' start"; exit 1; }
+  echo "   • pm2: processo «$pm2nome» acceso per la prima volta e salvato"
+fi
 # L'app ci mette qualche secondo a ripartire: si riprova fino a 20 secondi.
 risposta=""
 for i in 1 2 3 4 5 6 7 8 9 10; do
