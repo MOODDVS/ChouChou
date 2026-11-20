@@ -8,6 +8,8 @@ import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { sediVisibili, ambitoDiRichiesta } from "../../lib/admin/sede";
+import { licenzaFresca } from "../../lib/licenza";
+import { testiLicenza } from "../../lib/licenzaRegole";
 // Stessa lettura in cache di AdminHead: lingua + favicon del brand, 0 query in piu'.
 const boot = await caricaBootAdmin();
 const lang = boot.lang;
@@ -15,6 +17,10 @@ const t = adminT(lang);
 const dateLocale = ADMIN_LOCALE[lang];
 // Logo dell'header deciso dal SERVER: niente lampo del logo di default.
 const logoSrc = boot.logo || CLIENT.logoAdmin;
+// L'abbonamento (lib/licenza.ts): in «avviso» la fascia col bottone per pagare.
+// In «sospeso» qui arriva solo il super admin: la fascia gli ricorda dov'e'.
+const lic = await licenzaFresca();
+const tLic = testiLicenza(lang);
 
 // ---- Multi-sede: dove sto lavorando ----
 // L'utente si legge dal cookie di sessione (`mdd_at`), lo stesso che il
@@ -142,8 +148,17 @@ const inizialiSede = (n: string) =>
     <div id="install-hint" class="ah-inst-hint" style="display:none" role="status">{t("hdr.installHint")}</div>
   </div>
 </header>
+{lic.stato !== "attivo" && (
+  <div class={`ah-licenza ${lic.stato}`} role="status">
+    <span>{lic.stato === "avviso" ? tLic.avviso : `${tLic.titolo} (super admin)`}</span>
+    {lic.link && <a href={lic.link} target="_blank" rel="noopener noreferrer">{tLic.paga}</a>}
+  </div>
+)}
 
 <style>
+  .ah-licenza { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 10px 16px; font-weight: 700; font-size: 14px; background: #FBECD5; color: #5c3b00; text-align: center; }
+  .ah-licenza.sospeso { background: #F7E3E0; color: #7a2a22; }
+  .ah-licenza a { background: #C25349; color: #fff; text-decoration: none; padding: 7px 14px; border-radius: 10px; white-space: nowrap; }
   /* ⚠️ LA SFOCATURA NON STA QUI, e non e' una dimenticanza: la costruzione la
      toglieva dal CSS dei componenti senza dire niente (Vite 8 + lightningcss,
      bersaglio «browser largamente disponibili»). Vive in `AdminHead`, in un

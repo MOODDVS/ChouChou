@@ -7,6 +7,9 @@ import { adminLangSubito } from "./lib/admin/adminLang";
 import { adminT } from "./i18n/admin";
 import { segretoUguale } from "./lib/cronAuth";
 import { segnaGiro } from "./lib/giriCron";
+import { licenzaFresca } from "./lib/licenza";
+import { decisioneSospeso, paginaSospesa, testiLicenza, linguaDaHeader } from "./lib/licenzaRegole";
+import { CLIENT } from "./config/client";
 
 /**
  * Host canonico: forza il www.
@@ -287,4 +290,41 @@ const registroCron = defineMiddleware(async (context, next) => {
   return res;
 });
 
-export const onRequest = sequence(securityHeaders, authGuardAdmin, rateLimit, metodoOverride, redirectWww, registroCron);
+/**
+ * L'ABBONAMENTO (20/11/2026). Da «sospeso» (lo decide MOODD in
+ * admin.restohub.cloud, vedi `lib/licenza.ts`): il sito resta su, ordini e
+ * prenotazioni online si fermano, l'admin del ristorante mostra solo «Accès
+ * suspendu». Il super admin passa sempre. Dopo authGuardAdmin: chi non ha
+ * fatto il login va al login come sempre.
+ */
+const licenzaGuard = defineMiddleware(async (context, next) => {
+  const { pathname } = new URL(context.request.url);
+  const decisione = decisioneSospeso(pathname, context.request.method);
+  if (decisione === "passa") return next();
+  const lic = await licenzaFresca();
+  if (lic.stato !== "sospeso") return next();
+  if (decisione === "ordini") {
+    const t = testiLicenza(linguaDaHeader(context.request.headers.get("accept-language")));
+    return new Response(JSON.stringify({ error: t.ordini }), {
+      status: 503,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+  const auth = context.request.headers.get("Authorization") ?? "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const ctx = await contestoPermessi(bearer || (context.cookies.get("mdd_at")?.value ?? ""));
+  if (ctx?.ruolo === "super") return next();
+  const lingua = adminLangSubito();
+  if (decisione === "admin-api") {
+    return new Response(JSON.stringify({ error: testiLicenza(lingua).titolo }), {
+      status: 403,
+      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+    });
+  }
+  return new Response(paginaSospesa(CLIENT.nome, lingua, lic.link), {
+    status: 503,
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "3600" },
+  });
+});
+
+export const onRequest = sequence(securityHeaders, authGuardAdmin, licenzaGuard, rateLimit, metodoOverride, redirectWww, registroCron);
