@@ -23,17 +23,19 @@ const EVENTS = [
       ? "Every so often, Comptoir Chouchou invites a renowned chef to take over the kitchen for one unique evening. Upcoming dates are always announced on our agenda."
       : "Régulièrement, le Comptoir Chouchou convie un chef de renom à prendre les fourneaux le temps d'une soirée unique. Les prochaines dates sont toujours annoncées sur notre agenda.",
     cta: en ? "See the agenda" : "Voir l'agenda",
+    href: "/agenda",
     reserve: false,
   },
   {
     img: IMGS["site_event_2"] || null,
-    meta: en ? "First Sunday of the month · Brunch" : "Le 1er dimanche du mois · Brunch",
-    title: en ? "The Sunday brunch" : "Le brunch du dimanche",
+    meta: en ? "Your events · Private hire" : "Vos événements · Privatisation",
+    title: en ? "Privatise our space" : "Privatisez la salle",
     text: en
-      ? "On the first Sunday of every month, a generous homemade brunch to share with family or friends, in the heart of the Walloon Brabant countryside. By reservation only."
-      : "Le premier dimanche de chaque mois, un brunch généreux et fait maison à partager en famille ou entre amis, au cœur de la campagne du Brabant wallon. Sur réservation uniquement.",
-    cta: en ? "Book a table" : "Réserver",
-    reserve: true,
+      ? "Birthdays, company dinners or family celebrations: book our space privately in the heart of the Walloon Brabant countryside, with creative homemade cuisine. Get in touch and we'll plan your event together."
+      : "Anniversaires, repas d'entreprise ou fêtes de famille : privatisez notre salle au cœur de la campagne du Brabant wallon, avec une cuisine créative et faite maison. Contactez-nous pour organiser votre événement.",
+    cta: en ? "Contact us" : "Nous contacter",
+    href: "/contact",
+    reserve: false,
   },
 ];
 ---
@@ -84,7 +86,7 @@ const EVENTS = [
             </div>
           </div>
         ) : (
-          <a class="ev" href={getLocalizedUrl("/agenda", lang)}>
+          <a class="ev" href={getLocalizedUrl(e.href, lang)}>
             <div class="ev-media">
               {e.img ? (
                 <img data-posto="css" src={e.img} alt="" loading="lazy" decoding="async" />
