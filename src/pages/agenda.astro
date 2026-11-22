@@ -20,7 +20,7 @@ const POOL_KEYS = [
   "site_hero_1", "site_hero_2", "site_hero_3",
   "site_gallery_1", "site_gallery_2", "site_gallery_3", "site_gallery_4", "site_gallery_5",
   "site_gallery_6", "site_gallery_7", "site_gallery_8", "site_gallery_9",
-  "site_resto_photo", "site_soir_chef", "site_brunch",
+  "site_resto_photo", "site_soir_chef",
   "site_menu_hero", "site_contact_hero", "site_epicerie_hero",
 ];
 const DISPO = POOL_KEYS.map((k) => IMGS[k]).filter(Boolean);
@@ -39,12 +39,12 @@ const passes = eventi.filter((e) => estPasse(e));
 const L = {
   title: en ? "Events" : "L'agenda",
   sub: en
-    ? "Guest chefs, Sunday brunches and special evenings: our upcoming dates at Comptoir Chouchou."
-    : "Chefs invités, brunchs du dimanche et soirées spéciales : nos prochains rendez-vous au Comptoir Chouchou.",
+    ? "Guest chefs and special evenings: our upcoming dates at Comptoir Chouchou."
+    : "Chefs invités et soirées spéciales : nos prochains rendez-vous au Comptoir Chouchou.",
   introT: en ? "Our gatherings" : "Nos rendez-vous",
   introP: en
-    ? "More than a restaurant, Comptoir Chouchou is a place to meet and share. « Un soir, un Chef », Sunday brunches and special evenings punctuate the season. Find our next dates below and book your table so you don't miss a thing."
-    : "Bien plus qu'un restaurant, le Comptoir Chouchou est un lieu de rencontres et de partage. « Un soir, un Chef », les brunchs du dimanche et nos soirées spéciales rythment la saison. Retrouvez ici nos prochains rendez-vous, et réservez votre table pour ne rien manquer.",
+    ? "More than a restaurant, Comptoir Chouchou is a place to meet and share. « Un soir, un Chef » and special evenings punctuate the season. Find our next dates below and book your table so you don't miss a thing."
+    : "Bien plus qu'un restaurant, le Comptoir Chouchou est un lieu de rencontres et de partage. « Un soir, un Chef » et nos soirées spéciales rythment la saison. Retrouvez ici nos prochains rendez-vous, et réservez votre table pour ne rien manquer.",
   empty: en ? "No upcoming events for now. Come back very soon!" : "Aucun rendez-vous à venir pour le moment. Revenez très bientôt !",
   noFutur: en
     ? "No upcoming events at the moment. Come back very soon, new dates are on their way!"
@@ -121,8 +121,8 @@ const SPARKS = [
 <Layout
   title={en ? "Events, Comptoir Chouchou in Mont-Saint-Guibert" : "Agenda & événements, Comptoir Chouchou"}
   description={en
-    ? "What's on at Comptoir Chouchou in Mont-Saint-Guibert: guest-chef evenings, Sunday brunches and events. Find our next dates."
-    : "L'agenda du Comptoir Chouchou à Mont-Saint-Guibert : « Un soir, un Chef », brunchs du dimanche et événements. Retrouvez nos prochains rendez-vous."}
+    ? "What's on at Comptoir Chouchou in Mont-Saint-Guibert: guest-chef evenings and events. Find our next dates."
+    : "L'agenda du Comptoir Chouchou à Mont-Saint-Guibert : « Un soir, un Chef » et événements. Retrouvez nos prochains rendez-vous."}
 >
   <div class="ag">
     <!-- HERO -->
