@@ -888,3 +888,15 @@ test("Menu: un piatto hors menu aggiunto si riapre col clic e torna al suo posto
   assert.match(pagina, /c\.customs\.map\(\(x, k\) => \(k === ci \? p : x\)\)/);
   assert.match(pagina, /if \(p\) mettiBozza\(i, p\);/);
 });
+
+test("Menu: i piatti sotto «Plats», il riquadro per aggiungerne si apre con «+ Ajouter un plat» (22/11/2026)", () => {
+  const pagina = readFileSync(new URL("../src/pages/admin/menu.astro", import.meta.url), "utf8");
+  // l'elenco viene prima del riquadro, che c'e' solo se aperto o in modifica
+  const iLista = pagina.indexOf('${custRighe ? `<div class="mn-cust-lista">');
+  const iRiquadro = pagina.indexOf('${c.aperto || c.bozza ? `<div class="mn-aggiungi">');
+  assert.ok(iLista > 0 && iRiquadro > iLista);
+  assert.match(pagina, /class="lu-free-add mn-apri" data-i="\$\{i\}">\$\{tr\("menu\.addDishBtn"\)\}/);
+  // dopo l'aggiunta (dal menu o hors menu) si richiude
+  assert.match(pagina, /mnCorsi\[i\]\.items = \[\.\.\.mnCorsi\[i\]\.items, sel\.value\]; mnCorsi\[i\]\.aperto = false;/);
+  assert.match(pagina, /c\.bozza = undefined;\n        c\.aperto = false;/);
+});
