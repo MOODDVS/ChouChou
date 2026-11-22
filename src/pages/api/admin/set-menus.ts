@@ -46,7 +46,7 @@ type Course = {
   name_i18n: Record<string, string>;
   mode: string;
   items: string[];
-  customs: { name_i18n: Record<string, string> }[];
+  customs: { name_i18n: Record<string, string>; desc_i18n?: Record<string, string> }[];
   hide: boolean;
 };
 function pulisciCourses(v: unknown): Course[] | null {
@@ -60,9 +60,13 @@ function pulisciCourses(v: unknown): Course[] | null {
     const mode = c?.mode === "and" ? "and" : "choice";
     const arr = Array.isArray(c?.items) ? (c.items as unknown[]) : [];
     const items = [...new Set(arr.map(String).filter((id) => RE_UUID.test(id)))].slice(0, 30);
-    const customsRaw = Array.isArray(c?.customs) ? (c.customs as { name_i18n?: unknown }[]) : [];
+    const customsRaw = Array.isArray(c?.customs) ? (c.customs as { name_i18n?: unknown; desc_i18n?: unknown }[]) : [];
     const customs = customsRaw
-      .map((cu) => ({ name_i18n: pulisciI18n(cu?.name_i18n, 2000) ?? {} }))
+      .map((cu) => {
+        // Piatto fuori menu: nome e (dal 22/11/2026) descrizione per lingua.
+        const desc = pulisciI18n(cu?.desc_i18n, 500) ?? {};
+        return { name_i18n: pulisciI18n(cu?.name_i18n, 2000) ?? {}, ...(Object.keys(desc).length ? { desc_i18n: desc } : {}) };
+      })
       .filter((cu) => Object.keys(cu.name_i18n).length)
       .slice(0, 30);
     if (!category && !name && !items.length && !customs.length) continue; // portata vuota: scarta

@@ -15,7 +15,7 @@ type Course = {
   name_i18n?: Record<string, string> | null;
   mode?: string;
   items?: string[];
-  customs?: { name_i18n?: Record<string, string> | null }[];
+  customs?: { name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null }[];
 };
 
 function json(body: unknown): Response {
@@ -73,7 +73,7 @@ export const GET: APIRoute = async ({ request }) => {
 
     const menus = attivi.map((m) => {
       const courses = ((m.courses as Course[] | null) ?? []).map((c) => {
-        const pieces: { name: string; name_i18n: Record<string, string> }[] = [];
+        const pieces: { name: string; name_i18n: Record<string, string>; desc_i18n?: Record<string, string> }[] = [];
         for (const id of c.items ?? []) {
           const p = nomiPiatti.get(String(id));
           if (p) pieces.push({ name: p.name, name_i18n: p.name_i18n });
@@ -81,7 +81,7 @@ export const GET: APIRoute = async ({ request }) => {
         for (const cu of c.customs ?? []) {
           const i18n = cu.name_i18n ?? {};
           const primo = Object.values(i18n)[0] ?? "";
-          if (primo) pieces.push({ name: primo, name_i18n: i18n });
+          if (primo) pieces.push({ name: primo, name_i18n: i18n, desc_i18n: cu.desc_i18n ?? {} });
         }
         return {
           title: c.category || c.name || "",
