@@ -539,6 +539,8 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   reservation_languages: "sede",
   reservation_options: "sede",
   reservation_options_enabled: "sede",
+  reservation_review_enabled: "sede",
+  reservation_review_min_stars: "sede",
   service_closures_permanent: "sede",
   zone_closures_permanent: "sede",
   orders_closed: "sede",         // la cucina chiusa e' di UNA cucina

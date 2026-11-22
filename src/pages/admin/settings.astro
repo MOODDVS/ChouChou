@@ -349,6 +349,10 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
         position: relative;
       }
       .rlangs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      /* Demande d'avis: le stelle da cui si va su Google, sotto l'interruttore. */
+      .r-review-box { margin-top: 0.7rem; display: grid; gap: 0.5rem; }
+      .r-review-lab { font-size: 0.82rem; color: var(--c-muted); }
+      .r-review-note { margin: 0; font-size: 0.8rem; color: var(--c-muted); }
       /* Lingue e opzioni del widget: la stessa pillola delle sections del
          piano (`.sl-pill`, fondo scuro). `.rl-btn` resta solo come gancio
          per lo script (2/11/2026: col fondo --c-card sparivano nel pannello). */
@@ -1433,6 +1437,19 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
               <label>{t("set.res.widgetOpts")}<span class="lab-hint">{t("set.res.widgetOptsHint")}</span></label>
               <label class="switch"><input type="checkbox" id="r-opts-on" /><span class="track"></span></label>
               <div class="rlangs" id="r-opts" style="margin-top:0.6rem"></div>
+            </div>
+            <hr class="rgroup-sep" />
+            <!-- 3ter. Demande d'avis (22/11/2026) -->
+            <div class="field">
+              <label for="r-review-on">{t("set.res.review")}<span class="lab-hint">{t("set.res.reviewHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="r-review-on" checked /><span class="track"></span></label>
+              <div class="r-review-box" id="r-review-box">
+                <span class="r-review-lab">{t("set.res.reviewMin")}</span>
+                <div class="rlangs" id="r-review-min">
+                  {[1, 2, 3, 4, 5].map((n) => <button type="button" class="sl-pill rl-btn" data-n={n}>{n} ★</button>)}
+                </div>
+                <p class="r-review-note" id="r-review-note"></p>
+              </div>
             </div>
             <hr class="rgroup-sep" />
             <!-- 4. Langues -->
@@ -3925,6 +3942,30 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
           applicaOpzioniAnteprima();
         });
         rOptsOn.addEventListener("change", () => { applicaOptOn(); dirty(); });
+
+        // Demande d'avis: acceso/spento + da quante stelle su Google.
+        const rReviewOn = document.getElementById("r-review-on") as HTMLInputElement;
+        const rReviewBox = document.getElementById("r-review-box") as HTMLDivElement;
+        const rReviewMin = document.getElementById("r-review-min") as HTMLDivElement;
+        const rReviewNote = document.getElementById("r-review-note") as HTMLParagraphElement;
+        let rSogliaGoogle = 4;
+        function applicaReview() {
+          rReviewBox.style.display = rReviewOn.checked ? "" : "none";
+          rReviewMin.querySelectorAll<HTMLElement>(".rl-btn").forEach((b) => b.classList.toggle("is-on", Number(b.dataset.n) === rSogliaGoogle));
+          const n = rSogliaGoogle;
+          const privato = n <= 1 ? "" : `${n - 1 === 1 ? "1 ★" : `1–${n - 1} ★`} : ${tr("set.res.reviewPrivate")}`;
+          const google = `${n === 5 ? "5 ★" : `${n}–5 ★`} : ${tr("set.res.reviewGoogle")}`;
+          rReviewNote.textContent = privato ? `${privato} · ${google}` : google;
+        }
+        rReviewOn.addEventListener("change", () => { applicaReview(); dirty(); });
+        rReviewMin.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rl-btn") as HTMLElement | null;
+          if (!b) return;
+          rSogliaGoogle = Number(b.dataset.n) || 4;
+          applicaReview();
+          dirty();
+        });
+        applicaReview();
         costruisciOpzioni(OPT_KEYS);
         applicaOptOn();
 
@@ -5287,6 +5328,12 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
         }
         rOptsOn.checked = (dati.reservations?.reservation_options_enabled ?? "1") !== "0";
         applicaOptOn();
+        rReviewOn.checked = (dati.reservations?.reservation_review_enabled ?? "1") !== "0";
+        {
+          const n = Math.floor(Number(dati.reservations?.reservation_review_min_stars || 4));
+          rSogliaGoogle = n >= 1 && n <= 5 ? n : 4;
+        }
+        applicaReview();
         if (!rwLingueAttive().includes(rwLingua)) rwLingua = "fr";
         applicaLingua();
         renderAnteprima();
@@ -5652,6 +5699,8 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
                   reservation_languages: lingueJSON(),
                   reservation_options_enabled: rOptsOn.checked ? "1" : "0",
                   reservation_options: opzioniJSON(),
+                  reservation_review_enabled: rReviewOn.checked ? "1" : "0",
+                  reservation_review_min_stars: String(rSogliaGoogle),
                 },
               }),
             });
