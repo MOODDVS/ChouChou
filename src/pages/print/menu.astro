@@ -16,6 +16,7 @@ export const prerender = false;
 import { getMenu, type MenuItem, type MenuCategoria } from "../../lib/db";
 import { prezzoDaChiedere } from "../../lib/pricing";
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import { getLunchAttivo } from "../../lib/lunch";
 import Fonts from "../../components/Fonts.astro";
 
 // ⚠️ L'AMBITO. Dal multi-sede il motore chiede sempre DI QUALE PUNTO si
@@ -25,6 +26,11 @@ import Fonts from "../../components/Fonts.astro";
 // quello sarebbe vero finche' il ristorante e' uno — e il giorno che non lo
 // fosse piu' non darebbe errore, darebbe i dati del posto sbagliato.
 const menu = await getMenu(await ambitoPubblicoChiesto(Astro.request));
+// Lunch dal motore: etichette e PREZZI dinamici (gli stessi combo dell'admin).
+const lunch = await getLunchAttivo();
+const lunchCombos = lunch?.combos ?? [];
+const COURSE_LABEL: Record<string, string> = { entree: "Entrée", plat: "Plat", dessert: "Dessert" };
+const comboLabel = (parts: string[]) => parts.map((x) => COURSE_LABEL[x] ?? x).join(" + ");
 /** «Prix du jour» senza cifra (#97 del motore): sulla carta stampata la
  *  scritta al posto del prezzo (stampata in francese, come i nomi). */
 const senzaCifra = (i: MenuItem): boolean =>
@@ -305,9 +311,9 @@ const teaHead = (s: BevSub) => {
 
     /* ---------- PAGINA MAGENTA (concept) ---------- */
     .mag-bg{position:absolute;top:-5mm;left:-5mm;width:158mm;height:224mm;background:var(--mag);}
-    .mag-body{position:relative;height:209mm;padding:15mm 15mm;text-align:center;
+    .mag-body{position:relative;height:209mm;padding:10mm 15mm;text-align:center;
       display:flex;flex-direction:column;align-items:center;justify-content:flex-start;}
-    .mag-body .blk{margin-bottom:6.5mm}
+    .mag-body .blk{margin-bottom:4mm}
     .mag-body h2{font-family:var(--font-title);font-weight:700;color:var(--navy);
       font-size:15px;letter-spacing:.04em;margin:0 0 4px;}
     .mag-body p{font-family:var(--font-body);color:#fff;font-size:12.5px;line-height:1.5;margin:2px 0;}
@@ -315,7 +321,7 @@ const teaHead = (s: BevSub) => {
     .mag-body .price{font-family:var(--font-title);font-weight:700;color:#fff;font-size:13.5px;margin-top:4px;}
     .mag-body .script{font-family:var(--font-script);color:#fff;font-size:22px;line-height:1;margin-top:5px;}
     .mag-body .chefs{font-style:italic;color:#fff;font-size:10.5px;}
-    .mag-body .qr{width:23mm;height:23mm;margin:5mm auto 0;background:#fff;padding:2mm;}
+    .mag-body .qr{width:23mm;height:23mm;margin:3mm auto 0;background:#fff;padding:2mm;}
     .mag-body .qr img{width:100%;height:100%;display:block;}
 
     /* ---------- SEZIONI CARTA ---------- */
@@ -465,8 +471,9 @@ const teaHead = (s: BevSub) => {
         <h2>LE LUNCH</h2>
         <p>Servi <b>du mardi midi au vendredi midi</b></p>
         <p>son contenu est publié chaque semaine sur le site internet et les réseaux sociaux</p>
-        <p class="price">entrée et plat, ou dessert et plat · 32,00 €</p>
-        <p class="price">entrée, plat, dessert · 37,00 €</p>
+        {lunchCombos.map((cb) => (
+          <p class="price">{comboLabel(cb.parts)} · {prezzo(cb.price_cents)}</p>
+        ))}
       </div>
       <div class="blk">
         <h2>UN SOIR, UN CHEF</h2>
@@ -476,8 +483,12 @@ const teaHead = (s: BevSub) => {
       </div>
       <div class="blk">
         <h2>PRIVATISATION</h2>
-        <p>Notre salle peut être <b>privatisée</b> pour vos événements, anniversaires et repas de groupe, dans un cadre convivial et entièrement fait maison.</p>
+        <p>Notre salle peut être <b>privatisée</b> pour vos événements, anniversaires et repas de groupe, dans un cadre convivial, y compris le week-end. Formule sur mesure adaptée à vos souhaits et à votre budget.</p>
         <p class="script">Renseignez-vous auprès de notre équipe.</p>
+      </div>
+      <div class="blk">
+        <h2>GAULT &amp; MILLAU</h2>
+        <p>Chouchou est entré ce <b>4 novembre 2026</b> dans le Guide Gault&amp;Millau, avec la très belle note de <b>13/20</b>, <b>2 toques</b> et le smiley « prix plaisir ».</p>
       </div>
       <p class="script" style="font-size:18px">À découvrir sur le site et les réseaux sociaux</p>
       <div class="qr"><img data-posto="css" src="/SVG/qr-chouhou-links.svg" alt="QR Comptoir Chouchou" /></div>
