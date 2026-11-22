@@ -548,19 +548,19 @@ gruppi.forEach((g, i) => {
     </div>
   </div>
 
-  <section class="brunch" aria-label="Brunch Chouchou">
+  <section class="brunch" aria-label="Privatisation">
     <img data-posto="css" class="brunch__img" src={BRUNCH_FOTO} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
     <div class="brunch__scrim" aria-hidden="true"></div>
     <div class="brunch__fade" aria-hidden="true"></div>
     <div class="brunch__content">
-      <span class="brunch__script">{en ? "the brunch" : "le brunch"}</span>
+      <span class="brunch__script">{en ? "your events" : "vos événements"}</span>
       <p class="brunch__text">
-        <span class="brunch__lead">{en ? "A Chouchou Sunday" : "Un dimanche Chouchou"}</span>
+        <span class="brunch__lead">{en ? "Private hire" : "Privatisez le restaurant"}</span>
         {en
-          ? <Fragment> : a local-produce breakfast is served every 1<sup>st</sup> Sunday of the month, from 11:00 to 14:00, at 30,00€ excluding drinks. By reservation only.</Fragment>
-          : <Fragment> : une offre de produits locaux pour le petit-déjeuner vous est proposée chaque 1<sup>er</sup> dimanche du mois, de 11h00 à 14h00, au prix de 30,00€ hors boissons. Sur réservation uniquement.</Fragment>}
+          ? <Fragment> : for your birthdays, company dinners or family celebrations, book Comptoir Chouchou just for you, in the heart of the Walloon Brabant countryside, with creative homemade cuisine. Get in touch to plan your event.</Fragment>
+          : <Fragment> : pour vos anniversaires, repas d'entreprise ou fêtes de famille, réservez le Comptoir Chouchou rien que pour vous, au cœur de la campagne du Brabant wallon, avec une cuisine créative et faite maison. Contactez-nous pour organiser votre événement.</Fragment>}
       </p>
-      <button type="button" class="brunch__btn" data-reserver>{en ? "Book a table" : "Réserver"}</button>
+      <a class="brunch__btn" href={en ? "/en/contact" : "/contact"}>{en ? "Contact us" : "Nous contacter"}</a>
     </div>
   </section>
 
