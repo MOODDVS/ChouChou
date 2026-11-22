@@ -864,3 +864,17 @@ test("il server tiene il tipo della radice su creazione, spostamento e riordino"
   assert.match(readFileSync(new URL("../supabase/098_menu_kind_sottosezioni.sql", import.meta.url), "utf8"),
     /with recursive albero/);
 });
+
+test("Menu: i piatti fuori menu hanno nome e descrizione per lingua (22/11/2026)", () => {
+  const pagina = readFileSync(new URL("../src/pages/admin/menu.astro", import.meta.url), "utf8");
+  const admin = readFileSync(new URL("../src/pages/api/admin/set-menus.ts", import.meta.url), "utf8");
+  const pub = readFileSync(new URL("../src/pages/api/set-menus.ts", import.meta.url), "utf8");
+  // per ogni lingua un campo nome e una descrizione, raccolti insieme
+  assert.match(pagina, /class="mn-free-desc" data-i="\$\{i\}" data-lang="\$\{l\}"/);
+  assert.match(pagina, /customs, \{ name_i18n: obj, desc_i18n: desc \}/);
+  // si salva e si rilegge
+  assert.match(pagina, /desc_i18n: \{ \.\.\.\(cu\.desc_i18n \?\? \{\}\) \}/);
+  assert.match(admin, /pulisciI18n\(cu\?\.desc_i18n, 500\)/);
+  // il sito la riceve
+  assert.match(pub, /desc_i18n: cu\.desc_i18n \?\? \{\}/);
+});
