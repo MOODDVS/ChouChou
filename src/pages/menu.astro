@@ -51,6 +51,32 @@ import { siteImages, siteImg } from "../lib/siteImages";
 const IMGS = await siteImages();
 const HERO_FOTO = siteImg(IMGS, "site_menu_hero", IMGS["site_hero_1"] || "/chouchou-restaurant.webp");
 const BRUNCH_FOTO = siteImg(IMGS, "site_brunch", IMGS["site_hero_1"] || "/chouchou-restaurant.webp");
+
+// Menu Chouchou du mois (statique). Modifier ici le menu, le mois et la description.
+const MENU_CHOUCHOU = {
+  mois: en ? "December menu" : "Menu de décembre",
+  desc: en
+    ? "To close the year on a sweet note, a December menu full of winter flavours, creative and entirely homemade, with seasonal produce to share."
+    : "Pour clôturer l'année en douceur, un menu de décembre aux saveurs d'hiver, créatif et entièrement fait maison, avec des produits de saison à partager.",
+  ou: en ? "or" : "ou",
+  sections: [
+    { t: en ? "Amuse-bouche" : "Mises en bouche", plats: [
+      { n: en ? "At the chef's inspiration" : "Au gré de l'inspiration du chef", d: "" },
+    ] },
+    { t: en ? "Starters" : "Entrées", plats: [
+      { n: en ? "Seared scallops" : "Noix de Saint-Jacques snackées", d: en ? "Braised Belgian endive, yuzu beurre blanc emulsion" : "Chicon braisé, émulsion au beurre blanc au yuzu" },
+      { n: en ? "Slow-cooked perfect egg" : "Œuf parfait", d: en ? "Jerusalem artichoke cream, pan-fried wild mushrooms" : "Crémeux de topinambour, poêlée de champignons des bois" },
+    ] },
+    { t: en ? "Mains" : "Plats", plats: [
+      { n: en ? "Roasted venison noisette" : "Noisette de biche rôtie", d: en ? "Confit celeriac, dark chocolate reduced jus" : "Céleri-rave confit, jus réduit au chocolat noir" },
+      { n: en ? "Oven-baked John Dory fillet" : "Filet de Saint-Pierre au four", d: en ? "Confit red kuri squash, rich bisque" : "Potimarron confit, bisque corsée" },
+    ] },
+    { t: "Desserts", plats: [
+      { n: en ? "Exotic pavlova" : "Pavlova exotique", d: en ? "Mango, pineapple, light coconut cream" : "Mangue, ananas, crème légère à la noix de coco" },
+      { n: en ? "Chocolate dessert" : "Dessert au chocolat", d: "" },
+    ] },
+  ],
+};
 const SOIR_FOTO = siteImg(IMGS, "site_soir_chef", IMGS["site_hero_1"] || "/chouchou-restaurant.webp");
 
 // I 14 allergeni UE — stessi numeri usati dall'admin.
@@ -428,6 +454,33 @@ gruppi.forEach((g, i) => {
       </p>
     </section>
   </div>
+
+  <!-- Le Menu Chouchou (menu du mois) -->
+  <section class="mchou" aria-label="Le Menu Chouchou">
+    <div class="mchou__in">
+      <span class="mchou__script">{en ? "the Chouchou menu" : "le menu Chouchou"}</span>
+      <p class="mchou__kicker">{MENU_CHOUCHOU.mois}</p>
+      <p class="mchou__desc">{MENU_CHOUCHOU.desc}</p>
+      <div class="mchou-cols">
+        {MENU_CHOUCHOU.sections.map((sec) => (
+          <div class="mchou-col">
+            <h3 class="mchou-col__t">{sec.t}</h3>
+            <div class="mchou-col__dishes">
+              {sec.plats.map((pl, pi) => (
+                <Fragment>
+                  {pi > 0 && <span class="mchou-ou">{MENU_CHOUCHOU.ou}</span>}
+                  <div class="mchou-plat">
+                    <span class="mchou-plat__n">{pl.n}</span>
+                    {pl.d && <span class="mchou-plat__d">{pl.d}</span>}
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
 
   <section class="brunch brunch--soir" aria-label="Un soir, un chef">
     <img data-posto="css" class="brunch__img" src={SOIR_FOTO} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
@@ -1404,6 +1457,24 @@ gruppi.forEach((g, i) => {
       animation: none;
     }
   }
+
+  /* ---- Le Menu Chouchou (menu du mois) ---- */
+  .mchou { background: #f7f4ee; padding: clamp(2.5rem, 6vw, 5rem) 1.25rem; position: relative; z-index: 1; }
+  .mchou__in { max-width: 960px; margin: 0 auto; background: #fff;
+    border: 1.5px solid rgba(237, 34, 137, 0.32); border-radius: 16px;
+    padding: clamp(2rem, 4.5vw, 3.4rem) clamp(1.4rem, 4vw, 3.2rem);
+    box-shadow: 0 18px 50px rgba(53, 60, 78, 0.08); }
+  .mchou__script { display: block; font-family: var(--font-script); color: #ed2289; font-size: clamp(3rem, 8vw, 5rem); line-height: 0.85; }
+  .mchou__kicker { font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #ed2289; margin: 0.9rem 0 0; }
+  .mchou__desc { font-family: var(--font-body); font-style: italic; color: #6b7183; font-size: 0.98rem; line-height: 1.55; max-width: 52ch; margin: 0.6rem 0 0; }
+  .mchou-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(1.4rem, 3vw, 2.6rem); margin-top: clamp(2rem, 4.5vw, 3.2rem); }
+  .mchou-col__t { font-family: var(--font-title); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.18em; text-transform: uppercase; color: #353c4e; margin: 0 0 1rem; }
+  .mchou-col__dishes { display: flex; flex-direction: column; gap: 0.55rem; }
+  .mchou-plat__n { display: block; font-family: var(--font-title); font-weight: 600; font-size: 1rem; line-height: 1.3; color: #353c4e; }
+  .mchou-plat__d { display: block; font-family: var(--font-body); font-size: 0.88rem; line-height: 1.4; color: #8a8f9b; margin-top: 0.15rem; }
+  .mchou-ou { font-family: var(--font-body); font-style: italic; color: #ed2289; font-size: 0.78rem; }
+  @media (max-width: 860px) { .mchou-cols { grid-template-columns: repeat(2, 1fr); gap: 1.8rem; } }
+  @media (max-width: 520px) { .mchou-cols { grid-template-columns: 1fr; } }
 </style>
 
 <script>
