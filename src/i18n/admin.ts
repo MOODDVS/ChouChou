@@ -1788,6 +1788,7 @@ const DIZIONARIO: Dizionario = {
   "menu.freeDishPh":    { fr: "Plat hors menu…", en: "Off-menu dish…", it: "Piatto fuori menù…", nl: "Gerecht buiten menu…", es: "Plato fuera de carta…" },
   "menu.freeDishAdd":   { fr: "Ajouter", en: "Add", it: "Aggiungi", nl: "Toevoegen", es: "Añadir" },
   "menu.freeDishUpdate": { fr: "Mettre à jour", en: "Update", it: "Aggiorna", nl: "Bijwerken", es: "Actualizar" },
+  "menu.addDishBtn":    { fr: "+ Ajouter un plat", en: "+ Add a dish", it: "+ Aggiungi un piatto", nl: "+ Gerecht toevoegen", es: "+ Añadir un plato" },
   "menu.freeDishDescPh": { fr: "Description du plat (optionnelle)", en: "Dish description (optional)", it: "Descrizione del piatto (facoltativa)", nl: "Beschrijving van het gerecht (optioneel)", es: "Descripción del plato (opcional)" },
   "menu.freeDishNoName": { fr: "Indiquez le nom du plat hors menu.", en: "Enter the name of the off-menu dish.", it: "Scrivi il nome del piatto fuori menù.", nl: "Vul de naam van het gerecht buiten menu in.", es: "Escribe el nombre del plato fuera de carta." },
   "menu.dailyDishParen":{ fr: "(plat du jour)", en: "(dish of the day)", it: "(piatto del giorno)", nl: "(dagschotel)", es: "(plato del día)" },

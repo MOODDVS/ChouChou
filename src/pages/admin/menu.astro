@@ -495,6 +495,12 @@ const varianti = boot.features.includes("variants");
       .mn-cust-t b { color: var(--c-text); }
       .mn-cust-t span { color: var(--c-muted); font-size: 0.8rem; line-height: 1.4; }
       .mn-free-azioni { display: flex; gap: 0.5rem; }
+      .mn-piatti > .f-label:first-child { display: block; margin-bottom: 0.5rem; }
+      .mn-cust-lista { margin: 0 0 0.6rem; }
+      .mn-piatti > .lu-chips { margin: 0 0 0.6rem; }
+      .mn-nessuno { display: block; margin-bottom: 0.6rem; }
+      .mn-aggiungi { border-top: 1px solid var(--c-line); padding-top: 0.7rem; margin-top: 0.2rem; }
+      .mn-apri { margin-top: 0; }
       .mn-free-azioni .lu-free-add { flex: 1; }
       .lu-free-add.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .mn-cust-x { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
@@ -2889,7 +2895,9 @@ const varianti = boot.features.includes("variants");
       const mnImgFile = document.getElementById("mn-img-file") as HTMLInputElement;
       const mnImgState = document.getElementById("mn-img-state") as HTMLSpanElement;
       let mnImgUrl: string | null = null;
-      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[]; customs: { name_i18n: Record<string, string>; desc_i18n?: Record<string, string> }[]; hide: boolean; src: "menu" | "free"; bozza?: Bozza }[] = [];
+      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[]; customs: { name_i18n: Record<string, string>; desc_i18n?: Record<string, string> }[]; hide: boolean; src: "menu" | "free"; bozza?: Bozza; aperto?: boolean }[] = [];
+      // `aperto`: il riquadro per aggiungere un piatto e' aperto (22/11/2026:
+      // si apre con «+ Ajouter un plat» e si richiude dopo l'aggiunta).
       // Il piatto hors menu che si sta scrivendo (nome e descrizione per lingua):
       // sta nello stato, cosi' non si perde quando la sezione si ridisegna, e
       // «Enregistrer» lo aggiunge anche se non si e' premuto «Ajouter».
@@ -2970,12 +2978,17 @@ const varianti = boot.features.includes("variants");
               </div>
               ${nomiCustom}
               <div class="mn-piatti"><span class="f-label">${esc(tr("menu.courseDishesLabel"))}</span>
+                ${custRighe ? `<div class="mn-cust-lista">${custRighe}</div>` : ""}
+                ${chips ? `<div class="lu-chips">${chips}</div>` : ""}
+                ${!chips && !custRighe ? `<span class="f-label mn-nessuno">${tr("menu.noDishSelected")}</span>` : ""}
+                ${c.aperto || c.bozza ? `<div class="mn-aggiungi">
                 <div class="lu-mode-row">
                   <button type="button" class="lu-mode${srcMode === "menu" ? " is-on" : ""}" data-i="${i}" data-src="menu">${tr("menu.dishFromMenu")}</button>
                   <button type="button" class="lu-mode${srcMode === "free" ? " is-on" : ""}" data-i="${i}" data-src="free">${tr("menu.dishOffMenu")}</button>
                 </div>
                 ${srcMode === "menu"
-                  ? `<select class="mn-sel" data-i="${i}"><option value="">${tr("menu.addMenuDish")}</option>${opzioni}</select>`
+                  ? `<select class="mn-sel" data-i="${i}"><option value="">${tr("menu.addMenuDish")}</option>${opzioni}</select>
+                     <div class="mn-free-azioni"><button type="button" class="lu-free-add mn-free-annulla" data-i="${i}">${tr("common.cancel")}</button></div>`
                   : `${ordine
                       .map((l) => {
                         const tag = unaLingua ? "" : ` (${esc(langTag(l))})`;
@@ -2984,11 +2997,8 @@ const varianti = boot.features.includes("variants");
                         return `<div class="mn-free-lingua"><input type="text" class="lu-free-in mn-free-in" data-i="${i}" data-lang="${l}" maxlength="80" placeholder="${ph}" value="${esc(c.bozza?.n[l] ?? "")}" /><textarea class="mn-free-desc" data-i="${i}" data-lang="${l}" rows="2" maxlength="500" placeholder="${phD}">${esc(c.bozza?.d[l] ?? "")}</textarea></div>`;
                       })
                       .join("")}
-                     ${c.bozza?.ci !== undefined
-                       ? `<div class="mn-free-azioni"><button type="button" class="lu-free-add mn-free-annulla" data-i="${i}">${tr("common.cancel")}</button><button type="button" class="lu-free-add mn-free-add is-on" data-i="${i}">${tr("menu.freeDishUpdate")}</button></div>`
-                       : `<button type="button" class="lu-free-add mn-free-add" data-i="${i}">${tr("menu.freeDishAdd")}</button>`}`}
-                ${custRighe ? `<div class="mn-cust-lista">${custRighe}</div>` : ""}
-                <div class="lu-chips">${chips || (custRighe ? "" : `<span class="f-label">${tr("menu.noDishSelected")}</span>`)}</div>
+                     <div class="mn-free-azioni"><button type="button" class="lu-free-add mn-free-annulla" data-i="${i}">${tr("common.cancel")}</button><button type="button" class="lu-free-add mn-free-add is-on" data-i="${i}">${tr(c.bozza?.ci !== undefined ? "menu.freeDishUpdate" : "menu.freeDishAdd")}</button></div>`}
+                </div>` : `<button type="button" class="lu-free-add mn-apri" data-i="${i}">${tr("menu.addDishBtn")}</button>`}
                 ${c.items.length ? `<label class="lu-hide"><span class="switch"><input type="checkbox" class="mn-hide-in" data-i="${i}"${c.hide ? " checked" : ""} /><span class="track"></span></span>${tr("menu.lunchHideItems")}</label>` : ""}
               </div>
               <div class="mn-corso-foot">
@@ -3026,7 +3036,7 @@ const varianti = boot.features.includes("variants");
         const sel = e.target as HTMLSelectElement;
         const i = Number(sel.dataset.i);
         if (sel.classList.contains("mn-sel") && sel.value) {
-          if (mnCorsi[i]) { mnCorsi[i].items = [...mnCorsi[i].items, sel.value]; renderMnCorsi(); }
+          if (mnCorsi[i]) { mnCorsi[i].items = [...mnCorsi[i].items, sel.value]; mnCorsi[i].aperto = false; renderMnCorsi(); }
           return;
         }
         if (sel.classList.contains("mn-corso-tipo")) {
@@ -3071,6 +3081,7 @@ const varianti = boot.features.includes("variants");
         if (ci !== undefined && c.customs[ci]) c.customs = c.customs.map((x, k) => (k === ci ? p : x));
         else c.customs = [...c.customs, p];
         c.bozza = undefined;
+        c.aperto = false;
       }
       mnCorsiEl.addEventListener("keydown", (e) => {
         const inp = (e.target as HTMLElement).closest(".mn-free-in") as HTMLInputElement | null;
@@ -3104,7 +3115,14 @@ const varianti = boot.features.includes("variants");
           return;
         }
         const fann = t.closest(".mn-free-annulla") as HTMLElement | null;
-        if (fann) { const i = Number(fann.dataset.i); if (mnCorsi[i]) mnCorsi[i].bozza = undefined; renderMnCorsi(); return; }
+        if (fann) { const i = Number(fann.dataset.i); if (mnCorsi[i]) { mnCorsi[i].bozza = undefined; mnCorsi[i].aperto = false; } renderMnCorsi(); return; }
+        const fapri = t.closest(".mn-apri") as HTMLElement | null;
+        if (fapri) {
+          const i = Number(fapri.dataset.i);
+          if (mnCorsi[i]) { mnCorsi[i].aperto = true; renderMnCorsi(); }
+          mnCorsiEl.querySelector<HTMLElement>(`.mn-sel[data-i="${i}"], .mn-free-in[data-i="${i}"][data-lang="${PUB.def}"]`)?.focus();
+          return;
+        }
         const srcBtn = t.closest(".lu-mode") as HTMLElement | null;
         if (srcBtn && srcBtn.dataset.src) {
           const i = Number(srcBtn.dataset.i);
@@ -3131,7 +3149,7 @@ const varianti = boot.features.includes("variants");
         }
       });
       (document.getElementById("mn-add-course") as HTMLButtonElement).addEventListener("click", () => {
-        mnCorsi.push({ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [], hide: false, src: "menu" });
+        mnCorsi.push({ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [], hide: false, src: "menu", aperto: true });
         renderMnCorsi();
       });
 
@@ -3210,7 +3228,7 @@ const varianti = boot.features.includes("variants");
         renderMnFotoPrev();
         mnCorsi = m?.courses?.length
           ? m.courses.map((c) => ({ category: c.category ?? "", name: c.name ?? "", name_i18n: { ...(c.name_i18n ?? {}) }, mode: c.mode === "and" ? "and" : "choice", items: [...(c.items ?? [])], customs: (c.customs ?? []).map((cu) => ({ name_i18n: { ...(cu.name_i18n ?? {}) }, desc_i18n: { ...(cu.desc_i18n ?? {}) } })), hide: c.hide ?? (m?.hide_items ?? false), src: ((c.items?.length ?? 0) ? "menu" : ((c.customs?.length ?? 0) ? "free" : "menu")) as "menu" | "free" }))
-          : [{ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [], hide: false, src: "menu" as "menu" | "free" }];
+          : [{ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [], hide: false, src: "menu" as "menu" | "free", aperto: true }];
         renderMnCorsi();
         mnOverlay.hidden = false;
         mnNomeDef().focus();
