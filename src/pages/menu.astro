@@ -497,11 +497,12 @@ gruppi.forEach((g, i) => {
       <p class="mchou__desc">{MENU_CHOUCHOU.desc}</p>
       {MCHOU_PREZZO && (
         <p class="mchou__price">
-          {MCHOU_PREZZO}
-          {MCHOU_VINO && (
-            <span class="mchou__wine">{en ? `+ ${MCHOU_VINO} wine pairing` : `+ ${MCHOU_VINO} accord mets et vins`}</span>
-          )}
+          <span class="mchou__amount">{MCHOU_PREZZO}</span>
+          <span class="mchou__per">{en ? "per person" : "par personne"}</span>
         </p>
+      )}
+      {MCHOU_VINO && (
+        <p class="mchou__wine">{en ? `+ ${MCHOU_VINO} wine pairing` : `+ ${MCHOU_VINO} accord mets et vins`}</p>
       )}
       <div class="mchou-cols">
         {MENU_CHOUCHOU.sections.map((sec) => (
@@ -1508,8 +1509,10 @@ gruppi.forEach((g, i) => {
     box-shadow: 0 20px 60px rgba(53, 60, 78, 0.22); }
   .mchou__script { display: block; font-family: var(--font-script); color: #ed2289; font-size: clamp(3rem, 8vw, 5rem); line-height: 0.85; }
   .mchou__kicker { font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #ed2289; margin: 0.9rem 0 0; }
-  .mchou__desc { font-family: var(--font-body); font-style: italic; color: #6b7183; font-size: 0.98rem; line-height: 1.55; max-width: 52ch; margin: 0.6rem auto 0; }
-  .mchou__price { font-family: var(--font-title); font-weight: 700; color: #ed2289; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1; margin: 1.1rem 0 0; }
+  .mchou__desc { font-family: var(--font-body); font-style: italic; color: #6b7183; font-size: 0.98rem; line-height: 1.55; max-width: 42rem; margin: 0.6rem auto 0; text-wrap: balance; }
+  .mchou__price { display: inline-flex; align-items: baseline; gap: 0.5rem; margin: 1.3rem auto 0; background: rgba(237, 34, 137, 0.08); border: 1px solid rgba(237, 34, 137, 0.35); border-radius: 999px; padding: 0.5rem 1.4rem; font-family: var(--font-title); white-space: nowrap; }
+  .mchou__amount { color: #ed2289; font-weight: 700; font-size: clamp(1.05rem, 2.2vw, 1.25rem); line-height: 1; }
+  .mchou__per { font-family: var(--font-body); font-style: normal; font-weight: 600; color: #ed2289; font-size: 0.82rem; line-height: 1; }
   .mchou__wine { display: block; font-family: var(--font-body); font-style: italic; font-weight: 400; color: #8a8f9b; font-size: 0.9rem; margin-top: 0.4rem; }
   .mchou-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(1.4rem, 3vw, 2.6rem); margin-top: clamp(2rem, 4.5vw, 3.2rem); }
   .mchou-col__t { font-family: var(--font-title); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.18em; text-transform: uppercase; color: #353c4e; margin: 0 0 1rem; }
