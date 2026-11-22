@@ -350,7 +350,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       }
       .rlangs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
       /* Demande d'avis: le stelle da cui si va su Google, sotto l'interruttore. */
-      .r-review-box { margin-top: 0.7rem; display: grid; gap: 0.5rem; }
+      .r-review-box { display: grid; gap: 0.5rem; }
       .r-review-lab { font-size: 0.82rem; color: var(--c-muted); }
       .r-review-note { margin: 0; font-size: 0.8rem; color: var(--c-muted); }
       /* Lingue e opzioni del widget: la stessa pillola delle sections del
@@ -696,6 +696,18 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
          trova sempre allo stesso posto scorrendo l'elenco. */
       .field:has(> label.switch) > label:not(.switch) { flex: 1 1 auto; max-width: none; }
       .field > label.switch { margin-left: auto; }
+      /* Interruttore a destra E una scelta che dipende da lui (le sezioni del
+         plan, le opzioni, le stelle dell'avis): la scelta va SOTTO, a tutta
+         riga (22/11/2026). La spiegazione parte da base 0, cosi' resta sulla
+         riga dell'interruttore invece di spingerlo a capo. */
+      .field.field--sotto:has(> label.switch) { flex-wrap: wrap; }
+      .field.field--sotto:has(> label.switch) > label:not(.switch) { flex: 1 1 0; min-width: 0; max-width: none; }
+      .field.field--sotto > .field-sotto { flex: 1 0 100%; }
+      .field.field--sotto > .field-sotto:empty { display: none; }
+      /* ⚠️ NIENTE DOPPIE LINEE: un campo con interruttore ha la sua riga sotto,
+         ma se dopo viene gia' un separatore di gruppo (`hr.rgroup-sep`) le
+         righe erano due, con un vuoto in mezzo. Resta il separatore. */
+      .section .field.field:has(+ hr.rgroup-sep) { border-bottom: 0; padding-bottom: 0; }
       /* ⚠️ LA STESSA REGOLA per una fila di bottoni a scelta (`.prep-btns`,
          es. l'attesa della campanella): la spiegazione prende tutta la
          larghezza, i bottoni stanno al margine destro come un interruttore.
@@ -923,6 +935,8 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
       /* Tab Réservations: stessi allineamenti (label più lunghe: 300px) */
       .section[data-tab="reservations"] .field { flex-wrap: nowrap; }
       .section[data-tab="reservations"] .field label:not(.switch) { flex: 0 0 300px; max-width: 300px; }
+      /* Con la scelta sotto: la spiegazione resta larga 300px come le altre, l'interruttore a destra. */
+      .section[data-tab="reservations"] .field.field--sotto:has(> label.switch) > label:not(.switch) { flex: 0 1 300px; }
       .section[data-tab="reservations"] .field input { flex: 1; width: auto; max-width: none; min-width: 0; }
       @media (max-width: 640px) {
         .section[data-tab="reservations"] .field { flex-wrap: wrap; }
@@ -1311,9 +1325,7 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
             <!-- 2. Sections + plan de salle -->
             <div class="field">
               <label>{t("set.res.autoAccept")}<span class="lab-hint">{t("set.res.autoAcceptHint")}</span></label>
-              <div class="dyn-col sl-col">
-                <label class="switch"><input type="checkbox" id="r-autoaccept" /><span class="track"></span></label>
-              </div>
+              <label class="switch"><input type="checkbox" id="r-autoaccept" /><span class="track"></span></label>
             </div>
             <div class="field field-zones">
               <label>{t("set.res.zones")}<span class="lab-hint">{t("set.res.zonesHint")}</span></label>
@@ -1330,18 +1342,14 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
                 <span class="orf-msg" id="r-orfani-msg"></span>
               </div>
             </div>
-            <div class="field sl-filter-field">
+            <div class="field sl-filter-field field--sotto">
               <label>{t("set.res.floorPlan")}<span class="lab-hint">{t("set.res.floorPlanHint")}</span></label>
-              <div class="dyn-col sl-col">
-                <label class="switch"><input type="checkbox" id="r-planmode" /><span class="track"></span></label>
-                <div class="sl-filtri" id="sl-filtri"></div>
-              </div>
+              <label class="switch"><input type="checkbox" id="r-planmode" /><span class="track"></span></label>
+              <div class="field-sotto sl-filtri" id="sl-filtri"></div>
             </div>
             <div class="field">
               <label>{t("set.res.autoTables")}<span class="lab-hint">{t("set.res.autoTablesHint")}</span></label>
-              <div class="dyn-col sl-col">
-                <label class="switch"><input type="checkbox" id="r-autotables" /><span class="track"></span></label>
-              </div>
+              <label class="switch"><input type="checkbox" id="r-autotables" /><span class="track"></span></label>
             </div>
             <Modal id="sl-overlay" titleId="sl-title" width="1600px">
               <div class="sl-wrap" id="sl-wrap">
@@ -1433,17 +1441,17 @@ const chiaveColore = (n: string) => "set.res.col" + n[0].toUpperCase() + n.slice
             </div>
             <hr class="rgroup-sep" />
             <!-- 3bis. Options du widget -->
-            <div class="field">
+            <div class="field field--sotto">
               <label>{t("set.res.widgetOpts")}<span class="lab-hint">{t("set.res.widgetOptsHint")}</span></label>
               <label class="switch"><input type="checkbox" id="r-opts-on" /><span class="track"></span></label>
-              <div class="rlangs" id="r-opts" style="margin-top:0.6rem"></div>
+              <div class="field-sotto rlangs" id="r-opts"></div>
             </div>
             <hr class="rgroup-sep" />
             <!-- 3ter. Demande d'avis (22/11/2026) -->
-            <div class="field">
+            <div class="field field--sotto">
               <label for="r-review-on">{t("set.res.review")}<span class="lab-hint">{t("set.res.reviewHint")}</span></label>
               <label class="switch"><input type="checkbox" id="r-review-on" checked /><span class="track"></span></label>
-              <div class="r-review-box" id="r-review-box">
+              <div class="field-sotto r-review-box" id="r-review-box">
                 <span class="r-review-lab">{t("set.res.reviewMin")}</span>
                 <div class="rlangs" id="r-review-min">
                   {[1, 2, 3, 4, 5].map((n) => <button type="button" class="sl-pill rl-btn" data-n={n}>{n} ★</button>)}

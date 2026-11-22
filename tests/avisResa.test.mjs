@@ -26,3 +26,13 @@ test("le chiavi passano dal salvataggio, sono della sede e spegnere annulla le p
   assert.match(pagina, /reservation_review_enabled: rReviewOn\.checked \? "1" : "0",/);
   assert.match(pagina, /reservation_review_min_stars: String\(rSogliaGoogle\),/);
 });
+
+test("Réservations: interruttori a destra, la scelta sotto, niente doppie linee (22/11/2026)", () => {
+  const pagina = leggi("src/pages/admin/settings.astro");
+  // l'interruttore e' figlio diretto del campo (non piu' dentro .dyn-col)
+  for (const id of ["r-autoaccept", "r-planmode", "r-autotables", "r-opts-on", "r-review-on", "r-zonechoice"]) {
+    assert.match(pagina, new RegExp(`</label>\\n\\s+<label class="switch"><input type="checkbox" id="${id}"`));
+  }
+  assert.match(pagina, /\.field\.field--sotto > \.field-sotto \{ flex: 1 0 100%; \}/);
+  assert.match(pagina, /\.section \.field\.field:has\(\+ hr\.rgroup-sep\) \{ border-bottom: 0; padding-bottom: 0; \}/);
+});
