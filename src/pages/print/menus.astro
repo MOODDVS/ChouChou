@@ -1,0 +1,212 @@
+---
+// =====================================================================
+// PAGINA /print/menus — MENU(S) FIXE(S) a stampare (A5).
+// Legge TUTTI i menù fissi ATTIVI dal motore (tabella set_menus, stesso
+// filtro dell'endpoint pubblico /api/set-menus) e ne impagina UNO per
+// pagina A5: 1 menù = 1 pagina, 2 menù = 2 pagine, ecc.
+// Quando il cliente cambia un menù nell'admin, il PDF si rigenera da solo.
+//
+// Formato: A5 (148x210 mm). Impaginazione con page-break CSS (niente
+// paged.js): ogni <section.sheet> e' una pagina.
+// Per l'admin (Stampa): /admin/super → Print, route /print/menus.
+// SOLO SITO PUBBLICO — nessun file del motore RH viene toccato.
+// =====================================================================
+export const prerender = false;
+
+import Fonts from "../../components/Fonts.astro";
+import { supabaseAdmin } from "../../lib/db";
+import { leggi, ambitoPubblicoChiesto } from "../../lib/admin/sede";
+
+const ambito = await ambitoPubblicoChiesto(Astro.request);
+
+type Course = {
+  category?: string | null; name?: string; name_i18n?: Record<string, string> | null;
+  mode?: string; items?: string[];
+  customs?: { name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null }[];
+};
+type Piece = { name: string; name_i18n: Record<string, string>; desc_i18n: Record<string, string> };
+type MenuOut = {
+  name: string; name_i18n: Record<string, string>; price_cents: number;
+  wine_supplement_cents: number | null; date_from: string | null; date_to: string | null;
+  courses: { title: string; title_i18n: Record<string, string>; mode: string; pieces: Piece[] }[];
+};
+
+let menus: MenuOut[] = [];
+try {
+  const SEL = "id, name, name_i18n, desc_i18n, courses, price_cents, wine_supplement_cents, date_from, date_to, active, hide_items, is_draft, sort_order, created_at";
+  let res: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin
+    .from("set_menus").select(SEL)
+    .order("sort_order", { ascending: true }).order("created_at", { ascending: true });
+  if (res.error && /is_draft|name_i18n|desc_i18n/i.test(res.error.message ?? "")) {
+    res = await supabaseAdmin.from("set_menus")
+      .select("id, name, courses, price_cents, wine_supplement_cents, date_from, date_to, active, sort_order, created_at")
+      .order("sort_order", { ascending: true }).order("created_at", { ascending: true });
+  }
+  const oggi = new Date().toISOString().slice(0, 10);
+  const attivi = ((res.data as Record<string, unknown>[] | null) ?? []).filter((m) => {
+    if (m.active === false) return false;
+    if (m.is_draft === true) return false;
+    if (m.date_from && oggi < String(m.date_from)) return false;
+    if (m.date_to && oggi > String(m.date_to)) return false;
+    return true;
+  });
+  // Risolve i nomi dei piatti referenziati (items → menu_items).
+  const ids = new Set<string>();
+  for (const m of attivi) for (const c of (m.courses as Course[] | null) ?? []) for (const id of c.items ?? []) ids.add(String(id));
+  const nomi = new Map<string, { name: string; name_i18n: Record<string, string> }>();
+  if (ids.size) {
+    let ri: { data: unknown[] | null; error: { message?: string } | null } = await leggi("menu_items", ambito, "id, name, name_i18n").in("id", [...ids]);
+    if (ri.error && /name_i18n/i.test(ri.error.message ?? "")) ri = await leggi("menu_items", ambito, "id, name").in("id", [...ids]);
+    for (const r of (ri.data as { id: string; name: string; name_i18n?: Record<string, string> | null }[] | null) ?? []) {
+      nomi.set(r.id, { name: r.name, name_i18n: r.name_i18n ?? {} });
+    }
+  }
+  menus = attivi.map((m) => ({
+    name: (m.name as string) ?? "",
+    name_i18n: (m.name_i18n as Record<string, string> | null) ?? {},
+    price_cents: (m.price_cents as number) ?? 0,
+    wine_supplement_cents: (m.wine_supplement_cents as number | null) ?? null,
+    date_from: (m.date_from as string | null) ?? null,
+    date_to: (m.date_to as string | null) ?? null,
+    courses: ((m.courses as Course[] | null) ?? []).map((c) => {
+      const pieces: Piece[] = [];
+      for (const id of c.items ?? []) { const p = nomi.get(String(id)); if (p) pieces.push({ name: p.name, name_i18n: p.name_i18n, desc_i18n: {} }); }
+      for (const cu of c.customs ?? []) { const i18n = cu.name_i18n ?? {}; const primo = Object.values(i18n)[0] ?? ""; if (primo) pieces.push({ name: primo, name_i18n: i18n, desc_i18n: cu.desc_i18n ?? {} }); }
+      return { title: c.category || c.name || "", title_i18n: c.category ? {} : (c.name_i18n ?? {}), mode: c.mode === "and" ? "and" : "choice", pieces };
+    }),
+  }));
+} catch { menus = []; }
+
+// ---- Helper -----------------------------------------------------------
+const frOf = (i18n: Record<string, string> | null | undefined, fallback = "") => (i18n?.fr ?? fallback).trim();
+const frName = (m: MenuOut) => frOf(m.name_i18n, m.name);
+const frTitle = (c: { title: string; title_i18n: Record<string, string> }) => frOf(c.title_i18n, c.title);
+function prezzo(cents: number): string {
+  const euro = cents / 100;
+  return Number.isInteger(euro) ? `${euro} €` : `${euro.toFixed(2).replace(".", ",")} €`;
+}
+const MESI = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+function dataFr(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MESI[(m ?? 1) - 1]} ${y}`;
+}
+function periodo(m: MenuOut): string {
+  if (m.date_from && m.date_to) return `Du ${dataFr(m.date_from)} au ${dataFr(m.date_to)}`;
+  if (m.date_to) return `Jusqu'au ${dataFr(m.date_to)}`;
+  if (m.date_from) return `À partir du ${dataFr(m.date_from)}`;
+  return "";
+}
+---
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Comptoir Chouchou — Menus à imprimer</title>
+  <Fonts sito />
+  <style>
+    :root{ --navy:#353c4e; --mag:#ed2289; --grey:#6b7183; --line:rgba(53,60,78,.16); }
+    html:root{ --font-title:var(--font-titolo); --font-body:var(--font-testo); }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; }
+    @page{ size:148mm 210mm; margin:0; }
+    body{ background:#d9d4cc; font-family:var(--font-body),system-ui,sans-serif;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+    .print-btn{ position:fixed; right:20px; bottom:20px; z-index:9; border:0; cursor:pointer;
+      background:var(--mag); color:#fff; font-family:var(--font-title),sans-serif; font-weight:700;
+      font-size:15px; padding:13px 22px; border-radius:999px; box-shadow:0 8px 24px rgba(237,34,137,.4); }
+
+    .sheet{ position:relative; width:148mm; height:210mm; background:#fff; overflow:hidden;
+      margin:18px auto; box-shadow:0 12px 40px rgba(53,60,78,.2); }
+    .sheet + .sheet{ break-before:page; }
+    .pad{ position:absolute; inset:0; padding:13mm 12mm 11mm; display:flex; flex-direction:column; }
+    .frame{ position:absolute; inset:6mm; border:.5mm solid var(--line); border-radius:2mm; pointer-events:none; }
+    .frame::after{ content:""; position:absolute; inset:1.4mm; border:.25mm solid var(--line); border-radius:1.4mm; }
+
+    .head{ text-align:center; }
+    .rule{ display:flex; align-items:center; justify-content:center; gap:3mm; margin:0 auto 3mm; }
+    .rule span{ height:.4mm; width:14mm; background:var(--mag); opacity:.55; }
+    .rule b{ width:1.6mm; height:1.6mm; background:var(--mag); transform:rotate(45deg); opacity:.8; }
+    .eyebrow{ font-family:var(--font-title),sans-serif; font-weight:600; text-transform:uppercase;
+      letter-spacing:.42em; font-size:7pt; color:var(--navy); opacity:.75; margin:0 0 1mm; padding-left:.42em; }
+    .title{ font-family:var(--font-script),cursive; font-weight:400; color:var(--mag);
+      font-size:40pt; line-height:.8; margin:1mm 0 0; }
+    .kicker{ font-family:var(--font-title),sans-serif; font-weight:600; text-transform:uppercase;
+      letter-spacing:.2em; font-size:8pt; color:var(--mag); margin:3mm 0 0; padding-left:.2em; }
+
+    .sections{ flex:1; display:flex; flex-direction:column; justify-content:center; gap:5mm; margin:5mm 0; }
+    .sec{ text-align:center; }
+    .sec__t{ display:flex; align-items:center; justify-content:center; gap:4mm; margin:0 0 2.6mm; }
+    .sec__t span{ font-family:var(--font-title),sans-serif; font-weight:600; text-transform:uppercase;
+      letter-spacing:.26em; font-size:8.5pt; color:var(--navy); padding-left:.26em; white-space:nowrap; }
+    .sec__t i{ height:.3mm; width:16mm; background:var(--line); }
+    .dish__n{ font-family:var(--font-title),sans-serif; font-weight:600; color:var(--navy); font-size:11pt; line-height:1.2; }
+    .dish__d{ font-family:var(--font-body),sans-serif; font-style:italic; color:var(--grey); font-size:8pt; line-height:1.4; margin-top:.6mm; }
+    .ou{ font-family:var(--font-script),cursive; color:var(--mag); font-size:15pt; line-height:1; margin:1.4mm 0; }
+
+    .foot{ text-align:center; margin-top:1mm; }
+    .price{ display:inline-flex; align-items:baseline; gap:1.8mm;
+      background:rgba(237,34,137,.07); border:.35mm solid rgba(237,34,137,.4); border-radius:999px; padding:1.9mm 5.2mm; }
+    .price b{ font-family:var(--font-title),sans-serif; font-weight:700; color:var(--mag); font-size:11pt; line-height:1; }
+    .price em{ font-family:var(--font-body),sans-serif; font-style:normal; font-weight:700; color:var(--mag); font-size:7pt; }
+    .wine{ font-family:var(--font-body),sans-serif; font-style:italic; color:var(--grey); font-size:7.5pt; margin:2mm 0 0; }
+    .note{ font-family:var(--font-title),sans-serif; font-weight:500; text-transform:uppercase; letter-spacing:.18em;
+      font-size:6.5pt; color:var(--navy); opacity:.6; margin:3mm 0 0; padding-left:.18em; }
+    .empty{ margin:auto; font-family:var(--font-title),sans-serif; color:var(--grey); font-size:12pt; }
+
+    @media print{
+      body{ background:#fff; }
+      .print-btn{ display:none !important; }
+      .sheet{ margin:0; box-shadow:none; }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" type="button" onclick="window.print()">⬇ Imprimer / PDF</button>
+
+  {menus.length === 0 && (
+    <section class="sheet"><div class="frame"></div><div class="pad"><div class="empty">Aucun menu actif</div></div></section>
+  )}
+
+  {menus.map((m) => (
+    <section class="sheet">
+      <div class="frame"></div>
+      <div class="pad">
+        <div class="head">
+          <div class="rule"><span></span><b></b><span></span></div>
+          <p class="eyebrow">Comptoir Chouchou</p>
+          <h1 class="title">{frName(m)}</h1>
+          {periodo(m) && <p class="kicker">{periodo(m)}</p>}
+        </div>
+
+        <div class="sections">
+          {m.courses.filter((c) => c.pieces.length > 0).map((c) => (
+            <div class="sec">
+              <div class="sec__t"><i></i><span>{frTitle(c)}</span><i></i></div>
+              {c.pieces.map((p, pi) => (
+                <Fragment>
+                  {pi > 0 && c.mode === "choice" && <div class="ou">ou</div>}
+                  <div class="dish">
+                    <div class="dish__n">{frOf(p.name_i18n, p.name)}</div>
+                    {frOf(p.desc_i18n) && <div class="dish__d">{frOf(p.desc_i18n)}</div>}
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div class="foot">
+          {m.price_cents > 0 && (
+            <div class="price"><b>{prezzo(m.price_cents)}</b><em>par personne</em></div>
+          )}
+          {m.wine_supplement_cents ? <p class="wine">+ {prezzo(m.wine_supplement_cents)} accord mets et vins</p> : null}
+          <p class="note">Fait maison · Produits de saison</p>
+        </div>
+      </div>
+    </section>
+  ))}
+</body>
+</html>
