@@ -871,7 +871,10 @@ test("Menu: i piatti fuori menu hanno nome e descrizione per lingua (22/11/2026)
   const pub = readFileSync(new URL("../src/pages/api/set-menus.ts", import.meta.url), "utf8");
   // per ogni lingua un campo nome e una descrizione, raccolti insieme
   assert.match(pagina, /class="mn-free-desc" data-i="\$\{i\}" data-lang="\$\{l\}"/);
-  assert.match(pagina, /customs, \{ name_i18n: obj, desc_i18n: desc \}/);
+  // quello che si scrive sta nello stato (non si perde ridisegnando) e
+  // «Enregistrer» aggiunge anche il piatto non ancora aggiunto con «Ajouter»
+  assert.match(pagina, /\(inp\.classList\.contains\("mn-free-in"\) \? b\.n : b\.d\)\[l\] = inp\.value/);
+  assert.match(pagina, /const p = bozzaPronta\(i\);\n          const b = mnCorsi\[i\]\.bozza;/);
   // si salva e si rilegge
   assert.match(pagina, /desc_i18n: \{ \.\.\.\(cu\.desc_i18n \?\? \{\}\) \}/);
   assert.match(admin, /pulisciI18n\(cu\?\.desc_i18n, 500\)/);
