@@ -2875,7 +2875,11 @@ const varianti = boot.features.includes("variants");
       const mnImgFile = document.getElementById("mn-img-file") as HTMLInputElement;
       const mnImgState = document.getElementById("mn-img-state") as HTMLSpanElement;
       let mnImgUrl: string | null = null;
-      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[]; customs: { name_i18n: Record<string, string>; desc_i18n?: Record<string, string> }[]; hide: boolean; src: "menu" | "free" }[] = [];
+      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[]; customs: { name_i18n: Record<string, string>; desc_i18n?: Record<string, string> }[]; hide: boolean; src: "menu" | "free"; bozza?: Bozza }[] = [];
+      // Il piatto hors menu che si sta scrivendo (nome e descrizione per lingua):
+      // sta nello stato, cosi' non si perde quando la sezione si ridisegna, e
+      // «Enregistrer» lo aggiunge anche se non si e' premuto «Ajouter».
+      type Bozza = { n: Record<string, string>; d: Record<string, string> };
 
       function costruisciCampiLinguaMenu() {
         const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
@@ -2961,7 +2965,7 @@ const varianti = boot.features.includes("variants");
                         const tag = unaLingua ? "" : ` (${esc(langTag(l))})`;
                         const ph = `${esc(tr("menu.freeDishPh"))}${tag}`;
                         const phD = `${esc(tr("menu.freeDishDescPh"))}${tag}`;
-                        return `<div class="mn-free-lingua"><input type="text" class="lu-free-in mn-free-in" data-i="${i}" data-lang="${l}" maxlength="80" placeholder="${ph}" /><textarea class="mn-free-desc" data-i="${i}" data-lang="${l}" rows="2" maxlength="500" placeholder="${phD}"></textarea></div>`;
+                        return `<div class="mn-free-lingua"><input type="text" class="lu-free-in mn-free-in" data-i="${i}" data-lang="${l}" maxlength="80" placeholder="${ph}" value="${esc(c.bozza?.n[l] ?? "")}" /><textarea class="mn-free-desc" data-i="${i}" data-lang="${l}" rows="2" maxlength="500" placeholder="${phD}">${esc(c.bozza?.d[l] ?? "")}</textarea></div>`;
                       })
                       .join("")}
                      <button type="button" class="lu-free-add mn-free-add" data-i="${i}">${tr("menu.freeDishAdd")}</button>`}
@@ -2980,6 +2984,12 @@ const varianti = boot.features.includes("variants");
       mnCorsiEl.addEventListener("input", (e) => {
         const inp = e.target as HTMLInputElement;
         const i = Number(inp.dataset.i);
+        if ((inp.classList.contains("mn-free-in") || inp.classList.contains("mn-free-desc")) && mnCorsi[i]) {
+          const l = inp.dataset.lang || PUB.def;
+          const b = (mnCorsi[i].bozza ??= { n: {}, d: {} });
+          (inp.classList.contains("mn-free-in") ? b.n : b.d)[l] = inp.value;
+          return;
+        }
         if (inp.classList.contains("mn-corso-nx")) {
           const l = inp.dataset.lang ?? "";
           if (mnCorsi[i]) {
@@ -3012,25 +3022,28 @@ const varianti = boot.features.includes("variants");
           mnCorsi[i].hide = (sel as unknown as HTMLInputElement).checked;
         }
       });
+      /** Il piatto in bozza della sezione i, ripulito; null se non ha nome. */
+      function bozzaPronta(i: number): { name_i18n: Record<string, string>; desc_i18n: Record<string, string> } | null {
+        const b = mnCorsi[i]?.bozza;
+        if (!b) return null;
+        const pul = (o: Record<string, string>, max: number) => {
+          const r: Record<string, string> = {};
+          for (const [k, v] of Object.entries(o)) { const t = String(v ?? "").trim().slice(0, max); if (t) r[k] = t; }
+          return r;
+        };
+        const n = pul(b.n, 80);
+        if (!Object.keys(n).length) return null;
+        return { name_i18n: n, desc_i18n: pul(b.d, 500) };
+      }
       function aggiungiCustomMenu(i: number) {
         if (!mnCorsi[i]) return;
-        const inputs = Array.from(mnCorsiEl.querySelectorAll<HTMLInputElement>(`.mn-free-in[data-i="${i}"]`));
-        const obj: Record<string, string> = {};
-        for (const inp of inputs) {
-          const l = inp.dataset.lang || PUB.def;
-          const v = inp.value.trim().slice(0, 80);
-          if (v) obj[l] = v;
-        }
-        if (!obj[PUB.def]) {
-          (inputs.find((x) => (x.dataset.lang || PUB.def) === PUB.def) ?? inputs[0])?.focus();
+        const p = bozzaPronta(i);
+        if (!p) {
+          mnCorsiEl.querySelector<HTMLInputElement>(`.mn-free-in[data-i="${i}"][data-lang="${PUB.def}"]`)?.focus();
           return;
         }
-        const desc: Record<string, string> = {};
-        for (const ta of Array.from(mnCorsiEl.querySelectorAll<HTMLTextAreaElement>(`.mn-free-desc[data-i="${i}"]`))) {
-          const v = ta.value.trim().slice(0, 500);
-          if (v) desc[ta.dataset.lang || PUB.def] = v;
-        }
-        mnCorsi[i].customs = [...mnCorsi[i].customs, { name_i18n: obj, desc_i18n: desc }];
+        mnCorsi[i].customs = [...mnCorsi[i].customs, p];
+        mnCorsi[i].bozza = undefined;
         renderMnCorsi();
       }
       mnCorsiEl.addEventListener("keydown", (e) => {
@@ -3180,6 +3193,18 @@ const varianti = boot.features.includes("variants");
               return Object.keys(d).length ? { name_i18n: o, desc_i18n: d } : { name_i18n: o };
             })
             .filter((cu) => Object.keys(cu.name_i18n).length);
+        for (let i = 0; i < mnCorsi.length; i++) {
+          const p = bozzaPronta(i);
+          const b = mnCorsi[i].bozza;
+          if (p) { mnCorsi[i].customs = [...mnCorsi[i].customs, p]; mnCorsi[i].bozza = undefined; }
+          else if (b && Object.values(b.d).some((v) => String(v ?? "").trim())) {
+            // una descrizione senza il nome del piatto: si chiede il nome
+            mnMsg.textContent = tr("menu.freeDishNoName");
+            mnCorsiEl.querySelector<HTMLInputElement>(`.mn-free-in[data-i="${i}"][data-lang="${PUB.def}"]`)?.focus();
+            return;
+          }
+        }
+        renderMnCorsi();
         const courses = mnCorsi
           .map((c) => {
             // I piatti del menu e quelli fuori menu convivono: si salvano
