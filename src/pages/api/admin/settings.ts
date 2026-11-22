@@ -15,7 +15,7 @@ import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
   ambitoDiRichiesta, leggi, leggiConfig, scriviConfig, cancellaConfig,
-  leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo,
+  leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo, aggiorna,
   type Ambito,
 } from "../../../lib/admin/sede";
 import { orfaniDelPiano, type SezioneOrfana } from "../../../lib/pianoSalaRegole";
@@ -29,6 +29,7 @@ import { finestraInvio, FINESTRE_INVIO } from "../../../lib/contoRegole";
 import { fonteSala, FONTI_SALA, prolungaSala, PROLUNGHE_SALA, serviziSalaDaConfig, serviziDellaSala } from "../../../lib/salaOrariRegole";
 import { sogliaCents, euroInCents, ritardoConsegna, RITARDI_CONSEGNA, maxConsegne, zoneDaConfig, zoneDaPagina } from "../../../lib/consegnaRegole";
 import { tipoMance, valoriMance, valoriDaPagina } from "../../../lib/manceRegole";
+import { annullaEmailReview } from "../../../lib/notifications";
 
 export const prerender = false;
 
@@ -182,6 +183,8 @@ const CHIAVI_RESA = [
   "reservation_languages",    // lingue attive sul widget: JSON ["fr","en",…]
   "reservation_options_enabled", // "1" mostra le opzioni nel widget, "0" le nasconde
   "reservation_options",      // opzioni attive: JSON ["high_chair","quiet",…]
+  "reservation_review_enabled",   // "1" (default) l'email «votre avis» il giorno dopo · "0" nessuna
+  "reservation_review_min_stars", // da quante stelle si va su Google (1-5, default 4); sotto, il parere privato
   "reservation_from_name",    // nome mittente delle conferme al cliente
   "reservation_from_email",   // mittente delle conferme al cliente
   "reservation_notify_email", // dove arrivano le richieste
@@ -473,6 +476,25 @@ export const PATCH: APIRoute = async ({ request }) => {
 };
 
 // PUT /api/admin/settings — salva orari (2 fasce) + prep/slot + email cucina
+/** Annulla le email «votre avis» gia' programmate delle prenotazioni del
+ *  punto (da ieri in poi: quella di ieri parte oggi alle 11:30). */
+async function annullaReviewProgrammate(ambito: Ambito): Promise<void> {
+  try {
+    const ieri = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    const { data } = await leggi("reservations", ambito, "id, review_email_id")
+      .not("review_email_id", "is", null)
+      .gte("date", ieri)
+      .limit(1000);
+    for (const r of (data ?? []) as unknown as { id: string; review_email_id: string | null }[]) {
+      if (!r.review_email_id) continue;
+      await annullaEmailReview(r.review_email_id);
+      await aggiorna("reservations", ambito, { review_email_id: null }).eq("id", r.id);
+    }
+  } catch (e) {
+    console.error("[settings] annullo email avis:", e);
+  }
+}
+
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
@@ -628,7 +650,7 @@ export const PUT: APIRoute = async ({ request }) => {
       if (k === "reservation_zone_choice" && v && v !== "0" && v !== "1") {
         return json({ error: await msg("err.valSection") }, 400);
       }
-      if ((k === "reservation_auto_accept" || k === "reservation_auto_tables" || k === "reservation_options_enabled") && v && v !== "0" && v !== "1") {
+      if ((k === "reservation_auto_accept" || k === "reservation_auto_tables" || k === "reservation_options_enabled" || k === "reservation_review_enabled") && v && v !== "0" && v !== "1") {
         return json({ error: await msg("err.valSwitch") }, 400);
       }
       if (k === "reservation_corner_style" && v && v !== "rounded" && v !== "square") {
@@ -658,6 +680,11 @@ export const PUT: APIRoute = async ({ request }) => {
         const OPZIONI_VALIDE = ["high_chair", "quiet", "business", "birthday", "special_event"];
         const scelte = new Set<string>(lista.filter((c): c is string => typeof c === "string" && OPZIONI_VALIDE.includes(c)));
         v = JSON.stringify(OPZIONI_VALIDE.filter((c) => scelte.has(c)));
+      }
+      if (k === "reservation_review_min_stars" && v) {
+        const n = Math.floor(Number(v));
+        if (!Number.isFinite(n) || n < 1 || n > 5) return json({ error: await msg("err.reviewStars") }, 400);
+        v = String(n);
       }
       if (k === "reservation_min_notice_minutes" && v) {
         const n = Math.floor(Number(v));
@@ -812,6 +839,12 @@ export const PUT: APIRoute = async ({ request }) => {
     if (err) return json({ error: await msg("err.resSave") }, 500);
     const zone = resaPulito.find(([k]) => k === "reservation_zones")?.[1];
     if (zone !== undefined) orfani = await tavoliSenzaSection(ambitoPut, zone);
+    // Email «votre avis» spenta: quelle gia' programmate su Resend per le
+    // prenotazioni di questo punto si annullano, o partirebbero lo stesso
+    // per giorni (ogni prenotazione gia' presa ha la sua).
+    if (resaPulito.find(([k]) => k === "reservation_review_enabled")?.[1] === "0") {
+      void annullaReviewProgrammate(ambitoPut);
+    }
   }
 
   // ---- Tab Ordini: come si paga in questo punto ----

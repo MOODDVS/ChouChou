@@ -2122,6 +2122,12 @@ export async function inviaFeedbackCliente(fb: {
   }
 }
 
+/** Da quante stelle l'email «votre avis» manda su Google: 1-5, default 4. */
+export function sogliaStelleGoogle(v: unknown): number {
+  const n = Math.floor(Number(String(v ?? "").trim() || 4));
+  return Number.isFinite(n) && n >= 1 && n <= 5 ? n : 4;
+}
+
 /**
  * Email recensione Google per una PRENOTAZIONE, programmata su Resend
  * per le 11:30 del giorno DOPO la data della prenotazione (Bruxelles).
@@ -2140,9 +2146,16 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   const tema = await temaEmail();
 
   let reviewUrl = "";
+  // Impostazioni › Réservations (22/11/2026): l'email si puo' spegnere, e si
+  // sceglie da quante stelle si va su Google (prima fisso a 4).
+  let sogliaGoogle = 4;
   try {
     const { data } = await appConfigEq("link_google_review", ambito);
     reviewUrl = String(data?.value ?? "").trim();
+    const { data: acc } = await appConfigEq("reservation_review_enabled", ambito);
+    if (String(acc?.value ?? "").trim() === "0") return null;
+    const { data: sg } = await appConfigEq("reservation_review_min_stars", ambito);
+    sogliaGoogle = sogliaStelleGoogle(sg?.value);
   } catch {
     return null;
   }
@@ -2172,7 +2185,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
       `${baseResa}/feedback?r=${star}&lang=${r.lang || "fr"}` +
         `&name=${encodeURIComponent(nomeCompleto)}&email=${encodeURIComponent(r.email.trim())}`,
     );
-  const starHref = (star: number) => (reviewUrl && star >= 4 ? reviewUrl : feedbackUrl(star));
+  const starHref = (star: number) => (reviewUrl && star >= sogliaGoogle ? reviewUrl : feedbackUrl(star));
   const stelle = [1, 2, 3, 4, 5]
     .map(
       (star) =>
