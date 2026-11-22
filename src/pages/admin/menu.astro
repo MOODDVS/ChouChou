@@ -480,9 +480,23 @@ const varianti = boot.features.includes("variants");
       .mn-free-lingua { display: grid; gap: 0.35rem; margin-top: 0.6rem; }
       .mn-free-desc { width: 100%; resize: vertical; min-height: 2.6rem; }
       .mn-cust-lista { display: grid; gap: 0.4rem; margin-top: 0.7rem; }
-      .mn-cust { display: flex; align-items: flex-start; gap: 0.6rem; border: 1px dashed var(--c-line); border-radius: 12px; padding: 0.5rem 0.75rem; font-size: 0.85rem; }
-      .mn-cust-t { flex: 1; min-width: 0; display: grid; gap: 0.15rem; }
+      /* Il piatto aggiunto si vede bene (fondo e filo dell'accento); un clic
+         lo riapre nei campi per modificarlo (22/11/2026). */
+      .mn-cust {
+        display: flex; align-items: flex-start; gap: 0.6rem; font-size: 0.88rem;
+        background: color-mix(in srgb, var(--c-accent) 9%, transparent);
+        border: 1px solid color-mix(in srgb, var(--c-accent) 35%, transparent); border-left: 4px solid var(--c-accent);
+        border-radius: 12px; padding: 0.6rem 0.8rem; transition: background 0.15s, border-color 0.15s;
+      }
+      .mn-cust:hover { background: color-mix(in srgb, var(--c-accent) 15%, transparent); }
+      .mn-cust.is-edit { background: color-mix(in srgb, var(--c-accent) 20%, transparent); border-color: var(--c-accent); }
+      .mn-cust-t { all: unset; flex: 1; min-width: 0; display: grid; gap: 0.2rem; cursor: pointer; }
+      .mn-cust-t:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 3px; border-radius: 4px; }
+      .mn-cust-t b { color: var(--c-text); }
       .mn-cust-t span { color: var(--c-muted); font-size: 0.8rem; line-height: 1.4; }
+      .mn-free-azioni { display: flex; gap: 0.5rem; }
+      .mn-free-azioni .lu-free-add { flex: 1; }
+      .lu-free-add.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .mn-cust-x { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
       .mn-cust-x:hover { color: var(--c-ko-chiaro); }
       .lu-combo-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.45rem; }
@@ -2879,7 +2893,8 @@ const varianti = boot.features.includes("variants");
       // Il piatto hors menu che si sta scrivendo (nome e descrizione per lingua):
       // sta nello stato, cosi' non si perde quando la sezione si ridisegna, e
       // «Enregistrer» lo aggiunge anche se non si e' premuto «Ajouter».
-      type Bozza = { n: Record<string, string>; d: Record<string, string> };
+      type Bozza = { n: Record<string, string>; d: Record<string, string>; ci?: number };
+      // `ci`: il piatto gia' aggiunto che si sta modificando (si e' cliccato).
 
       function costruisciCampiLinguaMenu() {
         const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
@@ -2924,7 +2939,8 @@ const varianti = boot.features.includes("variants");
               .map((cu, ci) => {
                 const nome = cu.name_i18n?.[PUB.def] || Object.values(cu.name_i18n ?? {})[0] || "?";
                 const desc = cu.desc_i18n?.[PUB.def] || Object.values(cu.desc_i18n ?? {})[0] || "";
-                return `<div class="mn-cust"><div class="mn-cust-t"><b>${esc(nome)}</b>${desc ? `<span>${esc(desc)}</span>` : ""}</div><button type="button" class="mn-cust-x" data-i="${i}" data-ci="${ci}" title="${tr("ord.remove")}">×</button></div>`;
+                const inModifica = c.bozza?.ci === ci;
+                return `<div class="mn-cust${inModifica ? " is-edit" : ""}"><button type="button" class="mn-cust-t" data-i="${i}" data-ci="${ci}" title="${esc(tr("common.edit"))}"><b>${esc(nome)}</b>${desc ? `<span>${esc(desc)}</span>` : ""}</button><button type="button" class="mn-cust-x" data-i="${i}" data-ci="${ci}" title="${tr("ord.remove")}">×</button></div>`;
               })
               .join("");
             const catOpts = cats
@@ -2968,7 +2984,9 @@ const varianti = boot.features.includes("variants");
                         return `<div class="mn-free-lingua"><input type="text" class="lu-free-in mn-free-in" data-i="${i}" data-lang="${l}" maxlength="80" placeholder="${ph}" value="${esc(c.bozza?.n[l] ?? "")}" /><textarea class="mn-free-desc" data-i="${i}" data-lang="${l}" rows="2" maxlength="500" placeholder="${phD}">${esc(c.bozza?.d[l] ?? "")}</textarea></div>`;
                       })
                       .join("")}
-                     <button type="button" class="lu-free-add mn-free-add" data-i="${i}">${tr("menu.freeDishAdd")}</button>`}
+                     ${c.bozza?.ci !== undefined
+                       ? `<div class="mn-free-azioni"><button type="button" class="lu-free-add mn-free-annulla" data-i="${i}">${tr("common.cancel")}</button><button type="button" class="lu-free-add mn-free-add is-on" data-i="${i}">${tr("menu.freeDishUpdate")}</button></div>`
+                       : `<button type="button" class="lu-free-add mn-free-add" data-i="${i}">${tr("menu.freeDishAdd")}</button>`}`}
                 ${custRighe ? `<div class="mn-cust-lista">${custRighe}</div>` : ""}
                 <div class="lu-chips">${chips || (custRighe ? "" : `<span class="f-label">${tr("menu.noDishSelected")}</span>`)}</div>
                 ${c.items.length ? `<label class="lu-hide"><span class="switch"><input type="checkbox" class="mn-hide-in" data-i="${i}"${c.hide ? " checked" : ""} /><span class="track"></span></span>${tr("menu.lunchHideItems")}</label>` : ""}
@@ -3042,9 +3060,17 @@ const varianti = boot.features.includes("variants");
           mnCorsiEl.querySelector<HTMLInputElement>(`.mn-free-in[data-i="${i}"][data-lang="${PUB.def}"]`)?.focus();
           return;
         }
-        mnCorsi[i].customs = [...mnCorsi[i].customs, p];
-        mnCorsi[i].bozza = undefined;
+        mettiBozza(i, p);
         renderMnCorsi();
+      }
+      /** Il piatto in bozza entra nella sezione: al suo posto se si stava
+       *  modificando uno gia' aggiunto, altrimenti in fondo. */
+      function mettiBozza(i: number, p: { name_i18n: Record<string, string>; desc_i18n: Record<string, string> }) {
+        const c = mnCorsi[i];
+        const ci = c.bozza?.ci;
+        if (ci !== undefined && c.customs[ci]) c.customs = c.customs.map((x, k) => (k === ci ? p : x));
+        else c.customs = [...c.customs, p];
+        c.bozza = undefined;
       }
       mnCorsiEl.addEventListener("keydown", (e) => {
         const inp = (e.target as HTMLElement).closest(".mn-free-in") as HTMLInputElement | null;
@@ -3055,7 +3081,30 @@ const varianti = boot.features.includes("variants");
         const fadd = t.closest(".mn-free-add") as HTMLElement | null;
         if (fadd) { aggiungiCustomMenu(Number(fadd.dataset.i)); return; }
         const cx = t.closest(".mn-cust-x") as HTMLElement | null;
-        if (cx) { const i = Number(cx.dataset.i); mnCorsi[i]?.customs.splice(Number(cx.dataset.ci), 1); renderMnCorsi(); return; }
+        if (cx) {
+          const i = Number(cx.dataset.i); const ci = Number(cx.dataset.ci); const c = mnCorsi[i];
+          if (c) {
+            c.customs.splice(ci, 1);
+            // se si stava modificando proprio quello, la bozza torna «nuova»
+            if (c.bozza?.ci === ci) c.bozza = undefined;
+            else if (c.bozza?.ci !== undefined && c.bozza.ci > ci) c.bozza.ci--;
+          }
+          renderMnCorsi(); return;
+        }
+        // Clic su un piatto hors menu gia' aggiunto: si riapre nei campi.
+        const ced = t.closest(".mn-cust-t") as HTMLElement | null;
+        if (ced) {
+          const i = Number(ced.dataset.i); const ci = Number(ced.dataset.ci); const cu = mnCorsi[i]?.customs[ci];
+          if (cu) {
+            mnCorsi[i].bozza = { n: { ...(cu.name_i18n ?? {}) }, d: { ...(cu.desc_i18n ?? {}) }, ci };
+            mnCorsi[i].src = "free";
+            renderMnCorsi();
+            mnCorsiEl.querySelector<HTMLInputElement>(`.mn-free-in[data-i="${i}"][data-lang="${PUB.def}"]`)?.focus();
+          }
+          return;
+        }
+        const fann = t.closest(".mn-free-annulla") as HTMLElement | null;
+        if (fann) { const i = Number(fann.dataset.i); if (mnCorsi[i]) mnCorsi[i].bozza = undefined; renderMnCorsi(); return; }
         const srcBtn = t.closest(".lu-mode") as HTMLElement | null;
         if (srcBtn && srcBtn.dataset.src) {
           const i = Number(srcBtn.dataset.i);
@@ -3196,7 +3245,7 @@ const varianti = boot.features.includes("variants");
         for (let i = 0; i < mnCorsi.length; i++) {
           const p = bozzaPronta(i);
           const b = mnCorsi[i].bozza;
-          if (p) { mnCorsi[i].customs = [...mnCorsi[i].customs, p]; mnCorsi[i].bozza = undefined; }
+          if (p) mettiBozza(i, p);
           else if (b && Object.values(b.d).some((v) => String(v ?? "").trim())) {
             // una descrizione senza il nome del piatto: si chiede il nome
             mnMsg.textContent = tr("menu.freeDishNoName");

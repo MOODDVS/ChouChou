@@ -881,3 +881,10 @@ test("Menu: i piatti fuori menu hanno nome e descrizione per lingua (22/11/2026)
   // il sito la riceve
   assert.match(pub, /desc_i18n: cu\.desc_i18n \?\? \{\}/);
 });
+
+test("Menu: un piatto hors menu aggiunto si riapre col clic e torna al suo posto (22/11/2026)", () => {
+  const pagina = readFileSync(new URL("../src/pages/admin/menu.astro", import.meta.url), "utf8");
+  assert.match(pagina, /mnCorsi\[i\]\.bozza = \{ n: \{ \.\.\.\(cu\.name_i18n \?\? \{\}\) \}, d: \{ \.\.\.\(cu\.desc_i18n \?\? \{\}\) \}, ci \};/);
+  assert.match(pagina, /c\.customs\.map\(\(x, k\) => \(k === ci \? p : x\)\)/);
+  assert.match(pagina, /if \(p\) mettiBozza\(i, p\);/);
+});
