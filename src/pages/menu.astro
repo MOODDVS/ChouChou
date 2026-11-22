@@ -8,7 +8,7 @@
 // Badge piatto: ★ best-seller (magenta) · 🌱 végan · 🌶️ épicé.
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
-import { getMenu, type MenuItem } from "../lib/db";
+import { getMenu, supabaseAdmin, type MenuItem } from "../lib/db";
 import { prezzoDaChiedere } from "../lib/pricing";
 import { etichettaMenu } from "../lib/i18nMenu";
 import { ambitoPubblicoChiesto } from "../lib/admin/sede";
@@ -77,6 +77,40 @@ const MENU_CHOUCHOU = {
     ] },
   ],
 };
+
+// Prezzo del Menu Chouchou: gestito in RestoHub (admin, menu / prix fixe).
+// Letto dal motore (tabella `set_menus`) via l'export pubblico `supabaseAdmin`,
+// stesso filtro del suo endpoint pubblico (attivi, non bozza, nel periodo).
+// Cosi la cifra resta modificabile dall'admin senza toccare file del motore.
+let MCHOU_PREZZO: string | null = null;
+let MCHOU_VINO: string | null = null;
+try {
+  const { data: setMenusRaw } = await supabaseAdmin
+    .from("set_menus")
+    .select("name, name_i18n, price_cents, wine_supplement_cents, active, is_draft, date_from, date_to, sort_order, created_at")
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const oggiMenu = new Date().toISOString().slice(0, 10);
+  type SetMenuRow = {
+    name?: string | null; name_i18n?: Record<string, string> | null;
+    price_cents?: number | null; wine_supplement_cents?: number | null;
+    active?: boolean | null; is_draft?: boolean | null;
+    date_from?: string | null; date_to?: string | null;
+  };
+  const attivi = ((setMenusRaw as SetMenuRow[] | null) ?? []).filter((m) => {
+    if (m.active === false) return false;
+    if (m.is_draft === true) return false;
+    if (m.date_from && oggiMenu < String(m.date_from)) return false;
+    if (m.date_to && oggiMenu > String(m.date_to)) return false;
+    return true;
+  });
+  const testoMenu = (m: SetMenuRow) =>
+    `${m.name ?? ""} ${Object.values(m.name_i18n ?? {}).join(" ")}`.toLowerCase();
+  const scelto = attivi.find((m) => /chouchou|d[e\u00e9]cembre|december/.test(testoMenu(m))) ?? attivi[0];
+  if (scelto && (scelto.price_cents ?? 0) > 0) MCHOU_PREZZO = prezzo(scelto.price_cents as number);
+  if (scelto && scelto.wine_supplement_cents) MCHOU_VINO = prezzo(scelto.wine_supplement_cents);
+} catch { /* set_menus assente o non leggibile: la sezione resta senza prezzo */ }
+
 const SOIR_FOTO = siteImg(IMGS, "site_soir_chef", IMGS["site_hero_1"] || "/chouchou-restaurant.webp");
 
 // I 14 allergeni UE — stessi numeri usati dall'admin.
@@ -461,6 +495,14 @@ gruppi.forEach((g, i) => {
       <span class="mchou__script">{en ? "the Chouchou menu" : "le menu Chouchou"}</span>
       <p class="mchou__kicker">{MENU_CHOUCHOU.mois}</p>
       <p class="mchou__desc">{MENU_CHOUCHOU.desc}</p>
+      {MCHOU_PREZZO && (
+        <p class="mchou__price">
+          {MCHOU_PREZZO}
+          {MCHOU_VINO && (
+            <span class="mchou__wine">{en ? `+ ${MCHOU_VINO} wine pairing` : `+ ${MCHOU_VINO} accord mets et vins`}</span>
+          )}
+        </p>
+      )}
       <div class="mchou-cols">
         {MENU_CHOUCHOU.sections.map((sec) => (
           <div class="mchou-col">
@@ -1459,14 +1501,16 @@ gruppi.forEach((g, i) => {
   }
 
   /* ---- Le Menu Chouchou (menu du mois) ---- */
-  .mchou { background: #f7f4ee; padding: clamp(2.5rem, 6vw, 5rem) 1.25rem; position: relative; z-index: 1; }
-  .mchou__in { max-width: 960px; margin: 0 auto; background: #fff;
-    border: 1.5px solid rgba(237, 34, 137, 0.32); border-radius: 16px;
-    padding: clamp(2rem, 4.5vw, 3.4rem) clamp(1.4rem, 4vw, 3.2rem);
-    box-shadow: 0 18px 50px rgba(53, 60, 78, 0.08); }
+  .mchou { background: #ed2289; padding: clamp(2.5rem, 6vw, 5rem) 28px; position: relative; z-index: 1; }
+  .mchou__in { max-width: 1440px; margin: 0 auto; background: #fff;
+    border-radius: 16px; text-align: center;
+    padding: clamp(2.2rem, 4vw, 3.6rem) clamp(1.6rem, 4vw, 3.6rem);
+    box-shadow: 0 20px 60px rgba(53, 60, 78, 0.22); }
   .mchou__script { display: block; font-family: var(--font-script); color: #ed2289; font-size: clamp(3rem, 8vw, 5rem); line-height: 0.85; }
   .mchou__kicker { font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #ed2289; margin: 0.9rem 0 0; }
-  .mchou__desc { font-family: var(--font-body); font-style: italic; color: #6b7183; font-size: 0.98rem; line-height: 1.55; max-width: 52ch; margin: 0.6rem 0 0; }
+  .mchou__desc { font-family: var(--font-body); font-style: italic; color: #6b7183; font-size: 0.98rem; line-height: 1.55; max-width: 52ch; margin: 0.6rem auto 0; }
+  .mchou__price { font-family: var(--font-title); font-weight: 700; color: #ed2289; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1; margin: 1.1rem 0 0; }
+  .mchou__wine { display: block; font-family: var(--font-body); font-style: italic; font-weight: 400; color: #8a8f9b; font-size: 0.9rem; margin-top: 0.4rem; }
   .mchou-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(1.4rem, 3vw, 2.6rem); margin-top: clamp(2rem, 4.5vw, 3.2rem); }
   .mchou-col__t { font-family: var(--font-title); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.18em; text-transform: uppercase; color: #353c4e; margin: 0 0 1rem; }
   .mchou-col__dishes { display: flex; flex-direction: column; gap: 0.55rem; }
