@@ -1,0 +1,38 @@
+/* OrderApp — stile di base del motore (23/11/2026).
+   Specificita' zero (`:where`): qualunque regola del sito vince, e chi vuole
+   vestire l'avviso lo fa nel proprio CSS senza combattere con questo. */
+
+/* «Oggi siamo chiusi — ordinabile per i giorni seguenti».
+   Nella vista menu e' il primo figlio di .order-app: su desktop OrderApp lo
+   mette nella colonna del carrello, sopra di lui; su telefono resta in cima,
+   prima dei piatti (il carrello li' e' nascosto). Al checkout sta sopra la scelta dell'orario.
+   Colori propri, ambra: deve attirare l'occhio su qualunque sito. */
+:where(.order-giorni-avviso) {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.8rem;
+  row-gap: 0.15rem;
+  align-items: start;
+  margin: 0 0 1.2rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #f0b429;
+  border-left-width: 5px;
+  border-radius: 10px;
+  background: #fff4d6;
+  color: #4a3200;
+  line-height: 1.45;
+  text-align: left;
+}
+:where(.order-app > .order-giorni-avviso) { margin: 0; }
+:where(.order-giorni-avviso-ico) {
+  grid-row: span 2;
+  width: 1.6rem;
+  height: 1.6rem;
+  fill: none;
+  stroke: #c27c00;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+:where(.order-giorni-avviso-tit) { font-weight: 700; font-size: 1.05em; }
+:where(.order-giorni-avviso-txt) { font-size: 0.95em; }
