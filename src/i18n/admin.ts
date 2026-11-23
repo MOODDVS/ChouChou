@@ -1564,6 +1564,7 @@ const DIZIONARIO: Dizionario = {
   "res.closedF": { fr: "fermé", en: "closed", it: "chiuso", nl: "gesloten", es: "cerrado" },
   "res.noFreeTable": { fr: "Aucune table libre à attribuer pour ce créneau.", en: "No free table to assign for this slot.", it: "Nessun tavolo libero da assegnare per questa fascia.", nl: "Geen vrije tafel om toe te wijzen voor dit tijdvak.", es: "Ninguna mesa libre para asignar en esta franja." },
   "res.tablesLabel": { fr: "Table(s) :", en: "Table(s):", it: "Tavolo/i:", nl: "Tafel(s):", es: "Mesa(s):" },
+  "res.tablesNone": { fr: "Aucune table ni combinaison pour {n} personnes ({a} à {b} places).", en: "No table or combination for {n} people ({a} to {b} seats).", it: "Nessun tavolo né combinazione per {n} persone (da {a} a {b} posti).", nl: "Geen tafel of combinatie voor {n} personen ({a} tot {b} plaatsen).", es: "Ninguna mesa ni combinación para {n} personas (de {a} a {b} plazas)." },
   "res.placesShort": { fr: "pl.", en: "seats", it: "posti", nl: "pl.", es: "plazas" },
   "res.for": { fr: "pour", en: "for", it: "per", nl: "voor", es: "para" },
   "res.removePerson": { fr: "Enlever une personne", en: "Remove a person", it: "Togli una persona", nl: "Een persoon verwijderen", es: "Quitar una persona" },

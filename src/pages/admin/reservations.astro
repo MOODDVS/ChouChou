@@ -875,6 +875,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         cursor: pointer; color: var(--c-text); font-size: 0.9rem; line-height: 1.45; }
       .nm-cap-win { color: var(--c-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; margin-left: 0.55rem; white-space: nowrap; }
       .nm-tv-lab { color: var(--c-muted); font-size: 0.82rem; margin-inline-end: 0.2rem; }
+      .nm-tv-nessuna { width: 100%; color: var(--c-muted); font-size: 0.82rem; }
       .nm-tv-z { width: 100%; color: var(--c-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.2rem; }
       .nm-tv {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
@@ -4134,13 +4135,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           opzioni.sort((x, y) => x.posti - y.posti || x.ids.length - y.ids.length);
 
-          // Default: le opzioni SENSATE per quel numero di persone, cioe' con
-          // capienza fra persone-1 e persone+2. Proporre un tavolo da 8 per 4
-          // coperti non serve a nessuno e affoga la scelta utile.
-          // Se in quella finestra non cade niente (es. 4 persone e solo tavoli
-          // da 8), si ripiega sulla piu' piccola che basta: meglio una proposta
-          // larga che una lista vuota. Il "+N" resta per i casi strani.
-          const MIN_POSTI = Math.max(1, nmPers - 1);
+          // Default: SOLO le opzioni sensate per quel numero di persone, cioe'
+          // con capienza fra persone-2 e persone+2 (23/11/2026, era -1/+2 con
+          // ripiego su TUTTO): per 15 persone tavoli e combinazioni da 2, 4, 8
+          // o 10 posti non servono e affogano la scelta utile.
+          // Se in quella finestra non cade niente ma c'e' qualcosa di piu' grande
+          // (4 persone e solo tavoli da 8), si propone la piu' piccola che basta.
+          // Se non c'e' nemmeno quella, nessuna proposta: lo si dice, e il «+N»
+          // resta per vedere tutto e scegliere a mano.
+          const MIN_POSTI = Math.max(1, nmPers - 2);
           const MAX_POSTI = nmPers + 2;
           const key = (nmZone || "*") + "|" + nmPers;
           const tutti = nmTavTutti && nmTavTuttiKey === key;
@@ -4148,18 +4151,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           let base: Opz[];
           if (finestra.length) base = finestra;
           else {
-            const sopra = opzioni.filter((o) => o.posti > nmPers);
+            const sopra = opzioni.filter((o) => o.posti > MAX_POSTI);
             if (sopra.length) { const mn = Math.min(...sopra.map((o) => o.posti)); base = opzioni.filter((o) => o.posti === mn); }
-            else base = opzioni.slice();
+            else base = [];
           }
           const baseKeys = new Set(base.map((o) => nmKeyIds(o.ids)));
-          const mostrate = tutti ? opzioni : opzioni.filter((o) => baseKeys.has(nmKeyIds(o.ids)) || nmKeyIds(o.ids) === selKey);
+          const mostrate = (tutti ? opzioni : opzioni.filter((o) => baseKeys.has(nmKeyIds(o.ids)) || nmKeyIds(o.ids) === selKey))
+            // la scelta fatta sempre per prima (e la sua sezione in testa)
+            .sort((x, y) => Number(nmKeyIds(y.ids) === selKey) - Number(nmKeyIds(x.ids) === selKey));
           const nascoste = opzioni.length - mostrate.length;
 
           const perZona = new Map<string, Opz[]>();
           for (const o of mostrate) { if (!perZona.has(o.zone)) perZona.set(o.zone, []); perZona.get(o.zone)!.push(o); }
 
           let html = `<span class="nm-tv-lab">${tr("res.tablesLabel")}</span>`;
+          if (!mostrate.length) {
+            html += `<span class="nm-tv-nessuna">${tr("res.tablesNone").replace("{n}", String(nmPers)).replace("{a}", String(MIN_POSTI)).replace("{b}", String(MAX_POSTI))}</span>`;
+          }
           const multiZ = perZona.size > 1;
           for (const [z, lista] of perZona) {
             if (multiZ) html += `<span class="nm-tv-z">${esc(z)}</span>`;
@@ -4550,9 +4558,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             mMsg.textContent = tr("res.chooseHour");
             return;
           }
-          if (!campo("m-lname").value.trim()) {
+          // Basta il nome: il cognome e' facoltativo (23/11/2026). Una vecchia
+          // prenotazione col solo cognome resta valida, la regola del server e' la stessa.
+          if (!campo("m-fname").value.trim() && !campo("m-lname").value.trim()) {
             mMsg.textContent = tr("res.nameRequired");
-            campo("m-lname").focus();
+            campo("m-fname").focus();
             return;
           }
           if (nmTipo === "phone" && !campo("m-tel").value.trim()) {
