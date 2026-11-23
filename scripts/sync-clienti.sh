@@ -71,6 +71,24 @@ for repo in "${CLIENTI[@]}"; do
     echo "   ✓ già aggiornato"; ok+=("$nome"); continue
   fi
 
+  # ⚠️ Componenti con lo stesso nome (23/11/2026). Dal 10/10 e' protetto solo
+  # src/components/site/**, ma i clienti nati prima hanno i componenti del sito
+  # piatti in src/components/ (Hero, Footer, Header…). Se il motore porta un file
+  # che il cliente ha gia' come SUO (non viene dal motore, contenuto diverso), il
+  # merge si fermera' su un conflitto: lo si dice prima, col nome del file.
+  # Non si sovrascrive niente in silenzio — git da' un conflitto add/add — ma
+  # cosi' si sa perche' e cosa fare (spostare il file del cliente in site/).
+  base=$(git merge-base HEAD "engine/$BRANCH" 2>/dev/null)
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in src/components/site/*) continue ;; esac
+    git cat-file -e "HEAD:$f" 2>/dev/null || continue                       # il cliente non ce l'ha
+    [ -n "$base" ] && git cat-file -e "$base:$f" 2>/dev/null && continue    # c'era gia': file del motore
+    [ "$(git rev-parse "HEAD:$f")" = "$(git rev-parse "engine/$BRANCH:$f")" ] && continue
+    echo "   ⚠ il motore porta $f, che $nome ha gia' come suo: il merge dara' conflitto."
+    echo "     Se e' un componente del sito, spostalo in src/components/site/ e aggiorna gli import."
+  done < <(git diff --name-only --diff-filter=A "${base:-HEAD}" "engine/$BRANCH" -- src/components 2>/dev/null)
+
   # Migrazioni Supabase nuove (promemoria da lanciare a mano)
   nuove=$(git diff --name-only --diff-filter=A "HEAD...engine/$BRANCH" -- 'supabase/*.sql' 2>/dev/null)
 

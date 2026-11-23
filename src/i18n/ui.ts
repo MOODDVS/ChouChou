@@ -24,8 +24,11 @@ export function getLangFromUrl(url: URL): Lang {
 
 /** Restituisce una funzione t(key) nella lingua data, con ripiego sulla lingua di default. */
 export function useTranslations(lang: Lang) {
+  // ⚠️ Una lingua che il dizionario non ha (un `as Lang` di troppo) non deve
+  // far morire la pagina: si ripiega sulla lingua di base (23/11/2026).
+  const d = dictionaries[lang] ?? dictionaries[defaultLang];
   return function t(key: string): string {
-    return dictionaries[lang][key] ?? dictionaries[defaultLang][key] ?? key;
+    return d[key] ?? dictionaries[defaultLang][key] ?? key;
   };
 }
 

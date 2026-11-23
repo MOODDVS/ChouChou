@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactElement } from "react";
-import { useTranslations } from "../i18n/ui";
+import { useTranslations, languages, defaultLang, type Lang } from "../i18n/ui";
 import { urlConSede } from "../lib/sedeUrl";
 /* La fila dei giorni e' nuova: nessun sito la veste ancora. Specificita'
    zero (`:where`), quindi qualunque regola del sito vince. */
@@ -11,9 +11,10 @@ interface SlotPickerProps {
    *  ordini per i prossimi giorni (Réglages → Commandes). `null` = oggi, come
    *  sempre. */
   onGiorno?: (giorno: string | null) => void;
-  lang?: "fr" | "en";
-  /** La lingua VERA della pagina, per i nomi dei giorni: il dizionario
-   *  pubblico ne ha due, i giorni si scrivono in tutte. */
+  /** La lingua della pagina per i testi `slot.*` del dizionario del cliente. */
+  lang?: string;
+  /** La lingua VERA della pagina (nomi dei giorni, messaggio della consegna).
+   *  Di solito uguale a `lang`. */
   lingua?: string;
   /** Il punto da cui si ritira. Vuoto = punto unico (vedi lib/sedeUrl). */
   sede?: string;
@@ -93,7 +94,13 @@ export default function SlotPicker({ onSelect, onGiorno, lang = "fr", lingua, se
   // Il servizio viaggia con ogni richiesta: senza, una consegna vedrebbe gli
   // orari del ritiro e il checkout ne rifiuterebbe i primi.
   const conServizio = (u: string) => (servizio === "consegna" ? `${u}${u.includes("?") ? "&" : "?"}service=delivery` : u);
-  const t = useTranslations(lang);
+  // ⚠️ I testi `slot.*` nella lingua VERA se il dizionario del cliente la
+  // dichiara (src/i18n/ui.ts, merge=ours), altrimenti nella sua lingua di
+  // base. Fino al 23/11/2026 qui arrivava solo fr/en: sui siti con
+  // l'italiano o l'olandese il checkout diceva «Commandes fermées pour
+  // aujourd'hui» con la traduzione gia' nel dizionario (Educazione Napoletana).
+  const scelta = lingua ?? lang;
+  const t = useTranslations(Object.hasOwn(languages, scelta) ? (scelta as Lang) : defaultLang);
 
   const [stato, setStato] = useState<Stato>("loading");
   const [lunch, setLunch] = useState<string[]>([]);
