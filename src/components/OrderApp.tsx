@@ -1672,13 +1672,13 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                   <p className="order-consegna-fuori" role="alert">{tc.fuori(capScritto)}</p>
                 )}
                 <label className="order-field-label">{aConsegna ? tc.quando : t.pickupTime}</label>
-                {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
-                    che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
-                    che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
+                {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts):
+                    riceve la lingua vera e ripiega da se' sulla lingua di base se il
+                    dizionario non la dichiara (23/11/2026). */}
                 <SlotPicker
                   onSelect={setSlot}
                   onGiorno={setGiorno}
-                  lang={lang === "en" ? "en" : "fr"}
+                  lang={lang}
                   lingua={lang}
                   sede={sede}
                   servizio={aConsegna ? "consegna" : "ritiro"}
