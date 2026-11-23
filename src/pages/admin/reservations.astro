@@ -4055,8 +4055,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
 
         // ---- Attribuzione / cambio MANUALE dei tavoli ----
-        let nmTavTutti = false;     // "+N": mostra anche le opzioni non-esatte
-        let nmTavTuttiKey = "";     // (sezione|persone) per cui l'espansione vale
+        let nmTavApri = false;      // elenco dei tavoli aperto («Cambia» premuto)
         // Chiave stabile per confrontare insiemi di tavoli (ordine indifferente)
         const nmKeyIds = (ids: string[]) => [...ids].sort().join(",");
         // Stato disponibilita per tavolo alla fascia scelta:
@@ -4135,31 +4134,26 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           opzioni.sort((x, y) => x.posti - y.posti || x.ids.length - y.ids.length);
 
-          // Default: SOLO le opzioni sensate per quel numero di persone, cioe'
-          // con capienza fra persone-2 e persone+2 (23/11/2026, era -1/+2 con
-          // ripiego su TUTTO): per 15 persone tavoli e combinazioni da 2, 4, 8
-          // o 10 posti non servono e affogano la scelta utile.
-          // Se in quella finestra non cade niente ma c'e' qualcosa di piu' grande
-          // (4 persone e solo tavoli da 8), si propone la piu' piccola che basta.
-          // Se non c'e' nemmeno quella, nessuna proposta: lo si dice, e il «+N»
-          // resta per vedere tutto e scegliere a mano.
+          // (23/11/2026, Enzo) Con un tavolo GIA' SCELTO si vede solo quello,
+          // con «Cambia» accanto. «Cambia» apre l'elenco: SOLO tavoli e
+          // combinazioni da persone-2 a persone+2 posti, e basta — niente «+N»
+          // per vedere tutto (per 15 persone quelli da 2, 4, 8 o 10 posti non
+          // servono a niente). Scelto un tavolo, l'elenco si richiude.
+          if (selKey && !nmTavApri) {
+            const nomiSel = [...nmTavSel].map((id) => esc(planTavoli.find((x) => x.id === id)?.name ?? "")).join(" + ");
+            const zSel = planTavoli.find((x) => nmTavSel.has(x.id))?.zone ?? "";
+            const postiSel = [...nmTavSel].reduce((t, id) => t + (planTavoli.find((x) => x.id === id)?.seats ?? 0), 0);
+            el.classList.remove("nm-tables-man");
+            el.innerHTML = `${tr("res.tablesLabel")} <b>${nomiSel}</b> \u00b7 ${postiSel}${zSel ? ` \u00b7 ${esc(zSel)}` : ""}<button type="button" class="nm-cambia nm-cambia-man">${tr("res.change")}</button>`;
+            el.style.display = "";
+            return;
+          }
           const MIN_POSTI = Math.max(1, nmPers - 2);
           const MAX_POSTI = nmPers + 2;
-          const key = (nmZone || "*") + "|" + nmPers;
-          const tutti = nmTavTutti && nmTavTuttiKey === key;
-          const finestra = opzioni.filter((o) => o.posti >= MIN_POSTI && o.posti <= MAX_POSTI);
-          let base: Opz[];
-          if (finestra.length) base = finestra;
-          else {
-            const sopra = opzioni.filter((o) => o.posti > MAX_POSTI);
-            if (sopra.length) { const mn = Math.min(...sopra.map((o) => o.posti)); base = opzioni.filter((o) => o.posti === mn); }
-            else base = [];
-          }
-          const baseKeys = new Set(base.map((o) => nmKeyIds(o.ids)));
-          const mostrate = (tutti ? opzioni : opzioni.filter((o) => baseKeys.has(nmKeyIds(o.ids)) || nmKeyIds(o.ids) === selKey))
+          const mostrate = opzioni
+            .filter((o) => (o.posti >= MIN_POSTI && o.posti <= MAX_POSTI) || nmKeyIds(o.ids) === selKey)
             // la scelta fatta sempre per prima (e la sua sezione in testa)
             .sort((x, y) => Number(nmKeyIds(y.ids) === selKey) - Number(nmKeyIds(x.ids) === selKey));
-          const nascoste = opzioni.length - mostrate.length;
 
           const perZona = new Map<string, Opz[]>();
           for (const o of mostrate) { if (!perZona.has(o.zone)) perZona.set(o.zone, []); perZona.get(o.zone)!.push(o); }
@@ -4180,8 +4174,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               })
               .join("");
           }
-          if (tutti && opzioni.length > base.length) html += `<button type="button" class="nm-tv-piu" data-toggle="meno">−</button>`;
-          else if (!tutti && nascoste > 0) html += `<button type="button" class="nm-tv-piu" data-toggle="piu">+${nascoste}</button>`;
           if (planAuto && nmOverride) html += `<button type="button" class="nm-tv-auto">↺ ${tr("res.autoAssign")}</button>`;
           el.classList.add("nm-tables-man");
           el.innerHTML = html;
@@ -4189,9 +4181,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         (document.getElementById("nm-tables") as HTMLElement).addEventListener("click", (e) => {
           const tgt = e.target as HTMLElement;
+          // «Cambia» sul tavolo scelto a mano: si apre l'elenco (persone ±2)
+          if (tgt.closest(".nm-cambia-man")) {
+            nmTavApri = true;
+            nmRenderTavoliManuali();
+            return;
+          }
+          // «Cambia» sulla proposta automatica: si passa a mano, elenco aperto
           if (tgt.closest(".nm-cambia")) {
             nmOverride = true;
             nmTavSel = new Set(nmTavProposti);
+            nmTavApri = true;
             nmRenderTavoliManuali();
             return;
           }
@@ -4201,18 +4201,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             void nmAggiornaTavoli();
             return;
           }
-          const piu = tgt.closest(".nm-tv-piu") as HTMLButtonElement | null;
-          if (piu) {
-            nmTavTutti = piu.dataset.toggle === "piu";
-            nmTavTuttiKey = (nmZone || "*") + "|" + nmPers;
-            nmRenderTavoliManuali();
-            return;
-          }
           const b = tgt.closest(".nm-tv[data-ids]") as HTMLButtonElement | null;
           if (!b || b.disabled) return;
           const ids = (b.dataset.ids ?? "").split(",").filter(Boolean);
-          // Selezione a opzione (tavolo o combinazione): click sull'opzione già scelta = deseleziona
+          // Selezione a opzione (tavolo o combinazione): click sull'opzione già scelta = deseleziona.
+          // Scelto un tavolo l'elenco si richiude (resta il tavolo + «Cambia»).
           nmTavSel = nmKeyIds(ids) === nmKeyIds([...nmTavSel]) ? new Set() : new Set(ids);
+          nmTavApri = nmTavSel.size === 0;
           nmRenderTavoliManuali();
         });
 
@@ -4294,6 +4289,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmEspanso = false;
           nmPers = resa?.people ?? 2;
           nmTavSel = new Set((resa?.tables ?? []).map(String));
+          nmTavApri = false;
           nmOverride = planAuto && Array.isArray(resa?.tables) && (resa?.tables?.length ?? 0) > 0;
           nmTipo = resa?.source === "phone" ? "phone" : "walkin";
           nmRenderTipo();
