@@ -24,3 +24,22 @@ test("la sync avvisa quando il motore porta un componente che il cliente ha gia'
   assert.match(sh, /git diff --name-only --diff-filter=A "\$\{base:-HEAD\}" "engine\/\$BRANCH" -- src\/components/);
   assert.match(sh, /case "\$f" in src\/components\/site\/\*\) continue ;; esac/);
 });
+
+test("chiuso oggi ma ordinabile per i giorni seguenti: lo si dice sopra il carrello e al checkout", () => {
+  const app = leggi("src/components/OrderApp.tsx");
+  // si accende solo quando /api/slots?days=1 da' dei giorni (mai al tavolo)
+  assert.match(app, /setClosedToday\(false\);\n\s+setSoloGiorniSeguenti\(true\);/);
+  assert.match(app, /if \(!chiusoOggiPagina \|\| inSala\) return;/);
+  // fuori dal carrello: primo figlio di .order-app, messo sopra il carrello
+  // solo quando la griglia ha due colonne e il carrello si vede
+  assert.match(app, /<div className="order-app" ref=\{appMenuRef\} style=\{avvisoAccanto \? \{ gridTemplateRows: "auto 1fr" \} : undefined\}>/);
+  assert.match(app, /setAvvisoAccanto\(colonne === 2 && visibile \? \{ gap: cs\.rowGap \|\| "0px" \} : null\);/);
+  assert.match(app, /\{ gridColumn: "2", gridRow: "1", marginBottom: `calc\(1rem - \$\{avvisoAccanto\.gap\}\)` \}/);
+  assert.doesNotMatch(app, /\{!closedToday && AvvisoGiorni\(\)\}/);
+  assert.match(app, /\{AvvisoGiorni\(true\)\}\n\s+<label className="order-field-label">/);
+  // testi del motore in tutte le lingue, non nel dizionario del cliente
+  for (const l of ["fr", "en", "it", "nl", "es"]) assert.match(app, new RegExp(`\\n  ${l}: \\{ titolo: "`));
+  const css = leggi("src/components/OrderApp.css");
+  assert.match(css, /:where\(\.order-giorni-avviso\)/);
+  assert.doesNotMatch(css, /grid-column: 1 \/ -1/);
+});

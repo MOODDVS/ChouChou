@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import type { ReactNode, CSSProperties } from "react";
 import SlotPicker from "./SlotPicker";
+/* L'avviso «chiuso oggi, ordinabile per i giorni seguenti»: stile di base a
+   specificita' zero (`:where`), qualunque regola del sito vince. */
+import "./OrderApp.css";
 import { etichettaVariante, prezzoDaChiedere } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 import { urlConSede } from "../lib/sedeUrl";
@@ -454,6 +457,19 @@ export const EVENTO_AGGIUNGI_ESITO = "restohub:order-add-result";
 
 const STORAGE_KEY = "lm-order-cart";
 
+/* CHIUSO OGGI, APERTO PER I GIORNI SEGUENTI (23/11/2026, Educazione
+   Napoletana): il carrello resta aperto, ma senza dirlo il cliente crede di
+   ordinare per stasera. Il testo sta qui, in tutte le lingue, e non nel
+   dizionario del cliente (src/i18n, merge=ours: una chiave nuova non gli
+   arriverebbe). */
+const AVVISO_GIORNI: Record<string, { titolo: string; testo: string; checkout: string }> = {
+  fr: { titolo: "Fermé aujourd’hui", testo: "Vous pouvez commander pour les jours suivants : vous choisirez le jour au moment de valider la commande.", checkout: "Choisissez ci-dessous le jour et l’heure de votre commande." },
+  en: { titolo: "Closed today", testo: "You can order for the following days: you’ll choose the day when you check out.", checkout: "Choose the day and time of your order below." },
+  it: { titolo: "Oggi siamo chiusi", testo: "Puoi ordinare per i prossimi giorni: sceglierai il giorno al momento del pagamento.", checkout: "Scegli qui sotto il giorno e l’ora del tuo ordine." },
+  nl: { titolo: "Vandaag gesloten", testo: "Je kunt bestellen voor de volgende dagen: je kiest de dag bij het afrekenen.", checkout: "Kies hieronder de dag en het uur van je bestelling." },
+  es: { titolo: "Hoy cerrado", testo: "Puedes pedir para los próximos días: elegirás el día al finalizar el pedido.", checkout: "Elige abajo el día y la hora de tu pedido." },
+};
+
 interface StatoSalvato {
   linee: CartLine[];
   nome: string;
@@ -596,6 +612,9 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      giorno con orari, il carrello resta aperto: il cliente sceglie il giorno
      al checkout. ⚠️ Al tavolo no: si mangia adesso o niente. */
   const [closedToday, setClosedToday] = useState(chiusoOggiPagina);
+  /* Chiuso oggi MA ordinabile per i giorni seguenti: lo si dice sopra il
+     carrello e sopra la scelta dell'orario. */
+  const [soloGiorniSeguenti, setSoloGiorniSeguenti] = useState(false);
   const [nome, setNome] = useState(salvato.nome ?? "");
   const [cognome, setCognome] = useState(salvato.cognome ?? "");
   /* IL TELEFONO COL PREFISSO: bandierina + indicativo a sinistra, il numero
@@ -746,12 +765,16 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      pagando. Una pagina tornata dalla cache riaccende il bottone. */
   useEffect(() => {
     setClosedToday(chiusoOggiPagina);
+    setSoloGiorniSeguenti(false);
     if (!chiusoOggiPagina || inSala) return;
     let vivo = true;
     fetch(conSede("/api/slots?days=1"))
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { giorni?: string[] } | null) => {
-        if (vivo && (d?.giorni?.length ?? 0) > 0) setClosedToday(false);
+        if (vivo && (d?.giorni?.length ?? 0) > 0) {
+          setClosedToday(false);
+          setSoloGiorniSeguenti(true);
+        }
       })
       .catch(() => {
         // Senza risposta resta chiuso, come prima della finestra dei giorni.
@@ -798,6 +821,37 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
 
   const cliccoInCorso = useRef(false);
   const filterbarRef = useRef<HTMLDivElement | null>(null);
+
+  /* L'AVVISO «CHIUSO OGGI» SOPRA IL CARRELLO, NON SOPRA TUTTA LA PAGINA
+     (23/11/2026, Enzo). Il carrello e' un figlio della griglia .order-app,
+     stilata da ogni sito: avvolgerlo in un contenitore romperebbe i selettori
+     dei siti (`.order-app > .order-cart`) e il suo `sticky`. Quindi l'avviso
+     resta il primo figlio della griglia e, SOLO quando la griglia ha davvero
+     due colonne e il carrello si vede, lo si mette nella colonna del
+     carrello, sopra di lui (il menu occupa le due righe). Su telefono la
+     griglia ha una colonna e l'avviso resta in cima, prima dei piatti. */
+  const appMenuRef = useRef<HTMLDivElement | null>(null);
+  const [avvisoAccanto, setAvvisoAccanto] = useState<{ gap: string } | null>(null);
+  useEffect(() => {
+    const el = appMenuRef.current;
+    if (!soloGiorniSeguenti || !el) { setAvvisoAccanto(null); return; }
+    const misura = () => {
+      const cs = getComputedStyle(el);
+      const colonne = cs.display === "grid" ? cs.gridTemplateColumns.split(" ").filter(Boolean).length : 0;
+      const carrello = el.querySelector<HTMLElement>(":scope > .order-cart");
+      const visibile = !!carrello && getComputedStyle(carrello).display !== "none";
+      setAvvisoAccanto(colonne === 2 && visibile ? { gap: cs.rowGap || "0px" } : null);
+    };
+    misura();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(misura) : null;
+    ro?.observe(el);
+    window.addEventListener("resize", misura);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", misura);
+    };
+    // `vista`: tornando dal checkout la griglia del menu e' un elemento nuovo.
+  }, [soloGiorniSeguenti, vista]);
 
   // Tiene il tab attivo visibile nella barra filtri: su mobile la barra
   // scorre in orizzontale, quindi quando lo scrollspy cambia sezione
@@ -1435,6 +1489,29 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
      rimonterebbe tutte le righe a ogni tasto, timer o toast. Le foto del
      riepilogo ripartivano da zero ogni volta: lampeggiavano (18/10/2026).
      Stessa regola di `ModaleVarianti()`. */
+  /** «Chiuso oggi, ordinabile per i giorni seguenti»: sopra il carrello e,
+   *  al checkout, sopra la scelta del giorno e dell'ora. */
+  function AvvisoGiorni(alCheckout = false) {
+    if (!soloGiorniSeguenti) return null;
+    const a = AVVISO_GIORNI[lang] ?? AVVISO_GIORNI.fr;
+    // Nella colonna del carrello: riga 1; il passo fra le righe della griglia
+    // si riduce a 1rem, l'avviso sta attaccato al carrello.
+    const accanto: CSSProperties | undefined =
+      !alCheckout && avvisoAccanto
+        ? { gridColumn: "2", gridRow: "1", marginBottom: `calc(1rem - ${avvisoAccanto.gap})` }
+        : undefined;
+    return (
+      <div className={"order-giorni-avviso" + (alCheckout ? " order-giorni-avviso--checkout" : "")} role="note" style={accanto}>
+        <svg className="order-giorni-avviso-ico" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
+          <path d="M3 9.5h18M8 2.5v4M16 2.5v4M9 15l2 2 4-4" />
+        </svg>
+        <strong className="order-giorni-avviso-tit">{a.titolo}</strong>
+        <span className="order-giorni-avviso-txt">{alCheckout ? a.checkout : a.testo}</span>
+      </div>
+    );
+  }
+
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
@@ -1671,6 +1748,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
                 {fuoriZona && capScritto && (
                   <p className="order-consegna-fuori" role="alert">{tc.fuori(capScritto)}</p>
                 )}
+                {AvvisoGiorni(true)}
                 <label className="order-field-label">{aConsegna ? tc.quando : t.pickupTime}</label>
                 {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts):
                     riceve la lingua vera e ripiega da se' sulla lingua di base se il
@@ -1967,8 +2045,13 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
         </div>
       </div>
 
-      <div className="order-app">
-        <div className="order-menu">
+      {/* `auto 1fr`: la prima riga alta quanto l'avviso, il menu (che occupa le
+          due righe) allunga solo la seconda — senza, il carrello scendeva a meta'. */}
+      <div className="order-app" ref={appMenuRef} style={avvisoAccanto ? { gridTemplateRows: "auto 1fr" } : undefined}>
+        {/* Fuori dal carrello, sopra di lui su desktop e in cima su telefono
+            (vedi `avvisoAccanto`). */}
+        {AvvisoGiorni()}
+        <div className="order-menu" style={avvisoAccanto ? { gridColumn: "1", gridRow: "1 / span 2" } : undefined}>
           {gruppiVisibili.map((g) => (
             <section key={g.slug} id={`sec-${g.slug}`} className="order-sec">
               <h2 className="order-sec-title">{g.label}</h2>
@@ -2085,7 +2168,7 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           ))}
         </div>
 
-        <aside className={"order-cart" + (closedToday ? " order-cart--ferme" : "")}>
+        <aside className={"order-cart" + (closedToday ? " order-cart--ferme" : "")} style={avvisoAccanto ? { gridColumn: "2", gridRow: "2" } : undefined}>
           {closedToday ? (
             <div className="order-ferme">
               <div className="order-ferme-row">
