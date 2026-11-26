@@ -32,14 +32,32 @@ try {
 }
 const hostApex = hostWww.startsWith("www.") ? hostWww.slice(4) : "";
 
+/**
+ * IL NOME CON CUI E' ARRIVATA LA RICHIESTA (26/11/2026, Regina).
+ * ⚠️ NON `new URL(request.url).hostname`: dall'aggiornamento di Astro (7.4)
+ * l'adattatore Node usa l'header Host per `request.url` solo se il nome e'
+ * in `security.allowedDomains`; altrimenti `request.url` dice `localhost`.
+ * Il 301 dal nudo al www e l'HSTS guardavano quello, e non scattavano piu'
+ * su nessun sito (trovato mettendo online restaurantregina.be: il nudo
+ * rispondeva 200). L'header Host arriva intatto da Caddy. Qui serve solo a
+ * CONFRONTARE con nomi nostri (il 301 va sempre a `hostWww`, mai a un nome
+ * preso dalla richiesta), quindi fidarsene non apre redirect verso altrove.
+ */
+function hostDellaRichiesta(request: Request): string {
+  const h = (request.headers.get("host") ?? "").trim().toLowerCase();
+  if (h) return h.replace(/:\d+$/, "").replace(/^\[|\]$/g, "");
+  try { return new URL(request.url).hostname; } catch { return ""; }
+}
+
 const redirectWww = defineMiddleware((context, next) => {
   if (!hostApex) return next();
   const metodo = context.request.method;
   if (metodo !== "GET" && metodo !== "HEAD") return next();
+  if (hostDellaRichiesta(context.request) !== hostApex) return next();
   const url = new URL(context.request.url);
-  if (url.hostname !== hostApex) return next();
-  url.hostname = hostWww;
-  return context.redirect(url.toString(), 301);
+  // Sempre https: dietro Caddy la richiesta arriva in http, e un 301 verso
+  // http://www… costerebbe un secondo salto.
+  return context.redirect(`https://${hostWww}${url.pathname}${url.search}`, 301);
 });
 
 /**
@@ -187,8 +205,10 @@ const securityHeaders = defineMiddleware(async (context, next) => {
   // per-richiesta: una pagina cachata riproporrebbe un nonce vecchio).
   if (admin || path.startsWith("/api/admin")) h.set("Cache-Control", "no-store");
 
-  const host = new URL(context.request.url).hostname;
-  const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
+  // ⚠️ L'header Host, non `request.url` (che dietro Caddy dice `localhost`:
+  // vedi `hostDellaRichiesta`). Con `request.url` l'HSTS non partiva mai.
+  const host = hostDellaRichiesta(context.request);
+  const isLocal = host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
   const proto = context.request.headers.get("x-forwarded-proto") ?? new URL(context.request.url).protocol.replace(":", "");
   if (!isLocal && proto === "https") {
     h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
