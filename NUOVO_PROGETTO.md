@@ -144,7 +144,10 @@ usa la stessa non parte e il messaggio parla di `EADDRINUSE`, non di porte:
 | 4321 | `app.restohub.cloud` (motore, dimostrazione) |
 | 4322 | `villa77.be` |
 | 4323 | `lartedellapizza.be` (L'Arte della Pizza) |
-| 4324 | `nuovo.restohub.cloud` (Mare e Monti, in prova) |
+| 4324 | `mare-monti.be` (Mare e Monti) |
+| 4325 | `www.educazionenapoletana.be` |
+| 4326 | Regina (`nuovo.restohub.cloud` in prova dal 26/11/2026, poi `restaurantregina.be`) |
+| 4330 | `admin.restohub.cloud` |
 
 ### Aggiornare un cliente gia' sul VPS (dopo `sync-clienti.sh`)
 

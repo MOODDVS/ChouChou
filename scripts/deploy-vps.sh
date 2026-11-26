@@ -42,6 +42,9 @@ APPS=(
   # Educazione Napoletana: dalla Web App Hostinger (504 la mattina) al VPS il
   # 19/11/2026. Il sito vive su www (middleware: il nudo fa 301 verso www).
   "educazione|$HOME/Developer/EducazioneNapoletana|/home/enzo/app-educazione|educazione|4325|https://www.educazionenapoletana.be"
+  # Regina: in prova su nuovo.restohub.cloud dal 26/11/2026 (porta 4326). Il
+  # giorno del dominio vero (restaurantregina.be) si cambia qui E nel .env.
+  "regina|$HOME/Developer/Regina|/home/enzo/app-regina|regina|4326|https://nuovo.restohub.cloud"
   # admin.restohub.cloud (19/11/2026): la cabina di regia, repo RestoHubAdmin.
   # Non e' un cliente del motore: qui c'e' solo per il deploy.
   # Il controllo finale va su /login: la home senza accesso risponde 302.
