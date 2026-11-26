@@ -278,13 +278,18 @@ export const CARTELLA_IMG_NEWS = "newsletter";
 async function immagineEmail(url: string | null | undefined, sfondo: string): Promise<string> {
   const u = String(url ?? "").trim();
   if (!u || /\.(jpe?g|png|gif)(?:[?#]|$)/i.test(u)) return u;
+  // (audit 26/11/2026) Il server scarica l'indirizzo scritto nel pannello:
+  // solo https (niente http://127.0.0.1:… verso le app accanto sul VPS),
+  // al massimo 15 s e 15 MB. Fuori da questo si manda l'originale.
+  if (!/^https:\/\//i.test(u)) return u;
   try {
     const nome = `${CARTELLA_IMG_NEWS}/${crypto.createHash("sha1").update(u).digest("hex").slice(0, 20)}.jpg`;
     const pronta = supabaseAdmin.storage.from("popups").getPublicUrl(nome).data.publicUrl;
     const c = await fetch(pronta, { method: "HEAD" });
     if (c.ok) return pronta;
-    const r = await fetch(u);
+    const r = await fetch(u, { signal: AbortSignal.timeout(15_000) });
     if (!r.ok) return u;
+    if (Number(r.headers.get("content-length") ?? 0) > 15 * 1024 * 1024) return u;
     const { default: sharp } = await import("sharp");
     const jpg = await sharp(Buffer.from(await r.arrayBuffer()))
       .rotate()
