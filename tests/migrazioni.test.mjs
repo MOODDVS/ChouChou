@@ -219,3 +219,16 @@ test("ogni tabella nuova porta il suo GRANT al service_role", () => {
   );
   assert.deepEqual(senza, [], `queste tabelle non danno i privilegi al service_role: il server non ci potra' scrivere, e non lo dira'\n  ${senza.join("\n  ")}`);
 });
+
+test("ogni tabella ha la RLS accesa (audit 26/11/2026)", () => {
+  // Quattro tabelle del tavolo e della stampa erano nate senza (#100): non
+  // si vedevano dall'API pubblica solo per un interruttore del progetto
+  // Supabase. Con la RLS accesa e nessuna policy, anon e authenticated
+  // restano fuori comunque; il server (service_role) non se ne accorge.
+  const sql = readFileSync("supabase/TUTTO.sql", "utf8");
+  const tabelle = [...new Set([...sql.matchAll(/create table if not exists public\.([a-z_]+)/g)].map((m) => m[1]))];
+  const senza = tabelle.filter(
+    (t) => !new RegExp(`alter table (?:if exists )?public\\.${t}\\s+enable row level security`, "i").test(sql),
+  );
+  assert.deepEqual(senza, [], `queste tabelle non accendono la RLS:\n  ${senza.join("\n  ")}`);
+});

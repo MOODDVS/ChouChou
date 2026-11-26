@@ -1,5 +1,5 @@
 import { defineMiddleware, sequence } from "astro:middleware";
-import { colpisci, ipClient, corpoTroppoGrande } from "./lib/rateLimit";
+import { colpisci, ipClient, corpoTroppoGrande, corpoAPezzi, leggiConTetto, CORPO_PUBBLICO_MAX } from "./lib/rateLimit";
 import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
 import { contestoDaToken } from "./lib/admin/permessi";
 import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi, arrivoDi } from "./lib/admin/permessiRegole";
@@ -97,7 +97,7 @@ function regolaPer(path: string): Regola | null {
   return { bucket: "pub", max: 60, finestra: M };
 }
 
-const rateLimit = defineMiddleware((context, next) => {
+const rateLimit = defineMiddleware(async (context, next) => {
   const path = new URL(context.request.url).pathname;
   if (corpoTroppoGrande(path, context.request.method, context.request.headers.get("content-length"))) {
     return new Response(JSON.stringify({ error: "Requête trop volumineuse." }), {
@@ -105,8 +105,22 @@ const rateLimit = defineMiddleware((context, next) => {
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   }
+  // Senza Content-Length (a pezzi): si legge qui, col tetto, e la rotta
+  // riceve la stessa richiesta col corpo gia' misurato (vedi `corpoAPezzi`).
+  let misurata: Request | undefined;
+  if (corpoAPezzi(path, context.request.method, context.request.headers.get("content-length"))) {
+    const corpo = await leggiConTetto(context.request, CORPO_PUBBLICO_MAX);
+    if (corpo === null) {
+      return new Response(JSON.stringify({ error: "Requête trop volumineuse." }), {
+        status: 413,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+      });
+    }
+    misurata = new Request(context.request.url, { method: context.request.method, headers: context.request.headers, body: corpo });
+  }
+  const avanti = () => (misurata ? next(misurata) : next());
   const r = regolaPer(path);
-  if (!r) return next();
+  if (!r) return avanti();
 
   const ip = ipClient(context.request, context.clientAddress);
   const esito = colpisci(`${r.bucket}:${ip}`, r.max, r.finestra);
@@ -125,7 +139,7 @@ const rateLimit = defineMiddleware((context, next) => {
       },
     );
   }
-  return next();
+  return avanti();
 });
 
 /**

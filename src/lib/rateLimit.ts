@@ -102,9 +102,52 @@ export function ipClient(request: Request, clientAddress?: string): string {
  * il webhook di Stripe e' escluso: e' firmato, e un evento grande non va perso.
  */
 export const CORPO_PUBBLICO_MAX = 256 * 1024;
+
+/**
+ * IL CORPO «A PEZZI» (audit 26/11/2026). Il tetto qui sotto guarda solo
+ * `Content-Length`: una richiesta `Transfer-Encoding: chunked` non lo ha, e
+ * passava intera in memoria (provato: 3 MB a `/api/contact` letti e poi
+ * scartati come JSON sbagliato). I browser e `sendBeacon` mandano sempre la
+ * lunghezza (anche 0 per un POST vuoto); senza, di solito scrive chi lo fa
+ * apposta — ma un proxy puo' passare a pezzi una richiesta vera, quindi
+ * niente 411: il middleware legge il corpo qui (`leggiConTetto`), oltre il
+ * tetto risponde 413, sotto passa alla rotta la stessa richiesta col corpo
+ * gia' letto (`next(richiesta)`). Stesse esclusioni del tetto: admin e
+ * webhook di Stripe.
+ * ⚠️ Si guarda la MANCANZA di `Content-Length`, non `Transfer-Encoding`:
+ * l'adattatore Node di Astro toglie quell'intestazione dalla Request (e' «hop
+ * by hop»), quindi qui non arriva mai — provato.
+ */
+export function corpoAPezzi(path: string, metodo: string, lunghezza: string | null): boolean {
+  if (!path.startsWith("/api/") || path.startsWith("/api/admin/") || path === "/api/stripe-webhook") return false;
+  if (metodo === "GET" || metodo === "HEAD" || metodo === "OPTIONS") return false;
+  return String(lunghezza ?? "").trim() === "";
+}
 export function corpoTroppoGrande(path: string, metodo: string, lunghezza: string | null): boolean {
   if (!path.startsWith("/api/") || path.startsWith("/api/admin/") || path === "/api/stripe-webhook") return false;
   if (metodo === "GET" || metodo === "HEAD" || metodo === "OPTIONS") return false;
   const n = Number(lunghezza);
   return Number.isFinite(n) && n > CORPO_PUBBLICO_MAX;
+}
+
+/** Legge il corpo fino a `max` byte. Oltre: `null`, e si smette di leggere. */
+export async function leggiConTetto(req: Request, max: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  if (!req.body) return new Uint8Array(0);
+  const lettore = req.body.getReader();
+  const pezzi: Uint8Array[] = [];
+  let tot = 0;
+  for (;;) {
+    const { done, value } = await lettore.read();
+    if (done) break;
+    tot += value.byteLength;
+    if (tot > max) {
+      await lettore.cancel().catch(() => {});
+      return null;
+    }
+    pezzi.push(value);
+  }
+  const out = new Uint8Array(tot);
+  let o = 0;
+  for (const p of pezzi) { out.set(p, o); o += p.byteLength; }
+  return out;
 }
