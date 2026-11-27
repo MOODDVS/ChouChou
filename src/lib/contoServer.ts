@@ -13,6 +13,7 @@
  */
 import { leggi, inserisci, aggiorna, leggiConfig, ambitoDiRiga, type Ambito } from "./admin/sede";
 import { accodaTicket, ordiniDiInvio } from "./stampaCoda";
+import { stessaSeduta } from "./pianoSalaRegole";
 import { inviaRicevutaConto } from "./ricevutaConto";
 import {
   codiceBloccato, codiceLetto, contoSaldato, dopoTentativo, finestraInvio, importiScelte, invioDaUsare, nuovoCodice,
@@ -156,11 +157,13 @@ export async function apriConto(
     tab_closed_at: null,
   };
 
-  const { data: sedute } = await leggi("reservations", ambito, "id, tables, tab_status")
+  /* ⚠️ Solo una seduta di QUESTO servizio (`stessaSeduta`, audit 27/11):
+     la sessione del pranzo rimasta `seated` non diventa il conto della cena. */
+  const { data: sedute } = await leggi("reservations", ambito, "id, tables, tab_status, source, service_key")
     .eq("date", dati.oggi)
     .eq("status", "seated");
-  const sessione = ((sedute ?? []) as unknown as { id: string; tables: string[] | null; tab_status: string | null }[])
-    .find((r) => Array.isArray(r.tables) && r.tables.includes(dati.tavolo.id) && r.tab_status === null);
+  const sessione = ((sedute ?? []) as unknown as { id: string; tables: string[] | null; tab_status: string | null; source?: string | null; service_key?: string | null }[])
+    .find((r) => Array.isArray(r.tables) && r.tables.includes(dati.tavolo.id) && r.tab_status === null && stessaSeduta(r, dati.servizio));
 
   let id = "";
   if (sessione) {

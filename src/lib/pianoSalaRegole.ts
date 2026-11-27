@@ -212,6 +212,34 @@ export function tavoliPresiAlQr(righe: unknown, adesso: string, durate: DurateSe
   return [...presi];
 }
 
+/**
+ * QUESTA SESSIONE DAL QR E' ANCORA «LA STESSA SEDUTA» DI CHI ARRIVA ADESSO?
+ *
+ * ⚠️ AUDIT 27/11/2026. Una sessione dal QR resta `seated` finche' qualcuno
+ * non la chiude — e senza conto aperto non la chiude mai nessuno. Il gruppo
+ * della CENA al tavolo 7 ritrovava allora la sessione del PRANZO: l'ordine
+ * finiva attaccato a quella (coperti, ora d'arrivo, nome di chi c'era a
+ * mezzogiorno), e aprendo un conto lo si apriva sopra la seduta di prima.
+ *
+ * La regola: una sessione del QR vale solo nel servizio in cui e' nata
+ * (`service_key` = «midi» / «soir», scritto da chi la apre con
+ * `servizioInCorso`). Nello stesso servizio si ritrova — il dolce dopo due
+ * ore resta sulla stessa seduta — al servizio dopo se ne apre una nuova.
+ *
+ * ⚠️ SOLO LE SESSIONI DEL QR (`source = "qr"`). Una prenotazione messa a
+ * sedere dalla sala ha il `service_key` dei servizi delle prenotazioni, che
+ * puo' chiamarsi in un altro modo: confrontarla con «midi»/«soir» staccherebbe
+ * dal suo tavolo chi ha prenotato. Quelle restano come prima.
+ * Servizio sconosciuto (riga vecchia, orari illeggibili) → come prima.
+ */
+export function stessaSeduta(riga: { source?: unknown; service_key?: unknown }, servizioOra: unknown): boolean {
+  if (String(riga.source ?? "") !== "qr") return true;
+  const k = String(riga.service_key ?? "").trim();
+  const ora = String(servizioOra ?? "").trim();
+  if (!k || !ora) return true;
+  return k === ora;
+}
+
 /** L'iniziale di un nome, maiuscola: «marc» → «M», «Élodie» → «É». */
 export function inizialeDi(nome: unknown): string {
   const n = String(nome ?? "").trim();
