@@ -642,6 +642,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* ---- Nouvelle commande (manuale, link di pagamento) ---- */
       .tag-pending { background: #5d5555; color: #fff; border-radius: 999px; white-space: nowrap; }
       .tag-paid { background: var(--c-ok); color: #fff; border-radius: 999px; white-space: nowrap; }
+      /* #101: ticket e suono all'apertura. Discreta: l'ordine e' vero, aspetta solo la cucina. */
+      .tag-attesa { display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; border: 1px solid var(--c-line); color: var(--c-muted); border-radius: 999px; white-space: nowrap; }
+      .tag-attesa svg { width: 0.95em; height: 0.95em; }
       .btn-resend { flex: 1; border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
       .btn-resend:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
       @media (max-width: 640px) { .nc-add { bottom: calc(1.25rem + 72px); } }
@@ -1358,6 +1361,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         tip_cents?: number | null;
         /** #89 — «pronto» segnato prima dell'incasso (cliente gia' chiamato). */
         ready_at?: string | null;
+        /** #101 — l'ordine per un altro giorno aspetta l'apertura per il
+         *  ticket e il suono. Nel futuro = ancora in attesa. */
+        announce_at?: string | null;
         /** Quanto la seduta del tavolo ha gia' pagato a pezzi dal palmare
          *  (`table_payments`, 26/10/2026): lo stesso numero su ogni ordine
          *  del tavolo. */
@@ -1652,6 +1658,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         /* La ristampa A SINISTRA di «ritarda», con gli altri comandi
            (13/11/2026, Enzo): prima stava in un angolo dei contatti, e su
            una card con l'indirizzo gli rubava la riga. */
+        /* ⚠️ L'ORDINE PER UN ALTRO GIORNO ASPETTA L'APERTURA (#101): il ticket
+           non e' uscito e RestoHub non ha suonato. La card lo dice, con l'ora,
+           cosi' nessuno lo cerca sul ferma-comande. */
+        const inAttesa = !aTavolo && !!o.announce_at && Date.parse(o.announce_at) > Date.now();
+        const attesaTag = inAttesa
+          ? `<span class="tag tag-attesa" title="${tr("ord.heldHint")}">${ICON_CLOCK}${tr("ord.heldAt")} ${esc(oraBrussels(o.announce_at as string))}</span>`
+          : "";
         const rigaTop = `<div class="act-row act-top">
                  ${stampaBtnTop}${ritardoBtn}
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
@@ -1832,7 +1845,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         return `
           <div class="card${cardCls}" data-id="${o.id}">
             ${nastro}
-            ${tag ? `<div class="card-stato">${tag}</div>` : ""}
+            ${tag || attesaTag ? `<div class="card-stato">${tag}${attesaTag}</div>` : ""}
             <div class="card-top">
               <div class="ct-left">
                 ${oraOTavolo}

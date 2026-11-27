@@ -60,21 +60,21 @@ test("i job: mai su localhost, chiave nell'header, apici protetti", () => {
   assert.doesNotMatch(q, /\?key=/);
   assert.equal(sqlLetterale("a'b"), "'a''b'");
   const giusti = JOB_ATTESI.map((j) => ({ jobname: j.nome, command: sqlJob(j, "https://villa77.be", "s"), active: true }));
-  assert.equal(jobGiusti(giusti, "https://villa77.be").giusti.length, 5);
+  assert.equal(jobGiusti(giusti, "https://villa77.be").giusti.length, JOB_ATTESI.length);
   // stesso job ma col dominio vecchio: da rifare
-  assert.equal(jobGiusti(giusti, "https://nuovo.be").daRifare.length, 5);
+  assert.equal(jobGiusti(giusti, "https://nuovo.be").daRifare.length, JOB_ATTESI.length);
   // in LOCALE il dominio non si confronta (5/11/2026, 450 Gradi): si dice quale e'
   const locale = jobGiusti(giusti, "http://localhost:4321");
-  assert.equal(locale.giusti.length, 5);
+  assert.equal(locale.giusti.length, JOB_ATTESI.length);
   assert.deepEqual(locale.domini, ["villa77.be"]);
   // job vecchio con la chiave nell'indirizzo: da rifare
   const vecchio = [{ jobname: "daily-brief", command: "select net.http_get(url := 'https://villa77.be/api/cron/daily-brief?key=x')", active: true }];
   assert.ok(jobGiusti(vecchio, "https://villa77.be").daRifare.includes("daily-brief"));
   // Job verso un indirizzo che non esiste: da rifare, anche guardando in locale (14/11/2026).
   const sbagliati = giusti.map((g) => ({ ...g, command: g.command.replace("villa77.be", "localhosst:4321") }));
-  assert.equal(jobGiusti(sbagliati, "http://localhost:4321").daRifare.length, 5);
-  assert.equal(jobGiusti(sbagliati, "https://localhosst:4321").daRifare.length, 5);
-  assert.equal(jobGiusti(sbagliati, "https://www.educazionenapoletana.be").daRifare.length, 5);
+  assert.equal(jobGiusti(sbagliati, "http://localhost:4321").daRifare.length, JOB_ATTESI.length);
+  assert.equal(jobGiusti(sbagliati, "https://localhosst:4321").daRifare.length, JOB_ATTESI.length);
+  assert.equal(jobGiusti(sbagliati, "https://www.educazionenapoletana.be").daRifare.length, JOB_ATTESI.length);
 });
 
 test("il segno della casella", () => {

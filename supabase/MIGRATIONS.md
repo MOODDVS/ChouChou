@@ -147,6 +147,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 98 | `098_menu_kind_sottosezioni.sql` | Nessuna colonna nuova: ripara `menu_categories.kind` delle sotto-sezioni, che prende il tipo (food/drink) della radice del ramo. «+ sotto» le creava sempre food, anche sotto una sezione bevande, e il modale del piatto ne nascondeva una parte. Il codice ora lo tiene allineato da solo. Senza, tutto come prima. Idempotente. |
 | 99 | `099_registro_giri.sql` | Tabella `restohub_giri` (job, ultimo, esito, ms, ultimo_ok): l'ultimo giro di ogni job `/api/cron/*`, scritto dal middleware solo per le chiamate con la chiave giusta. Lo legge `/api/restohub/stato` (la scheda del cliente in admin.restohub.cloud). Senza, tutto come prima: la scheda dice «registro assente». Idempotente. |
 | 100 | `100_rls_tavolo_stampa.sql` | Nessuna colonna nuova: accende la RLS su `print_tickets`, `table_calls`, `table_rounds`, `table_payments`, nate senza. Il server usa il service_role e non cambia niente; anon e authenticated restano fuori anche se un giorno il progetto desse loro i privilegi. Idempotente. |
+| 101 | `101_orders_annuncio.sql` | Colonna `orders.announce_at` (+ indice parziale): un ordine preso a locale chiuso per un altro giorno aspetta l'apertura del giorno del ritiro per far uscire il ticket e suonare RestoHub (job `annuncia-ordini`, ogni 5 minuti). Le email partono subito. Senza, tutto come prima: ticket e suono all'ordine. Idempotente. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

@@ -51,6 +51,7 @@ import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
 import { inviaNotifiche } from "./notifications";
 import { inviaPushOrdine } from "./push";
+import { ordineInAttesa } from "./annuncioOrdini";
 import { likeEsatto } from "./like";
 
 /** Quello che serve per annunciare un ordine: e' la SELECT qui sotto. */
@@ -180,7 +181,11 @@ export async function annunciaOrdine(
 
   // ⚠️ La sede la dice la RIGA, non la richiesta: senza, un ordine di Stockel
   // farebbe squillare anche Jourdan e Schaerbeek.
-  void inviaPushOrdine(
+  /* ⚠️ Un ordine per un altro giorno, preso a locale chiuso (#101): il
+     telefono squilla all'apertura del giorno del ritiro, insieme al ticket
+     (`rilasciaAnnunci`). Le due email qui sopra partono subito lo stesso:
+     la conferma al cliente, e la traccia scritta per il ristorante. */
+  if (!(await ordineInAttesa(String(ordine.id), ordine.location_id ?? null))) void inviaPushOrdine(
     {
       numero,
       customer_name: ordine.customer_name ?? "",

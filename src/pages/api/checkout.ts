@@ -23,6 +23,7 @@ import { servizioDi, alTavolo, aConsegna, servizioInCorso } from "../../lib/ordi
 import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBaseZona, type IndirizzoConsegna } from "../../lib/consegnaRegole";
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
+import { momentoAnnuncioOrdine, manca101 } from "../../lib/annuncioOrdini";
 import { contoPerId, contoDelTavolo, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
 import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
 import { inviaPushConto } from "../../lib/push";
@@ -620,6 +621,10 @@ export const POST: APIRoute = async ({ request }) => {
     const [h, m] = body.slot.split(":").map((n) => parseInt(n, 10));
     pickup = giornoRitiro.set({ hour: h, minute: m, second: 0, millisecond: 0 });
   }
+  /* L'ANNUNCIO IN CUCINA (#101, `annuncioRegole.ts`): preso a locale chiuso
+     per un altro giorno, l'ordine fa uscire il ticket e suonare RestoHub
+     all'apertura del giorno del ritiro, non adesso. `null` = subito. */
+  const annuncio = aTavolo ? null : await momentoAnnuncioOrdine(ambitoPub, pickup, consegna ? "delivery" : "pickup");
 
   /* ⚠️ IL TAVOLO E LA PRENOTAZIONE SI RILEGGONO DAL DATABASE. Dal browser
      arrivano due id, e due id si cambiano. Si pretende che la prenotazione sia
@@ -751,6 +756,9 @@ export const POST: APIRoute = async ({ request }) => {
     // Il totale INCASSATO: piatti scontati + consegna (0 se non c'e').
     total_cents: totaleIncassato + costoCons + mancia,
     lang,
+    // #101, solo per l'ordine che aspetta l'apertura: gli altri inseriscono
+    // le stesse colonne di prima.
+    ...(annuncio ? { announce_at: annuncio } : {}),
   };
   if (couponId) {
     datiOrdine.coupon_id = couponId;
@@ -769,9 +777,18 @@ export const POST: APIRoute = async ({ request }) => {
   // ⚠️ `select` con una stringa VARIABILE fa perdere a TypeScript la forma
   // della riga (rende un `ParserError`): si dichiara qui cosa ci si aspetta,
   // che e' esattamente quello che `campiResa` chiede.
-  const { data: ordineRaw, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
+  let { data: ordineRaw, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
     .select(campiResa)
     .single();
+  /* #101 non ancora lanciata: si riprova senza l'attesa, e l'ordine si
+     annuncia subito — com'era prima. Un ordine perso per una colonna che
+     serve solo a spostare un ticket sarebbe il guasto peggiore. */
+  if (errInsert && annuncio && manca101(errInsert)) {
+    delete datiOrdine.announce_at;
+    ({ data: ordineRaw, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
+      .select(campiResa)
+      .single());
+  }
   const ordine = ordineRaw as unknown as
     | (RigaAnnuncio & { cancel_token?: string })
     | null;

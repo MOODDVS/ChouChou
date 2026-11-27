@@ -147,10 +147,15 @@ select cron.schedule('reservation-reminders', '15 * * * *', $$
 select cron.schedule('google-reviews-hourly', '20 * * * *', $$
   select net.http_get(url := 'https://www.dominiocliente.be/api/cron/google-reviews',
     headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
+
+-- Ticket e suono degli ordini per un altro giorno, all'apertura (#101, 27/11/2026)
+select cron.schedule('annuncia-ordini', '*/5 * * * *', $$
+  select net.http_get(url := 'https://www.dominiocliente.be/api/cron/annuncia-ordini',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
 ```
 
 Verifica: `select jobname, schedule, active from cron.job order by jobid;`
-(5 righe, tutte `active = true`). Dopo lo scoccare dell'ora, controlla gli esiti:
+(6 righe, tutte `active = true`). Dopo lo scoccare dell'ora, controlla gli esiti:
 `select jobid, status, return_message, start_time from cron.job_run_details order by start_time desc limit 10;`
 (`succeeded` = ok; `401` = il secret nel job non combacia con quello su Hostinger).
 

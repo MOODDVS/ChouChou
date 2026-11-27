@@ -1052,6 +1052,8 @@ const AMMESSI_AGGREGATO = {
       "«lien invalide» su una prenotazione che esisteva",
     "src/pages/api/cron/auto-complete-orders.ts":
       "il cron non nasce da una richiesta e non ha nessuna sede scelta: e' manutenzione del gruppo",
+    "src/pages/api/cron/annuncia-ordini.ts":
+      "il cron non nasce da una richiesta: passa su tutti i punti, e ogni ordine si prende e si stampa con la SUA sede (ambitoDiRiga)",
     "src/pages/api/admin/coupons.ts":
       "il numero di utilizzi DEVE contare quello che il limite fa rispettare, e il " +
       "limite (verificaLimitiUso) conta gli ordini di tutte le sedi: il coupon e' del " +

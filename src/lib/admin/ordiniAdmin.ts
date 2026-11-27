@@ -78,7 +78,10 @@ export async function elencoOrdiniAdmin(ambito: Ambito, finestra: FinestraOrdini
   const EXTRA_86 = ", tip_cents";
   // #89 (ordine «pronto» prima dell'incasso): il passo piu' avanti.
   const EXTRA_89 = ", ready_at";
-  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86 + EXTRA_89);
+  // #101 (l'annuncio rimandato all'apertura): ancora un passo davanti.
+  const EXTRA_101 = ", announce_at";
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86 + EXTRA_89 + EXTRA_101);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86 + EXTRA_89);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85 + EXTRA_86);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84 + EXTRA_85);
   if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50 + EXTRA_82 + EXTRA_84);
