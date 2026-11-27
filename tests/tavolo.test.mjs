@@ -16,7 +16,7 @@ import {
 // ⚠️ Le regole del piano di sala stanno in un file loro: chi sono i tavoli
 // veri non e' una domanda sugli ordini, e `planSalle.ts` non si puo'
 // importare in vitest (arriva a db.ts).
-import { tavoliDelPiano, tavoliPresiAlQr, tavoliApertiAlQr, inizialeDi, durateDelServizio } from "../src/lib/pianoSalaRegole.ts";
+import { tavoliDelPiano, tavoliPresiAlQr, tavoliApertiAlQr, inizialeDi, durateDelServizio, stessaSeduta } from "../src/lib/pianoSalaRegole.ts";
 import { urlConSede } from "../src/lib/sedeUrl.ts";
 import { riconosciSede } from "../src/lib/admin/sedeRegole.ts";
 import { immagineDelLocale } from "../src/lib/brandRegole.ts";
@@ -78,6 +78,26 @@ test("audit 27/11: l'email alla cucina senza tavolo dice il NOME, non «au compt
   assert.match(n, /const conRiquadro = !\(sala && !sala\.alBanco && !valoreRiquadro\);/, "email cliente: niente riquadro «Votre table» vuoto");
   const t = readFileSync("src/components/TableOrder.tsx", "utf8");
   assert.match(t, /ricorda\(CHIAVE_NOME_CHIAMATA, chi\.nome\.trim\(\)\)/, "il nome dell'ordine vale per la campanella");
+});
+
+test("audit 27/11: la sessione del pranzo non si prende gli ordini della cena", () => {
+  // Dal QR: vale solo nel suo servizio.
+  assert.equal(stessaSeduta({ source: "qr", service_key: "midi" }, "soir"), false);
+  assert.equal(stessaSeduta({ source: "qr", service_key: "soir" }, "soir"), true, "il dolce dopo due ore resta sulla stessa seduta");
+  // Prenotazioni della sala: chiavi dei servizi diverse, restano come prima.
+  assert.equal(stessaSeduta({ source: "web", service_key: "dinner" }, "soir"), true);
+  assert.equal(stessaSeduta({ service_key: "midi" }, "soir"), true, "senza `source` (#74 assente): come prima");
+  // Servizio sconosciuto: come prima.
+  assert.equal(stessaSeduta({ source: "qr", service_key: "" }, "soir"), true);
+  assert.equal(stessaSeduta({ source: "qr", service_key: "midi" }, ""), true);
+  // Chi la usa.
+  assert.match(readFileSync("src/pages/api/table-session.ts", "utf8"), /\.filter\(\(r\) => stessaSeduta\(r, servizio\)\)/);
+  assert.match(readFileSync("src/lib/contoServer.ts", "utf8"), /r\.tab_status === null && stessaSeduta\(r, dati\.servizio\)/);
+});
+
+test("audit 27/11: il job ogni 5 minuti fa partire anche gli invii del conto rimasti fermi", () => {
+  const c = readFileSync("src/pages/api/cron/annuncia-ordini.ts", "utf8");
+  assert.match(c, /const invii = await rilasciaInviiScaduti\(tutteLeSedi\(\)\);/);
 });
 
 test("la sala e' SPENTA finche' qualcuno non la accende", () => {

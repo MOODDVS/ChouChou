@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { ambitoPubblicoChiesto, leggi, inserisci, aggiorna, type Ambito } from "../../lib/admin/sede";
 import { opzioniTavolo } from "../../lib/ordiniOpzioni";
 import { servizioInCorso } from "../../lib/ordiniRegole";
+import { stessaSeduta } from "../../lib/pianoSalaRegole";
 import { configSala } from "../../lib/schedule";
 import { fusoDi } from "../../lib/fuso";
 import { normalizzaNome } from "../../lib/normalizzaNome";
@@ -60,6 +61,8 @@ interface ResaAperta {
   date: string;
   status: string;
   tables: string[] | null;
+  source?: string | null;
+  service_key?: string | null;
 }
 
 /** Programma la richiesta di recensione, identica alle prenotazioni normali.
@@ -157,10 +160,18 @@ export const POST: APIRoute = async ({ request }) => {
   const oggi = ora.toFormat("yyyy-MM-dd");
 
   // ---- Il secondo giro ritrova la stessa sessione ----
-  const { data: aperte } = await leggi("reservations", ambito, "id, date, status, tables")
+  let lettura = await leggi("reservations", ambito, "id, date, status, tables, source, service_key")
     .eq("date", oggi)
     .eq("status", "seated");
-  const seduti = (aperte ?? []) as unknown as ResaAperta[];
+  // Senza la #74 la colonna `source` non c'e': si rilegge senza, come prima.
+  if (lettura.error) {
+    lettura = await leggi("reservations", ambito, "id, date, status, tables")
+      .eq("date", oggi)
+      .eq("status", "seated");
+  }
+  /* ⚠️ Solo le sedute di QUESTO servizio (`stessaSeduta`): la sessione del
+     pranzo, mai chiusa, non deve prendersi gli ordini della cena. */
+  const seduti = ((lettura.data ?? []) as unknown as ResaAperta[]).filter((r) => stessaSeduta(r, servizio));
   /* ⚠️ DUE CHIAVI, perche' i dati disponibili sono diversi. Col tavolo si
      riconosce dal numero, che e' un fatto. Senza tavoli l'unica chiave e' il
      `reservation_id` che il browser si e' ricordato: si crede solo dopo aver
