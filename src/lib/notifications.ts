@@ -1029,6 +1029,10 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     ? `<p style="margin:0;color:${tema.accent};font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichettaRiquadro}</p>`
     : `<p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${etichettaRiquadro}</p>
               <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${valoreRiquadro}</p>`;
+  /* ⚠️ SERVITI AL TAVOLO MA SENZA NUMERO: il riquadro diceva «Votre table» e
+     sotto niente. Lo si toglie: il messaggio sotto dice gia' tutto (audit
+     27/11/2026). Al banco resta, perche' «Au comptoir» e' l'informazione. */
+  const conRiquadro = !(sala && !sala.alBanco && !valoreRiquadro);
   const messaggioSala = sala
     ? `<p style="margin:14px 0 0;color:${tema.text};font-size:15px;line-height:1.6;text-align:center;font-family:Arial,Helvetica,sans-serif;">${sala.alBanco ? ts.msgBanco : ts.msgTavolo}</p>`
     : consegna
@@ -1058,11 +1062,11 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
       </tr>
       <tr>
         <td class="em-pad" style="padding:28px 44px 6px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+          ${conRiquadro ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
             <tr><td style="padding:18px 24px;text-align:center;">
               ${riquadro}
             </td></tr>
-          </table>
+          </table>` : ""}
           ${messaggioSala}
         </td>
       </tr>
@@ -1540,13 +1544,24 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
      sacchetto da portare da quello che aspetta sul banco. */
   const consegna = !sala ? o.consegna ?? null : null;
   const kc = K_CONSEGNA[await adminLang().catch(() => "fr" as const)] ?? K_CONSEGNA.fr;
-  const testaCucina = sala ? (sala.alBanco ? k.counter : k.table) : consegna ? kc.at : k.pickupAt;
-  const valoreCucina = sala ? (sala.alBanco ? esc(sala.tavolo) : esc(sala.tavolo || "—")) : oraInGrande(ora);
+  /* ⚠️ SENZA NUMERO DI TAVOLO, IN GRANDE IL NOME — come sul ticket
+     (`doveVa`). Prima c'era «Table —» e l'oggetto diceva «au comptoir»: in un
+     bistrot dove il cameriere porta i piatti, la cucina leggeva che il
+     cliente sarebbe venuto da solo (audit 27/11/2026). */
+  const nomeSala = String(o.customer_name ?? "").trim().toUpperCase();
+  const senzaTavolo = Boolean(sala) && !String(sala?.tavolo ?? "").trim();
+  const testaCucina = sala
+    ? (sala.alBanco ? k.counter : senzaTavolo ? k.client : k.table)
+    : consegna ? kc.at : k.pickupAt;
+  const valoreCucina = sala
+    ? esc(senzaTavolo ? nomeSala || "—" : sala.tavolo)
+    : oraInGrande(ora);
   const indirizzoCucina = consegna
     ? `<p style="margin:14px 0 0;color:${tema.title};font-size:17px;font-weight:bold;line-height:1.5;">📍 ${esc(consegna.indirizzo)}</p>${consegna.note ? `<p style="margin:4px 0 0;color:${tema.text};font-size:14px;line-height:1.5;">${esc(consegna.note)}</p>` : ""}<p style="margin:8px 0 0;"><a href="${esc(consegna.mappa)}" style="color:${tema.accent};font-size:13px;font-weight:bold;">${kc.mappa}</a></p>`
     : "";
   const oggettoCucina = !sala ? (consegna ? kc.subject(o.numero, ora) : k.subject(o.numero, ora))
-    : sala.alBanco || !sala.tavolo ? k.subjCounter(o.numero)
+    : sala.alBanco ? k.subjCounter(o.numero)
+    : senzaTavolo ? `${k.newOrder} #${o.numero}${nomeSala ? ` — ${nomeSala}` : ""}`
     : k.subjTable(o.numero, sala.tavolo);
 
   // ⚠️ Verde «pagato» oppure ambra «da incassare», con l'importo DENTRO la

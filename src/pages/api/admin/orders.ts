@@ -713,7 +713,8 @@ export const PATCH: APIRoute = async ({ request }) => {
      · la TRANSIZIONE (`prima.status !== "done"`): ripremere un bottone gia'
        premuto non deve far partire una seconda email;
      · l'EMAIL, che un ordine preso al banco puo' non avere;
-     · la FINESTRA (`avvisaChePronto`): oltre mezz'ora dall'ora di ritiro,
+     · la FINESTRA (`avvisaChePronto`): oltre mezz'ora dall'ora di ritiro
+       (in sala novanta minuti dall'ordine),
        «Terminée» non vuol dire «e' pronto» ma «il cliente e' passato e
        nessuno aveva cambiato lo stato». Scrivergli che il suo ordine e'
        pronto, col sacchetto gia' a casa sua, e' peggio del silenzio.
