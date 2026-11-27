@@ -968,6 +968,12 @@ export default function TableOrder({
         };
       }
       ricorda(CHIAVE, JSON.stringify({ id: dati.reservation_id }));
+      /* Senza tavoli la campanella chiama per NOME: quello dato ordinando
+         vale anche li', invece di richiederlo al primo tocco (audit 27/11). */
+      if (!conTavoli && !nomeChiamata.trim() && chi.nome.trim().length >= 2) {
+        ricorda(CHIAVE_NOME_CHIAMATA, chi.nome.trim());
+        setNomeChiamata(chi.nome.trim());
+      }
       return { ok: true, reservationId: dati.reservation_id, tableId: dati.table_id ?? null };
     } catch {
       return { ok: false, errore: testi.errGenerico };

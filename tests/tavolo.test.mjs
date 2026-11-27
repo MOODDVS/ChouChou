@@ -59,6 +59,27 @@ test("a chi e' seduto a tre metri non si manda l'email «c'e' pronto»", () => {
   assert.equal(avvisaChePronto(iso, ora - 3600_000, "table"), false);
 });
 
+test("audit 27/11: in sala senza tavoli l'avviso «c'e' pronto» regge una cucina lenta", () => {
+  const ordine = Date.parse("2026-11-27T19:00:00Z");
+  const iso = new Date(ordine).toISOString();
+  // Chiosco (avviso acceso): 45 minuti dopo l'ordine si avvisa ancora.
+  assert.equal(avvisaChePronto(iso, ordine + 45 * 60_000, "table", true), true);
+  assert.equal(avvisaChePronto(iso, ordine + 89 * 60_000, "table", true), true);
+  // ...ma il «Terminée» di fine serata resta muto.
+  assert.equal(avvisaChePronto(iso, ordine + 3 * 3600_000, "table", true), false);
+  // L'asporto resta a mezz'ora dall'ora di ritiro.
+  assert.equal(avvisaChePronto(iso, ordine + 45 * 60_000, "pickup"), false);
+});
+
+test("audit 27/11: l'email alla cucina senza tavolo dice il NOME, non «au comptoir»", () => {
+  const n = readFileSync("src/lib/notifications.ts", "utf8");
+  assert.match(n, /senzaTavolo \? k\.client : k\.table/);
+  assert.match(n, /: sala\.alBanco \? k\.subjCounter\(o\.numero\)\n\s*: senzaTavolo \?/);
+  assert.match(n, /const conRiquadro = !\(sala && !sala\.alBanco && !valoreRiquadro\);/, "email cliente: niente riquadro «Votre table» vuoto");
+  const t = readFileSync("src/components/TableOrder.tsx", "utf8");
+  assert.match(t, /ricorda\(CHIAVE_NOME_CHIAMATA, chi\.nome\.trim\(\)\)/, "il nome dell'ordine vale per la campanella");
+});
+
 test("la sala e' SPENTA finche' qualcuno non la accende", () => {
   // ⚠️ Un ristorante che fa solo asporto non ha tavoli: una pagina «ordina dal
   // tavolo» accesa di ripiego gli darebbe un QR verso un modulo senza senso.
@@ -616,10 +637,12 @@ test("a chi e' servito al tavolo niente email, a chi aspetta al banco sì", () =
   // avrebbe nessun modo di dire che il piatto e' pronto.
   assert.equal(avvisaChePronto(iso, ora, "table", true), true);
   /* ⚠️ Ma la finestra resta: al banco `pickup_time` e' l'istante dell'ordine,
-     e mezz'ora dopo «Terminée» non vuol dire «e' pronto» ma «il cliente e'
-     passato e nessuno aveva cambiato lo stato». */
-  assert.equal(avvisaChePronto(iso, ora + 31 * 60_000, "table", true), false);
-  assert.equal(avvisaChePronto(iso, ora + 29 * 60_000, "table", true), true);
+     e molto dopo «Terminée» non vuol dire «e' pronto» ma «il cliente e'
+     passato e nessuno aveva cambiato lo stato». In sala 90 minuti, non 30:
+     mezz'ora dall'ORDINE e' meno di una cottura in un chiosco pieno
+     (audit 27/11/2026, `FINESTRA_PRONTO_SALA_MIN`). */
+  assert.equal(avvisaChePronto(iso, ora + 91 * 60_000, "table", true), false);
+  assert.equal(avvisaChePronto(iso, ora + 89 * 60_000, "table", true), true);
 });
 
 test("«ci sono i tavoli?» si chiede ai dati, non a un interruttore", () => {
@@ -2112,7 +2135,7 @@ test("le email dell'ordine dal tavolo parlano di tavolo e di banco, mai di ritir
   assert.match(n, /const etichettaRiquadro = sala \? \(sala\.alBanco \? ts\.banco : ts\.tavolo\) : (consegna \? tcc\.etichetta : )?t\.pickup;/);
   assert.match(n, /subject: oggetto,/);
   // Cucina e Slack: in grande il tavolo, non l'ora.
-  assert.match(n, /const testaCucina = sala \? \(sala\.alBanco \? k\.counter : k\.table\) : (consegna \? kc\.at : )?k\.pickupAt;/);
+  assert.match(n, /const testaCucina = sala\n\s*\? \(sala\.alBanco \? k\.counter : senzaTavolo \? k\.client : k\.table\)\n\s*: consegna \? kc\.at : k\.pickupAt;/);
   assert.match(n, /subject: oggettoCucina,/);
   assert.equal((n.match(/subjTable: \(num: string, tav: string\) =>/g) ?? []).length, 5);
   // «C'est prêt» al banco dice «au comptoir».

@@ -253,6 +253,14 @@ export function metodoCambiabile(metodo: unknown): boolean {
 /** La mezz'ora, in un posto solo. */
 export const FINESTRA_PRONTO_MIN = 30;
 
+/** IN SALA la finestra e' piu' lunga (audit 27/11/2026). Al tavolo
+ *  `pickup_time` e' l'istante in cui l'ordine ENTRA, non un'ora di ritiro:
+ *  mezz'ora dall'ordine, in un chiosco pieno, e' meno del tempo di cottura, e
+ *  l'email «c'est prêt» non partiva proprio dove e' l'unico avviso — il
+ *  cliente restava a fissare il bancone. Novanta minuti coprono una cucina
+ *  in affanno e tagliano ancora il «Terminée» premuto a fine serata. */
+export const FINESTRA_PRONTO_SALA_MIN = 90;
+
 /**
  * Si avvisa il cliente che l'ordine e' pronto?
  * @param pickupIso l'ora di ritiro dell'ordine
@@ -309,7 +317,8 @@ export function avvisaChePronto(
   // ⚠️ Una data illeggibile non e' «adesso»: senza questa riga `NaN` farebbe
   // fallire il confronto e l'email partirebbe sempre, anche a mezzanotte.
   if (!Number.isFinite(t)) return false;
-  return adessoMs <= t + FINESTRA_PRONTO_MIN * 60_000;
+  const finestra = alTavolo(servizio) ? FINESTRA_PRONTO_SALA_MIN : FINESTRA_PRONTO_MIN;
+  return adessoMs <= t + finestra * 60_000;
 }
 
 /** I ritardi che il pannello propone. ⚠️ Un elenco chiuso, non un campo
