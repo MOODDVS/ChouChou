@@ -5,6 +5,7 @@ import { tutteLeSedi } from "../../../lib/admin/sede";
 import { segretoUguale } from "../../../lib/cronAuth";
 import { rilasciaAnnunci } from "../../../lib/annuncioOrdini";
 import { rilasciaInviiScaduti } from "../../../lib/contoServer";
+import { liberaCasseScadute } from "../../../lib/admin/incassoSeduta";
 
 export const prerender = false;
 
@@ -22,6 +23,9 @@ export const prerender = false;
 // e nessuno che ordina dopo, il secondo giro di un tavolo restava fermo e
 // in cucina non usciva niente. Qui lo si prende al massimo 5 minuti dopo; il
 // passaggio a `released` e' condizionato, quindi mai un ticket doppio.
+//
+// ⚠️ E I TAVOLI COL «PAGAMENTO IN CASSA» DA VENTI MINUTI (#102): si liberano e
+// i loro ordini da incassare si chiudono come pagati in cassa.
 
 const CRON_SECRET = import.meta.env.CRON_SECRET;
 
@@ -32,7 +36,9 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     const annunciati = await rilasciaAnnunci(tutteLeSedi(), 200);
     const invii = await rilasciaInviiScaduti(tutteLeSedi());
-    return json({ annunciati, invii });
+    // «Pagamento in cassa» da venti minuti: il tavolo si libera (#102).
+    const liberati = await liberaCasseScadute(tutteLeSedi());
+    return json({ annunciati, invii, liberati });
   } catch {
     return json({ error: "Annonce impossible" }, 500);
   }

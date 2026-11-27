@@ -33,6 +33,7 @@ import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
 import { piattiPerOrdine, rigaOrdine, piattoSenzaCifra } from "./righeOrdine";
 import { applicaTogli, dividiModifica, ordineModificabile, righeModificabili, extraDi, type VoceItems } from "./modificaOrdineRegole";
 import { letturaSala } from "./letturaSala";
+import { rilanciaCassa } from "./incassoSeduta";
 
 export interface RigaRichiesta {
   id?: unknown;
@@ -202,6 +203,9 @@ export async function ordinaDalPalmare(opz: {
   }
   const ordine = ins.data as unknown as { id: string; location_id?: string | null };
   void accodaTicket({ id: ordine.id, status: "pending", payment_method: "onsite", location_id: ordine.location_id ?? null });
+  /* Il conto era gia' stato chiesto in cassa (il caffe' dopo): l'addizione
+     aggiornata ristampa e i venti minuti ripartono (#102). */
+  void rilanciaCassa(ambito, sessione!.id);
   return { ok: true, id: ordine.id, conto: false };
 }
 

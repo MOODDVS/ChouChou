@@ -24,6 +24,7 @@ import { indirizzoDaRichiesta, mancaAlMinimo, costoConsegna, zonaDelCap, costoBa
 import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { accodaTicket } from "../../lib/stampaCoda";
 import { momentoAnnuncioOrdine, manca101 } from "../../lib/annuncioOrdini";
+import { rilanciaCassa } from "../../lib/admin/incassoSeduta";
 import { contoPerId, contoDelTavolo, verificaCodice, invioPerOrdine, rilasciaInviiScaduti } from "../../lib/contoServer";
 import { PARAM_ADDIZIONE } from "../../lib/contoRegole";
 import { inviaPushConto } from "../../lib/push";
@@ -877,6 +878,9 @@ export const POST: APIRoute = async ({ request }) => {
       payment_method: "onsite",
       location_id: ordine.location_id ?? null,
     });
+    /* Dal tavolo, dopo «Pagamento in cassa» (#102): l'addizione aggiornata
+       ristampa e il tavolo resta occupato altri venti minuti. */
+    if (aTavolo) void rilanciaCassa(ambitoPub, String(body.reservation_id ?? ""));
     try {
       await annunciaOrdine(ordine, true);
     } catch (e) {

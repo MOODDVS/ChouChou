@@ -2217,3 +2217,31 @@ test("in sala il telefono e' facoltativo, senza l'asterisco dell'obbligatorio (1
   assert.equal("Phone*".replace(re, ""), "Phone");
   assert.equal("Téléphone".replace(re, ""), "Téléphone");
 });
+
+test("«Pagamento in cassa»: dopo 20 minuti il tavolo si libera, un nuovo ordine rilancia (27/11/2026, #102)", async () => {
+  const { LIBERA_DOPO_CASSA_MIN, cassaScaduta, sogliaCassa } = await import("../src/lib/cassaTavoloRegole.ts");
+  assert.equal(LIBERA_DOPO_CASSA_MIN, 20);
+  const t0 = Date.parse("2026-11-27T13:50:00Z");
+  assert.equal(cassaScaduta("2026-11-27T13:50:00Z", t0 + 19 * 60_000), false);
+  assert.equal(cassaScaduta("2026-11-27T13:50:00Z", t0 + 20 * 60_000), true);
+  assert.equal(cassaScaduta(null, t0), false);
+  assert.equal(cassaScaduta("boh", t0), false, "data illeggibile: mai chiudere dei soldi per errore");
+  assert.equal(sogliaCassa(t0), "2026-11-27T13:30:00.000Z");
+
+  const sql = readFileSync("supabase/102_reservations_cassa.sql", "utf8");
+  assert.match(sql, /add column if not exists desk_at timestamptz/);
+  assert.match(readFileSync("supabase/MIGRATIONS.md", "utf8"), /\| 102 \| `102_reservations_cassa\.sql` \|/);
+
+  const inc = readFileSync("src/lib/admin/incassoSeduta.ts", "utf8");
+  assert.match(inc, /await segnaCassa\(ambito, s\.id\);\n\s*return \{ ok: true, stampa: stampa\.ok \};/, "«Pagamento in cassa» fa partire i 20 minuti");
+  assert.match(inc, /if \(!r \|\| r\.status !== "seated" \|\| !r\.desk_at\) return false;/, "senza conto chiesto nessuna addizione in cassa");
+  assert.match(inc, /await stampaAddizioneTavolo\(ambito, tavoli\[0\]\);/, "il caffe' ristampa l'addizione completa");
+  assert.match(inc, /aggiorna\("orders", a, \{ status: "done" \}\)\n\s*\.eq\("reservation_id", r\.id\)\.eq\("status", "pending"\)\.eq\("payment_method", "onsite"\);/, "chiusi come pagati in cassa, metodo onsite");
+  assert.match(inc, /\.lte\("desk_at", sogliaCassa\(\)\)/);
+
+  assert.match(readFileSync("src/lib/admin/ordineCameriere.ts", "utf8"), /void rilanciaCassa\(ambito, sessione!\.id\);/);
+  assert.match(readFileSync("src/pages/api/checkout.ts", "utf8"), /if \(aTavolo\) void rilanciaCassa\(ambitoPub, String\(body\.reservation_id \?\? ""\)\);/);
+  assert.match(readFileSync("src/pages/api/cron/annuncia-ordini.ts", "utf8"), /const liberati = await liberaCasseScadute\(tutteLeSedi\(\)\);/);
+  assert.match(readFileSync("src/pages/api/admin/orders.ts", "utf8"), /await liberaCasseScadute\(ambito\);/);
+  assert.match(readFileSync("src/pages/admin/salle.astro", "utf8"), /await liberaCasseScadute\(ambito\);/);
+});
