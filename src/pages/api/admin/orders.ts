@@ -1,4 +1,5 @@
 import { accodaTicket } from "../../../lib/stampaCoda";
+import { momentoAnnuncioOrdine, manca101, rilasciaAnnunci } from "../../../lib/annuncioOrdini";
 import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
 import type { APIRoute } from "astro";
@@ -77,10 +78,23 @@ export const GET: APIRoute = async ({ request, url }) => {
        faceva nessun rumore. Incassato diventa `paid`: stesso id, nessun secondo avviso.
        (Gli ordini del conto aperto, `tab`, non ci sono: per loro suona la
        scheda del conto.) */
-    const { data, error } = await leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
-      .or("status.eq.paid,and(status.eq.pending,payment_method.eq.onsite)")
-      .order("created_at", { ascending: false })
-      .limit(200);
+    /* ⚠️ L'ANNUNCIO RIMANDATO (#101): un ordine per un altro giorno, preso
+       a locale chiuso, NON e' in questo elenco finche' non arriva l'apertura
+       del giorno del ritiro — e' cosi' che RestoHub non suona a mezzanotte e
+       suona a mezzogiorno: quando entra, e' un id mai visto. Prima si
+       rilasciano quelli scaduti (riserva del job `annuncia-ordini`: con
+       RestoHub aperto, ticket e suono escono anche se il job manca).
+       Colonna assente → l'elenco di prima, senza il filtro. */
+    try { await rilasciaAnnunci(ambito); } catch { /* il job ci riprova */ }
+    const recenti = (filtra: boolean) => {
+      const q = leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
+        .or("status.eq.paid,and(status.eq.pending,payment_method.eq.onsite)");
+      return (filtra ? q.is("announce_at", null) : q)
+        .order("created_at", { ascending: false })
+        .limit(200);
+    };
+    let { data, error } = await recenti(true);
+    if (error && manca101(error)) ({ data, error } = await recenti(false));
     if (error) return json({ orders: [], now });
     return json({ orders: data ?? [], now });
   }
@@ -378,6 +392,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   const [h, m] = slot.split(":").map((n) => parseInt(n, 10));
   const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+  // L'annuncio in cucina (#101): un ordine preso per un altro giorno fa
+  // uscire il ticket all'apertura del giorno del ritiro. `null` = subito.
+  const annuncio = await momentoAnnuncioOrdine(ambito, pickup, "pickup");
 
   const datiOrdine: Record<string, unknown> = {
     status: paidSurPlace ? "paid" : "pending",
@@ -390,9 +407,15 @@ export const POST: APIRoute = async ({ request }) => {
     items: itemsOrdine,
     total_cents: totale,
     lang,
+    ...(annuncio ? { announce_at: annuncio } : {}),
   };
   const inserisci = () => inserisciRiga("orders", ambito, datiOrdine).select("id, cancel_token").single();
   let ins = await inserisci();
+  // Migrazione #101 assente: si crea l'ordine senza l'attesa (ticket subito, com'era).
+  if (ins.error && annuncio && manca101(ins.error)) {
+    delete datiOrdine.announce_at;
+    ins = await inserisci();
+  }
   // Migrazione #29 non ancora lanciata: senza source l'ordine sparirebbe
   // dalla lista (pending non manuale) → meglio rifiutare chiaramente.
   if (ins.error && String(ins.error.message ?? "").includes("source")) {

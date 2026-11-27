@@ -22,13 +22,15 @@ export const BUCKET_ATTESI: { id: string; pubblico: boolean }[] = [
 /** Le estensioni che servono ai job: pg_cron li fa partire, pg_net chiama il sito. */
 export const ESTENSIONI_ATTESE = ["pg_cron", "pg_net"];
 
-/** I cinque job (NUOVO_PROGETTO.md §6): nome, orario, percorso. */
+/** I job pg_cron (NUOVO_PROGETTO.md §6): nome, orario, percorso. 6 dal 27/11/2026. */
 export const JOB_ATTESI: { nome: string; orario: string; percorso: string }[] = [
   { nome: "auto-complete-orders", orario: "0 * * * *", percorso: "/api/cron/auto-complete-orders" },
   { nome: "daily-brief", orario: "5 * * * *", percorso: "/api/cron/daily-brief" },
   { nome: "newsletter", orario: "10 * * * *", percorso: "/api/cron/newsletter" },
   { nome: "reservation-reminders", orario: "15 * * * *", percorso: "/api/cron/reservation-reminders" },
   { nome: "google-reviews-hourly", orario: "20 * * * *", percorso: "/api/cron/google-reviews" },
+  // (27/11/2026) Ticket e suono degli ordini per un altro giorno, all'apertura (#101).
+  { nome: "annuncia-ordini", orario: "*/5 * * * *", percorso: "/api/cron/annuncia-ordini" },
 ];
 
 /**

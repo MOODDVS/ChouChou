@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# job-cron.sh — i 5 job pg_cron di un cliente, pronti da incollare (20/11/2026).
+# job-cron.sh — i job pg_cron di un cliente (6 dal 27/11/2026), pronti da incollare (20/11/2026).
 #
 # La casella Supabase (Super → Intégrations) li crea da sola solo dal sito
 # ONLINE e solo se il server ha SUPABASE_ACCESS_TOKEN — che sui server non
@@ -35,6 +35,7 @@ JOBS=(
   "newsletter|10 * * * *|/api/cron/newsletter"
   "reservation-reminders|15 * * * *|/api/cron/reservation-reminders"
   "google-reviews-hourly|20 * * * *|/api/cron/google-reviews"
+  "annuncia-ordini|*/5 * * * *|/api/cron/annuncia-ordini"
 )
 
 lett() { printf "'%s'" "${1//\'/\'\'}"; }
@@ -63,7 +64,7 @@ if [[ "$codice" != "200" ]]; then
   echo "⚠️ $sito/ risponde $codice, non 200: se e' un redirect, usa l'indirizzo d'arrivo."
 fi
 
-sql="-- I 5 job di RestoHub per $sito (job-cron.sh, $(date +%d/%m/%Y))
+sql="-- I ${#JOBS[@]} job di RestoHub per $sito (job-cron.sh, $(date +%d/%m/%Y))
 create extension if not exists pg_cron;
 create extension if not exists pg_net with schema extensions;
 "
@@ -77,6 +78,6 @@ done
 sql+="select jobname, schedule, active from cron.job order by jobname;"
 
 printf '%s' "$sql" | pbcopy
-echo "✓ SQL dei 5 job per $sito negli appunti (CRON_SECRET da $da)."
-echo "  Supabase del cliente → SQL Editor → incolla → Run: in fondo devono uscire 5 righe attive."
+echo "✓ SQL dei ${#JOBS[@]} job per $sito negli appunti (CRON_SECRET da $da)."
+echo "  Supabase del cliente → SQL Editor → incolla → Run: in fondo devono uscire ${#JOBS[@]} righe attive."
 echo "  Poi copia qualcos'altro, per svuotare gli appunti."

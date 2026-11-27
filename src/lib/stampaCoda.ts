@@ -10,6 +10,7 @@ import { piattiVeri } from "./admin/ordiniConti";
 import { indirizzoPubblico } from "./indirizzoPubblico";
 import { firmaChiamata, firmaAnnullo } from "./printToken";
 import { acceso } from "./ordiniRegole";
+import { inAttesaDiAnnuncio } from "./annuncioRegole";
 
 /**
  * METTERE UN ORDINE IN CODA DI STAMPA.
@@ -59,6 +60,20 @@ export async function accodaTicket(o: {
     if (!(await stampaConfigurata())) return { accodati: 0, motivo: "servizio" };
 
     const ambito = ambitoDiRiga(o.location_id ?? null);
+
+    /* ⚠️ L'ORDINE PER UN ALTRO GIORNO ASPETTA L'APERTURA (#101,
+       `annuncioRegole.ts`): preso a locale chiuso, il suo ticket esce
+       all'apertura del giorno del ritiro, quando `rilasciaAnnunci` toglie
+       l'attesa e richiama questa funzione. Solo per l'automatico: la
+       ristampa a mano e' una richiesta, e si fa quando la si chiede.
+       ⚠️ Lettura muta o colonna assente (#101 non lanciata) → si stampa
+       subito, com'era: un ticket in anticipo e' meglio di nessun ticket. */
+    if (origine === "auto" && !opz.invio) {
+      const { data: att, error: eAtt } = await leggi("orders", ambito, "announce_at").eq("id", o.id).maybeSingle();
+      if (!eAtt && att && inAttesaDiAnnuncio((att as { announce_at?: unknown }).announce_at)) {
+        return { accodati: 0, motivo: "attesa" };
+      }
+    }
     const cfg = await leggiConfig(ambito, [...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
     // ⚠️ Anche in LETTURA la stessa regola: in un database vivo c'e' quello
     // che ci hanno scritto prima che la regola esistesse. Un valore storto
