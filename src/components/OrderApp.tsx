@@ -470,6 +470,18 @@ const AVVISO_GIORNI: Record<string, { titolo: string; testo: string; checkout: s
   es: { titolo: "Hoy cerrado", testo: "Puedes pedir para los próximos días: elegirás el día al finalizar el pedido.", checkout: "Elige abajo el día y la hora de tu pedido." },
 };
 
+/* GLI ORDINI ONLINE NON SONO POSSIBILI (audit 27/11/2026): nessun modo di
+   pagare (carta spenta o Stripe mancante, e cassa spenta). Prima il carrello
+   restava aperto e il cliente lo scopriva solo premendo «Payer», col 503 del
+   checkout. Stesso testo del server. */
+const ORDINI_NON_DISPONIBILI: Record<string, string> = {
+  fr: "Les commandes en ligne ne sont pas disponibles pour le moment.",
+  en: "Online ordering is not available at the moment.",
+  it: "Gli ordini online non sono disponibili al momento.",
+  nl: "Online bestellen is momenteel niet beschikbaar.",
+  es: "Los pedidos en línea no están disponibles por el momento.",
+};
+
 interface StatoSalvato {
   linee: CartLine[];
   nome: string;
@@ -498,7 +510,15 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false, consulta = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", tavolo = null, pagamento: pagamentoPagina = { online: true, locale: false, coupon: true, couponInCassa: false }, vistaIniziale = "menu", totaleSottoLeNote = false, consulta = false }: OrderAppProps) {
+  /* ⚠️ COME SI PAGA LO DICE IL SERVER, NON LA PAGINA (audit 27/11/2026).
+     Cinque siti (Educazione, L'huile, La Molisana, ChouChou, 450 Gradi) non
+     passano `pagamento`: col ripiego «solo carta» il pagamento al ritiro
+     acceso in Réglages non compariva mai. Il carrello lo chiede da solo a
+     `/api/order-options`, come la consegna; la pagina da' solo il valore di
+     partenza. `nessuno` = non si puo' ordinare (vedi ORDINI_NON_DISPONIBILI). */
+  const [pagamento, setPagamento] = useState(pagamentoPagina);
+  const [nessunPagamento, setNessunPagamento] = useState(false);
   /* ⚠️ UNA SOLA DOMANDA, qui in cima: siamo al tavolo? Da lei dipendono tre
      cose che altrimenti qualcuno scriverebbe tre volte — l’ora di ritiro che
      non si chiede, i campi che non si chiedono, e cosa si manda al checkout. */
@@ -615,6 +635,10 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   /* Chiuso oggi MA ordinabile per i giorni seguenti: lo si dice sopra il
      carrello e sopra la scelta dell'orario. */
   const [soloGiorniSeguenti, setSoloGiorniSeguenti] = useState(false);
+  /* Il carrello e' chiuso: per oggi (e per i giorni ammessi) non ci sono
+     orari, oppure non c'e' nessun modo di pagare. Al tavolo decide la sala. */
+  const chiusoOra = closedToday || (nessunPagamento && !inSala);
+  const testoChiuso = nessunPagamento && !inSala ? (ORDINI_NON_DISPONIBILI[lang] ?? ORDINI_NON_DISPONIBILI.fr) : t.closedToday;
   const [nome, setNome] = useState(salvato.nome ?? "");
   const [cognome, setCognome] = useState(salvato.cognome ?? "");
   /* IL TELEFONO COL PREFISSO: bandierina + indicativo a sinistra, il numero
@@ -694,9 +718,18 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
     let vivo = true;
     fetch(inSala ? conSede("/api/order-options?sala=1") : conSede("/api/order-options"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { nome?: string; cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null } | null) => {
+      .then((d: { consegna?: boolean; minimo_cents?: number; gratis_cents?: number; costo_cents?: number; zone?: { nome?: string; cap?: string[]; costo_cents?: number | null }[]; mance?: { tipo?: string; valori?: number[] } | null; pagamento?: { online?: boolean; locale?: boolean; coupon?: boolean; couponInCassa?: boolean; nessuno?: boolean } | null } | null) => {
         if (!vivo) return;
         setConsegnaPossibile(!inSala && d?.consegna === true);
+        /* Il modo di pagare del server. ⚠️ Al tavolo resta quello della
+           pagina: lo decide la sala (`pagamentoAlTavolo`), non il ritiro. */
+        const pg = d?.pagamento;
+        if (pg && !inSala) {
+          const p = { online: pg.online === true, locale: pg.locale === true, coupon: pg.coupon === true, couponInCassa: pg.couponInCassa === true };
+          setPagamento(p);
+          setModoPagamento(p.online ? "online" : "onsite");
+          setNessunPagamento(pg.nessuno === true);
+        }
         const m = d?.mance;
         setMance(
           m && Array.isArray(m.valori) && m.valori.length === 3
@@ -766,14 +799,30 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
   useEffect(() => {
     setClosedToday(chiusoOggiPagina);
     setSoloGiorniSeguenti(false);
-    if (!chiusoOggiPagina || inSala) return;
+    if (inSala) return;
     let vivo = true;
+    /* ⚠️ SI CHIEDE SEMPRE, non solo quando la pagina dice «chiuso oggi»
+       (audit 27/11/2026). La pagina guarda se OGGI e' un giorno di apertura;
+       non sa se gli orari di oggi sono gia' finiti (alle 23:10 di un giorno
+       aperto), ne' dei service chiusi. Il cliente riempiva il carrello e
+       scopriva al checkout «aucun créneau». La lista dei giorni ordinabili
+       la fa il server con la stessa regola del checkout:
+         · vuota            → chiuso, come un giorno di riposo;
+         · senza oggi       → chiuso oggi, si ordina per i giorni seguenti;
+         · con oggi         → aperto (anche se la pagina diceva chiuso). */
     fetch(conSede("/api/slots?days=1"))
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { giorni?: string[] } | null) => {
-        if (vivo && (d?.giorni?.length ?? 0) > 0) {
+      .then((d: { oggi?: string; giorni?: string[] } | null) => {
+        if (!vivo || !d || !Array.isArray(d.giorni)) return;
+        const giorni = d.giorni;
+        if (giorni.length === 0) {
+          setClosedToday(true);
+          setSoloGiorniSeguenti(false);
+        } else if (d.oggi && !giorni.includes(d.oggi)) {
           setClosedToday(false);
           setSoloGiorniSeguenti(true);
+        } else {
+          setClosedToday(false);
         }
       })
       .catch(() => {
@@ -2168,17 +2217,17 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
           ))}
         </div>
 
-        <aside className={"order-cart" + (closedToday ? " order-cart--ferme" : "")} style={avvisoAccanto ? { gridColumn: "2", gridRow: "2" } : undefined}>
-          {closedToday ? (
+        <aside className={"order-cart" + (chiusoOra ? " order-cart--ferme" : "")} style={avvisoAccanto ? { gridColumn: "2", gridRow: "2" } : undefined}>
+          {chiusoOra ? (
             <div className="order-ferme">
               <div className="order-ferme-row">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="12" cy="12" r="9" />
                   <path d="m6.5 6.5 11 11" />
                 </svg>
-                <span>{t.closedToday}</span>
+                <span>{testoChiuso}</span>
               </div>
-              {t.reopenInfo && <p className="order-ferme-sub">{t.reopenInfo}</p>}
+              {!nessunPagamento && t.reopenInfo && <p className="order-ferme-sub">{t.reopenInfo}</p>}
             </div>
           ) : linee.length === 0 ? (
             <>
@@ -2201,13 +2250,13 @@ export default function OrderApp({ menu, t, lang, closedToday: chiusoOggiPagina 
         </aside>
       </div>
 
-      {closedToday ? (
+      {chiusoOra ? (
         <div className="order-mobcart order-mobcart--ferme">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
             <path d="m6.5 6.5 11 11" />
           </svg>
-          <span>{t.closedToday}</span>
+          <span>{testoChiuso}</span>
         </div>
       ) : consulta ? null : linee.length === 0 && tavolo?.conto?.paga ? (
         <button type="button" className="order-mobcart order-mobcart--paga" onClick={tavolo.conto.paga.apri}>

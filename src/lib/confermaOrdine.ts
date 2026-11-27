@@ -51,7 +51,7 @@ import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
 import { inviaNotifiche } from "./notifications";
 import { inviaPushOrdine } from "./push";
-import { ordineInAttesa } from "./annuncioOrdini";
+import { statoAnnuncio, rilasciaAnnunci } from "./annuncioOrdini";
 import { likeEsatto } from "./like";
 
 /** Quello che serve per annunciare un ordine: e' la SELECT qui sotto. */
@@ -185,7 +185,10 @@ export async function annunciaOrdine(
      telefono squilla all'apertura del giorno del ritiro, insieme al ticket
      (`rilasciaAnnunci`). Le due email qui sopra partono subito lo stesso:
      la conferma al cliente, e la traccia scritta per il ristorante. */
-  if (!(await ordineInAttesa(String(ordine.id), ordine.location_id ?? null))) void inviaPushOrdine(
+  const annuncio = await statoAnnuncio(String(ordine.id), ordine.location_id ?? null);
+  // L'ora e' gia' passata ma il giro non l'ha ancora preso: lo si prende adesso.
+  if (annuncio === "scaduto") void rilasciaAnnunci(ambitoDiRiga(ordine.location_id ?? null)).catch(() => {});
+  if (annuncio === "no") void inviaPushOrdine(
     {
       numero,
       customer_name: ordine.customer_name ?? "",

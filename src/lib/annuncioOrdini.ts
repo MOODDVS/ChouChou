@@ -58,17 +58,32 @@ export async function momentoAnnuncioOrdine(ambito: Ambito, ritiro: DateTime, se
   }
 }
 
-/** Questo ordine aspetta ancora l'apertura? Lettura muta (o #101 assente) → no. */
-export async function ordineInAttesa(id: string, location_id: string | null | undefined): Promise<boolean> {
+/**
+ * L'annuncio di questo ordine e' rimandato? `"no"` = si annuncia adesso (o
+ * #101 assente, o lettura muta); `"attesa"` = l'apertura non e' ancora
+ * arrivata; `"scaduto"` = l'ora e' passata ma il giro non l'ha ancora preso.
+ * ⚠️ Finche' `announce_at` e' pieno (attesa O scaduto) ticket e notifica li
+ * fa SOLO `rilasciaAnnunci`, che lo svuota prima: un pagamento arrivato alle
+ * 12:01 con l'annuncio delle 12:00 non ancora preso faceva partire la
+ * notifica due volte (audit 27/11/2026).
+ */
+export async function statoAnnuncio(id: string, location_id: string | null | undefined): Promise<"no" | "attesa" | "scaduto"> {
   try {
     const { data, error } = await leggi("orders", ambitoDiRiga(location_id ?? null), COLONNA_ANNUNCIO)
       .eq("id", id)
       .maybeSingle();
-    if (error || !data) return false;
-    return inAttesaDiAnnuncio((data as Record<string, unknown>)[COLONNA_ANNUNCIO]);
+    if (error || !data) return "no";
+    const v = (data as Record<string, unknown>)[COLONNA_ANNUNCIO];
+    if (v === null || v === undefined || v === "") return "no";
+    return inAttesaDiAnnuncio(v) ? "attesa" : "scaduto";
   } catch {
-    return false;
+    return "no";
   }
+}
+
+/** Questo ordine aspetta ancora il suo annuncio (nel futuro o non ancora preso)? */
+export async function ordineInAttesa(id: string, location_id: string | null | undefined): Promise<boolean> {
+  return (await statoAnnuncio(id, location_id)) !== "no";
 }
 
 interface RigaDaAnnunciare {

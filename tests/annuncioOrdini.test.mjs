@@ -91,9 +91,21 @@ test("chi inserisce scrive l'attesa solo quando serve, e riprova senza la #101",
 test("in attesa: niente ticket automatico, niente notifica, niente suono", () => {
   const coda = readFileSync("src/lib/stampaCoda.ts", "utf8");
   assert.match(coda, /if \(origine === "auto" && !opz\.invio\) \{/);
-  assert.match(coda, /return \{ accodati: 0, motivo: "attesa" \}/);
-  assert.match(readFileSync("src/lib/confermaOrdine.ts", "utf8"), /if \(!\(await ordineInAttesa\(String\(ordine\.id\), ordine\.location_id \?\? null\)\)\) void inviaPushOrdine\(/);
+  assert.match(coda, /return \{ accodati: 0, motivo: inAttesaDiAnnuncio\(v\) \? "attesa" : "in_rilascio" \}/, "pieno = lo stampa solo rilasciaAnnunci");
+  const conf = readFileSync("src/lib/confermaOrdine.ts", "utf8");
+  assert.match(conf, /if \(annuncio === "no"\) void inviaPushOrdine\(/, "la notifica parte qui solo se non c'e' attesa");
+  assert.match(conf, /if \(annuncio === "scaduto"\) void rilasciaAnnunci\(/, "ora passata e giro non ancora arrivato: lo si prende subito, una volta");
   const api = readFileSync("src/pages/api/admin/orders.ts", "utf8");
   assert.match(api, /q\.is\("announce_at", null\)/, "recent_paid non mostra chi aspetta: RestoHub non suona");
   assert.match(api, /await rilasciaAnnunci\(ambito\)/, "RestoHub aperto rilascia gli scaduti (riserva del job)");
+});
+
+test("audit 27/11: il carrello chiede giorni e pagamento al server, gli errori nella lingua del cliente", () => {
+  const app = readFileSync("src/components/OrderApp.tsx", "utf8");
+  assert.match(app, /if \(giorni\.length === 0\) \{\s*setClosedToday\(true\);/, "nessun giorno ordinabile = chiuso, anche alle 23:10 di un giorno aperto");
+  assert.match(app, /const chiusoOra = closedToday \|\| \(nessunPagamento && !inSala\);/, "nessun modo di pagare = chiuso subito");
+  assert.match(readFileSync("src/pages/api/order-options.ts", "utf8"), /pagamento = \{ online: m\.online, locale: m\.locale, coupon: m\.coupon, couponInCassa: m\.couponInCassa, nessuno: m\.nessuno \};/);
+  const co = readFileSync("src/pages/api/checkout.ts", "utf8");
+  assert.doesNotMatch(co, /err\(\d{3}, "(Orario di ritiro|Giorno di ritiro|Dati mancanti|Un piatto|Impossibile creare|Errore nella creazione)/, "nessun errore in italiano verso il cliente");
+  assert.match(co, /errT\(409, "slot"\)/);
 });

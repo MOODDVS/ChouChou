@@ -104,9 +104,16 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return err(400, "Richiesta non valida");
   }
+  /* ⚠️ GLI ERRORI CHE IL CLIENTE LEGGE, nella sua lingua (audit 27/11/2026).
+     Il carrello mostra il testo del server cosi' com'e': «Orario di ritiro
+     non più disponibile» arrivava in italiano a chi ordinava in francese —
+     ed e' il piu' frequente (si sceglie le 19:00 alle 18:40 e si paga alle
+     18:50). La lingua e' quella della pagina, prima ancora di validarla. */
+  const linguaErr = String(body?.lang ?? "fr");
+  const errT = (status: number, chiave: keyof typeof TXT_ERRORI) => err(status, testoErrore(chiave, linguaErr));
 
   if (!Array.isArray(body.items) || body.items.length === 0) {
-    return err(400, "Carrello vuoto");
+    return errT(400, "carrello");
   }
   // Audit 3/11/2026: un carrello ha un tetto, e ogni quantita' e' un intero 1–99.
   if (body.items.length > RIGHE_MAX || body.items.some((i) => quantita(i?.qty) === null)) {
@@ -127,21 +134,21 @@ export const POST: APIRoute = async ({ request }) => {
   let indirizzo: IndirizzoConsegna | null = null;
   if (consegna) {
     indirizzo = indirizzoDaRichiesta(body.delivery);
-    if (!indirizzo) return err(400, "Dati mancanti");
+    if (!indirizzo) return errT(400, "dati");
   }
 
   // Il form pubblico (OrderApp) esige nome, cognome, telefono ed email: qui si
   // ricontrolla, perche' l'API e' raggiungibile anche senza passare dal form e
   // un ordine senza telefono lascia il ristoratore senza modo di richiamare.
   if (!body.customer?.name) {
-    return err(400, "Dati mancanti");
+    return errT(400, "dati");
   }
   if (!aTavolo) {
     if (!body.slot || !body.customer?.email) {
-      return err(400, "Dati mancanti");
+      return errT(400, "dati");
     }
     if (!String(body.customer.surname ?? "").trim() || !String(body.customer.phone ?? "").trim()) {
-      return err(400, "Dati mancanti");
+      return errT(400, "dati");
     }
   } else {
     /* ⚠️ AL TAVOLO SI CHIEDE MENO, E NON E' UNA SVISTA. Cognome, telefono e
@@ -158,7 +165,7 @@ export const POST: APIRoute = async ({ request }) => {
        appena si sa. Pretendere il tavolo qui vorrebbe dire rifiutare l'ordine
        di uno snack che di tavoli non ne ha nessuno. */
     if (!String(body.reservation_id ?? "").trim()) {
-      return err(400, "Dati mancanti");
+      return errT(400, "dati");
     }
   }
 
@@ -252,7 +259,7 @@ export const POST: APIRoute = async ({ request }) => {
        la comanda inutilizzabile; senza mappa non c'e' niente da chiedere, e
        pretenderlo bloccherebbe ogni ordine di quel locale. */
     if (sala.conTavoli && !String(body.table_id ?? "").trim()) {
-      return err(400, "Dati mancanti");
+      return errT(400, "dati");
     }
     /* ⚠️ E L'EMAIL DIVENTA OBBLIGATORIA QUANDO E' L'UNICO MODO DI AVVISARE.
        Dove nessuno porta il piatto, l'email «c'e' pronto» e' il solo canale
@@ -261,7 +268,7 @@ export const POST: APIRoute = async ({ request }) => {
        chiede spiegando perche'; qui si ricontrolla, perche' questa rotta e'
        raggiungibile anche senza passare dal modulo. */
     if (sala.avvisa && !String(body.customer.email ?? "").trim()) {
-      return err(400, "Dati mancanti");
+      return errT(400, "dati");
     }
   }
   /* IL CONTO APERTO: si ordina dal tavolo e si paga alla fine. ⚠️ Solo dove
@@ -293,7 +300,7 @@ export const POST: APIRoute = async ({ request }) => {
      ammessi, ma questa rotta si raggiunge anche senza passare dal sito. */
   const giornoChiesto = !aTavolo ? String(body.date ?? "").trim() : "";
   if (giornoChiesto && !(await giornoAmmesso(giornoChiesto, ambitoPub))) {
-    return err(409, "Giorno di ritiro non disponibile");
+    return errT(409, "giorno");
   }
   const giornoRitiro = giornoChiesto
     ? (() => { const d = DateTime.fromISO(giornoChiesto, { zone: fuso }); return d.hasSame(ora, "day") ? ora : d.startOf("day"); })()
@@ -306,7 +313,7 @@ export const POST: APIRoute = async ({ request }) => {
      non ferma comunque chi e' gia' seduto. */
   const config = aTavolo ? await configSala(ora, ambitoPub) : await configRitiro(giornoRitiro, ambitoPub);
   if (!config) {
-    return err(503, "Configurazione orari non disponibile");
+    return errT(503, "orari");
   }
 
   /* ⚠️ DUE DOMANDE DIVERSE SULLO STESSO OROLOGIO.
@@ -332,7 +339,7 @@ export const POST: APIRoute = async ({ request }) => {
     );
     const slotValidi = [...lunch, ...dinner];
     if (!slotValidi.includes(body.slot)) {
-      return err(409, "Orario di ritiro non più disponibile");
+      return errT(409, "slot");
     }
     /* ⚠️ I FATTORINI: l'orario esiste, ma e' ancora libero? Il sito non lo
        proponeva gia' pieno, ma fra la scelta e il pagamento qualcun altro
@@ -361,7 +368,7 @@ export const POST: APIRoute = async ({ request }) => {
   );
 
   if (errMenu || !piatti) {
-    return err(503, "Impossibile leggere il menu");
+    return errT(503, "menu");
   }
 
   // L'esaurito di QUESTO punto: il menu e' del gruppo, «finito» no. Senza
@@ -392,7 +399,7 @@ export const POST: APIRoute = async ({ request }) => {
   for (const richiesto of body.items) {
     const piatto = piattiPunto.find((p) => p.id === richiesto.id) as any;
     if (!piatto || !piatto.available || piatto.sold_out === true) {
-      return err(409, "Un piatto selezionato non è più disponibile");
+      return errT(409, "piatto");
     }
     const qty = quantita(richiesto.qty) ?? 1;
 
@@ -417,14 +424,14 @@ export const POST: APIRoute = async ({ request }) => {
         ? trovaVarianteSala(piatto.variants, richiesto.variant, ambitoPub)
         : trovaVariante(piatto.variants, richiesto.variant, true, ambitoPub);
       if (!variante) {
-        return err(409, "Le format choisi n'est plus disponible");
+        return errT(409, "formato");
       }
     }
     // «Prix du jour» senza cifra (#97): in carta si legge, ma non si incassa
     // una cifra che non c'e'. La pagina toglie il «+»; qui si chiude anche
     // la strada di chi manda la richiesta a mano (o un carrello di ieri).
     if (!variante && prezzoDaChiedere(piatto.daily_price, piatto.price_cents)) {
-      return err(409, "Un piatto selezionato non è più disponibile");
+      return errT(409, "piatto");
     }
     const prezzoPieno = variante ? variante.price_cents : piatto.price_cents;
 
@@ -649,7 +656,7 @@ export const POST: APIRoute = async ({ request }) => {
     // Prima si fa partire l'invio scaduto, se c'e': questo ordine va nel prossimo.
     await rilasciaInviiScaduti(ambitoPub, conto.id);
     invioId = await invioPerOrdine(ambitoPub, conto, ora.toJSDate());
-    if (!invioId) return err(500, "Impossibile creare l'ordine");
+    if (!invioId) return errT(500, "creazione");
     contoInAttesa = conto.tab_status === "pending";
   }
   if (aTavolo) {
@@ -801,7 +808,7 @@ export const POST: APIRoute = async ({ request }) => {
     // vero deve finire nei log del server: e' l'unico posto dove cercarlo
     // quando un ordine non nasce e il carrello si svuota.
     console.error("[checkout] insert ordine fallito:", errInsert);
-    return err(500, "Impossibile creare l'ordine");
+    return errT(500, "creazione");
   }
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
@@ -939,9 +946,28 @@ export const POST: APIRoute = async ({ request }) => {
     // Il motivo vero (chiave Stripe, metodo di pagamento non attivo…)
     // finisce nel log del server: mai nel browser del cliente.
     console.error("[checkout] Stripe error:", e);
-    return err(502, "Errore nella creazione del pagamento");
+    return errT(502, "pagamento");
   }
 };
+
+/** I testi degli errori che arrivano al cliente, nelle cinque lingue del sito. */
+const TXT_ERRORI = {
+  dati: { fr: "Il manque des informations : vérifiez le formulaire.", en: "Some details are missing: please check the form.", it: "Mancano dei dati: controlla il modulo.", nl: "Er ontbreken gegevens: controleer het formulier.", es: "Faltan datos: revisa el formulario." },
+  carrello: { fr: "Votre panier est vide.", en: "Your cart is empty.", it: "Il carrello è vuoto.", nl: "Je winkelmand is leeg.", es: "Tu carrito está vacío." },
+  giorno: { fr: "Ce jour n'est plus disponible : choisissez-en un autre.", en: "This day is no longer available: please choose another.", it: "Questo giorno non è più disponibile: scegline un altro.", nl: "Deze dag is niet meer beschikbaar: kies een andere.", es: "Este día ya no está disponible: elige otro." },
+  orari: { fr: "Les horaires ne sont pas disponibles pour le moment : réessayez dans un instant.", en: "Opening hours are not available right now: please try again shortly.", it: "Gli orari non sono disponibili al momento: riprova fra poco.", nl: "De openingsuren zijn momenteel niet beschikbaar: probeer het zo opnieuw.", es: "Los horarios no están disponibles ahora: inténtalo de nuevo en un momento." },
+  slot: { fr: "Cet horaire n'est plus disponible : choisissez-en un autre.", en: "This time is no longer available: please choose another.", it: "Questo orario non è più disponibile: scegline un altro.", nl: "Dit tijdstip is niet meer beschikbaar: kies een ander.", es: "Esta hora ya no está disponible: elige otra." },
+  menu: { fr: "La carte n'est pas disponible pour le moment : réessayez dans un instant.", en: "The menu is not available right now: please try again shortly.", it: "Il menu non è disponibile al momento: riprova fra poco.", nl: "De kaart is momenteel niet beschikbaar: probeer het zo opnieuw.", es: "La carta no está disponible ahora: inténtalo de nuevo en un momento." },
+  piatto: { fr: "Un plat de votre panier n'est plus disponible : retirez-le pour continuer.", en: "An item in your cart is no longer available: remove it to continue.", it: "Un piatto del carrello non è più disponibile: toglilo per continuare.", nl: "Een gerecht in je winkelmand is niet meer beschikbaar: verwijder het om verder te gaan.", es: "Un plato de tu carrito ya no está disponible: quítalo para continuar." },
+  creazione: { fr: "La commande n'a pas pu être enregistrée : réessayez, ou appelez-nous.", en: "Your order could not be saved: please try again, or call us.", it: "Non è stato possibile registrare l'ordine: riprova, o chiamaci.", nl: "Je bestelling kon niet worden opgeslagen: probeer opnieuw, of bel ons.", es: "No se pudo guardar el pedido: inténtalo de nuevo o llámanos." },
+  pagamento: { fr: "Le paiement n'a pas pu démarrer : réessayez dans un instant.", en: "Payment could not start: please try again shortly.", it: "Il pagamento non è partito: riprova fra poco.", nl: "De betaling kon niet starten: probeer het zo opnieuw.", es: "El pago no pudo iniciarse: inténtalo de nuevo en un momento." },
+  formato: { fr: "Le format choisi n'est plus disponible : choisissez-en un autre.", en: "The chosen size is no longer available: please choose another.", it: "Il formato scelto non è più disponibile: scegline un altro.", nl: "Het gekozen formaat is niet meer beschikbaar: kies een ander.", es: "El formato elegido ya no está disponible: elige otro." },
+} as const;
+
+function testoErrore(chiave: keyof typeof TXT_ERRORI, lingua: string): string {
+  const t = TXT_ERRORI[chiave] as Record<string, string>;
+  return t[lingua] ?? t.fr;
+}
 
 function err(status: number, message: string): Response {
   return new Response(JSON.stringify({ error: message }), {

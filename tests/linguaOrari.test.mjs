@@ -29,7 +29,8 @@ test("chiuso oggi ma ordinabile per i giorni seguenti: lo si dice sopra il carre
   const app = leggi("src/components/OrderApp.tsx");
   // si accende solo quando /api/slots?days=1 da' dei giorni (mai al tavolo)
   assert.match(app, /setClosedToday\(false\);\n\s+setSoloGiorniSeguenti\(true\);/);
-  assert.match(app, /if \(!chiusoOggiPagina \|\| inSala\) return;/);
+  // (27/11/2026) si chiede SEMPRE, non solo quando la pagina dice «chiuso oggi»
+  assert.match(app, /setClosedToday\(chiusoOggiPagina\);\n\s+setSoloGiorniSeguenti\(false\);\n\s+if \(inSala\) return;/);
   // fuori dal carrello: primo figlio di .order-app, messo sopra il carrello
   // solo quando la griglia ha due colonne e il carrello si vede
   assert.match(app, /<div className="order-app" ref=\{appMenuRef\} style=\{avvisoAccanto \? \{ gridTemplateRows: "auto 1fr" \} : undefined\}>/);
