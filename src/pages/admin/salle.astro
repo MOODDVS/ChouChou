@@ -39,6 +39,7 @@ import { claimsDaToken } from "../../lib/admin/adminAuth";
 import { esc } from "../../lib/esc";
 import { ambitoDiRichiesta, leggi } from "../../lib/admin/sede";
 import { configInCache, cronometro, seduteConOrdini } from "../../lib/admin/letturaSala";
+import { liberaCasseScadute } from "../../lib/admin/incassoSeduta";
 import { saleDelPalmare, pianoVerticale, type SalaPalmare, type DecoroPiano } from "../../lib/pianoPalmare";
 import { disegnoElemento, coloreElemento } from "../../lib/elementiSala";
 import { tavoliNonDisponibili } from "../../lib/salaInstallaRegole";
@@ -78,6 +79,9 @@ const leggiSale = async () => {
   try {
     const ambito = await ambitoDiRichiesta(Astro.request, staff);
     fuso = await fusoDi(ambito);
+    // Il palmare libera i tavoli col «Pagamento in cassa» scaduto (#102),
+    // di riserva del job: la mappa non deve mostrarli ancora blu.
+    try { await liberaCasseScadute(ambito); } catch { /* il job ci riprova */ }
     const ora = DateTime.now().setZone(fuso);
     const [{ data: righe }, valori, { data: giornoRaw }, conti, { data: chiamateRaw }, conOrdini] = await Promise.all([
       // Con la #92 anche la rotazione; senza, si legge come prima.

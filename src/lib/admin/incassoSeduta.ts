@@ -13,8 +13,16 @@
  * cassa), la seduta si chiude solo se il conto era stato chiesto — se no i
  * clienti possono ancora essere a tavola.
  * ⚠️ Mai il conto aperto del QR: si chiude da Commandes (`chiudiSessioneConto`).
+ *
+ * VENTI MINUTI DOPO «Paiement en caisse» (27/11/2026, #102): la cassa e' fuori
+ * da RestoHub, e nessuno torna sul palmare a dire «hanno pagato». Il tavolo
+ * si libera da solo (`liberaCasseScadute`) e i suoi ordini da incassare si
+ * chiudono come pagati in cassa. Un ordine nuovo nel frattempo (il caffe')
+ * ristampa l'addizione e fa ripartire il tempo (`rilanciaCassa`). Regole in
+ * `cassaTavoloRegole.ts`.
  */
-import { leggi, aggiorna, inserisci, type Ambito } from "./sede";
+import { leggi, aggiorna, inserisci, ambitoDiRiga, type Ambito } from "./sede";
+import { sogliaCassa } from "../cassaTavoloRegole";
 import { letturaSala } from "./letturaSala";
 import { tavoloDellaRiga, tavoliDelleRiga } from "./schedaTavoloRegole";
 import { stampaAddizioneTavolo } from "./addizioneTavolo";
@@ -90,7 +98,102 @@ export async function chiediContoInCassa(ambito: Ambito, tavoloId: string): Prom
     if (ins.error) console.error("[palmare] richiesta d'addizione:", ins.error);
     else void inviaPushChiamata({ tavolo: nomi, addizione: true }, ambito).catch(() => {});
   }
+  await segnaCassa(ambito, s.id);
   return { ok: true, stampa: stampa.ok };
+}
+
+/** Il «Pagamento in cassa» parte (o riparte) adesso: fra venti minuti il
+ *  tavolo si libera. Senza la #102 non si scrive niente: tutto come prima. */
+async function segnaCassa(ambito: Ambito, prenId: string): Promise<void> {
+  const { error } = await aggiorna("reservations", ambito, { desk_at: new Date().toISOString() })
+    .eq("id", prenId)
+    .eq("status", "seated");
+  if (error && !String(error.message ?? "").includes("desk_at")) {
+    console.error("[palmare] ora della cassa:", error);
+  }
+}
+
+/**
+ * UN ORDINE NUOVO SU UN TAVOLO CHE HA GIA' CHIESTO IL CONTO (il caffe' dopo
+ * «Pagamento in cassa»): esce di nuovo l'addizione COMPLETA, aggiornata, e i
+ * venti minuti ripartono. Il tavolo torna blu se qualcuno aveva toccato il
+ * toast nel frattempo. Mai bloccante: lo chiamano il palmare e il checkout
+ * dopo che l'ordine esiste gia'.
+ * ⚠️ Niente se il conto non era stato chiesto (`desk_at` vuoto): un tavolo che
+ * ordina il secondo giro non deve far uscire un'addizione in cassa.
+ */
+export async function rilanciaCassa(ambito: Ambito, prenId: string): Promise<boolean> {
+  try {
+    if (!/^[0-9a-f-]{36}$/i.test(prenId)) return false;
+    const { data: rRaw, error } = await leggi("reservations", ambito, "id, status, tables, tab_table_id, tab_status, desk_at")
+      .eq("id", prenId).maybeSingle();
+    if (error) return false; // senza la #102: come prima
+    const r = rRaw as unknown as {
+      id: string; status: string; tables: unknown; tab_table_id: string | null; tab_status: string | null; desk_at: string | null;
+    } | null;
+    if (!r || r.status !== "seated" || !r.desk_at) return false;
+    if (r.tab_status === "pending" || r.tab_status === "open") return false;
+    const tavoli = [...new Set([...(r.tab_table_id ? [r.tab_table_id] : []), ...tavoliDelleRiga(r.tables)])];
+    if (!tavoli.length) return false;
+    await segnaCassa(ambito, r.id);
+    await stampaAddizioneTavolo(ambito, tavoli[0]);
+    // Il tavolo resta (o torna) blu, senza suonare di nuovo i telefoni.
+    const { data: aperte } = await leggi("table_calls", ambito, "id")
+      .in("table_id", tavoli).eq("status", "open").eq("reason", "bill").limit(1);
+    if (!(aperte ?? []).length) {
+      const { data: tRaw } = await leggi("restaurant_tables", ambito, "id, name").in("id", tavoli);
+      const nomi = ((tRaw ?? []) as unknown as { id: string; name: string }[])
+        .map((t) => t.name).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).join(" + ");
+      await inserisci("table_calls", ambito, {
+        table_id: tavoli[0], table_label: nomi, caller_name: "", status: "open", reason: "bill",
+      });
+    }
+    return true;
+  } catch (e) {
+    console.error("[palmare] rilancio della cassa:", e);
+    return false;
+  }
+}
+
+/**
+ * I TAVOLI CON «PAGAMENTO IN CASSA» DA VENTI MINUTI: si liberano. Gli ordini
+ * ancora da incassare si chiudono come pagati in cassa (`done`, metodo
+ * `onsite` — da Commandes lo si puo' ancora cambiare in contanti o carta),
+ * poi la seduta finisce e il tavolo non e' piu' blu. Rende quanti tavoli ha
+ * liberato.
+ * ⚠️ Mai un conto aperto del QR: quello si chiude da Commandes.
+ * ⚠️ Ogni passo e' condizionato (`pending` + `onsite`, seduta `seated`): il
+ * job e due tablet nello stesso secondo non fanno danni, e un ordine
+ * incassato a mano nel frattempo resta col suo metodo.
+ * Lettura fallita (la #102 non lanciata) → 0, niente si tocca.
+ */
+export async function liberaCasseScadute(ambito: Ambito, limite = 50): Promise<number> {
+  try {
+    const { data, error } = await leggi("reservations", ambito, "id, location_id, tables, tab_table_id, tab_status, desk_at")
+      .eq("status", "seated")
+      .not("desk_at", "is", null)
+      .lte("desk_at", sogliaCassa())
+      .limit(limite);
+    if (error || !data?.length) return 0;
+    let liberati = 0;
+    for (const r of data as unknown as { id: string; location_id: string | null; tables: unknown; tab_table_id: string | null; tab_status: string | null }[]) {
+      if (r.tab_status === "pending" || r.tab_status === "open") continue;
+      const a = ambitoDiRiga(r.location_id);
+      const chiusi = await aggiorna("orders", a, { status: "done" })
+        .eq("reservation_id", r.id).eq("status", "pending").eq("payment_method", "onsite");
+      if (chiusi.error) {
+        console.error("[palmare] chiusura degli ordini in cassa:", chiusi.error);
+        continue; // i soldi prima del tavolo: si riprova al giro dopo
+      }
+      const tavoli = [...new Set([...(r.tab_table_id ? [r.tab_table_id] : []), ...tavoliDelleRiga(r.tables)])];
+      await chiudiSeduta(a, r.id, tavoli);
+      liberati++;
+    }
+    return liberati;
+  } catch (e) {
+    console.error("[palmare] tavoli da liberare:", e);
+    return 0;
+  }
 }
 
 /**
@@ -112,7 +215,12 @@ export async function chiudiSeContoChiesto(ambito: Ambito, prenId: string, forza
     if (!tavoli.length) return;
     const { data: aperte } = await leggi("table_calls", ambito, "id")
       .in("table_id", tavoli).eq("status", "open").eq("reason", "bill").limit(1);
-    if (!(aperte ?? []).length) return;
+    /* «Pagamento in cassa» toccato (#102) vale come conto chiesto anche se
+       qualcuno ha gia' chiuso il toast dell'addizione. */
+    if (!(aperte ?? []).length) {
+      const { data: d, error: eD } = await leggi("reservations", ambito, "desk_at").eq("id", r.id).maybeSingle();
+      if (eD || !(d as { desk_at?: unknown } | null)?.desk_at) return;
+    }
   }
   await chiudiSeduta(ambito, r.id, tavoli);
 }

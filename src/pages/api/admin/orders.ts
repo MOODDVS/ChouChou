@@ -1,5 +1,6 @@
 import { accodaTicket } from "../../../lib/stampaCoda";
 import { momentoAnnuncioOrdine, manca101, rilasciaAnnunci } from "../../../lib/annuncioOrdini";
+import { liberaCasseScadute } from "../../../lib/admin/incassoSeduta";
 import { msg } from "../../../lib/admin/msgApi";
 import { json } from "../../../lib/rispostaJson";
 import type { APIRoute } from "astro";
@@ -86,6 +87,8 @@ export const GET: APIRoute = async ({ request, url }) => {
        RestoHub aperto, ticket e suono escono anche se il job manca).
        Colonna assente → l'elenco di prima, senza il filtro. */
     try { await rilasciaAnnunci(ambito); } catch { /* il job ci riprova */ }
+    // Di riserva del job anche i tavoli col «Pagamento in cassa» scaduto (#102).
+    try { await liberaCasseScadute(ambito); } catch { /* il job ci riprova */ }
     const recenti = (filtra: boolean) => {
       const q = leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
         .or("status.eq.paid,and(status.eq.pending,payment_method.eq.onsite)");
