@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 // Multi-sede: quale punto sta guardando il sito pubblico.
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
-import { opzioniOrdini, soglieConsegna, manceDi } from "../../lib/ordiniOpzioni";
+import { opzioniOrdini, soglieConsegna, manceDi, modiDiPagamento } from "../../lib/ordiniOpzioni";
 
 export const prerender = false;
 
@@ -24,6 +24,11 @@ export const GET: APIRoute = async ({ request }) => {
   let soglie: Awaited<ReturnType<typeof soglieConsegna>> = { minimo: 0, gratis: 0, costo: 0, zone: [] };
   // Le mance: tipo e tre valori, o `null` se spente. Al TAVOLO decide la sala.
   let mance: Awaited<ReturnType<typeof manceDi>> = null;
+  /* COME SI PAGA (audit 27/11/2026): il carrello non si fida piu' della
+     pagina, che su cinque siti non lo passava. Gli stessi si'/no che usa il
+     checkout (`modiDiPagamento`: volonta' del ristoratore E Stripe pronto).
+     Lettura muta → `null`: il carrello tiene quello della pagina. */
+  let pagamento: { online: boolean; locale: boolean; coupon: boolean; couponInCassa: boolean; nessuno: boolean } | null = null;
   try {
     const ambito = await ambitoPubblicoChiesto(request);
     consegna = (await opzioniOrdini(ambito)).consegna;
@@ -31,6 +36,8 @@ export const GET: APIRoute = async ({ request }) => {
     // `?sala=1`: chiede la pagina del tavolo, e in sala le mance hanno un
     // interruttore loro (`orders_table_tips`). Tipo e valori sono gli stessi.
     mance = await manceDi(ambito, { sala: new URL(request.url).searchParams.get("sala") === "1" });
+    const m = await modiDiPagamento(ambito);
+    pagamento = { online: m.online, locale: m.locale, coupon: m.coupon, couponInCassa: m.couponInCassa, nessuno: m.nessuno };
   } catch {
     consegna = false;
   }
@@ -38,7 +45,7 @@ export const GET: APIRoute = async ({ request }) => {
     // Le zone col nome: il checkout le mostra in un menu a tendina
     // («1050 — Ixelles»), e il nome e' scritto in Réglages sapendolo.
     zone: soglie.zone.map((z) => ({ nome: z.nome, cap: z.cap, costo_cents: z.costo_cents })),
-    mance }), {
+    mance, pagamento }), {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
   });
 };

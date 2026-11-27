@@ -84,7 +84,7 @@ test("il ticket dice CONSEGNA in cima e l'indirizzo in fondo", () => {
 
 test("il checkout ricontrolla interruttore e indirizzo, e non ripiega sul ritiro", () => {
   const co = nudo("src/pages/api/checkout.ts");
-  assert.match(co, /indirizzo = indirizzoDaRichiesta\(body\.delivery\);\n\s*if \(!indirizzo\) return err\(400/);
+  assert.match(co, /indirizzo = indirizzoDaRichiesta\(body\.delivery\);\n\s*if \(!indirizzo\) return errT\(400/);
   assert.match(co, /if \(consegna && !modi\.consegna\)/);
   assert.match(co, /service: "delivery", delivery_address: indirizzo/);
 });

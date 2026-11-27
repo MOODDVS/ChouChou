@@ -351,7 +351,7 @@ test("da asporto non cambia niente: slot, cognome e telefono restano obbligatori
   // seguenti): gli orari si calcolano su quello, non sempre su adesso.
   // (Con un quarto argomento, il preavviso: per la consegna e' preparazione + tragitto.)
   assert.match(CK, /calcolaSlotGiorno\(\s*giornoRitiro,\s*config,\s*fuso[,)]/);
-  assert.match(CK, /Orario di ritiro non pi/,
+  assert.match(CK, /errT\(409, "slot"\)/,
     "lo slot non si controlla piu': si ordinerebbe per un'ora che non esiste");
 });
 
@@ -831,7 +831,7 @@ test("niente cambia per chi ordina da asporto", () => {
   /* ⚠️ LA PROVA CHE PROTEGGE I NOVE SITI IN PRODUZIONE. `tavolo` e'
      facoltativa e nulla di ripiego: il giorno del merge una pagina /order che
      non la passa si comporta esattamente come ieri. */
-  assert.match(OAPP, /tavolo = null, pagamento = \{ online: true/);
+  assert.match(OAPP, /tavolo = null, pagamento: pagamentoPagina = \{ online: true/);
   assert.match(OAPP, /const inSala = tavolo !== null;/);
   // Le stringhe nuove sono OPZIONALI: un dizionario che non le ha non rompe.
   assert.match(OAPP, /emailWhyRequired\?: string;/);

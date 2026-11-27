@@ -166,7 +166,8 @@ test("con due strade aperte, la carta e' quella preselezionata", () => {
   assert.match(app, /const pagaInCassa = inSala\s*\? !pagamento\.online\s*: !pagamento\.online \|\| \(pagamento\.locale && modoPagamento === "onsite" && !contoTav\);/);
   // ...e il ripiego e' il comportamento di sempre, per i siti che non la
   // passano: niente elementi nuovi e nudi il giorno del merge.
-  assert.match(app, /pagamento = \{ online: true, locale: false, coupon: true, couponInCassa: false \}/);
+  // (27/11/2026) e' il valore di PARTENZA: poi decide /api/order-options.
+  assert.match(app, /pagamento: pagamentoPagina = \{ online: true, locale: false, coupon: true, couponInCassa: false \}/);
   // Pagando al ritiro il bottone non promette un pagamento che non avviene.
   assert.match(app, /pagaInCassa \? \(invio \? tp\.ordinando : tp\.ordina\)/);
 });

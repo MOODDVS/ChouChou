@@ -70,8 +70,13 @@ export async function accodaTicket(o: {
        subito, com'era: un ticket in anticipo e' meglio di nessun ticket. */
     if (origine === "auto" && !opz.invio) {
       const { data: att, error: eAtt } = await leggi("orders", ambito, "announce_at").eq("id", o.id).maybeSingle();
-      if (!eAtt && att && inAttesaDiAnnuncio((att as { announce_at?: unknown }).announce_at)) {
-        return { accodati: 0, motivo: "attesa" };
+      /* ⚠️ Pieno = lo stampa `rilasciaAnnunci`, anche se l'ora e' gia'
+         passata: e' lui che svuota la colonna e poi richiama questa
+         funzione. Due strade che stampano lo stesso annuncio sono due
+         notifiche (il ticket doppio lo ferma l'indice unico, il suono no). */
+      const v = !eAtt && att ? (att as { announce_at?: unknown }).announce_at : null;
+      if (v !== null && v !== undefined && v !== "") {
+        return { accodati: 0, motivo: inAttesaDiAnnuncio(v) ? "attesa" : "in_rilascio" };
       }
     }
     const cfg = await leggiConfig(ambito, [...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
