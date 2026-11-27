@@ -41,7 +41,8 @@ test("un giro andato male non tocca l'ultimo andato bene", () => {
 });
 
 test("l'endpoint: chiave solo nell'header, confronto a tempo costante, 503 senza variabile", () => {
-  const s = readFileSync("src/pages/api/restohub/stato.ts", "utf8");
+  // (27/11/2026) il controllo sta in `lib/chiaveRestohub.ts`, uguale per stato, piano e bucket
+  const s = readFileSync("src/pages/api/restohub/stato.ts", "utf8") + readFileSync("src/lib/chiaveRestohub.ts", "utf8");
   assert.equal(HEADER_CHIAVE, "x-restohub-key");
   assert.match(s, /segretoUguale\(request\.headers\.get\(HEADER_CHIAVE\)/);
   assert.doesNotMatch(s, /searchParams/);

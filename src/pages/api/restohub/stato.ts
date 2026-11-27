@@ -1,8 +1,7 @@
 import type { APIRoute } from "astro";
 import { json } from "../../../lib/rispostaJson";
-import { segretoUguale } from "../../../lib/cronAuth";
 import { statoRestohub } from "../../../lib/statoRestohub";
-import { HEADER_CHIAVE } from "../../../lib/statoRestohubRegole";
+import { rifiutaSenzaChiave } from "../../../lib/chiaveRestohub";
 
 export const prerender = false;
 
@@ -15,15 +14,9 @@ export const prerender = false;
 // ⚠️ In uscita solo numeri, date e nomi tecnici: niente segreti, niente
 // dati dei clienti del ristorante. Vedi `lib/statoRestohub.ts`.
 
-function chiaveAttesa(): string {
-  const v = process.env.RESTOHUB_STATO_KEY ?? (import.meta.env as Record<string, unknown>).RESTOHUB_STATO_KEY;
-  return String(v ?? "").trim();
-}
-
 export const GET: APIRoute = async ({ request }) => {
-  const attesa = chiaveAttesa();
-  if (!attesa) return json({ errore: "non configurato" }, 503);
-  if (!segretoUguale(request.headers.get(HEADER_CHIAVE) ?? "", attesa)) return json({ errore: "non autorizzato" }, 401);
+  const no = rifiutaSenzaChiave(request);
+  if (no) return no;
   try {
     return json(await statoRestohub());
   } catch {

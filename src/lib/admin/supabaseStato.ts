@@ -45,6 +45,12 @@ const SQL_DI = new Map<number, string>(
   MIGRAZIONI.map((m) => [m.numero, FILE_SQL[Object.keys(FILE_SQL).find((k) => k.endsWith("/" + m.file)) ?? ""] ?? ""]),
 );
 
+/** L'SQL di una migrazione del codice ("" se non c'e'). Per il piano che
+ *  legge admin.restohub.cloud (`/api/restohub/piano`). */
+export function sqlMigrazione(numero: number): string {
+  return SQL_DI.get(numero) ?? "";
+}
+
 /** Una variabile d'ambiente letta al momento (build o processo). */
 function env(nome: string): string {
   const da = (import.meta.env as Record<string, unknown>)[nome] ?? process.env[nome];
