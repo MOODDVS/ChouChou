@@ -1,0 +1,231 @@
+---
+/**
+ * L'ASPORTO — /admin/salle/asporto (Enzo, 28/11/2026).
+ *
+ * Gli ordini da portare via di OGGI, del palmare e del sito, per ora di
+ * ritiro; quelli gia' ritirati in fondo, spenti. Una card per ordine:
+ *  - a sinistra l'ora di ritiro nella bolla, sotto il numero;
+ *  - il nome del cliente, poi le etichette (À encaisser, Payé, Prête,
+ *    Retirée) e quanti articoli, con chi l'ha preso (o «Site»);
+ *  - a destra il totale.
+ * Toccandola si apre il dettaglio: i piatti con le note, e il telefono da
+ * chiamare. In basso «+ Asporto» apre la carta (`/admin/salle/order?asporto=1`).
+ * I dati: `lib/admin/asportoPalmare.ts`. La lista si rilegge ogni minuto.
+ */
+import PalmareHead from "../../../components/admin/PalmareHead.astro";
+import PalmareTesta from "../../../components/admin/PalmareTesta.astro";
+import PalmareNav from "../../../components/admin/PalmareNav.astro";
+import { CLIENT } from "../../../config/client";
+import { linguaPalmare } from "../../../lib/admin/linguaPalmare";
+import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
+import { claimsDaToken } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
+import { cameriereDellaPillola } from "../../../lib/admin/cameriereCorrente";
+import { asportiDiOggi, type AsportoDiOggi } from "../../../lib/admin/asportoPalmare";
+import { importoDa } from "../../../lib/soldi";
+
+export const prerender = false;
+
+const lang = await linguaPalmare(Astro.request);
+const t = adminT(lang);
+const LOC = ADMIN_LOCALE[lang] ?? "fr-BE";
+const euro = (c: number) => importoDa(c, LOC);
+
+const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
+let ordini: AsportoDiOggi[] = [];
+const leggiOrdini = async () => {
+  try {
+    const ambito = await ambitoDiRichiesta(Astro.request, staff);
+    ordini = await asportiDiOggi(ambito);
+  } catch { ordini = []; }
+};
+const [cameriere] = await Promise.all([cameriereDellaPillola(staff, CLIENT.nome), leggiOrdini()]);
+// Prima chi deve ancora ritirare, per ora; i ritirati in fondo.
+ordini = [...ordini.filter((o) => o.stato.fase !== "ritirato"), ...ordini.filter((o) => o.stato.fase === "ritirato")];
+const aperti = ordini.filter((o) => o.stato.fase !== "ritirato").length;
+const creato = Astro.url.searchParams.get("creato") === "1";
+const articoli = (n: number) => (n === 1 ? t("sal.or.item") : t("sal.or.items").replace("{n}", String(n)));
+const dettagli = JSON.stringify(Object.fromEntries(ordini.map((o) => [o.id, {
+  titolo: `${o.ora} · ${o.nome || "—"}`,
+  numero: `#${o.numero}`,
+  telefono: o.telefono,
+  totale: euro(o.totale_cents),
+  righe: o.righe,
+  nota: o.nota,
+}]))).replace(/</g, "\\u003c");
+---
+
+<html lang={lang}>
+  <head>
+    <PalmareHead titolo={t("sal.nav.takeaway")} />
+    <style is:global>
+      .ta { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.15rem 1rem calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 34px + 3.4rem); }
+      .ta-tit { display: flex; justify-content: space-between; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+      .ta-vuoto { margin-top: 1rem; text-align: center; color: var(--c-muted); line-height: 1.5; }
+      .ta-ok { margin: 0; padding: 0.7rem 1rem; border-radius: 14px; background: #4cc38a; color: #0b1f14; font-weight: 800; text-align: center; }
+      .ta-card {
+        display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.9rem; width: 100%; text-align: left;
+        border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+        transition: transform .12s ease;
+      }
+      .ta-card:active { transform: scale(0.98); }
+      .ta-card.is-ritirato { opacity: 0.5; }
+      .ta-sx { flex: none; min-width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+      .ta-bolla {
+        min-width: 64px; height: 40px; padding: 0 0.7rem; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-text); color: var(--c-bg); font-weight: 800; font-size: 1rem; font-variant-numeric: tabular-nums;
+      }
+      .ta-num { font-size: 0.75rem; font-weight: 600; color: var(--c-muted); }
+      .ta-mezzo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .ta-chi { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ta-tag-riga { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+      .ta-tag {
+        height: 26px; padding: 0 0.65rem; border-radius: 999px; display: inline-flex; align-items: center;
+        font-size: 0.75rem; font-weight: 800; white-space: nowrap;
+        background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-line);
+      }
+      .ta-tag.is-arancio { background: #ff9f43; color: #241200; border-color: transparent; }
+      .ta-tag.is-verde { background: #4cc38a; color: #0b1f14; border-color: transparent; }
+      .ta-art { font-size: 0.82rem; color: var(--c-muted); }
+      .ta-dx { flex: none; font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .ta-sfuma { position: fixed; left: 0; right: 0; bottom: 0; z-index: 18; height: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 76px); background: linear-gradient(transparent, var(--c-bg) 40%); pointer-events: none; }
+      /* «+ Asporto»: in basso sopra la navigazione, sotto il pollice. */
+      .ta-nuovo {
+        position: fixed; z-index: 19; left: 50%; transform: translateX(-50%);
+        bottom: calc(var(--sal-nav-bottom) + var(--sal-nav-h) + 14px);
+        height: 52px; padding: 0 1.6rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.5rem;
+        background: var(--c-accent); color: var(--c-bg); font-weight: 800; font-size: 1rem; text-decoration: none; white-space: nowrap;
+      }
+      .ta-nuovo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+      /* Il dettaglio: un foglio dal basso, come la scelta del formato. */
+      .ta-foglio { position: fixed; inset: 0; z-index: 40; display: flex; align-items: flex-end; background: rgba(0, 0, 0, 0.5); }
+      .ta-foglio[hidden] { display: none; }
+      .ta-foglio-box {
+        width: 100%; max-height: 85vh; overflow-y: auto; box-sizing: border-box;
+        padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0;
+        background: var(--c-card); color: var(--c-text); display: flex; flex-direction: column; gap: 0.7rem;
+      }
+      .ta-foglio-testa { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+      .ta-foglio-testa h2 { margin: 0; font-size: 1.15rem; }
+      .ta-foglio-num { color: var(--c-muted); font-weight: 700; }
+      .ta-chiudi { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); font-size: 1.4rem; cursor: pointer; }
+      .ta-righe { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+      .ta-righe li { display: flex; flex-direction: column; gap: 2px; }
+      .ta-righe small, .ta-nota { color: var(--c-muted); }
+      .ta-nota { margin: 0; }
+      .ta-totale { display: flex; justify-content: space-between; font-weight: 800; font-size: 1.05rem; border-top: 1px solid var(--c-line); padding-top: 0.6rem; }
+      .ta-chiama {
+        height: 50px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+        background: var(--c-bg); color: var(--c-text); border: 1px solid var(--c-line); font-weight: 800; text-decoration: none;
+      }
+      .ta-chiama[hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <PalmareTesta lang={lang} cameriere={cameriere} />
+
+    <main class="ta" id="ta-lista">
+      {creato && <p class="ta-ok" role="status">{t("sal.ta.created")}</p>}
+      <p class="ta-tit"><span>{t("sal.ta.title")}</span><span>{aperti}</span></p>
+      {ordini.map((o) => (
+        <button type="button" class:list={["ta-card", { "is-ritirato": o.stato.fase === "ritirato" }]} data-id={o.id}>
+          <span class="ta-sx">
+            <span class="ta-bolla">{o.ora}</span>
+            <span class="ta-num">#{o.numero}</span>
+          </span>
+          <span class="ta-mezzo">
+            <span class="ta-chi">{o.nome || "—"}</span>
+            <span class="ta-tag-riga">
+              {o.stato.incassare ? <span class="ta-tag is-arancio">{t("sal.ta.toCollect")}</span> : <span class="ta-tag">{t("sal.or.paid")}</span>}
+              {o.stato.fase === "pronto" && <span class="ta-tag is-verde">{t("sal.ta.ready")}</span>}
+              {o.stato.fase === "ritirato" && <span class="ta-tag">{t("sal.ta.collected")}</span>}
+            </span>
+            <span class="ta-art">{articoli(o.articoli)} · {o.daSito ? t("sal.ta.site") : (o.cameriere || t("sal.ta.customer"))}</span>
+          </span>
+          <span class="ta-dx">{euro(o.totale_cents)}</span>
+        </button>
+      ))}
+      {ordini.length === 0 && <p class="ta-vuoto">{t("sal.ta.empty")}</p>}
+      <script type="application/json" id="ta-dati" is:inline set:html={dettagli}></script>
+    </main>
+
+    <div class="ta-sfuma" aria-hidden="true"></div>
+    <a class="ta-nuovo" href="/admin/salle/order?asporto=1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>{t("sal.ta.new")}
+    </a>
+    <PalmareNav lang={lang} attiva="asporto" />
+
+    <div class="ta-foglio" id="ta-foglio" hidden>
+      <div class="ta-foglio-box" role="dialog" aria-modal="true" aria-labelledby="ta-foglio-tit">
+        <div class="ta-foglio-testa">
+          <h2 id="ta-foglio-tit"></h2>
+          <button type="button" class="ta-chiudi" data-chiudi aria-label={t("sal.ord.close")}>×</button>
+        </div>
+        <span class="ta-foglio-num" id="ta-foglio-num"></span>
+        <ul class="ta-righe" id="ta-foglio-righe"></ul>
+        <p class="ta-nota" id="ta-foglio-nota" hidden></p>
+        <p class="ta-totale"><span>{t("sal.tb.total")}</span><strong id="ta-foglio-tot"></strong></p>
+        <a class="ta-chiama" id="ta-foglio-tel" hidden>{t("sal.ta.call")} <span id="ta-foglio-tel-num"></span></a>
+      </div>
+    </div>
+
+    <script>
+      import { esc } from "../../../lib/esc";
+
+      type Dettaglio = { titolo: string; numero: string; telefono: string; totale: string; righe: { qty: number; nome: string; nota: string }[]; nota: string };
+      let dati: Record<string, Dettaglio> = {};
+      const leggiDati = () => {
+        try { dati = JSON.parse(document.getElementById("ta-dati")?.textContent || "{}"); } catch { dati = {}; }
+      };
+      const foglio = document.getElementById("ta-foglio");
+      const apri = (id: string) => {
+        const d = dati[id];
+        if (!d || !foglio) return;
+        const set = (k: string, v: string) => { const el = document.getElementById(k); if (el) el.textContent = v; };
+        set("ta-foglio-tit", d.titolo);
+        set("ta-foglio-num", d.numero);
+        set("ta-foglio-tot", d.totale);
+        const righe = document.getElementById("ta-foglio-righe");
+        if (righe) righe.innerHTML = d.righe.map((r) => `<li><span><b>${r.qty}×</b> ${esc(r.nome)}</span>${r.nota ? `<small>${esc(r.nota)}</small>` : ""}</li>`).join("");
+        const nota = document.getElementById("ta-foglio-nota");
+        if (nota) { nota.textContent = d.nota; nota.hidden = !d.nota; }
+        const tel = document.getElementById("ta-foglio-tel") as HTMLAnchorElement | null;
+        if (tel) {
+          tel.hidden = !d.telefono;
+          tel.href = d.telefono ? `tel:${d.telefono.replace(/[^\d+]/g, "")}` : "#";
+          set("ta-foglio-tel-num", d.telefono);
+        }
+        foglio.hidden = false;
+      };
+      foglio?.addEventListener("click", (e) => {
+        const el = e.target as HTMLElement;
+        if (el === foglio || el.closest("[data-chiudi]")) foglio.hidden = true;
+      });
+      document.getElementById("ta-lista")?.addEventListener("click", (e) => {
+        const card = (e.target as HTMLElement).closest<HTMLElement>(".ta-card");
+        if (card?.dataset.id) apri(card.dataset.id);
+      });
+      leggiDati();
+
+      // ---- La lista si rilegge ogni minuto, a pagina visibile ----
+      const rileggi = async () => {
+        if (document.visibilityState !== "visible" || !navigator.onLine || (foglio && !foglio.hidden)) return;
+        try {
+          const res = await fetch(location.pathname, { cache: "no-store", credentials: "same-origin" });
+          if (!res.ok) return;
+          const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+          const nuova = doc.getElementById("ta-lista");
+          const lista = document.getElementById("ta-lista");
+          if (nuova && lista) lista.replaceChildren(...[...nuova.childNodes].map((n) => document.importNode(n, true)));
+          leggiDati();
+        } catch { /* niente rete: si riprova al prossimo giro */ }
+      };
+      // «Ordine registrato» si legge una volta: poi l'indirizzo torna pulito.
+      if (location.search.includes("creato=1")) history.replaceState(null, "", location.pathname);
+      setInterval(() => { void rileggi(); }, 60_000);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") void rileggi(); });
+    </script>
+  </body>
+</html>

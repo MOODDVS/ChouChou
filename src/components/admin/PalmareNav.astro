@@ -5,7 +5,7 @@
  */
 import { adminT, type AdminLang } from "../../i18n/admin";
 
-interface Props { lang: AdminLang; attiva: "salle" | "orders" }
+interface Props { lang: AdminLang; attiva: "salle" | "orders" | "asporto" }
 const { lang, attiva } = Astro.props;
 const t = adminT(lang);
 
@@ -17,6 +17,9 @@ const VOCI = [
     ico: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>' },
   { k: "orders", label: t("sal.navb.orders"), nome: t("sal.nav.orders"), href: "/admin/salle/orders",
     ico: '<path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/>' },
+  // L'asporto (Enzo, 28/11/2026): gli ordini da portare via di oggi e «+».
+  { k: "asporto", label: t("sal.navb.takeaway"), nome: t("sal.nav.takeaway"), href: "/admin/salle/asporto",
+    ico: '<path d="M6 7h12l-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7z"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>' },
   { k: "notif", label: t("sal.navb.notif"), nome: t("sal.nav.notif"), href: "",
     ico: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>' },
   { k: "shifts", label: t("sal.navb.shifts"), nome: t("sal.nav.shifts"), href: "",
@@ -73,8 +76,10 @@ const VOCI = [
         -webkit-backdrop-filter: blur(26px) saturate(150%); backdrop-filter: blur(26px) saturate(150%);
       }
       .sal-voce {
-        display: flex; flex: 0 0 auto; flex-direction: column; align-items: center; gap: 0.18rem;
-        min-width: 64px; padding: 0.42rem 0.85rem; border-radius: 999px; border: none;
+        display: flex; flex: 0 1 auto; flex-direction: column; align-items: center; gap: 0.18rem;
+        /* Cinque voci dal 28/11/2026 (l'asporto): piu' strette, e si stringono
+           ancora se serve, cosi' la pillola sta in un telefono da 360px. */
+        min-width: 50px; padding: 0.42rem 0.42rem; border-radius: 999px; border: none;
         background: transparent; color: var(--c-nmuted, var(--c-hmuted, var(--c-muted)));
         font-family: var(--font-body, system-ui, sans-serif);
         font-size: 0.56rem; letter-spacing: 0.03em; text-transform: uppercase;

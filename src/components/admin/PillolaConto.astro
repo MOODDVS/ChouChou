@@ -1,0 +1,196 @@
+---
+/**
+ * LA PILLOLA BLU «CONTO RICHIESTO» della scheda del tavolo (Enzo, 28/11/2026).
+ *
+ * A tutta larghezza, sotto l'ultimo ordine, nel blu del tavolo sulla mappa.
+ * Dopo «Pagamento in cassa» (#102/#103) dice da quanto il conto e' chiesto e
+ * fra quanto il tavolo si libera, con una barra che si riempie.
+ * DENTRO, DUE BOTTONI (Enzo, 28/11/2026: niente modale, nel blocco blu): «+10 min» e
+ * «Libera» (gli ordini da incassare risultano pagati in cassa) —
+ * `salle-seat`, azioni `cassa-piu` e `cassa-chiudi`, regole in
+ * `lib/admin/incassoSeduta.ts`. «Libera» chiede un secondo tocco, come il
+ * cestino: e' l'unico gesto che chiude dei soldi.
+ * Senza il timer (il conto chiesto dal QR, o prima della #102) dice solo
+ * «Conto richiesto», con il solo «Libera». Sul conto aperto del QR
+ * (`liberabile` assente) e' solo la scritta: quello si chiude da Commandes.
+ */
+import { adminT, type AdminLang } from "../../i18n/admin";
+
+interface Props {
+  cassa: { dal: string; fine: string } | null;
+  fuso: string;
+  lang: AdminLang;
+  /** Una seduta senza conto aperto: si puo' liberare da qui. */
+  liberabile?: boolean;
+}
+const { cassa, liberabile = false, lang } = Astro.props;
+const conBottoni = Boolean(cassa) || liberabile;
+const t = adminT(lang);
+const minDa = (iso: string) => Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+const minA = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 60000));
+const quota = cassa
+  ? Math.min(1, Math.max(0, (Date.now() - new Date(cassa.dal).getTime()) / Math.max(1, new Date(cassa.fine).getTime() - new Date(cassa.dal).getTime())))
+  : 0;
+---
+
+<div class="tb-cc-blocco" id="tb-cc"
+  data-dal={cassa?.dal} data-fine={cassa?.fine}
+  data-since={t("sal.tb.billSince")} data-free-in={t("sal.tb.billFreeIn")} data-free-now={t("sal.tb.billFreeNow")}>
+  <div class:list={["tb-conto-chiesto", { "is-solo": !cassa && !conBottoni }]}>
+    {cassa ? (
+      <Fragment>
+        <span class="tb-cc-su">
+          <span class="tb-cc-sx">
+            <b>€ {t("sal.tb.bill")}</b>
+            <span class="tb-cc-dal" id="tb-cc-dal">{t("sal.tb.billSince").replace("{n}", String(minDa(cassa.dal)))}</span>
+          </span>
+          <span class="tb-cc-fine" id="tb-cc-fine">{minA(cassa.fine) > 0 ? t("sal.tb.billFreeIn").replace("{n}", String(minA(cassa.fine))) : t("sal.tb.billFreeNow")}</span>
+        </span>
+        <span class="tb-cc-barra" aria-hidden="true"><i id="tb-cc-pieno" style={`width:${Math.round(quota * 100)}%`}></i></span>
+      </Fragment>
+    ) : (
+      <b class="tb-cc-titolo">€ {t("sal.tb.bill")}</b>
+    )}
+    {conBottoni && (
+      <Fragment>
+        <div class="tb-cc-azioni">
+          {cassa && <button type="button" class="tb-cc-azione is-piu" id="tb-cc-piu">{t("sal.tb.billMore")}</button>}
+          <button type="button" class="tb-cc-azione is-libera" id="tb-cc-libera"
+            data-testo={t("sal.tb.billFree")} data-conferma={t("sal.tb.billFreeConfirm")}>{t("sal.tb.billFree")}</button>
+        </div>
+        <p class="tb-cc-nota" id="tb-cc-nota" hidden>{t("sal.tb.billCloseHint")}</p>
+        <p class="tb-cc-err" id="tb-cc-err" role="status"></p>
+      </Fragment>
+    )}
+  </div>
+</div>
+
+<style is:global>
+  .tb-cc-blocco { display: flex; flex-direction: column; gap: 0.55rem; }
+  /* Nel blu del tavolo sulla mappa (`.pm-tav.is-blu`). */
+  .tb-conto-chiesto {
+    box-sizing: border-box; width: 100%; margin: 0;
+    display: flex; flex-direction: column; justify-content: center; gap: 0.55rem;
+    min-height: 52px; padding: 0.75rem 1.1rem; border-radius: 18px;
+    background: #3e8ef7; color: #fff; font-size: 0.95rem;
+  }
+  .tb-conto-chiesto.is-solo { align-items: center; text-align: center; }
+  .tb-cc-titolo { display: block; }
+  .tb-conto-chiesto b { font-weight: 800; }
+  .tb-cc-su { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+  .tb-cc-sx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tb-cc-sx b { white-space: nowrap; }
+  .tb-cc-dal { font-size: 0.8rem; opacity: 0.85; font-weight: 600; }
+  .tb-cc-fine {
+    flex: none; height: 32px; padding: 0 0.8rem; border-radius: 999px; display: inline-flex; align-items: center;
+    background: rgba(255, 255, 255, 0.2); font-weight: 800; font-size: 0.85rem; font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  /* Il tempo che passa: si riempie da quando e' stato chiesto a quando si libera. */
+  .tb-cc-barra { display: block; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+  .tb-cc-barra i { display: block; height: 100%; border-radius: inherit; background: #fff; transition: width .6s ease; }
+
+  /* I due bottoni DENTRO il blocco blu (Enzo, 28/11/2026): in fila, stessa
+     altezza e stessa larghezza.
+     ⚠️ Bottoni SUOI, non `.tb-btn`: quelli della scheda hanno regole per la
+     barra in basso (flex, colori) che qui li deformavano. */
+  .tb-cc-azioni { display: flex; gap: 0.55rem; margin-top: 0.15rem; }
+  .tb-cc-azione {
+    flex: 1 1 0; min-width: 0; height: 46px; box-sizing: border-box; padding: 0 0.8rem; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font: inherit; font-size: 0.95rem; font-weight: 800; white-space: nowrap; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background .2s ease;
+  }
+  .tb-cc-azione:active { transform: scale(0.97); }
+  .tb-cc-azione:disabled { opacity: 0.6; }
+  /* +10 min: bordo e scritta bianchi, fondo appena piu' scuro del blu. */
+  .tb-cc-azione.is-piu { background: rgba(0, 0, 0, 0.12); color: #fff; border: 2px solid #fff; }
+  /* Libera: blu scuro pieno. */
+  .tb-cc-azione.is-libera { background: #1f4fa8; color: #fff; border: 2px solid #1f4fa8; }
+  /* Secondo tocco: «Confermi?» in rosso pieno, come il cestino. */
+  .tb-cc-azione.is-libera.is-conferma { background: #e5484d; border-color: #e5484d; }
+  /* Il bianco lo ereditano dal blocco blu. */
+  .tb-cc-nota { margin: 0; text-align: center; font-size: 0.8rem; line-height: 1.4; color: inherit; opacity: 0.9; }
+  .tb-cc-nota[hidden] { display: none; }
+  .tb-cc-err { margin: 0; text-align: center; color: inherit; font-size: 0.85rem; font-weight: 700; }
+  .tb-cc-err:empty { display: none; }
+</style>
+
+<script>
+  import { authFresh } from "../../lib/admin/auth";
+
+  const blocco = document.getElementById("tb-cc");
+  if (blocco) {
+    const D = blocco.dataset as Record<string, string>;
+    const tavolo = new URLSearchParams(location.search).get("id") ?? "";
+    const err = document.getElementById("tb-cc-err");
+
+    // Da quanto e' chiesto, fra quanto si libera, e la barra: ogni 15 secondi.
+    const disegna = () => {
+      const dal = new Date(D.dal ?? "").getTime();
+      const fine = new Date(D.fine ?? "").getTime();
+      if (!Number.isFinite(dal) || !Number.isFinite(fine)) return;
+      const ora = Date.now();
+      const da = Math.max(0, Math.floor((ora - dal) / 60000));
+      const a = Math.max(0, Math.ceil((fine - ora) / 60000));
+      const elDa = document.getElementById("tb-cc-dal");
+      const elA = document.getElementById("tb-cc-fine");
+      const pieno = document.getElementById("tb-cc-pieno");
+      if (elDa) elDa.textContent = (D.since ?? "{n}").replace("{n}", String(da));
+      if (elA) elA.textContent = a > 0 ? (D.freeIn ?? "{n}").replace("{n}", String(a)) : (D.freeNow ?? "");
+      if (pieno) pieno.style.width = `${Math.round(Math.min(1, Math.max(0, (ora - dal) / Math.max(1, fine - dal))) * 100)}%`;
+    };
+    disegna();
+    setInterval(() => { if (document.visibilityState === "visible") disegna(); }, 15_000);
+
+    const chiedi = async (azione: string) => {
+      const res = await fetch("/api/admin/salle-seat", { method: "POST", headers: await authFresh(), body: JSON.stringify({ azione, table: tavolo }) });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; fine?: string };
+      return { ok: res.ok, j };
+    };
+
+    // ---- +10 min: la fine si sposta, il resto si ridisegna ----
+    const piu = document.getElementById("tb-cc-piu") as HTMLButtonElement | null;
+    piu?.addEventListener("click", async () => {
+      if (piu.disabled) return;
+      piu.disabled = true;
+      if (err) err.textContent = "";
+      try {
+        const { ok, j } = await chiedi("cassa-piu");
+        if (ok && j.fine) { D.fine = j.fine; disegna(); }
+        else if (err) err.textContent = j.error ?? "…";
+      } catch { if (err) err.textContent = "…"; }
+      piu.disabled = false;
+    });
+
+    // ---- Libera: due tocchi (il primo chiede conferma per 4 secondi) ----
+    const libera = document.getElementById("tb-cc-libera") as HTMLButtonElement | null;
+    const nota = document.getElementById("tb-cc-nota");
+    let timer = 0;
+    const armato = (si: boolean) => {
+      if (!libera) return;
+      libera.classList.toggle("is-conferma", si);
+      libera.textContent = si ? (libera.dataset.conferma ?? "") : (libera.dataset.testo ?? "");
+      if (nota) nota.hidden = !si;
+    };
+    libera?.addEventListener("click", async () => {
+      if (libera.disabled) return;
+      if (!libera.classList.contains("is-conferma")) {
+        armato(true);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => armato(false), 4000);
+        return;
+      }
+      window.clearTimeout(timer);
+      libera.disabled = true;
+      if (err) err.textContent = "";
+      try {
+        const { ok, j } = await chiedi("cassa-chiudi");
+        // Il tavolo e' libero: si torna sulla sala.
+        if (ok) { location.href = "/admin/salle"; return; }
+        if (err) err.textContent = j.error ?? "…";
+      } catch { if (err) err.textContent = "…"; }
+      libera.disabled = false;
+      armato(false);
+    });
+  }
+</script>

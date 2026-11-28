@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { installaClienti, annullaInstallazione, spostaTavoli, cambiaPersone, estendiTavolo } from "../../../lib/admin/installaTavolo";
-import { chiediContoInCassa } from "../../../lib/admin/incassoSeduta";
+import { chiediContoInCassa, prorogaCassa, chiudiCassaOra } from "../../../lib/admin/incassoSeduta";
 import { quadroSeduta, pagaParte } from "../../../lib/admin/pagamentiSeduta";
 import { pagamentoOnlineAttivo } from "../../../lib/admin/sede";
 import { indirizzoPubblico } from "../../../lib/indirizzoPubblico";
@@ -27,6 +27,10 @@ import { adminT } from "../../../i18n/admin";
  * POST { azione: "cassa", table } → { ok, stampa }   (26/10/2026)
  *   «Paiement en caisse»: l'addizione sulla principale + richiesta d'addizione
  *   (notifica, tavolo blu finche' qualcuno non incassa).
+ * POST { azione: "cassa-piu", table } → { ok, fine }   (28/11/2026)
+ *   la pillola «Conto richiesto»: il tavolo si libera dieci minuti piu' tardi.
+ * POST { azione: "cassa-chiudi", table } → { ok }   (28/11/2026)
+ *   ...oppure subito: gli ordini da incassare pagati in cassa, tavolo libero.
  * POST { azione: "pagamenti", table } → il quadro (totale, pagato, resto,
  *   parti, articoli) + `qr` (Stripe pronto)
  * POST { azione: "paga", table, modo: tutto|dividi|scegli, metodo:
@@ -89,6 +93,18 @@ export const POST: APIRoute = async ({ request }) => {
     if (c.errore === "conto") return json({ error: t("sal.tb.freeTab") }, 409);
     if (c.errore === "vuoto") return json({ error: t("sal.pay.nothing") }, 409);
     return json({ error: t("sal.seat.cancelNone") }, 404);
+  }
+  if (body.azione === "cassa-piu") {
+    const p = await prorogaCassa(ambito, String(body.table ?? ""));
+    if (p.ok) return json({ ok: true, fine: p.fine });
+    if (p.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
+    return json({ error: t("err.generalSave") }, 500);
+  }
+  if (body.azione === "cassa-chiudi") {
+    const c = await chiudiCassaOra(ambito, String(body.table ?? ""));
+    if (c.ok) return json({ ok: true });
+    if (c.errore === "nessuno") return json({ error: t("sal.seat.cancelNone") }, 404);
+    return json({ error: t("err.generalSave") }, 500);
   }
   /* «Encaisser» (26/10/2026, `lib/admin/pagamentiSeduta.ts`): il quadro dei
      pagamenti, e una parte alla volta (tutto / dividi / scegli; contanti,

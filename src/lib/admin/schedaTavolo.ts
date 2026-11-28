@@ -31,6 +31,7 @@ import { riassumiConti, type RiassuntoConto } from "./contiSala";
 import { letturaSala, type LetturaSala } from "./letturaSala";
 import { righeModificabili, ordineModificabile, type RigaModificabile } from "./modificaOrdineRegole";
 import { tavoloDellaRiga, tavoliDelleRiga, prossimaPrenotazione, type PrenotazioneDelGiorno } from "./schedaTavoloRegole";
+import { fineCassa } from "../cassaTavoloRegole";
 
 export interface TavoloScheda {
   id: string;
@@ -74,6 +75,10 @@ export interface SchedaTavolo {
   } | null;
   chiamata: boolean;
   addizione: boolean;
+  /** «Pagamento in cassa» (#102/#103): da quando il conto e' chiesto e
+   *  quando il tavolo si libera (ISO). `null` = non e' passato dalla cassa
+   *  del palmare (una chiamata dal QR), o senza la #102. */
+  cassa: { dal: string; fine: string } | null;
   prossima: PrenotazioneDelGiorno | null;
   fuso: string;
 }
@@ -111,9 +116,20 @@ export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: L
     .sort((a, b) => String(b.seated_at ?? "").localeCompare(String(a.seated_at ?? "")))[0];
 
   // L'unico viaggio in piu': il riassunto del conto, o gli ordini della sessione.
-  const [conto, oRaw] = await Promise.all([
+  const [conto, oRaw, deskAt] = await Promise.all([
     mioConto ? riassumiConti(ambito, [mioConto]).then((x) => x[0] ?? null) : Promise.resolve(null),
     seduta ? ordiniDellaSessione(ambito, seduta.id) : Promise.resolve([]),
+    /* «Pagamento in cassa» (#102): il conto e' chiesto anche se il toast
+       dell'addizione e' gia' stato chiuso. Senza la colonna: null. */
+    seduta
+      ? (async () => {
+          let r = await leggi("reservations", ambito, "desk_at, desk_until").eq("id", seduta.id).maybeSingle();
+          if (r.error) r = await leggi("reservations", ambito, "desk_at").eq("id", seduta.id).maybeSingle();
+          const d = r.error ? null : (r.data as { desk_at?: string | null; desk_until?: string | null } | null);
+          const fine = d?.desk_at ? fineCassa(d.desk_at, d.desk_until) : null;
+          return d?.desk_at && fine !== null ? { dal: String(d.desk_at), fine: new Date(fine).toISOString() } : null;
+        })()
+      : Promise.resolve(null),
   ]);
   // Le faccine dei camerieri: una lettura del Team, solo se serve.
   const idsCamerieri = [...new Set((oRaw as { taken_by_id?: string | null }[]).map((o) => o.taken_by_id).filter((x): x is string => Boolean(x)))];
@@ -186,7 +202,8 @@ export async function schedaTavolo(ambito: Ambito, tavoloId: string, lettura?: L
     conto,
     sessione,
     chiamata: chiamate.some((c) => (c.reason ?? "call") === "call"),
-    addizione: chiamate.some((c) => c.reason === "bill") || Boolean(conto?.addizione),
+    addizione: chiamate.some((c) => c.reason === "bill") || Boolean(conto?.addizione) || Boolean(deskAt),
+    cassa: deskAt,
     prossima: prossimaPrenotazione(suoi, ora.toFormat("HH:mm")),
     fuso,
   };

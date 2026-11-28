@@ -55,9 +55,10 @@ export const PAGINE_PALMARE = ["salle"];
  * Le API che il palmare puo' chiamare, una per una.
  * - `salle-seat`: installare dei clienti a un tavolo libero (23/10/2026);
  * - `salle-tab`: validare o rifiutare il conto del QR di un tavolo;
- * - `salle-order`: l'ordine del cameriere per un tavolo occupato.
+ * - `salle-order`: l'ordine del cameriere per un tavolo occupato;
+ * - `salle-asporto`: un ordine da portare via, preso dal palmare (28/11/2026).
  */
-export const API_PALMARE: string[] = ["salle-seat", "salle-tab", "salle-order"];
+export const API_PALMARE: string[] = ["salle-seat", "salle-tab", "salle-order", "salle-asporto"];
 
 /** Puo' il palmare chiamare questa API? `chiave` = `chiaveApi(percorso)`. */
 export function palmarePuoChiamare(chiave: string): boolean {
@@ -216,6 +217,7 @@ export const API_PAGINA: Record<string, string> = {
   // Il conto e l'ordine dal palmare: per gli altri ruoli, chi vede Commandes.
   "salle-tab": "orders",
   "salle-order": "orders",
+  "salle-asporto": "orders",
   "zone-closures": "reservations",
   "zone-closure-impact": "reservations",
   // --- Clienti ----------------------------------------------------------
@@ -349,6 +351,7 @@ export const API_ANCHE: Record<string, string[]> = {
   // La sala del palmare la usa anche chi non e' un palmare (un admin, un
   // responsabile): le sue tre API seguono la pagina `salle`.
   "salle-order": ["salle"],
+  "salle-asporto": ["salle"],
   "salle-tab": ["salle"],
   "salle-seat": ["salle"],
 };

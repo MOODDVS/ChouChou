@@ -92,9 +92,15 @@ const leggiSale = async () => {
       })(),
       configInCache(ambito, ["reservation_zones", "reservation_plan_areas", "reservation_plan_decor", "reservation_hold_minutes", "reservation_services"]),
       // Oggi: chi e' seduto E chi deve arrivare (il bordo bianco, il rosso).
-      leggi("reservations", ambito, "id, heure, status, tables, service_key, extra_minutes, tab_status, tab_table_id")
-        .eq("date", ora.toFormat("yyyy-MM-dd"))
-        .in("status", ["pending", "confirmed", "seated"]),
+      // Con la #102 anche «Pagamento in cassa» (il blu); senza, come prima.
+      (async () => {
+        const COL = "id, heure, status, tables, service_key, extra_minutes, tab_status, tab_table_id";
+        const q = (c: string) => leggi("reservations", ambito, c)
+          .eq("date", ora.toFormat("yyyy-MM-dd"))
+          .in("status", ["pending", "confirmed", "seated"]);
+        const r = await q(COL + ", desk_at");
+        return r.error ? await q(COL) : r;
+      })(),
       contiApertiDellaSala(ambito),
       // «L'addition» chiesta dal tavolo (le ultime 12 ore, come la scheda).
       leggi("table_calls", ambito, "table_id, reason")

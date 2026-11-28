@@ -499,7 +499,8 @@ test("il palmare vede SOLO la sala: niente home, niente pagine sconosciute", () 
 });
 
 test("il palmare non chiama nessuna API che non sia nella sua lista", () => {
-  assert.deepEqual(API_PALMARE, ["salle-seat", "salle-tab", "salle-order"]);
+  // `salle-asporto` (28/11/2026): un ordine da portare via, preso dal palmare.
+  assert.deepEqual(API_PALMARE, ["salle-seat", "salle-tab", "salle-order", "salle-asporto"]);
   // ⚠️ Non l'API del tablet: quella incassa, chiude e legge tutti i conti.
   assert.equal(puoChiamareApi("table-tabs", PALMARE), false);
   // La sua: installare dei clienti a un tavolo.
