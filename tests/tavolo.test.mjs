@@ -2236,7 +2236,7 @@ test("«Pagamento in cassa»: dopo 20 minuti il tavolo si libera, un nuovo ordin
   assert.match(inc, /await segnaCassa\(ambito, s\.id\);\n\s*return \{ ok: true, stampa: stampa\.ok \};/, "«Pagamento in cassa» fa partire i 20 minuti");
   assert.match(inc, /if \(!r \|\| r\.status !== "seated" \|\| !r\.desk_at\) return false;/, "senza conto chiesto nessuna addizione in cassa");
   assert.match(inc, /await stampaAddizioneTavolo\(ambito, tavoli\[0\]\);/, "il caffe' ristampa l'addizione completa");
-  assert.match(inc, /aggiorna\("orders", a, \{ status: "done" \}\)\n\s*\.eq\("reservation_id", r\.id\)\.eq\("status", "pending"\)\.eq\("payment_method", "onsite"\);/, "chiusi come pagati in cassa, metodo onsite");
+  assert.match(inc, /aggiorna\("orders", ambito, \{ status: "done" \}\)\n\s*\.eq\("reservation_id", prenId\)\.eq\("status", "pending"\)\.eq\("payment_method", "onsite"\);/, "chiusi come pagati in cassa, metodo onsite");
   assert.match(inc, /\.lte\("desk_at", sogliaCassa\(\)\)/);
 
   assert.match(readFileSync("src/lib/admin/ordineCameriere.ts", "utf8"), /void rilanciaCassa\(ambito, sessione!\.id\);/);
@@ -2244,4 +2244,90 @@ test("«Pagamento in cassa»: dopo 20 minuti il tavolo si libera, un nuovo ordin
   assert.match(readFileSync("src/pages/api/cron/annuncia-ordini.ts", "utf8"), /const liberati = await liberaCasseScadute\(tutteLeSedi\(\)\);/);
   assert.match(readFileSync("src/pages/api/admin/orders.ts", "utf8"), /await liberaCasseScadute\(ambito\);/);
   assert.match(readFileSync("src/pages/admin/salle.astro", "utf8"), /await liberaCasseScadute\(ambito\);/);
+});
+
+test("l'asporto dal palmare (28/11/2026): pagina, carta e regole", async () => {
+  const { statoAsporto, PAGAMENTI_ASPORTO } = await import("../src/lib/admin/asportoRegole.ts");
+  assert.deepEqual([...PAGAMENTI_ASPORTO], ["onsite", "cash", "card"], "di base al ritiro, poi contanti e carta");
+  assert.deepEqual(statoAsporto({ status: "pending", payment_method: "onsite" }), { fase: "attesa", incassare: true });
+  assert.deepEqual(statoAsporto({ status: "paid", payment_method: "cash", ready_at: "2026-11-28T12:00:00Z" }), { fase: "pronto", incassare: false });
+  assert.deepEqual(statoAsporto({ status: "done", payment_method: "card" }), { fase: "ritirato", incassare: false });
+
+  const lib = readFileSync("src/lib/admin/asportoPalmare.ts", "utf8");
+  assert.match(lib, /if \(!\/\^\\d\{2\}:\\d\{2\}\$\/\.test\(orario\) \|\| !orari\.includes\(orario\)\) return \{ ok: false, errore: "orario" \};/, "solo un'ora che il sito offrirebbe oggi");
+  assert.match(lib, /status: daIncassare \? "pending" : "paid",/);
+  assert.match(lib, /service: "pickup",/);
+  assert.match(lib, /\.filter\(\(o\) => o\.status !== "pending" \|\| o\.payment_method === "onsite"\)/, "un pending online non e' ancora un ordine");
+  assert.match(readFileSync("src/pages/admin/salle/order.astro", "utf8"), /getMenuOrderable\(ambito\)/, "l'asporto usa la carta di \/order");
+  assert.match(readFileSync("src/components/admin/PalmareNav.astro", "utf8"), /href: "\/admin\/salle\/asporto"/);
+  assert.match(readFileSync("src/pages/api/admin/salle-asporto.ts", "utf8"), /await creaAsporto\(/);
+});
+
+test("«Pagamento in cassa» fa il tavolo blu anche a toast chiuso (audit 28/11/2026)", async () => {
+  const { statiTavoli } = await import("../src/lib/statoTavoliRegole.ts");
+  const base = {
+    tavoli: ["t1"],
+    conti: [],
+    chiamate: [],
+    qrDiretti: new Set(),
+    adessoHHmm: "13:50",
+    durate: { perServizio: {}, ripiego: 90 },
+  };
+  const seduta = { id: "r1", heure: "13:47", status: "seated", tables: ["t1"] };
+  assert.equal(statiTavoli({ ...base, righe: [seduta] }).get("t1").colore, "verde");
+  assert.equal(statiTavoli({ ...base, righe: [{ ...seduta, desk_at: "2026-11-28T12:50:00Z" }] }).get("t1").colore, "blu");
+  assert.equal(statiTavoli({ ...base, righe: [seduta], chiamate: [{ table_id: "t1", reason: "bill" }] }).get("t1").colore, "blu");
+  const inc = readFileSync("src/lib/admin/incassoSeduta.ts", "utf8");
+  assert.equal((inc.match(/\.gte\("created_at", new Date\(Date\.now\(\) - 12 \* 3600_000\)\.toISOString\(\)\)/g) ?? []).length, 2, "una richiesta di ieri rimasta aperta non blocca quella nuova");
+  assert.match(readFileSync("src/pages/admin/salle.astro", "utf8"), /const r = await q\(COL \+ ", desk_at"\);/);
+});
+
+test("«Conto richiesto»: pillola blu sotto l'ultimo ordine (28/11/2026)", () => {
+  const p = readFileSync("src/pages/admin/salle/table.astro", "utf8");
+  assert.doesNotMatch(p, /<span class="tb-avviso">€ \{t\("sal\.tb\.bill"\)\}<\/span>/, "non piu' in cima");
+  assert.equal((p.match(/\{s\.addizione && <PillolaConto cassa=\{s\.cassa\} fuso=\{s\.fuso\} lang=\{lang\}( liberabile)? \/>\}/g) ?? []).length, 2, "sotto gli ordini della sessione e del conto");
+  assert.match(readFileSync("src/components/admin/PillolaConto.astro", "utf8"), /\.tb-conto-chiesto \{[^}]*width: 100%;[^}]*background: #3e8ef7;/, "a tutta larghezza, in blu");
+  assert.match(readFileSync("src/lib/admin/schedaTavolo.ts", "utf8"), /\|\| Boolean\(deskAt\),/, "anche a toast chiuso");
+});
+
+test("la pillola «Conto richiesto»: da quanto, fra quanto, +10 min, libera adesso (28/11/2026, #103)", async () => {
+  const { fineCassa, fineProrogata, cassaScaduta, PROROGA_CASSA_MIN } = await import("../src/lib/cassaTavoloRegole.ts");
+  const dal = "2026-11-28T13:00:00Z";
+  const t0 = Date.parse(dal);
+  assert.equal(fineCassa(dal), t0 + 20 * 60_000, "senza desk_until: venti minuti dopo la richiesta");
+  assert.equal(fineCassa(dal, "2026-11-28T13:30:00Z"), t0 + 30 * 60_000, "con desk_until: quella");
+  assert.equal(fineCassa(null), null);
+  assert.equal(PROROGA_CASSA_MIN, 10);
+  assert.equal(fineProrogata(t0 + 20 * 60_000, t0 + 5 * 60_000), t0 + 30 * 60_000, "+10 dalla fine");
+  assert.equal(fineProrogata(t0 + 20 * 60_000, t0 + 25 * 60_000), t0 + 35 * 60_000, "fine gia' passata: +10 da adesso");
+  assert.equal(cassaScaduta(dal, t0 + 25 * 60_000, "2026-11-28T13:30:00Z"), false, "prorogato: non ancora");
+  assert.equal(cassaScaduta(dal, t0 + 31 * 60_000, "2026-11-28T13:30:00Z"), true);
+  assert.match(readFileSync("supabase/103_reservations_cassa_fine.sql", "utf8"), /add column if not exists desk_until timestamptz/);
+  const inc = readFileSync("src/lib/admin/incassoSeduta.ts", "utf8");
+  assert.match(inc, /desk_at: prima \?\? adesso\.toISOString\(\), desk_until: fine/, "un caffe' dopo non cambia da quando il conto e' chiesto");
+  assert.match(inc, /\.or\(`desk_until\.lte\.\$\{adesso\},and\(desk_until\.is\.null,desk_at\.lte\.\$\{sogliaCassa\(\)\}\)`\)/);
+  const api = readFileSync("src/pages/api/admin/salle-seat.ts", "utf8");
+  assert.match(api, /body\.azione === "cassa-piu"/);
+  assert.match(api, /body\.azione === "cassa-chiudi"/);
+});
+
+test("la pillola senza timer si tocca lo stesso: «Libera il tavolo adesso» (28/11/2026)", () => {
+  const c = readFileSync("src/components/admin/PillolaConto.astro", "utf8");
+  assert.match(c, /const conBottoni = Boolean\(cassa\) \|\| liberabile;/);
+  assert.match(c, /\{cassa && <button type="button" class="tb-cc-azione is-piu"/, "+10 min solo col timer");
+  const p = readFileSync("src/pages/admin/salle/table.astro", "utf8");
+  assert.equal((p.match(/<PillolaConto cassa=\{s\.cassa\} fuso=\{s\.fuso\} lang=\{lang\} liberabile \/>/g) ?? []).length, 1, "solo la seduta senza conto aperto");
+  const inc = readFileSync("src/lib/admin/incassoSeduta.ts", "utf8");
+  assert.match(inc, /export async function chiudiCassaOra[\s\S]*?const s = await sedutaDaIncassare\(ambito, tavoloId\);/, "non pretende desk_at");
+});
+
+test("la pillola: niente modale, due bottoni dentro il blocco blu «+10 min» e «Libera» (28/11/2026)", () => {
+  const c = readFileSync("src/components/admin/PillolaConto.astro", "utf8");
+  assert.doesNotMatch(c, /tb-cc-foglio/, "niente modale");
+  assert.doesNotMatch(c, /class="tb-btn/, "niente .tb-btn: le regole della barra li deformavano");
+  assert.match(c, /\.tb-cc-azione \{[^}]*flex: 1 1 0;[^}]*height: 46px;/, "stessa larghezza, stessa altezza");
+  assert.match(c, /<div class="tb-cc-azioni">[\s\S]*?<\/div>[\s\S]*?<\/div>\n<\/div>/, "dentro il blocco blu");
+  assert.match(c, /\.tb-cc-azione\.is-libera \{ background: #1f4fa8;/, "Libera blu scuro");
+  assert.match(c, /\.tb-cc-azione\.is-piu \{ background: rgba\(0, 0, 0, 0\.12\); color: #fff; border: 2px solid #fff; \}/, "+10 min bordo e scritta bianchi");
+  assert.match(c, /if \(!libera\.classList\.contains\("is-conferma"\)\) \{/, "«Libera» chiede un secondo tocco");
 });

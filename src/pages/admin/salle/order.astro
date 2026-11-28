@@ -15,6 +15,12 @@
  * al tavolo si serve. Stesso menu del QR al tavolo.
  * ⚠️ Non ci sono ancora le portate («Envoyer la suite»): tutto quello che si
  * manda parte adesso. Vedi i prossimi passi in `claude/palmare.md`.
+ *
+ * L'ASPORTO (`?asporto=1`, Enzo 28/11/2026): la stessa carta senza tavolo,
+ * coi piatti da portare via (`getMenuOrderable`, quello di /order). Nel
+ * riepilogo, sotto i piatti: nome (obbligatorio), telefono, ora di ritiro fra
+ * quelle di oggi, e il pagamento (al ritiro, contanti, carta). Si manda a
+ * `/api/admin/salle-asporto` e si torna sulla lista degli asporti.
  */
 import PalmareHead from "../../../components/admin/PalmareHead.astro";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
@@ -24,7 +30,8 @@ import { adminT, ADMIN_LOCALE } from "../../../i18n/admin";
 import { claimsDaToken } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { schedaTavolo, type SchedaTavolo } from "../../../lib/admin/schedaTavolo";
-import { getMenuSala, type MenuCategoria, type MenuItem } from "../../../lib/db";
+import { getMenuSala, getMenuOrderable, type MenuCategoria, type MenuItem } from "../../../lib/db";
+import { orariAsportoOggi } from "../../../lib/admin/asportoPalmare";
 import { prezzoDaChiedere } from "../../../lib/pricing";
 import { etichettaMenu } from "../../../lib/i18nMenu";
 import { importoDa } from "../../../lib/soldi";
@@ -40,32 +47,43 @@ const LOC = ADMIN_LOCALE[lang] ?? "fr-BE";
 const euro = (c: number) => importoDa(c, LOC);
 
 const id = Astro.url.searchParams.get("id") ?? "";
+const asporto = Astro.url.searchParams.get("asporto") === "1";
 let s: SchedaTavolo | null = null;
 let menu: MenuCategoria[] = [];
+let orari: string[] = [];
 // ⚠️ VELOCITA' (23/10/2026): il tavolo e il menu INSIEME, non uno dopo
 // l'altro. Il menu si legge anche se poi non serve: e' in cache quasi sempre.
 const crono = cronometro();
 try {
   const staff = await claimsDaToken(Astro.cookies.get("mdd_at")?.value ?? "");
   const ambito = await ambitoDiRichiesta(Astro.request, staff);
-  const [scheda, carta] = await Promise.all([
-    schedaTavolo(ambito, id),
-    getMenuSala(ambito).catch(() => [] as MenuCategoria[]),
-  ]);
-  s = scheda;
-  if (s && (s.sessione || s.conto?.stato === "open")) menu = carta;
+  if (asporto) {
+    // L'asporto: la carta di /order (cio' che va in un sacchetto) e le ore di oggi.
+    [menu, orari] = await Promise.all([
+      getMenuOrderable(ambito).catch(() => [] as MenuCategoria[]),
+      orariAsportoOggi(ambito),
+    ]);
+  } else {
+    const [scheda, carta] = await Promise.all([
+      schedaTavolo(ambito, id),
+      getMenuSala(ambito).catch(() => [] as MenuCategoria[]),
+    ]);
+    s = scheda;
+    if (s && (s.sessione || s.conto?.stato === "open")) menu = carta;
+  }
 } catch { s = null; }
 crono.tappa("tavolo+menu");
 Astro.response.headers.set("Server-Timing", crono.intestazione());
 
 /** Si puo' ordinare? Solo su un tavolo occupato, e su un conto gia' validato. */
-const bloccato = !s ? t("sal.tb.notFound")
+const bloccato = asporto ? (orari.length ? "" : t("sal.ta.noTime"))
+  : !s ? t("sal.tb.notFound")
   : s.conto?.stato === "pending" ? t("sal.ord.err.validate")
   : !s.conto && !s.sessione ? t("sal.ord.err.free")
   : "";
 const nomiTavoli = s?.gruppo ? s.gruppo.nomi.join(" + ") : (s?.tavolo.name ?? "");
-const titolo = s ? `${t("sal.tb.table")} ${nomiTavoli}` : t("sal.title");
-const ritorno = `/admin/salle/table?id=${encodeURIComponent(id)}`;
+const titolo = asporto ? t("sal.nav.takeaway") : s ? `${t("sal.tb.table")} ${nomiTavoli}` : t("sal.title");
+const ritorno = asporto ? "/admin/salle/asporto" : `/admin/salle/table?id=${encodeURIComponent(id)}`;
 
 /* Le categorie con almeno un piatto. Per il browser: id, nome, prezzo, e i
    formati ordinabili (gli esauriti si vedono ma non si scelgono). */
@@ -307,13 +325,38 @@ const ancora = (i: number) => `cat-${i}`;
       /* Vuoto non occupa posto: freccia e «Envoyer» stanno alla stessa altezza
          della freccia e del «Récap» della pagina dei piatti (Enzo, 25/10/2026). */
       .od-errore:empty { display: none; }
+      /* ---------- l'asporto: la testa e i dati del cliente ---------- */
+      .od-asporto-pill {
+        height: 52px; padding: 0 1.4rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.5rem;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text); font-weight: 800; font-size: 1.05rem;
+      }
+      .od-asporto-pill svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .od-cliente { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.9rem; border-radius: 18px; background: var(--c-card); border: 1px solid var(--c-line); }
+      .od-cliente label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.78rem; font-weight: 800; color: var(--c-muted); }
+      .od-cliente input, .od-cliente select {
+        height: 48px; padding: 0 0.9rem; border-radius: 14px; border: 1px solid var(--c-line);
+        background: var(--c-bg); color: var(--c-text); font: inherit; font-size: 1rem; font-weight: 600;
+      }
+      .od-paga { display: flex; gap: 0.4rem; }
+      .od-paga button {
+        flex: 1; height: 46px; border-radius: 999px; border: 1px solid var(--c-line); background: var(--c-bg);
+        color: var(--c-text); font: inherit; font-weight: 800; cursor: pointer;
+      }
+      .od-paga button[aria-pressed="true"] { background: var(--c-accent); color: var(--c-bg); border-color: transparent; }
     </style>
   </head>
   <body>
     <header class="od-testa">
       {/* La STESSA isola della scheda del tavolo (Enzo, 23/10/2026: «deve
           essere sempre uguale»): `components/admin/IsolaTavolo.astro`. */}
-      <IsolaTavolo scheda={s} lang={lang} />
+      {asporto ? (
+        <span class="od-asporto-pill">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1L6 7z" /><path d="M9 7V5a3 3 0 0 1 6 0v2" /></svg>
+          {t("sal.nav.takeaway")}
+        </span>
+      ) : (
+        <IsolaTavolo scheda={s} lang={lang} />
+      )}
     </header>
 
     {bloccato ? (
@@ -400,6 +443,21 @@ const ancora = (i: number) => `cat-${i}`;
         <section class="od-recap-pagina" id="od-recap" hidden aria-labelledby="od-recap-tit">
           <h2 class="od-recap-tit" id="od-recap-tit">{t("sal.ord.recap")}</h2>
           <div class="od-righe" id="od-righe"></div>
+          {asporto && (
+            <div class="od-cliente" id="od-cliente">
+              <label>{t("sal.ta.name")}<input type="text" id="od-nome" maxlength="60" autocomplete="off" autocapitalize="words" required /></label>
+              <label>{t("sal.ta.phone")}<input type="tel" id="od-tel" maxlength="30" inputmode="tel" autocomplete="off" /></label>
+              <label>{t("sal.ta.time")}
+                <select id="od-orario">{orari.map((o) => <option value={o}>{o}</option>)}</select>
+              </label>
+              <span class="od-cliente-lab" style="font-size:0.78rem;font-weight:800;color:var(--c-muted)">{t("sal.ta.pay")}</span>
+              <div class="od-paga" role="group" aria-label={t("sal.ta.pay")}>
+                <button type="button" data-paga="onsite" aria-pressed="true">{t("sal.ta.payLater")}</button>
+                <button type="button" data-paga="cash" aria-pressed="false">{t("sal.ta.cash")}</button>
+                <button type="button" data-paga="card" aria-pressed="false">{t("sal.ta.card")}</button>
+              </div>
+            </div>
+          )}
         </section>
         <div class="od-barra od-barra-recap" id="od-barra-recap" hidden>
           <p class="od-totale-pill"><span>{t("sal.tb.total")}</span><strong id="od-totale"></strong></p>
@@ -407,7 +465,7 @@ const ancora = (i: number) => `cat-${i}`;
             <button type="button" class="od-indietro" id="od-recap-indietro" aria-label={t("sal.tb.back")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
-            <button type="button" class="od-invia" id="od-invia">{t("sal.ord.send")}</button>
+            <button type="button" class="od-invia" id="od-invia">{asporto ? t("sal.ta.send") : t("sal.ord.send")}</button>
           </div>
           <p class="od-errore" id="od-errore" role="status"></p>
         </div>
@@ -415,6 +473,8 @@ const ancora = (i: number) => `cat-${i}`;
         <script type="application/json" id="od-dati" is:inline set:html={datiMenu}></script>
         <div id="od-parole" hidden
           data-tavolo={id}
+          data-asporto={asporto ? "1" : undefined}
+          data-err-nome={t("sal.ta.err.name")}
           data-ritorno={ritorno}
           data-loc={LOC}
           data-items={t("sal.ord.items")}
@@ -422,7 +482,7 @@ const ancora = (i: number) => `cat-${i}`;
           data-add-note={t("sal.ord.addNote")}
           data-del-note={t("common.delete")}
           data-sending={t("sal.ord.sending")}
-          data-send={t("sal.ord.send")}
+          data-send={asporto ? t("sal.ta.send") : t("sal.ord.send")}
           data-sold={t("sal.ord.soldOut")}
           data-error={t("sal.ord.err.save")}></div>
       </Fragment>
@@ -621,25 +681,49 @@ const ancora = (i: number) => `cat-${i}`;
         });
         document.getElementById("od-recap-indietro")?.addEventListener("click", chiudiRecap);
 
+        // ---- L'asporto: il pagamento si sceglie con tre bottoni ----
+        let pagamento = "onsite";
+        document.querySelectorAll<HTMLButtonElement>(".od-paga button").forEach((b) => b.addEventListener("click", () => {
+          pagamento = b.dataset.paga ?? "onsite";
+          document.querySelectorAll<HTMLButtonElement>(".od-paga button").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+        }));
+
         // ---- Mandare in cucina ----
         const invia = document.getElementById("od-invia") as HTMLButtonElement | null;
         const errore = document.getElementById("od-errore");
+        const asporto = P.asporto === "1";
         invia?.addEventListener("click", async () => {
           if (!carrello.length) return;
+          const nomeEl = document.getElementById("od-nome") as HTMLInputElement | null;
+          if (asporto && !(nomeEl?.value ?? "").trim()) {
+            if (errore) errore.textContent = P.errNome ?? "";
+            nomeEl?.focus();
+            return;
+          }
           invia.disabled = true;
           invia.textContent = P.sending ?? "";
           if (errore) errore.textContent = "";
           try {
-            const res = await fetch("/api/admin/salle-order", {
-              method: "POST",
-              headers: await authFresh(),
-              body: JSON.stringify({
-                table: P.tavolo,
-                items: carrello.map((r) => ({ id: r.id, qty: r.qty, variant: r.formato || undefined, note: r.nota.trim() || undefined, extra: r.extra || undefined })),
-              }),
-            });
+            const items = carrello.map((r) => ({ id: r.id, qty: r.qty, variant: r.formato || undefined, note: r.nota.trim() || undefined, extra: r.extra || undefined }));
+            const res = asporto
+              ? await fetch("/api/admin/salle-asporto", {
+                  method: "POST",
+                  headers: await authFresh(),
+                  body: JSON.stringify({
+                    items,
+                    nome: nomeEl?.value ?? "",
+                    telefono: (document.getElementById("od-tel") as HTMLInputElement | null)?.value ?? "",
+                    orario: (document.getElementById("od-orario") as HTMLSelectElement | null)?.value ?? "",
+                    pagamento,
+                  }),
+                })
+              : await fetch("/api/admin/salle-order", {
+                  method: "POST",
+                  headers: await authFresh(),
+                  body: JSON.stringify({ table: P.tavolo, items }),
+                });
             const j = (await res.json().catch(() => ({}))) as { error?: string };
-            if (res.ok) { window.location.replace(`${P.ritorno}&inviato=1`); return; }
+            if (res.ok) { window.location.replace(asporto ? `${P.ritorno}?creato=1` : `${P.ritorno}&inviato=1`); return; }
             if (errore) errore.textContent = j.error ?? P.error ?? "";
           } catch {
             if (errore) errore.textContent = P.error ?? "";

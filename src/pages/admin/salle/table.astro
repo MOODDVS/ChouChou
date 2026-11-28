@@ -41,6 +41,7 @@ import { importoDa } from "../../../lib/soldi";
 import { contestoInstallazione, contestoSpostamento, type ContestoInstallazione, type ContestoSpostamento } from "../../../lib/admin/installaTavolo";
 import { letturaSala, cronometro } from "../../../lib/admin/letturaSala";
 import IsolaTavolo from "../../../components/admin/IsolaTavolo.astro";
+import PillolaConto from "../../../components/admin/PillolaConto.astro";
 import { ICONA_TAVOLO, ICONA_MATITA, ICONA_STAMPA, ICONA_NOTA, ICONA_CESTINO, ICONA_MONETE, ICONA_CARTA, ICONA_QR } from "../../../lib/iconeSala";
 
 export const prerender = false;
@@ -102,6 +103,7 @@ const titolo = s ? `${t("sal.tb.table")} ${nomiTavoli}` : t("sal.title");
 /* L'ISOLA (chi e' seduto, quanti, da quando, timer) la disegna
    `components/admin/IsolaTavolo.astro`, la stessa dell'ordine. */
 const personeIsola = personeAdesso;
+
 ---
 
 <html lang={lang}>
@@ -182,6 +184,7 @@ const personeIsola = personeAdesso;
         height: 34px; padding: 0 0.85rem; border-radius: 999px;
         font-size: 0.82rem; font-weight: 800; background: var(--c-text); color: var(--c-bg);
       }
+      /* «Conto richiesto»: `components/admin/PillolaConto.astro` (28/11/2026). */
       .tb-avviso svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 
       /* ---------- le schede ---------- */
@@ -540,15 +543,14 @@ const personeIsola = personeAdesso;
       ) : (
         <Fragment>
           {Astro.url.searchParams.get("inviato") === "1" && <p class="tb-avviso-ok" role="status">{t("sal.ord.sent")}</p>}
-          {(s.chiamata || s.addizione) && (
+          {/* «Conto richiesto» non sta piu' qui: e' una pillola BLU sotto
+              l'ultimo ordine (Enzo, 28/11/2026), il colore del tavolo sulla mappa. */}
+          {s.chiamata && (
             <div class="tb-avvisi">
-              {s.chiamata && (
-                <span class="tb-avviso">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
-                  {t("sal.tb.call")}
-                </span>
-              )}
-              {s.addizione && <span class="tb-avviso">€ {t("sal.tb.bill")}</span>}
+              <span class="tb-avviso">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+                {t("sal.tb.call")}
+              </span>
             </div>
           )}
 
@@ -585,6 +587,7 @@ const personeIsola = personeAdesso;
                   ))}
                 </section>
               ))}
+              {s.addizione && <PillolaConto cassa={s.cassa} fuso={s.fuso} lang={lang} />}
               {/* «Commander» SOTTO gli ordini (Enzo, 24/10/2026): si legge cosa
                   c'e', e subito sotto si aggiunge. */}
               {conto.stato !== "pending" && <a class="tb-btn tb-ordina" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.addOrder")}</a>}
@@ -666,6 +669,7 @@ const personeIsola = personeAdesso;
                   )}
                 </section>
               ))}
+              {s.addizione && <PillolaConto cassa={s.cassa} fuso={s.fuso} lang={lang} liberabile />}
               <a class="tb-btn tb-ordina" href={`/admin/salle/order?id=${encodeURIComponent(s.tavolo.id)}`}>{t("sal.tb.act.addOrder")}</a>
             </Fragment>
           ) : (

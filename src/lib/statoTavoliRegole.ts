@@ -53,6 +53,8 @@ export interface RigaStato {
   tab_table_id?: unknown;
   service_key?: unknown;
   extra_minutes?: unknown;
+  /** «Pagamento in cassa» toccato sul palmare (#102): il tavolo e' blu. */
+  desk_at?: unknown;
 }
 export interface ContoStato {
   id: string;
@@ -87,6 +89,8 @@ interface Sessione {
   /** Fine del tempo al tavolo in minuti (anche oltre le 24), o null. */
   fine: number | null;
   inizio: number | null;
+  /** «Pagamento in cassa» toccato (#102): blu, anche a toast chiuso. */
+  cassa?: boolean;
 }
 
 export function statiTavoli(opz: {
@@ -127,7 +131,7 @@ export function statiTavoli(opz: {
     const fine = inizio === null ? null : inizio + durata(r);
     const ora = inizio !== null && adesso < inizio ? adesso + 1440 : adesso;
     if (!conto && !opz.conOrdini?.has(r.id) && fine !== null && ora >= fine + MARGINE_FINE_MINUTI) continue;
-    sessioni.push({ id: r.id, tavoli, conto, fine, inizio });
+    sessioni.push({ id: r.id, tavoli, conto, fine, inizio, cassa: Boolean(r.desk_at) });
     viste.add(r.id);
   }
   for (const c of opz.conti) {
@@ -176,8 +180,13 @@ export function statiTavoli(opz: {
         st.sforo = { fine: hhmm(s.fine), prossima: hhmm(dopo.inizio) };
       }
     }
-    // Blu: un tavolo della tavolata ha chiesto il conto. Vince su tutto.
-    if (s.tavoli.some((t) => conto.has(t))) {
+    // Blu: un tavolo della tavolata ha chiesto il conto, o il cameriere ha
+    // toccato «Pagamento in cassa». Vince su tutto.
+    /* ⚠️ Non solo la chiamata aperta (audit 28/11/2026): il toast
+       dell'addizione sul tablet si chiude con un tocco («ci vado»), e con lui
+       la chiamata — il tavolo tornava verde mentre i clienti erano in cassa.
+       `desk_at` resta finche' la seduta non finisce. */
+    if (s.cassa || s.tavoli.some((t) => conto.has(t))) {
       st.colore = "blu";
       st.icone.push("addizione");
     }
